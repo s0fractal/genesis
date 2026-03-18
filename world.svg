@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1500" width="2000" height="1500" style="background-color: #0d1117; font-family: sans-serif;">
+  <defs>
+    <!-- Arrowhead for dependency lines -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#30363d" />
+    </marker>
+  </defs>
+
+  <!-- Topology Graph Edges (Latent Links & Dependencies) -->
+  <g id="tissue-edges">
+    
+  </g>
+
+  <!-- Ontology Neurons (Geometry mapped to ASTs) -->
+  <g id="tissue-nodes">
+    
+    <g transform="translate(985.3682258487903, 526.4411039697577)">
+      <g id="fast_abs" data-hash="1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9" data-ir-id="fast_abs" data-kind="pure_fn" data-substrate="ts" data-z="100">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="5s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9&quot;,
+    &quot;context_hash&quot;: &quot;init&quot;,
+    &quot;version&quot;: 22,
+    &quot;parents&quot;: [
+      &quot;83d7920d5a4da42d44bace7d9ad43e3d19700f14e33fdaed7c63acc40bb766b0&quot;
+    ]
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;pure_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 3,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;v&quot;: &quot;i32@field:math&quot;
+    },
+    &quot;out&quot;: &quot;i32@field:math&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;v&quot;,
+        &quot;type&quot;: &quot;i32&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;i32&quot;,
+    &quot;body&quot;: {
+      &quot;kind&quot;: &quot;op&quot;,
+      &quot;op&quot;: &quot;mul&quot;,
+      &quot;args&quot;: [
+        {
+          &quot;kind&quot;: &quot;var&quot;,
+          &quot;name&quot;: &quot;v&quot;,
+          &quot;type&quot;: &quot;i32&quot;
+        },
+        {
+          &quot;kind&quot;: &quot;const&quot;,
+          &quot;value&quot;: 16,
+          &quot;bits&quot;: 32
+        }
+      ]
+    }
+  },
+  &quot;implementation&quot;: {},
+  &quot;mutation_log&quot;: []
+}</desc>
+        <circle cx="0" cy="0" r="10" fill="#58a6ff" fill-opacity="0.875" stroke="#ffffff" stroke-width="2" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="15">fast_abs</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="9">pure_fn | Z:100</text>
+      </g>
+    </g>
+
+    <g transform="translate(1085.100675941048, 641.9840486977414)">
+      <g id="calculate_structural_hash" data-hash="742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501" data-ir-id="calculate_structural_hash" data-kind="meta_fn" data-substrate="ts" data-z="200">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501&quot;,
+    &quot;context_hash&quot;: &quot;core&quot;,
+    &quot;version&quot;: 1,
+    &quot;parents&quot;: []
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;meta_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 10,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;node&quot;: &quot;Sigma3Node&quot;
+    },
+    &quot;out&quot;: &quot;string&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;node&quot;,
+        &quot;type&quot;: &quot;Sigma3Node&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;string&quot;,
+    &quot;body&quot;: &quot;sha256(JSON.stringify({essence, io, expr, parents}))&quot;
+  },
+  &quot;implementation&quot;: {
+    &quot;ts&quot;: &quot;const { encodeHex } = await import(\&quot;jsr:@std/encoding/hex\&quot;);\nconst payload = JSON.stringify({\n  essence: node.essence,\n  io: node.io,\n  expr: node.expr,\n  parents: node.identity.parents\n});\nconst msgUint8 = new TextEncoder().encode(payload);\nconst hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);\nreturn encodeHex(hashBuffer);&quot;
+  },
+  &quot;mutation_log&quot;: []
+}</desc>
+        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">calculate_structural_hash</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+      </g>
+    </g>
+
+    <g transform="translate(1107.9615762805765, 269.8769918999428)">
+      <g id="mutate_ir" data-hash="15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456" data-ir-id="mutate_ir" data-kind="meta_fn" data-substrate="ts" data-z="200">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456&quot;,
+    &quot;context_hash&quot;: &quot;core&quot;,
+    &quot;version&quot;: 1,
+    &quot;parents&quot;: []
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;meta_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 10,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;state&quot;: &quot;State&quot;,
+      &quot;targetAlias&quot;: &quot;string&quot;,
+      &quot;path&quot;: &quot;(string|number)[]&quot;,
+      &quot;newValue&quot;: &quot;any&quot;,
+      &quot;executeNeuron&quot;: &quot;Function&quot;
+    },
+    &quot;out&quot;: &quot;TransformResult&lt;State&gt;&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;state&quot;,
+        &quot;type&quot;: &quot;State&quot;
+      },
+      {
+        &quot;name&quot;: &quot;targetAlias&quot;,
+        &quot;type&quot;: &quot;string&quot;
+      },
+      {
+        &quot;name&quot;: &quot;path&quot;,
+        &quot;type&quot;: &quot;(string|number)[]&quot;
+      },
+      {
+        &quot;name&quot;: &quot;newValue&quot;,
+        &quot;type&quot;: &quot;any&quot;
+      },
+      {
+        &quot;name&quot;: &quot;executeNeuron&quot;,
+        &quot;type&quot;: &quot;Function&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;TransformResult&lt;State&gt;&quot;,
+    &quot;body&quot;: &quot;state' = apply_ir_mutation(...)&quot;
+  },
+  &quot;implementation&quot;: {
+    &quot;ts&quot;: &quot;const next = structuredClone(state);\n        const diff = { added: [], updated: [], removed: [] };\n\n        const targetNode = next[targetAlias];\n        if (!targetNode) {\n          throw new Error(`Neuron ${targetAlias} not found in state.`);\n        }\n\n        const oldHash = targetNode.identity.structural_hash;\n        \n        // Mutate the IR tree by following the path\n        let current = targetNode.expr;\n        for (let i = 0; i &lt; path.length - 1; i++) {\n            current = current[path[i]];\n        }\n        current[path[path.length - 1]] = newValue;\n        \n        // Execute the hash neuron to calculate the new hash\n        const newHash = await executeNeuron(next, \&quot;calculate_structural_hash\&quot;, { node: targetNode });\n        \n        targetNode.identity = {\n          ...targetNode.identity,\n          structural_hash: newHash,\n          parents: [oldHash],\n          version: targetNode.identity.version + 1\n        };\n        \n        targetNode.mutation_log.push(`Mutated IR at [${path.join(\&quot;.\&quot;)}] to: ${JSON.stringify(newValue)} -&gt; [${newHash}]`);\n        diff.updated.push(targetAlias);\n\n        return { next, diff };&quot;
+  },
+  &quot;mutation_log&quot;: []
+}</desc>
+        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">mutate_ir</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+      </g>
+    </g>
+
+    <g transform="translate(1189.837751555923, 360.2134303796406)">
+      <g id="flush_state_to_disk" data-hash="84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3" data-ir-id="flush_state_to_disk" data-kind="meta_fn" data-substrate="ts" data-z="200">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3&quot;,
+    &quot;context_hash&quot;: &quot;core&quot;,
+    &quot;version&quot;: 1,
+    &quot;parents&quot;: []
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;meta_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 10,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;nextState&quot;: &quot;State&quot;,
+      &quot;targetFile&quot;: &quot;string&quot;
+    },
+    &quot;out&quot;: &quot;void&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;nextState&quot;,
+        &quot;type&quot;: &quot;State&quot;
+      },
+      {
+        &quot;name&quot;: &quot;targetFile&quot;,
+        &quot;type&quot;: &quot;string&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;void&quot;,
+    &quot;body&quot;: &quot;write(nextState) to Disk&quot;
+  },
+  &quot;implementation&quot;: {
+    &quot;ts&quot;: &quot;const { serializeTissueToMarkdown } = await import(\&quot;./quine.ts\&quot;);\nconst markdownStr = serializeTissueToMarkdown(nextState);\nawait Deno.writeTextFile(targetFile, markdownStr);&quot;
+  },
+  &quot;mutation_log&quot;: []
+}</desc>
+        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">flush_state_to_disk</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+      </g>
+    </g>
+
+    <g transform="translate(1129.1986340219316, 615.5527498015873)">
+      <g id="atomic_pulse" data-hash="b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105" data-ir-id="atomic_pulse" data-kind="meta_fn" data-substrate="ts" data-z="200">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105&quot;,
+    &quot;context_hash&quot;: &quot;core&quot;,
+    &quot;version&quot;: 1,
+    &quot;parents&quot;: []
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;meta_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 10,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;state&quot;: &quot;State&quot;,
+      &quot;operations&quot;: &quot;Array&lt;{alias: string, args: Record&lt;string, any&gt;}&gt;&quot;,
+      &quot;executeNeuron&quot;: &quot;Function&quot;
+    },
+    &quot;out&quot;: &quot;{ success: boolean, next: State, log: any[], error?: string }&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;state&quot;,
+        &quot;type&quot;: &quot;State&quot;
+      },
+      {
+        &quot;name&quot;: &quot;operations&quot;,
+        &quot;type&quot;: &quot;Array&lt;{alias: string, args: Record&lt;string, any&gt;}&gt;&quot;
+      },
+      {
+        &quot;name&quot;: &quot;executeNeuron&quot;,
+        &quot;type&quot;: &quot;Function&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;{ success: boolean, next: State, log: any[], error?: string }&quot;,
+    &quot;body&quot;: &quot;try { next = applyAll(ops) } catch { rollback }&quot;
+  },
+  &quot;implementation&quot;: {
+    &quot;ts&quot;: &quot;let tempState = structuredClone(state);\n        const epochLog = [];\n        \n        try {\n          for (const op of operations) {\n            const currentArgs = { ...op.args, state: tempState, executeNeuron };\n            const result = await executeNeuron(tempState, op.alias, currentArgs);\n            tempState = result.next;\n            epochLog.push({ alias: op.alias, diff: result.diff });\n          }\n          \n          for (const key in tempState) {\n            const node = tempState[key];\n            if (typeof node.expr !== \&quot;object\&quot;) throw new Error(`Node ${key} missing IR logic branch`);\n            if (!Array.isArray(node.identity.parents)) throw new Error(`Node ${key} lineage is not a DAG`);\n            const calculatedHash = await executeNeuron(tempState, \&quot;calculate_structural_hash\&quot;, { node });\n            if (node.identity.structural_hash !== calculatedHash) {\n                node.identity.structural_hash = calculatedHash;\n            }\n          }\n        } catch (e) {\n          return { success: false, next: state, log: [], error: e.message };\n        }\n        \n        // Record epoch in tissue_history\n        if (tempState[\&quot;tissue_history\&quot;]) {\n           const historyNode = tempState[\&quot;tissue_history\&quot;];\n           const oldHash = historyNode.identity.structural_hash;\n           \n           const epochRecord = {\n             timestamp: Date.now(),\n             operations: epochLog\n           };\n           \n           // Offload the heavy payload to an external append-only log file\n           let logFile = \&quot;./history.jsonl\&quot;;\n           try {\n             const pointer = typeof historyNode.expr.body === \&quot;string\&quot; ? JSON.parse(historyNode.expr.body) : historyNode.expr.body;\n             if (pointer &amp;&amp; pointer.log_file) logFile = pointer.log_file;\n           } catch(e) {}\n           \n           await Deno.writeTextFile(logFile, JSON.stringify(epochRecord) + \&quot;\\\\n\&quot;, { append: true });\n           \n           const newHash = await executeNeuron(tempState, \&quot;calculate_structural_hash\&quot;, { node: historyNode });\n           \n           historyNode.identity = {\n             ...historyNode.identity,\n             structural_hash: newHash,\n             parents: [oldHash],\n             version: historyNode.identity.version + 1\n           };\n           \n           historyNode.mutation_log.push(`Appended epoch with ${epochLog.length} operations to ${logFile}`);\n        }\n        \n        return { success: true, next: tempState, log: epochLog };&quot;
+  },
+  &quot;mutation_log&quot;: []
+}</desc>
+        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">atomic_pulse</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+      </g>
+    </g>
+
+    <g transform="translate(2555.7731124187567, 335.2392807845189)">
+      <g id="rust_compiler_bridge" data-hash="f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246" data-ir-id="rust_compiler_bridge" data-kind="meta_fn" data-substrate="ts" data-z="200">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246&quot;,
+    &quot;context_hash&quot;: &quot;sys&quot;,
+    &quot;version&quot;: 1,
+    &quot;parents&quot;: []
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;meta_fn&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 100,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {
+      &quot;nodeAlias&quot;: &quot;string&quot;,
+      &quot;state&quot;: &quot;State&quot;
+    },
+    &quot;out&quot;: &quot;void&quot;
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [
+      {
+        &quot;name&quot;: &quot;nodeAlias&quot;,
+        &quot;type&quot;: &quot;string&quot;
+      },
+      {
+        &quot;name&quot;: &quot;state&quot;,
+        &quot;type&quot;: &quot;State&quot;
+      }
+    ],
+    &quot;ret&quot;: &quot;void&quot;,
+    &quot;body&quot;: {
+      &quot;kind&quot;: &quot;const&quot;,
+      &quot;value&quot;: 0,
+      &quot;bits&quot;: 32
+    }
+  },
+  &quot;implementation&quot;: {
+    &quot;ts&quot;: &quot;const targetNode = state[nodeAlias];\n        if (!targetNode) throw new Error(`Neuron ${nodeAlias} not found`);\n        const irJson = await Dispatcher.foldForRust(targetNode);\n        console.log(`[RUST BRIDGE] 📤 Sending IR for ${nodeAlias} to Rust Compiler...`);\n        console.log(`[RUST BRIDGE] IR Payload: ${irJson}`);\n        console.log(`[RUST BRIDGE] 📥 Awaiting implementation of WASM linker...`);\n        // Deno.run({ cmd: [\&quot;cargo\&quot;, \&quot;run\&quot;, \&quot;--\&quot;, irJson] });&quot;
+  },
+  &quot;mutation_log&quot;: []
+}</desc>
+        <rect x="-80" y="-80" width="160" height="160" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="20" />
+        <text x="0" y="-90" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">rust_compiler_bridge</text>
+        <text x="0" y="-102" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+      </g>
+    </g>
+
+    <g transform="translate(888.981175271362, 164.72317066152107)">
+      <g id="tissue_history" data-hash="58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2" data-ir-id="tissue_history" data-kind="module" data-substrate="ts" data-z="300">
+        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="600s" repeatCount="indefinite" />
+        <desc type="application/json">{
+  &quot;identity&quot;: {
+    &quot;structural_hash&quot;: &quot;58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2&quot;,
+    &quot;context_hash&quot;: &quot;core&quot;,
+    &quot;version&quot;: 11,
+    &quot;parents&quot;: [
+      &quot;58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2&quot;
+    ]
+  },
+  &quot;essence&quot;: {
+    &quot;type&quot;: &quot;module&quot;,
+    &quot;level&quot;: 1,
+    &quot;substrate&quot;: &quot;ts&quot;
+  },
+  &quot;physics&quot;: {
+    &quot;energy_cost&quot;: 10,
+    &quot;stability&quot;: 1
+  },
+  &quot;io&quot;: {
+    &quot;in&quot;: {},
+    &quot;out&quot;: {}
+  },
+  &quot;expr&quot;: {
+    &quot;args&quot;: [],
+    &quot;ret&quot;: &quot;void&quot;,
+    &quot;body&quot;: {
+      &quot;log_file&quot;: &quot;./history.jsonl&quot;
+    }
+  },
+  &quot;implementation&quot;: {},
+  &quot;mutation_log&quot;: []
+}</desc>
+        <polygon points="0,-10 10,0 0,10 -10,0" fill="#d2a8ff" fill-opacity="0.625" stroke="#ffffff" stroke-width="2" />
+        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="13">tissue_history</text>
+        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="7">module | Z:300</text>
+      </g>
+    </g>
+  </g>
+</svg>

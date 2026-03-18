@@ -1,0 +1,3 @@
+# Genesis
+
+A magical project.
