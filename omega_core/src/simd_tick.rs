@@ -23,6 +23,12 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
             let idx = i + lane;
             if idx >= size { break; }
             
+            // --- Ontology 20: AOMQ Freeze ---
+            // If the cell is blocked awaiting Oracle semantic evaluation, freeze its temporal physics.
+            if field.cell_status[idx] == 1 {
+                continue;
+            }
+            
             let p = field.theta_now[idx];
             let raw_energy = field.energy[idx] as i16;
             
@@ -77,6 +83,8 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                     // Sample adjacent neighbor's plasmid (Northern neighbor W-offset)
                     let w = field.width as usize;
                     let neighbor_idx = if idx >= w { idx - w } else { idx + w };
+                    let mut adopted = false;
+                    
                     if neighbor_idx < size {
                         let foreign_plasmid = field.plasmids[neighbor_idx];
                         if foreign_plasmid != 0 {
@@ -85,7 +93,16 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                             field.omega[idx] = ((foreign_plasmid >> 8) & 0xFF) as u8;
                             // Officially adopt the plasmid footprint so the Idea's color spreads!
                             field.plasmids[idx] = foreign_plasmid;
+                            adopted = true;
                         }
+                    }
+                    
+                    // --- Ontology 20: Pray to the Oracle ---
+                    // If severe chaos persists (score > 160) and no local plasmid solved it, trigger an Oracle Request.
+                    if !adopted && best_score > 160 && field.oracle_request_count < 1024 {
+                        field.oracle_requests[field.oracle_request_count] = idx as u32;
+                        field.oracle_request_count += 1;
+                        field.cell_status[idx] = 1; // AWAITING_ORACLE
                     }
                 }
             }

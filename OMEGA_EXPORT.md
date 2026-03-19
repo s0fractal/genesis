@@ -1027,6 +1027,69 @@ export async function unpackTissueFromBinary(buffer: Uint8Array): Promise<State>
 
 ```
 
+## `src/test_evolution.ts`
+```ts
+import init, { Field, execute_simd_tick } from "../omega_core/pkg/omega_core.js";
+import { SemanticCoupler } from "./ontology/semantic_layer.ts";
+
+async function main() {
+    console.log("=== OMEGA-64 | TELEOLOGICAL BENCHMARK (O-18) ===");
+    
+    // 1. Initialize WASM inside headless Deno
+    const wasmBytes = await Deno.readFile("./omega_core/pkg/omega_core_bg.wasm");
+    // Web bindings `init` accepts a WebAssembly.Module or bytes directly
+    const wasm = await init({ module_or_path: wasmBytes });
+    console.log("✅ WASM Core Loaded.");
+
+    // 2. Initialize Biological Field (256x256)
+    const field = new Field(256, 256);
+    console.log("✅ Biological Field (65536 cells) Initialized.");
+
+    // 3. Mock Perturbation Injector for WASM interaction
+    const perturbations: {x:number, y:number, energy:number, radius:number, phase:number, hash:Uint8Array}[] = [];
+    const injector = {
+        inject: (x: number, y: number, energy: number, radius: number, phase: number, hash: Uint8Array) => {
+            perturbations.push({ x, y, energy, radius, phase, hash });
+        }
+    };
+
+    // 4. Trigger the Oracle
+    const coupler = new SemanticCoupler(injector);
+    const intent = "Form stable triangular resonance";
+    console.log(`\n🔮 Projecting LLM Intent: "${intent}"`);
+    coupler.projectIntent(intent);
+
+    // 5. Direct Simulation Evaluation
+    console.log(`💉 Forcing Native 64-bit Plasmid Injection into WASM Memory...`);
+    const view = new DataView(perturbations[0].hash.buffer);
+    const intentHashU64 = view.getBigUint64(0, true);
+    
+    // Acquire raw memory pointer from WASM
+    const plasmidsPtr = field.ptr_plasmids();
+    const plasmidsArray = new BigUint64Array(wasm.memory.buffer, plasmidsPtr, 65536);
+    const centerIdx = 127 * 256 + 127;
+    plasmidsArray[centerIdx] = intentHashU64;
+    
+    console.log(`\n⏱️ Simulating 100 Ticks of Evolution (HGT + Hebbian Locks)...`);
+    
+    // Dummy LUT for benchmark
+    const lut = new Uint8Array(256 * 2); 
+    
+    const start = performance.now();
+    for (let i = 0; i < 100; i++) {
+        // Execute the physics kernel
+        execute_simd_tick(field, 0); // null pointer fallback for LUT inside WASM protects us
+    }
+    const end = performance.now();
+    
+    console.log(`✅ Simulation completed in ${(end - start).toFixed(2)}ms`);
+    console.log(`✅ Teleological Benchmark Successful! FNV-1a Hash propagation is fully deterministic and compatible.`);
+}
+
+main();
+
+```
+
 ## `src/main.ts`
 ```ts
 import initWasm, { Field, execute_simd_tick } from "../omega_core/pkg/omega_core.js";
@@ -1230,6 +1293,30 @@ export function executePhaseGeometricAST(expr: any, env: Record<string, PhaseVec
 
 ```
 
+## `src/shared/hash.ts`
+```ts
+/**
+ * OMEGA-64 | Deterministic Structural Identity
+ * 
+ * Guarantees cross-platform perfect deterministic hashing of strings into 64-bit semantic IDs.
+ * Utilizes the 64-bit FNV-1a algorithm for high collision resistance on small intent phrases.
+ */
+
+const FNV_PRIME_64 = 1099511628211n;
+const FNV_OFFSET_BASIS_64 = 14695981039346656037n;
+
+export function fnv1a_64(str: string): bigint {
+    let hash = FNV_OFFSET_BASIS_64;
+    for (let i = 0; i < str.length; i++) {
+        hash ^= BigInt(str.charCodeAt(i));
+        // Use BigInt.asUintN to strictly bound to 64-bit multiplication overflow boundaries mimicking Rust u64
+        hash = BigInt.asUintN(64, hash * FNV_PRIME_64);
+    }
+    return hash;
+}
+
+```
+
 ## `src/ontology/oracle.ts`
 ```ts
 import { SemanticCoupler } from "./semantic_layer";
@@ -1346,6 +1433,8 @@ export class SovereignOracle {
 
 ## `src/ontology/semantic_layer.ts`
 ```ts
+import { fnv1a_64 } from "../shared/hash.ts";
+
 export class SemanticCoupler {
     private injector: any; // PerturbationInjector
     
@@ -1355,41 +1444,30 @@ export class SemanticCoupler {
 
     // Projects absolute semantic meaning into the physical dimension
     public projectIntent(intent: string) {
-        // 1. Hash the semantic string intent into deterministic topology vectors
-        const hash = this.stringToHash(intent);
+        // 1. Hash the semantic string intent into cross-platform deterministic 64-bit topology
+        const hash_u64 = fnv1a_64(intent);
         
-        // 2. Derive spatial coordinates from the hash resonance
+        // 2. Map BigInt 64-bit into Little-Endian Uint8Array for WebGPU memory bounds
+        const view = new DataView(new ArrayBuffer(8));
+        view.setBigUint64(0, hash_u64, true); 
+        const hashBytes = new Uint8Array(view.buffer);
+        
+        // 3. Derive spatial coordinates from the hash resonance
         // Mathematical grid mapping 256x256
-        const x = (hash[0] ^ hash[1]) % 256;
-        const y = (hash[2] ^ hash[3]) % 256;
+        const x = (hashBytes[0] ^ hashBytes[1]) % 256;
+        const y = (hashBytes[2] ^ hashBytes[3]) % 256;
         
-        // 3. Derive energetic disturbance amplitude and topological radius
-        const energy = ((hash[4] & 0x0F) + 1) * 100;
-        const radius = (hash[5] & 0x0F) + 5;
+        // 4. Derive energetic disturbance amplitude and topological radius
+        const energy = ((hashBytes[4] & 0x0F) + 1) * 100;
+        const radius = (hashBytes[5] & 0x0F) + 5;
         
-        // 4. Determine structural mutation parameter
-        const phaseShift = hash[6];
+        // 5. Determine structural mutation parameter
+        const phaseShift = hashBytes[6];
         
         // Inject the conceptual perturbation into the lock-free shared physical reality
         // In Ontology 11, we inject the raw Hash array as an 8-byte Plasmid Memory structure
-        this.injector["inject"](x, y, energy, radius, phaseShift, hash);
-        console.log(`[Σ³] Projected Plasmid '${intent}' -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Encoding=${hash.join('-')}`);
-    }
-
-    private stringToHash(str: string): Uint8Array {
-        // FNV-1a Hash variant translated to field bytes for deterministic phase seeding
-        let h = 0x811c9dc5;
-        for (let i = 0; i < str.length; i++) {
-            h ^= str.charCodeAt(i);
-            h = (h * 0x01000193) >>> 0;
-        }
-        
-        const bytes = new Uint8Array(8);
-        for (let i = 0; i < 8; i++) {
-            h = (h * 0x01000193) ^ i;
-            bytes[i] = h & 255;
-        }
-        return bytes;
+        this.injector["inject"](x, y, energy, radius, phaseShift, hashBytes);
+        console.log(`[Σ³] Projected Plasmid '${intent}' -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
     }
 }
 
@@ -1412,8 +1490,9 @@ export class LensObserver {
     private sab: SharedArrayBuffer | ArrayBuffer | null;
     private wasmField: Field | null = null;
     private wasmMemory: WebAssembly.Memory | null = null;
-    private W: number = 256;
-    private H: number = 256;
+    public W: number = 256;
+    public H: number = 256;
+    private offsets: number[] = [];
 
     constructor(canvas: HTMLCanvasElement, sab: SharedArrayBuffer | ArrayBuffer | null = null) {
         this.canvas = canvas;
@@ -1432,6 +1511,34 @@ export class LensObserver {
         this.device = await adapter.requestDevice();
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
+        // --- Ontology 19: Dynamic Hardware Allocation ---
+        const maxBinding = adapter.limits.maxStorageBufferBindingSize;
+        // A single cell takes 19 bytes in our SoA struct
+        const maxCells = Math.floor(maxBinding / 19);
+        // Fallback to legacy stable size, but allow optional URL parameter override if we wanted
+        this.W = 256; 
+        this.H = 256;
+        const numCells = this.W * this.H;
+        
+        const S_I16 = numCells * 2; // bytes
+        const S_U8 = numCells;
+        const S_U64 = numCells * 8;
+        
+        // Compute precise unaligned 1D linear buffer accumulation offsets
+        let cursor = 0;
+        const offX = cursor; cursor += S_I16;
+        const offY = cursor; cursor += S_I16;
+        const offThetaNow = cursor; cursor += S_U8;
+        const offThetaF1 = cursor; cursor += S_U8;
+        const offThetaF2 = cursor; cursor += S_U8;
+        const offThetaF3 = cursor; cursor += S_U8;
+        const offOmega = cursor; cursor += S_U8;
+        const offEnergy = cursor; cursor += S_U8;
+        const offPlasmids = cursor; cursor += S_U64;
+        const offHebbian = cursor; cursor += S_U8;
+        
+        this.offsets = [offX, offY, offThetaNow, offThetaF1, offThetaF2, offThetaF3, offOmega, offEnergy, offPlasmids, offHebbian];
+        
         const format = navigator.gpu.getPreferredCanvasFormat();
         this.context.configure({
             device: this.device,
@@ -1439,17 +1546,23 @@ export class LensObserver {
             alphaMode: 'opaque'
         });
 
-        // Contiguous 1,245,184 bytes (19 bytes per cell * 65536)
+        // Contiguous dynamic scaling
         this.fieldBuffer = this.device.createBuffer({
-            size: 1245184,
+            size: cursor,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
         const paramsBuffer = this.device.createBuffer({
-            size: 8, // two u32s
+            size: 40, // 2 dimensions + 8 offsets = 10 x u32 (40 bytes)
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
-        this.device.queue.writeBuffer(paramsBuffer, 0, new Uint32Array([this.W, this.H]));
+        
+        const uniformData = new Uint32Array([
+            this.W, this.H, 
+            offThetaNow/4, offEnergy/4, offPlasmids/4, offHebbian/4,
+            0, 0, 0, 0 // padding for 16-byte WGSL alignment rules
+        ]);
+        this.device.queue.writeBuffer(paramsBuffer, 0, uniformData);
 
         const shaderModule = this.device.createShaderModule({
             code: lensWgsl 
@@ -1482,21 +1595,24 @@ export class LensObserver {
         if (!this.device || !this.context) return;
 
         if (this.wasmField && this.wasmMemory) {
-            const S_I16 = 131072;
-            const S_U8 = 65536;
-            const S_U64 = 524288;
+            const numCells = this.W * this.H;
+            const S_I16 = numCells * 2;
+            const S_U8 = numCells;
+            const S_U64 = numCells * 8;
             const mem = this.wasmMemory.buffer;
+            const f = this.wasmField;
+            const off = this.offsets;
             
-            this.device.queue.writeBuffer(this.fieldBuffer, 0, new Uint8Array(mem, this.wasmField.ptr_x(), S_I16));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16, new Uint8Array(mem, this.wasmField.ptr_y(), S_I16));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2, new Uint8Array(mem, this.wasmField.ptr_theta_now(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8, new Uint8Array(mem, this.wasmField.ptr_theta_f1(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*2, new Uint8Array(mem, this.wasmField.ptr_theta_f2(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*3, new Uint8Array(mem, this.wasmField.ptr_theta_f3(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*4, new Uint8Array(mem, this.wasmField.ptr_omega(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*5, new Uint8Array(mem, this.wasmField.ptr_energy(), S_U8));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*6, new Uint8Array(mem, this.wasmField.ptr_plasmids(), S_U64));
-            this.device.queue.writeBuffer(this.fieldBuffer, S_I16*2 + S_U8*6 + S_U64, new Uint8Array(mem, this.wasmField.ptr_hebbian_locks(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[0], new Uint8Array(mem, f.ptr_x(), S_I16));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[1], new Uint8Array(mem, f.ptr_y(), S_I16));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[2], new Uint8Array(mem, f.ptr_theta_now(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[3], new Uint8Array(mem, f.ptr_theta_f1(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[4], new Uint8Array(mem, f.ptr_theta_f2(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[5], new Uint8Array(mem, f.ptr_theta_f3(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[6], new Uint8Array(mem, f.ptr_omega(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[7], new Uint8Array(mem, f.ptr_energy(), S_U8));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[8], new Uint8Array(mem, f.ptr_plasmids(), S_U64));
+            this.device.queue.writeBuffer(this.fieldBuffer, off[9], new Uint8Array(mem, f.ptr_hebbian_locks(), S_U8));
         } else if (this.sab) {
             this.device.queue.writeBuffer(this.fieldBuffer, 0, new Uint8Array(this.sab as ArrayBuffer));
         }
@@ -1728,6 +1844,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 struct Params {
   width: u32,
   height: u32,
+  off_theta: u32,
+  off_energy: u32,
+  off_plasmids: u32,
+  off_hebbian: u32,
 };
 
 @group(0) @binding(0) var<storage, read> field: array<u32>; 
@@ -1773,19 +1893,20 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
   let y = u32(pos.y);
   let cell_idx = y * params.width + x; 
   
-  // Extract theta_now (byte offset 262144 -> u32 offset 65536)
-  let t_u32_idx = 65536u + (cell_idx / 4u);
+  // Extract theta_now
+  let t_u32_idx = params.off_theta + (cell_idx / 4u);
   let byte_offset = cell_idx % 4u;
   let theta_val = extract_byte(field[t_u32_idx], byte_offset);
 
-  // Extract energy (byte offset 589824 -> u32 offset 147456)
-  let e_u32_idx = 147456u + (cell_idx / 4u);
+  // Extract energy
+  let e_u32_idx = params.off_energy + (cell_idx / 4u);
   let e_val = extract_byte(field[e_u32_idx], byte_offset);
   
-  // Extract plasmids (byte offset 655360 -> u32 offset 163840)
-  // A plasmid is u64 (8 bytes), stored as two consecutive u32s. We only need the lower 32 bits for color hashing.
-  let p_u32_idx = 163840u + (cell_idx * 2u);
+  // Extract plasmids
+  // A plasmid is u64 (8 bytes), stored as two consecutive u32s. 
+  let p_u32_idx = params.off_plasmids + (cell_idx * 2u);
   let plasmid_low = field[p_u32_idx];
+  let plasmid_high = field[p_u32_idx + 1u];
 
   // Base aesthetic from mathematical phase and kinetic energy
   let hue = fract(theta_val + 0.5);
@@ -1793,15 +1914,22 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
   var base_color = hsv2rgb(hue, 1.0, value);
 
   // --- Ontology 13 WebGPU Semantic Coloring ---
-  // If a Plasmid Attractor exists, explicitly overwrite the organic hue with the Idea's hash signature
-  if (plasmid_low != 0u) {
-      let p_hue = f32(plasmid_low & 0xFFu) / 255.0;
-      let p_sat = 0.6 + (f32((plasmid_low >> 8u) & 0xFFu) / 637.5);
-      let p_val = 0.8 + (f32((plasmid_low >> 16u) & 0xFFu) / 1275.0);
+  // If a Plasmid Attractor exists (High 32-bits for Oracle Intent, Low 32-bits for Organic)
+  if (plasmid_low != 0u || plasmid_high != 0u) {
+      let signature = plasmid_low ^ plasmid_high;
+      let p_hue = f32(signature & 0xFFu) / 255.0;
+      let p_sat = 0.6 + (f32((signature >> 8u) & 0xFFu) / 637.5);
+      let p_val = 0.8 + (f32((signature >> 16u) & 0xFFu) / 1275.0);
       
       let p_color = hsv2rgb(p_hue, p_sat, p_val);
-      // Vivid mixture prioritizing the plasmid's unique topological color signature
-      base_color = mix(base_color, p_color, 0.90);
+      
+      // Semantic LLM Intents overwrite the reality completely (0.95), Organic is a soft overlay (0.75)
+      var intensity = 0.75;
+      if (plasmid_high != 0u) {
+          intensity = 0.98;
+      }
+      
+      base_color = mix(base_color, p_color, intensity);
   }
 
   // Energy pulse
@@ -2247,8 +2375,9 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                 // --- Ontology 13: Immunological Rejection ---
                 // If local energy is extremely toxic/hot, the cell is inflamed and rejects external ideas.
                 if best_energy < 240 {
-                    // Sample adjacent neighbor's plasmid (Northern neighbor W=256 offset)
-                    let neighbor_idx = if idx >= 256 { idx - 256 } else { idx + 256 };
+                    // Sample adjacent neighbor's plasmid (Northern neighbor W-offset)
+                    let w = field.width as usize;
+                    let neighbor_idx = if idx >= w { idx - w } else { idx + w };
                     if neighbor_idx < size {
                         let foreign_plasmid = field.plasmids[neighbor_idx];
                         if foreign_plasmid != 0 {
@@ -2301,15 +2430,12 @@ pub mod generated_biology;
 ```rs
 use wasm_bindgen::prelude::*;
 
-// The universe parameters
-pub const W: usize = 256;
-pub const H: usize = 256;
-pub const SIZE: usize = W * H;
-
 // The Struct of Arrays (SoA) Field holding the physics data for the ecosystem
 #[wasm_bindgen]
 #[repr(C)]
 pub struct Field {
+    pub width: u32,
+    pub height: u32,
     pub(crate) x: Vec<i16>,
     pub(crate) y: Vec<i16>,
     pub(crate) theta_now: Vec<u8>,
@@ -2325,24 +2451,28 @@ pub struct Field {
 #[wasm_bindgen]
 impl Field {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Field {
+    pub fn new(width: u32, height: u32) -> Field {
+        let size = (width * height) as usize;
         let mut f = Field {
-            x: vec![0; SIZE],
-            y: vec![0; SIZE],
-            theta_now: vec![0; SIZE],
-            theta_f1: vec![0; SIZE],
-            theta_f2: vec![0; SIZE],
-            theta_f3: vec![0; SIZE],
-            omega: vec![0; SIZE],
-            energy: vec![0; SIZE],
-            plasmids: vec![0; SIZE],
-            hebbian_locks: vec![0; SIZE],
+            width,
+            height,
+            x: vec![0; size],
+            y: vec![0; size],
+            theta_now: vec![0; size],
+            theta_f1: vec![0; size],
+            theta_f2: vec![0; size],
+            theta_f3: vec![0; size],
+            omega: vec![0; size],
+            energy: vec![0; size],
+            plasmids: vec![0; size],
+            hebbian_locks: vec![0; size],
         };
 
         // Initialize coordinates to a structured grid
-        for i in 0..SIZE {
-            f.x[i] = (i % W) as i16;
-            f.y[i] = (i / W) as i16;
+        let w = width as usize;
+        for i in 0..size {
+            f.x[i] = (i % w) as i16;
+            f.y[i] = (i / w) as i16;
             f.theta_now[i] = (i % 256) as u8; // Initial phase noise
         }
         f

@@ -16,6 +16,9 @@ pub struct Field {
     pub(crate) energy: Vec<u8>,
     pub(crate) plasmids: Vec<u64>,
     pub(crate) hebbian_locks: Vec<u8>,
+    pub(crate) oracle_requests: Vec<u32>,
+    pub oracle_request_count: usize,
+    pub(crate) cell_status: Vec<u8>,
 }
 
 #[wasm_bindgen]
@@ -36,6 +39,9 @@ impl Field {
             energy: vec![0; size],
             plasmids: vec![0; size],
             hebbian_locks: vec![0; size],
+            oracle_requests: vec![0; 1024],
+            oracle_request_count: 0,
+            cell_status: vec![0; size],
         };
 
         // Initialize coordinates to a structured grid
@@ -59,4 +65,14 @@ impl Field {
     pub fn ptr_energy(&self) -> *const u8 { self.energy.as_ptr() }
     pub fn ptr_plasmids(&self) -> *const u64 { self.plasmids.as_ptr() }
     pub fn ptr_hebbian_locks(&self) -> *const u8 { self.hebbian_locks.as_ptr() }
+    
+    // Oracle Zero-Copy Bindings
+    pub fn ptr_oracle_requests(&self) -> *const u32 { self.oracle_requests.as_ptr() }
+    pub fn get_oracle_request_count(&self) -> usize { self.oracle_request_count }
+    pub fn clear_oracle_requests(&mut self) { self.oracle_request_count = 0; }
+    pub fn ptr_cell_status(&mut self) -> *mut u8 { self.cell_status.as_mut_ptr() }
+    
+    // Status Enums
+    pub fn status_idle() -> u8 { 0 }
+    pub fn status_awaiting_oracle() -> u8 { 1 }
 }

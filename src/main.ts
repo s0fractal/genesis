@@ -13,13 +13,11 @@ async function bootstrap() {
 
     // 0. Boot WebAssembly 128-bit SIMD Core
     const wasm = await initWasm();
-    const wasmField = new Field();
+    const wasmField = new Field(256, 256);
     const wasmMemory = wasm.memory as WebAssembly.Memory;
     console.log(`[O-64] Rust WASM SIMD Core initialized. Field base pointer allocated at memory offset: ${wasmField.ptr_x()}`);
 
-    // We no longer simulate WASM memory using a detached SharedArrayBuffer.
     // The WASM linear array natively acts as our global sync target.
-    const sab = wasmMemory.buffer as unknown as SharedArrayBuffer;
 
     // 2. Map Visual Lens
     const canvas = document.getElementById("lens-canvas") as HTMLCanvasElement;
@@ -47,9 +45,9 @@ async function bootstrap() {
     // 6. Bind the Semantic NLP Layer
     const coupler = new SemanticCoupler(injector);
 
-    // Ontology 12: Ignite the Subconscious Oracle
-    const oracle = new SovereignOracle(coupler, sab);
-    oracle.boot(); // Fire and forget async background telemetry loop
+    // Ontology 20: Ignite the Asynchronous Oracle Queue
+    const oracle = new SovereignOracle(wasmField, wasmMemory);
+    oracle.boot(); // Enable the queue processing flags
 
     // Front-End Reactivity
     const input = document.getElementById("semantic-input") as HTMLInputElement;
@@ -76,6 +74,9 @@ async function bootstrap() {
 
         // Step 2: Draw mathematical Light
         observer.render();
+
+        // Step 3: Service Asynchronous Oracle Queue
+        oracle.sync();
 
         // System Telemetry
         frames++;
