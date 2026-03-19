@@ -1,6 +1,10 @@
 struct Params {
   width: u32,
   height: u32,
+  off_theta: u32,
+  off_energy: u32,
+  off_plasmids: u32,
+  off_hebbian: u32,
 };
 
 @group(0) @binding(0) var<storage, read> field: array<u32>; 
@@ -46,19 +50,20 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
   let y = u32(pos.y);
   let cell_idx = y * params.width + x; 
   
-  // Extract theta_now (byte offset 262144 -> u32 offset 65536)
-  let t_u32_idx = 65536u + (cell_idx / 4u);
+  // Extract theta_now
+  let t_u32_idx = params.off_theta + (cell_idx / 4u);
   let byte_offset = cell_idx % 4u;
   let theta_val = extract_byte(field[t_u32_idx], byte_offset);
 
-  // Extract energy (byte offset 589824 -> u32 offset 147456)
-  let e_u32_idx = 147456u + (cell_idx / 4u);
+  // Extract energy
+  let e_u32_idx = params.off_energy + (cell_idx / 4u);
   let e_val = extract_byte(field[e_u32_idx], byte_offset);
   
-  // Extract plasmids (byte offset 655360 -> u32 offset 163840)
-  // A plasmid is u64 (8 bytes), stored as two consecutive u32s. We only need the lower 32 bits for color hashing.
-  let p_u32_idx = 163840u + (cell_idx * 2u);
+  // Extract plasmids
+  // A plasmid is u64 (8 bytes), stored as two consecutive u32s. 
+  let p_u32_idx = params.off_plasmids + (cell_idx * 2u);
   let plasmid_low = field[p_u32_idx];
+  let plasmid_high = field[p_u32_idx + 1u];
 
   // Base aesthetic from mathematical phase and kinetic energy
   let hue = fract(theta_val + 0.5);
@@ -66,15 +71,22 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
   var base_color = hsv2rgb(hue, 1.0, value);
 
   // --- Ontology 13 WebGPU Semantic Coloring ---
-  // If a Plasmid Attractor exists, explicitly overwrite the organic hue with the Idea's hash signature
-  if (plasmid_low != 0u) {
-      let p_hue = f32(plasmid_low & 0xFFu) / 255.0;
-      let p_sat = 0.6 + (f32((plasmid_low >> 8u) & 0xFFu) / 637.5);
-      let p_val = 0.8 + (f32((plasmid_low >> 16u) & 0xFFu) / 1275.0);
+  // If a Plasmid Attractor exists (High 32-bits for Oracle Intent, Low 32-bits for Organic)
+  if (plasmid_low != 0u || plasmid_high != 0u) {
+      let signature = plasmid_low ^ plasmid_high;
+      let p_hue = f32(signature & 0xFFu) / 255.0;
+      let p_sat = 0.6 + (f32((signature >> 8u) & 0xFFu) / 637.5);
+      let p_val = 0.8 + (f32((signature >> 16u) & 0xFFu) / 1275.0);
       
       let p_color = hsv2rgb(p_hue, p_sat, p_val);
-      // Vivid mixture prioritizing the plasmid's unique topological color signature
-      base_color = mix(base_color, p_color, 0.90);
+      
+      // Semantic LLM Intents overwrite the reality completely (0.95), Organic is a soft overlay (0.75)
+      var intensity = 0.75;
+      if (plasmid_high != 0u) {
+          intensity = 0.98;
+      }
+      
+      base_color = mix(base_color, p_color, intensity);
   }
 
   // Energy pulse

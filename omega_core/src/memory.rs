@@ -1,14 +1,11 @@
 use wasm_bindgen::prelude::*;
 
-// The universe parameters
-pub const W: usize = 256;
-pub const H: usize = 256;
-pub const SIZE: usize = W * H;
-
 // The Struct of Arrays (SoA) Field holding the physics data for the ecosystem
 #[wasm_bindgen]
 #[repr(C)]
 pub struct Field {
+    pub width: u32,
+    pub height: u32,
     pub(crate) x: Vec<i16>,
     pub(crate) y: Vec<i16>,
     pub(crate) theta_now: Vec<u8>,
@@ -24,24 +21,28 @@ pub struct Field {
 #[wasm_bindgen]
 impl Field {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Field {
+    pub fn new(width: u32, height: u32) -> Field {
+        let size = (width * height) as usize;
         let mut f = Field {
-            x: vec![0; SIZE],
-            y: vec![0; SIZE],
-            theta_now: vec![0; SIZE],
-            theta_f1: vec![0; SIZE],
-            theta_f2: vec![0; SIZE],
-            theta_f3: vec![0; SIZE],
-            omega: vec![0; SIZE],
-            energy: vec![0; SIZE],
-            plasmids: vec![0; SIZE],
-            hebbian_locks: vec![0; SIZE],
+            width,
+            height,
+            x: vec![0; size],
+            y: vec![0; size],
+            theta_now: vec![0; size],
+            theta_f1: vec![0; size],
+            theta_f2: vec![0; size],
+            theta_f3: vec![0; size],
+            omega: vec![0; size],
+            energy: vec![0; size],
+            plasmids: vec![0; size],
+            hebbian_locks: vec![0; size],
         };
 
         // Initialize coordinates to a structured grid
-        for i in 0..SIZE {
-            f.x[i] = (i % W) as i16;
-            f.y[i] = (i / W) as i16;
+        let w = width as usize;
+        for i in 0..size {
+            f.x[i] = (i % w) as i16;
+            f.y[i] = (i / w) as i16;
             f.theta_now[i] = (i % 256) as u8; // Initial phase noise
         }
         f

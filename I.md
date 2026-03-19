@@ -18,9 +18,9 @@
 
 ### fast_abs
 #### Identity
-hash: 2e5f13f69e974e8e7ccb285ca7991109a0e2e55cbe733ae610cbc50d03a03bf1
-version: 28
-parents: ["68a53523092f840dd3e564b533f32e98a33b7045a80225a53010c73ad6f8fa1d"]
+hash: 9ace0a837fe2779ef891c09d19e5b01aafcc8d2506d85c1cd90cf2ea0bbb1cbf
+version: 30
+parents: ["093b34effa228f2670bd34ff593896bbec3ce3f6a8d0bc9d5fd14f7879838d44"]
 
 #### IO
 in:
@@ -40,7 +40,7 @@ out: i32@field:math
     },
     {
       "kind": "const",
-      "value": 16,
+      "value": 13,
       "bits": 32
     }
   ]
@@ -169,9 +169,9 @@ if (targetFile.endsWith(".bin")) {
 
 ### tissue_history
 #### Identity
-hash: 22cf86362f840dc4d657a9674fe935cc10c017b9e8cc78a89de2afebc06da380
-version: 14
-parents: ["22cf86362f840dc4d657a9674fe935cc10c017b9e8cc78a89de2afebc06da380"]
+hash: db830eee608aa2e031018358293287cd95dbccff15384757cda1fdfc3ab87779
+version: 16
+parents: ["db830eee608aa2e031018358293287cd95dbccff15384757cda1fdfc3ab87779"]
 
 #### IO
 in:
@@ -317,6 +317,8 @@ const targetNode = state[nodeAlias];
             throw new Error(`[RUST BRIDGE] ❌ Compiler crashed with code ${code}. Mutation rejected.`);
         }
         console.log(`[RUST BRIDGE] ✨ Compilation successful. Reality hot-reloaded.`);
+        
+        return { next: state, diff: { added: [], updated: [], removed: [] } };
 ```
 
 ---

@@ -5,5 +5,5 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn fast_abs(v: i32) -> i32 {
-    (v * 16)
+    (v * 18)
 }

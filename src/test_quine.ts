@@ -1,81 +1,80 @@
-import { executeNeuron, parseTissueFromMarkdown, unpackTissueFromBinary } from "./quine.ts";
+import { unpackTissueFromBinary, parseTissueFromMarkdown, executeNeuron } from "./quine.ts";
+import { generateGeneticDrift } from "./compiler/mutator.ts";
 
 async function main() {
-  console.log("=== OMEGA-64 | Σ³ ATOMIC PULSE TEST ===");
+  console.log("=== OMEGA-64 | Σ³ EVOLUTIONARY DREAM LOOP ===");
   
-  let Tissue;
+  let Tissue: any = undefined;
   try {
     const binData = await Deno.readFile("./seed.bin");
     Tissue = await unpackTissueFromBinary(binData);
-    console.log("🧬 Loaded organism from high-speed binary seed.bin!");
+    console.log("🧬 Successfully mounted biological payload from ultra-fast seed.bin.");
   } catch (e) {
+    console.log("📜 Loaded organism from legacy markdown I.md.");
     Tissue = await parseTissueFromMarkdown("./I.md");
-    console.log("📜 Loaded organism from slow markdown I.md.");
   }
 
-  console.log("Before atomic pulse:");
-  console.log("Expr (fast_abs):", typeof Tissue.fast_abs.expr.body === "string" ? Tissue.fast_abs.expr.body : JSON.stringify(Tissue.fast_abs.expr.body));
-  
-  console.log("Tissue History Pointer:", Tissue.tissue_history.expr.body);
-  
-  const operations = [
-    {
-      alias: "mutate_ir",
-      args: {
-        targetAlias: "fast_abs",
-        path: ["body", "args", 1, "value"],
-        newValue: 8
+  let epoch = 1;
+  while (true) {
+      console.log(`\n\n--- [ EPOCH ${epoch} : MATURATION ] ---`);
+      
+      const targetAlias = "fast_abs";
+      const targetNode = Tissue[targetAlias];
+      
+      const mutation = generateGeneticDrift(targetAlias, targetNode);
+      if (!mutation) {
+          console.log(`❌ Organism is perfectly sterilized (No mutable paths found).`);
+          break;
       }
-    },
-    {
-      alias: "mutate_ir",
-      args: {
-        targetAlias: "fast_abs",
-        path: ["body", "args", 1, "value"],
-        newValue: 16
+      
+      console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
+      
+      const operations = [
+        {
+          alias: "mutate_ir", 
+          args: {
+            targetAlias: mutation.alias,
+            path: mutation.path,
+            newValue: mutation.newValue
+          }
+        },
+        {
+          alias: "rust_compiler_bridge",
+          args: {
+            nodeAlias: mutation.alias
+          }
+        }
+      ];
+
+      const beforeStr = JSON.stringify(Tissue[targetAlias].expr);
+      
+      // Dispatch the atomic transaction -> (Mutate JS memory, then Mutate Rust Memory natively!)
+      const res = await executeNeuron(Tissue, "atomic_pulse", { operations, state: Tissue, executeNeuron });
+      
+      if (!res.success) {
+          console.log(`\n🟥 LETHAL MUTATION REJECTED IN EPOCH ${epoch}`);
+          console.log(`Reason: ${res.error}`);
+          console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
+      } else {
+          console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
+          Tissue = res.next;
+          
+          const afterStr = JSON.stringify(Tissue[targetAlias].expr);
+          console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
+
+          console.log(`\nActivating meta_fn: flush_state_to_disk...`);
+          // Dump the surviving tissue to Binary RAM 
+          await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
+          // Dump it to Human Readable Read-Only MD
+          await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
+          
+          console.log(`✨ Organism successfully rewritten and hardened into seed.bin!`);
       }
-    }
-  ];
-
-  console.log("\nActivating meta_fn: atomic_pulse...");
-  const result: any = await executeNeuron(Tissue, "atomic_pulse", {
-    state: Tissue,
-    operations,
-    executeNeuron
-  });
-
-  if (!result.success) {
-    console.error("Pulse failed:", result.error);
-    return;
+      
+      epoch++;
+      // Give the visual grid a heartbeat baseline to render the shockwave (7 seconds).
+      await new Promise(r => setTimeout(r, 7000));
   }
-
-  console.log("\nPulse Success:", result.success);
-  console.log("Epoch Log size:", result.log.length);
-  
-  console.log("\nAfter atomic pulse:");
-  console.log("Expr (fast_abs):", JSON.stringify(result.next.fast_abs.expr.body));
-  
-  console.log("Tissue History Pointer:", result.next.tissue_history.expr.body);
-
-  console.log("\nActivating meta_fn: rust_compiler_bridge...");
-  await executeNeuron(result.next, "rust_compiler_bridge", {
-    nodeAlias: "fast_abs",
-    state: result.next
-  });
-
-  console.log("\nActivating meta_fn: flush_state_to_disk...");
-  await executeNeuron(result.next, "flush_state_to_disk", {
-    nextState: result.next,
-    targetFile: "./seed.bin"
-  });
-  
-  console.log("Activating meta_fn: flush_state_to_disk (Human Export)...");
-  await executeNeuron(result.next, "flush_state_to_disk", {
-    nextState: result.next,
-    targetFile: "./I.md"
-  });
-  
-  console.log("Done! Check seed.bin and I.md.");
 }
 
 if (import.meta.main) {

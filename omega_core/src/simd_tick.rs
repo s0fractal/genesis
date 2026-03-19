@@ -74,8 +74,9 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                 // --- Ontology 13: Immunological Rejection ---
                 // If local energy is extremely toxic/hot, the cell is inflamed and rejects external ideas.
                 if best_energy < 240 {
-                    // Sample adjacent neighbor's plasmid (Northern neighbor W=256 offset)
-                    let neighbor_idx = if idx >= 256 { idx - 256 } else { idx + 256 };
+                    // Sample adjacent neighbor's plasmid (Northern neighbor W-offset)
+                    let w = field.width as usize;
+                    let neighbor_idx = if idx >= w { idx - w } else { idx + w };
                     if neighbor_idx < size {
                         let foreign_plasmid = field.plasmids[neighbor_idx];
                         if foreign_plasmid != 0 {
