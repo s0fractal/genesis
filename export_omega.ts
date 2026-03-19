@@ -2,7 +2,7 @@ import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
 const OUTPUT_FILE = "OMEGA_EXPORT.md";
 
-const TARGET_EXTS = [".ts", ".rs", ".wgsl", ".toml", ".html"];
+const TARGET_EXTS = [".ts", ".rs", ".wgsl", ".toml", ".html", ".json"];
 const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dist/];
 
 async function main() {
@@ -24,6 +24,9 @@ async function main() {
 
   // Root essentials
   await addFile("I.md");
+  await addFile("package.json");
+  await addFile("PHASE_COHERENCE_SPEC.md");
+  await addFile("export_omega.ts");
   await addFile("index.html");
   await addFile("vite.config.ts");
   await addFile("omega_core/Cargo.toml");
@@ -37,6 +40,12 @@ async function main() {
   // Walk Rust Core
   console.log("\nSweeping omega_core/src/ ...");
   for await (const entry of walk("omega_core/src", { exts: TARGET_EXTS, skip: EXCLUDE_DIRS })) {
+    if (entry.isFile) await addFile(entry.path);
+  }
+
+  // Walk verification and export helpers
+  console.log("\nSweeping tools/ ...");
+  for await (const entry of walk("tools", { exts: TARGET_EXTS, skip: EXCLUDE_DIRS })) {
     if (entry.isFile) await addFile(entry.path);
   }
 

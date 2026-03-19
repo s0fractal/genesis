@@ -6,7 +6,19 @@
     "dev": "vite",
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "generate:phase-goldens": "npm run build:wasm && node --experimental-strip-types tools/generate_phase_goldens.ts",
+    "verify:phase-coherence:ref": "node --experimental-strip-types tools/verify_phase_coherence.ts",
+    "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",
+    "verify:phase-coherence:wasm": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_coherence_wasm.ts",
+    "verify:phase-coherence": "npm run verify:phase-coherence:ref && npm run verify:phase-coherence:kernel && npm run verify:phase-coherence:wasm",
+    "verify:phase-cross": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_cross.ts",
+    "verify:phase-parity": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_parity.ts",
+    "verify:phase-bridge:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_bridge",
+    "verify:phase-bridge:wasm": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_bridge_wasm.ts",
+    "verify:phase-bridge": "npm run verify:phase-bridge:kernel && npm run verify:phase-bridge:wasm",
+    "verify:phase-goldens": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_goldens.ts",
+    "verify:phase-stack": "npm run verify:phase-coherence && npm run verify:phase-parity && npm run verify:phase-bridge && npm run verify:phase-cross && npm run verify:phase-goldens"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",

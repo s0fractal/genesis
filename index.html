@@ -104,6 +104,59 @@
             gap: 10px;
         }
 
+        .replay-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .replay-controls[hidden] {
+            display: none;
+        }
+
+        .replay-button,
+        .replay-select,
+        .replay-range {
+            appearance: none;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(0, 0, 0, 0.34);
+            color: #fff;
+        }
+
+        .replay-button {
+            padding: 10px 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 0.72rem;
+        }
+
+        .replay-select {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+        }
+
+        .replay-range {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 0;
+        }
+
+        .replay-label {
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.58);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .replay-value {
+            min-width: 48px;
+            text-align: right;
+            font-family: monospace;
+            color: #fff;
+        }
+
         #semantic-input {
             flex: 1;
             background: rgba(0, 0, 0, 0.3);
@@ -169,6 +222,26 @@
             z-index: 0;
             filter: blur(50px);
         }
+
+        @media (max-width: 720px) {
+            .hud-overlay {
+                width: calc(100vw - 32px);
+                bottom: 16px;
+                padding: 18px;
+                border-radius: 16px;
+            }
+
+            .semantic-input-group,
+            .replay-controls,
+            .stats {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .replay-value {
+                text-align: left;
+            }
+        }
     </style>
 </head>
 <body>
@@ -177,22 +250,34 @@
 
     <div class="hud-overlay">
         <div class="hud-header">
-            <div class="hud-title">Σ³ Semantic Coupler</div>
+            <div id="hud-title" class="hud-title">Σ³ Semantic Coupler</div>
             <div class="status-indicator">
                 <div class="status-dot"></div>
-                OMEGA-64 ACTIVE
+                <span id="status-label">OMEGA-64 ACTIVE</span>
             </div>
         </div>
         
-        <div class="semantic-input-group">
+        <div id="semantic-input-group" class="semantic-input-group">
             <input type="text" id="semantic-input" placeholder="Inject ontological intent..." autocomplete="off">
             <button id="semantic-submit">Project</button>
         </div>
 
+        <div id="replay-controls" class="replay-controls" hidden>
+            <button id="replay-play" class="replay-button" type="button">Play</button>
+            <label class="replay-label" for="replay-compare">Compare</label>
+            <select id="replay-compare" class="replay-select">
+                <option value="seed">Seed</option>
+                <option value="previous">Previous</option>
+                <option value="none">None</option>
+            </select>
+            <input id="replay-tick" class="replay-range" type="range" min="0" max="12" step="1" value="0">
+            <span id="replay-tick-value" class="replay-value">0/12</span>
+        </div>
+
         <div class="stats">
-            <div>MUTATION CANDIDATES <span class="stat-value">1024</span></div>
-            <div>FPS <span id="fps-counter" class="stat-value">0</span></div>
-            <div>OBSERVER <span class="stat-value">WebGPU Lens</span></div>
+            <div><span id="stat-a-label">MUTATION CANDIDATES</span> <span id="stat-a-value" class="stat-value">1024</span></div>
+            <div><span id="stat-b-label">FPS</span> <span id="stat-b-value" class="stat-value">0</span></div>
+            <div><span id="stat-c-label">OBSERVER</span> <span id="stat-c-value" class="stat-value">WebGPU Lens</span></div>
         </div>
     </div>
 
