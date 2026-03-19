@@ -53,6 +53,7 @@ function verifyPhaseBridge(actual: PhaseBridgeGolden, expected: PhaseBridgeGolde
     assert(actual.width === expected.width, "phase_bridge width mismatch");
     assert(actual.height === expected.height, "phase_bridge height mismatch");
 
+    compareTrace<BridgeTraceEntry>("phase_bridge.referenceTrace", actual.referenceTrace, expected.referenceTrace);
     compareTrace<BridgeTraceEntry>("phase_bridge.wasmTrace", actual.wasmTrace, expected.wasmTrace);
     compareTraceEntry("phase_bridge.invariants", actual.invariants, expected.invariants);
 }

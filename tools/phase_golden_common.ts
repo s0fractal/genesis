@@ -30,6 +30,16 @@ import {
     sumEntanglement,
 } from "../src/shared/phase_lattice.ts";
 import { buildCanonicalPhaseSeed } from "../src/shared/phase_canonical.ts";
+import {
+    bridgeFieldSignature,
+    bridgeOmegaSpan,
+    bridgeTotalEnergy,
+    bridgeTotalLocks,
+    bridgeTotalPlasmids,
+    buildBridgeSeed,
+    stepBridgeField,
+} from "../src/shared/phase_bridge.ts";
+import type { BridgeField } from "../src/shared/phase_bridge.ts";
 import type { PhaseField, PhaseFieldShape } from "../src/shared/phase_lattice.ts";
 
 export const GOLDEN_DIR = new URL("./goldens/", import.meta.url);
@@ -78,6 +88,7 @@ export interface PhaseBridgeGolden {
     width: number;
     height: number;
     ticks: number;
+    referenceTrace: BridgeTraceEntry[];
     wasmTrace: BridgeTraceEntry[];
     invariants: {
         seedSignature: string;
@@ -209,6 +220,34 @@ export function captureBridgeWasmTrace(width: number, height: number, ticks: num
     return trace;
 }
 
+export function captureBridgeReferenceTrace(width: number, height: number, ticks: number): BridgeTraceEntry[] {
+    const trace: BridgeTraceEntry[] = [];
+    let field = buildBridgeSeed(width, height);
+
+    trace.push({
+        tick: 0,
+        signature: bridgeFieldSignature(field),
+        totalEnergy: bridgeTotalEnergy(field),
+        totalLocks: bridgeTotalLocks(field),
+        totalPlasmids: bridgeTotalPlasmids(field),
+        omegaSpan: bridgeOmegaSpan(field),
+    });
+
+    for (let tick = 1; tick <= ticks; tick++) {
+        field = stepBridgeField(field);
+        trace.push({
+            tick,
+            signature: bridgeFieldSignature(field),
+            totalEnergy: bridgeTotalEnergy(field),
+            totalLocks: bridgeTotalLocks(field),
+            totalPlasmids: bridgeTotalPlasmids(field),
+            omegaSpan: bridgeOmegaSpan(field),
+        });
+    }
+
+    return trace;
+}
+
 export function buildPhaseCoherenceGolden(): PhaseCoherenceGolden {
     const shape: PhaseFieldShape = {
         sectors: 32,
@@ -264,6 +303,7 @@ export function buildPhaseBridgeGolden(): PhaseBridgeGolden {
         width,
         height,
         ticks,
+        referenceTrace: captureBridgeReferenceTrace(width, height, ticks),
         wasmTrace: captureBridgeWasmTrace(width, height, ticks),
         invariants: {
             seedSignature: field_signature(seeded),
@@ -357,6 +397,32 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
         lock: lock[index],
         entanglement: entanglement[index],
     }));
+}
+
+export function snapshotBridgeWasmState(field: Field, wasm: WebAssembly.Exports): BridgeField {
+    const memory = wasm.memory;
+    if (!(memory instanceof WebAssembly.Memory)) {
+        throw new Error("WASM memory export is unavailable");
+    }
+
+    const count = field.width * field.height;
+    const activeRequests = field.get_oracle_request_count();
+
+    return {
+        width: field.width,
+        height: field.height,
+        thetaNow: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_theta_now(), count)),
+        thetaF1: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_theta_f1(), count)),
+        thetaF2: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_theta_f2(), count)),
+        thetaF3: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_theta_f3(), count)),
+        omega: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_omega(), count)),
+        energy: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_energy(), count)),
+        plasmids: new BigUint64Array(new BigUint64Array(memory.buffer, field.ptr_plasmids(), count)),
+        hebbianLocks: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_hebbian_locks(), count)),
+        oracleRequests: new Uint32Array(new Uint32Array(memory.buffer, field.ptr_oracle_requests(), activeRequests)),
+        oracleRequestCount: activeRequests,
+        cellStatus: new Uint8Array(new Uint8Array(memory.buffer, field.ptr_cell_status(), count)),
+    };
 }
 
 function buildCrossTraceEntry(

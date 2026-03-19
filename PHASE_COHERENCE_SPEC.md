@@ -80,6 +80,8 @@ The stronger admission stack is now:
 
 - `verify:phase-coherence`
 - `verify:phase-parity`
+- `verify:phase-bridge`
+- `verify:phase-bridge:parity`
 - `verify:phase-cross`
 - `verify:phase-goldens`
 
@@ -88,6 +90,10 @@ Where:
 - `verify:phase-coherence` proves the invariants
 - `verify:phase-parity` proves exact TS reference <-> Rust/WASM state parity on
   the canonical lattice
+- `verify:phase-bridge` proves the compatibility bridge remains deterministic
+  and rotationally equivariant
+- `verify:phase-bridge:parity` proves exact TS reference <-> Rust/WASM state
+  parity on the compatibility bridge
 - `verify:phase-cross` proves the current `phase -> hybrid` collapse-diff stays
   inside the committed cross-mode trace envelope
 - `verify:phase-goldens` proves the exported canonical traces did not drift
@@ -172,11 +178,13 @@ A mutation or kernel change is only admitted if:
 
 1. `verify:phase-coherence` passes
 2. `verify:phase-parity` passes
-3. `verify:phase-cross` passes
-4. the replay signature stays deterministic
-5. rotational equivariance is preserved
-6. bounded drift remains intact
-7. `verify:phase-goldens` still matches the committed canonical traces
+3. `verify:phase-bridge` passes
+4. `verify:phase-bridge:parity` passes
+5. `verify:phase-cross` passes
+6. the replay signature stays deterministic
+7. rotational equivariance is preserved
+8. bounded drift remains intact
+9. `verify:phase-goldens` still matches the committed canonical traces
 
 This should become the `Genesis` equivalent of a coherence gate.
 
@@ -220,6 +228,12 @@ This should become the `Genesis` equivalent of a coherence gate.
 - formalize `phase -> hybrid` collapse/crop comparison as `verify:phase-cross`
 - treat cross-mode drift as an admission gate, not only as a visual viewer
 
+### Stage 6
+
+- give `hybrid` its own TypeScript reference kernel
+- fail on the first divergent bridge cell/tick via `verify:phase-bridge:parity`
+- keep bridge goldens for both reference and wasm traces
+
 ## Immediate Next Step
 
 Stage 0 is now represented by:
@@ -227,6 +241,7 @@ Stage 0 is now represented by:
 - `src/shared/phase_lattice.ts`
 - `tools/verify_phase_coherence.ts`
 - `tools/verify_phase_parity.ts`
+- `tools/verify_phase_bridge_parity.ts`
 - `tools/verify_phase_cross.ts`
 - `tools/verify_phase_goldens.ts`
 

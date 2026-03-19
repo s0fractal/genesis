@@ -15,8 +15,9 @@
     "verify:phase-cross": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_cross.ts",
     "verify:phase-parity": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_parity.ts",
     "verify:phase-bridge:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_bridge",
+    "verify:phase-bridge:parity": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_bridge_parity.ts",
     "verify:phase-bridge:wasm": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_bridge_wasm.ts",
-    "verify:phase-bridge": "npm run verify:phase-bridge:kernel && npm run verify:phase-bridge:wasm",
+    "verify:phase-bridge": "npm run verify:phase-bridge:kernel && npm run verify:phase-bridge:parity && npm run verify:phase-bridge:wasm",
     "verify:phase-goldens": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_goldens.ts",
     "verify:phase-stack": "npm run verify:phase-coherence && npm run verify:phase-parity && npm run verify:phase-bridge && npm run verify:phase-cross && npm run verify:phase-goldens"
   },

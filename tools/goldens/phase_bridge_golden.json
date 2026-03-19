@@ -3,6 +3,112 @@
   "width": 32,
   "height": 8,
   "ticks": 12,
+  "referenceTrace": [
+    {
+      "tick": 0,
+      "signature": "7df4953e3350630b",
+      "totalEnergy": 54912,
+      "totalLocks": 7967,
+      "totalPlasmids": 0,
+      "omegaSpan": "-1..1"
+    },
+    {
+      "tick": 1,
+      "signature": "1babd9d8867fde79",
+      "totalEnergy": 57407,
+      "totalLocks": 8455,
+      "totalPlasmids": 194,
+      "omegaSpan": "-2..2"
+    },
+    {
+      "tick": 2,
+      "signature": "dcffb265ed82fcbc",
+      "totalEnergy": 58656,
+      "totalLocks": 8875,
+      "totalPlasmids": 202,
+      "omegaSpan": "-2..3"
+    },
+    {
+      "tick": 3,
+      "signature": "c14774ce1d0dbacd",
+      "totalEnergy": 59475,
+      "totalLocks": 9267,
+      "totalPlasmids": 211,
+      "omegaSpan": "-3..3"
+    },
+    {
+      "tick": 4,
+      "signature": "b6d89f3f47562a96",
+      "totalEnergy": 60097,
+      "totalLocks": 9641,
+      "totalPlasmids": 215,
+      "omegaSpan": "-2..4"
+    },
+    {
+      "tick": 5,
+      "signature": "1149fc6fb19a06b9",
+      "totalEnergy": 60560,
+      "totalLocks": 9992,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..5"
+    },
+    {
+      "tick": 6,
+      "signature": "d4f5d586f6da0d58",
+      "totalEnergy": 60955,
+      "totalLocks": 10331,
+      "totalPlasmids": 220,
+      "omegaSpan": "-2..6"
+    },
+    {
+      "tick": 7,
+      "signature": "46ce51254812f952",
+      "totalEnergy": 61238,
+      "totalLocks": 10663,
+      "totalPlasmids": 220,
+      "omegaSpan": "-2..6"
+    },
+    {
+      "tick": 8,
+      "signature": "ece1cf4af3fa14a3",
+      "totalEnergy": 61447,
+      "totalLocks": 10992,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..6"
+    },
+    {
+      "tick": 9,
+      "signature": "f403cd1b41546e41",
+      "totalEnergy": 61591,
+      "totalLocks": 11324,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..6"
+    },
+    {
+      "tick": 10,
+      "signature": "7232e1790e145b7b",
+      "totalEnergy": 61654,
+      "totalLocks": 11656,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..8"
+    },
+    {
+      "tick": 11,
+      "signature": "efc10d02d0ed59b6",
+      "totalEnergy": 61663,
+      "totalLocks": 11958,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..10"
+    },
+    {
+      "tick": 12,
+      "signature": "2b016c718b95f962",
+      "totalEnergy": 61663,
+      "totalLocks": 12254,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..11"
+    }
+  ],
   "wasmTrace": [
     {
       "tick": 0,
