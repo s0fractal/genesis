@@ -37,7 +37,9 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                 let p_mut = p.wrapping_add(d);
                 let val = lut[p_mut as usize];
                 
-                let next_energy = raw_energy.saturating_add(val);
+                // Invoke the auto-generated AST from Ontology 16 Compiler Bridge!
+                let mutated_val = crate::generated_biology::fast_abs(val as i32) as i16;
+                let next_energy = raw_energy.saturating_add(mutated_val);
                 
                 // Drift evaluation (geometric tension against the future f1 horizon)
                 let future_val = lut[field.theta_f1[idx] as usize];
