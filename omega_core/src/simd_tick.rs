@@ -321,25 +321,54 @@ pub fn field_omega_span(field: &Field) -> String {
 pub fn seed_phase_bridge_pattern(field: &mut Field) {
     let size = (field.width * field.height) as usize;
     let width = field.width as usize;
+    let height = field.height as usize;
+    let mut theta_now = vec![0u8; size];
+    let mut omega = vec![0u8; size];
+    let mut energy = vec![0u8; size];
+    let mut locks = vec![0u8; size];
+    let plasmids = vec![0u64; size];
 
     field.oracle_request_count = 0;
     for idx in 0..size {
         let sector = idx % width;
         let rho = idx / width;
-        field.theta_now[idx] = ((sector * 17 + rho * 11) & 255) as u8;
-        field.theta_f1[idx] = 0;
-        field.theta_f2[idx] = 0;
-        field.theta_f3[idx] = 0;
-        field.omega[idx] = ((sector as i16 - (rho as i16 % 5)) as i8) as u8;
-        field.energy[idx] = ((sector * 7 + rho * 13) & 255) as u8;
-        field.hebbian_locks[idx] = ((sector * 3 + rho * 5) & 63) as u8;
+        let collapsed = collapse_canonical_bridge_seed_cell(sector, rho, width, height);
+        theta_now[idx] = collapsed.theta;
+        omega[idx] = encode_bridge_omega(collapsed.omega);
+        energy[idx] = collapsed.amplitude;
+        locks[idx] = collapsed.lock;
         field.cell_status[idx] = 0;
-        field.plasmids[idx] = if (sector + rho) % 9 == 0 {
-            0xAA55u64 | ((sector as u64) << 16) | ((rho as u64) << 24)
-        } else {
-            0
-        };
     }
+
+    let mut theta_f1 = vec![0u8; size];
+    let mut theta_f2 = vec![0u8; size];
+    let mut theta_f3 = vec![0u8; size];
+
+    for rho in 0..height {
+        for sector in 0..width {
+            let idx = rho * width + sector;
+            let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
+            let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
+            let antipode_idx = if width % 2 == 0 {
+                idx_from_sector_rho(width, height, (sector + width / 2) % width, rho)
+            } else {
+                idx
+            };
+
+            theta_f1[idx] = theta_now[left_idx];
+            theta_f2[idx] = theta_now[right_idx];
+            theta_f3[idx] = theta_now[antipode_idx];
+        }
+    }
+
+    field.theta_now = theta_now;
+    field.theta_f1 = theta_f1;
+    field.theta_f2 = theta_f2;
+    field.theta_f3 = theta_f3;
+    field.omega = omega;
+    field.energy = energy;
+    field.hebbian_locks = locks;
+    field.plasmids = plasmids;
 }
 
 #[wasm_bindgen]
@@ -406,6 +435,106 @@ fn encode_bridge_omega(value: i16) -> u8 {
 
 fn clamp_bridge_omega(value: i16) -> i16 {
     value.clamp(-32, 32)
+}
+
+fn clamp_byte(value: i16) -> u8 {
+    value.clamp(0, 255) as u8
+}
+
+struct BridgeSeedCell {
+    theta: u8,
+    omega: i16,
+    amplitude: u8,
+    lock: u8,
+}
+
+fn collapse_canonical_bridge_seed_cell(
+    sector: usize,
+    rho: usize,
+    bridge_width: usize,
+    bridge_height: usize,
+) -> BridgeSeedCell {
+    const CANONICAL_SECTORS: usize = 32;
+    const CANONICAL_RADIAL_BINS: usize = 6;
+    const CANONICAL_HARMONICS: usize = 3;
+
+    let source_sector = project_bridge_sector(sector, bridge_width, CANONICAL_SECTORS);
+    let source_rho = project_bridge_rho(rho, bridge_height, CANONICAL_RADIAL_BINS);
+
+    let mut sum_x = 0.0f32;
+    let mut sum_y = 0.0f32;
+    let mut sum_amplitude = 0i16;
+    let mut sum_lock = 0i16;
+    let mut sum_omega = 0i16;
+    let mut fallback_theta = 0u8;
+
+    for harmonic in 0..CANONICAL_HARMONICS {
+        let theta = canonical_theta(source_sector, source_rho, harmonic);
+        let omega = canonical_omega(source_sector, source_rho, harmonic);
+        let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i16;
+        let lock = canonical_lock(source_sector, source_rho, harmonic) as i16;
+        let weight = amplitude.max(1) as f32;
+        let radians = theta as f32 * std::f32::consts::TAU / 256.0;
+
+        sum_x += radians.cos() * weight;
+        sum_y += radians.sin() * weight;
+        sum_amplitude += amplitude;
+        sum_lock += lock;
+        sum_omega += omega;
+        fallback_theta = theta;
+    }
+
+    let mean_angle = if sum_x == 0.0 && sum_y == 0.0 {
+        fallback_theta as f32 * std::f32::consts::TAU / 256.0
+    } else {
+        sum_y.atan2(sum_x)
+    };
+    let normalized_angle = if mean_angle < 0.0 {
+        mean_angle + std::f32::consts::TAU
+    } else {
+        mean_angle
+    };
+
+    BridgeSeedCell {
+        theta: wrap_phase((normalized_angle / std::f32::consts::TAU * 256.0).round() as i16),
+        omega: clamp_bridge_omega((sum_omega as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+        amplitude: clamp_byte((sum_amplitude as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+        lock: clamp_byte((sum_lock as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+    }
+}
+
+fn project_bridge_sector(target_sector: usize, target_sectors: usize, source_sectors: usize) -> usize {
+    if target_sectors == 0 || source_sectors == 0 {
+        return 0;
+    }
+    wrap_index(((target_sector * source_sectors) / target_sectors) as i32, source_sectors)
+}
+
+fn project_bridge_rho(target_rho: usize, target_bins: usize, source_bins: usize) -> usize {
+    if source_bins == 0 {
+        return 0;
+    }
+    if target_bins >= source_bins {
+        target_rho.min(source_bins - 1)
+    } else {
+        ((target_rho * source_bins) / target_bins).min(source_bins - 1)
+    }
+}
+
+fn canonical_theta(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    wrap_phase((sector * 7 + rho * 19 + harmonic * 23) as i16)
+}
+
+fn canonical_omega(sector: usize, rho: usize, harmonic: usize) -> i16 {
+    ((sector + rho + harmonic) % 5) as i16 - 2
+}
+
+fn canonical_amplitude(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    clamp_byte((sector * 13 + rho * 17 + harmonic * 29) as i16)
+}
+
+fn canonical_lock(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    ((sector * 5 + rho * 11 + harmonic * 3) % 64) as u8
 }
 
 fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {

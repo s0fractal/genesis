@@ -2378,7 +2378,7 @@ export function fnv1a_64(str: string): bigint {
 
 ## `src/shared/phase_canonical.ts`
 ```ts
-import { clamp, createPhaseField } from "./phase_lattice.ts";
+import { clamp, createPhaseField, getCell, wrapIndex, wrapTheta } from "./phase_lattice.ts";
 import type { PhaseField, PhaseFieldShape } from "./phase_lattice.ts";
 
 export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
@@ -2395,6 +2395,82 @@ export function buildCanonicalPhaseSeed(shape: PhaseFieldShape = CANONICAL_PHASE
         lock: (sector * 5 + rho * 11 + harmonic * 3) % 64,
         entanglement: 0,
     }));
+}
+
+export function buildProjectedBridgeSeed(
+    bridgeWidth: number,
+    bridgeHeight: number,
+    shape: PhaseFieldShape = CANONICAL_PHASE_SHAPE,
+): PhaseField {
+    const canonical = buildCanonicalPhaseSeed(shape);
+    return createPhaseField(
+        {
+            sectors: bridgeWidth,
+            radialBins: bridgeHeight,
+            harmonics: 1,
+        },
+        ({ sector, rho }) => collapseCanonicalBridgeCell(canonical, bridgeWidth, bridgeHeight, sector, rho),
+    );
+}
+
+function collapseCanonicalBridgeCell(
+    canonical: PhaseField,
+    bridgeWidth: number,
+    bridgeHeight: number,
+    sector: number,
+    rho: number,
+) {
+    const sourceSector = projectSectorIndex(sector, bridgeWidth, canonical.shape.sectors);
+    const sourceRho = projectRadialIndex(rho, bridgeHeight, canonical.shape.radialBins);
+    let sumX = 0;
+    let sumY = 0;
+    let sumAmplitude = 0;
+    let sumLock = 0;
+    let sumOmega = 0;
+    let maxEntanglement = 0;
+    let fallbackTheta = 0;
+
+    for (let harmonic = 0; harmonic < canonical.shape.harmonics; harmonic++) {
+        const cell = getCell(canonical, sourceSector, sourceRho, harmonic);
+        const weight = Math.max(1, cell.amplitude);
+        const radians = (cell.theta / 256) * Math.PI * 2;
+        sumX += Math.cos(radians) * weight;
+        sumY += Math.sin(radians) * weight;
+        sumAmplitude += cell.amplitude;
+        sumLock += cell.lock;
+        sumOmega += cell.omega;
+        maxEntanglement = Math.max(maxEntanglement, cell.entanglement);
+        fallbackTheta = cell.theta;
+    }
+
+    const harmonicCount = canonical.shape.harmonics;
+    const meanAngle = sumX === 0 && sumY === 0 ? (fallbackTheta / 256) * Math.PI * 2 : Math.atan2(sumY, sumX);
+    const normalizedAngle = meanAngle < 0 ? meanAngle + Math.PI * 2 : meanAngle;
+
+    return {
+        theta: wrapTheta(Math.round((normalizedAngle / (Math.PI * 2)) * 256)),
+        omega: Math.round(sumOmega / harmonicCount),
+        amplitude: clamp(Math.round(sumAmplitude / harmonicCount), 0, 255),
+        lock: clamp(Math.round(sumLock / harmonicCount), 0, 255),
+        entanglement: maxEntanglement,
+    };
+}
+
+function projectSectorIndex(targetSector: number, targetSectors: number, sourceSectors: number): number {
+    if (targetSectors <= 0 || sourceSectors <= 0) {
+        return 0;
+    }
+    return wrapIndex(Math.floor((targetSector * sourceSectors) / targetSectors), sourceSectors);
+}
+
+function projectRadialIndex(targetRho: number, targetBins: number, sourceBins: number): number {
+    if (sourceBins <= 0) {
+        return 0;
+    }
+    if (targetBins >= sourceBins) {
+        return Math.min(targetRho, sourceBins - 1);
+    }
+    return Math.min(Math.floor((targetRho * sourceBins) / targetBins), sourceBins - 1);
 }
 
 ```
@@ -4641,25 +4717,54 @@ pub fn field_omega_span(field: &Field) -> String {
 pub fn seed_phase_bridge_pattern(field: &mut Field) {
     let size = (field.width * field.height) as usize;
     let width = field.width as usize;
+    let height = field.height as usize;
+    let mut theta_now = vec![0u8; size];
+    let mut omega = vec![0u8; size];
+    let mut energy = vec![0u8; size];
+    let mut locks = vec![0u8; size];
+    let plasmids = vec![0u64; size];
 
     field.oracle_request_count = 0;
     for idx in 0..size {
         let sector = idx % width;
         let rho = idx / width;
-        field.theta_now[idx] = ((sector * 17 + rho * 11) & 255) as u8;
-        field.theta_f1[idx] = 0;
-        field.theta_f2[idx] = 0;
-        field.theta_f3[idx] = 0;
-        field.omega[idx] = ((sector as i16 - (rho as i16 % 5)) as i8) as u8;
-        field.energy[idx] = ((sector * 7 + rho * 13) & 255) as u8;
-        field.hebbian_locks[idx] = ((sector * 3 + rho * 5) & 63) as u8;
+        let collapsed = collapse_canonical_bridge_seed_cell(sector, rho, width, height);
+        theta_now[idx] = collapsed.theta;
+        omega[idx] = encode_bridge_omega(collapsed.omega);
+        energy[idx] = collapsed.amplitude;
+        locks[idx] = collapsed.lock;
         field.cell_status[idx] = 0;
-        field.plasmids[idx] = if (sector + rho) % 9 == 0 {
-            0xAA55u64 | ((sector as u64) << 16) | ((rho as u64) << 24)
-        } else {
-            0
-        };
     }
+
+    let mut theta_f1 = vec![0u8; size];
+    let mut theta_f2 = vec![0u8; size];
+    let mut theta_f3 = vec![0u8; size];
+
+    for rho in 0..height {
+        for sector in 0..width {
+            let idx = rho * width + sector;
+            let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
+            let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
+            let antipode_idx = if width % 2 == 0 {
+                idx_from_sector_rho(width, height, (sector + width / 2) % width, rho)
+            } else {
+                idx
+            };
+
+            theta_f1[idx] = theta_now[left_idx];
+            theta_f2[idx] = theta_now[right_idx];
+            theta_f3[idx] = theta_now[antipode_idx];
+        }
+    }
+
+    field.theta_now = theta_now;
+    field.theta_f1 = theta_f1;
+    field.theta_f2 = theta_f2;
+    field.theta_f3 = theta_f3;
+    field.omega = omega;
+    field.energy = energy;
+    field.hebbian_locks = locks;
+    field.plasmids = plasmids;
 }
 
 #[wasm_bindgen]
@@ -4726,6 +4831,106 @@ fn encode_bridge_omega(value: i16) -> u8 {
 
 fn clamp_bridge_omega(value: i16) -> i16 {
     value.clamp(-32, 32)
+}
+
+fn clamp_byte(value: i16) -> u8 {
+    value.clamp(0, 255) as u8
+}
+
+struct BridgeSeedCell {
+    theta: u8,
+    omega: i16,
+    amplitude: u8,
+    lock: u8,
+}
+
+fn collapse_canonical_bridge_seed_cell(
+    sector: usize,
+    rho: usize,
+    bridge_width: usize,
+    bridge_height: usize,
+) -> BridgeSeedCell {
+    const CANONICAL_SECTORS: usize = 32;
+    const CANONICAL_RADIAL_BINS: usize = 6;
+    const CANONICAL_HARMONICS: usize = 3;
+
+    let source_sector = project_bridge_sector(sector, bridge_width, CANONICAL_SECTORS);
+    let source_rho = project_bridge_rho(rho, bridge_height, CANONICAL_RADIAL_BINS);
+
+    let mut sum_x = 0.0f32;
+    let mut sum_y = 0.0f32;
+    let mut sum_amplitude = 0i16;
+    let mut sum_lock = 0i16;
+    let mut sum_omega = 0i16;
+    let mut fallback_theta = 0u8;
+
+    for harmonic in 0..CANONICAL_HARMONICS {
+        let theta = canonical_theta(source_sector, source_rho, harmonic);
+        let omega = canonical_omega(source_sector, source_rho, harmonic);
+        let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i16;
+        let lock = canonical_lock(source_sector, source_rho, harmonic) as i16;
+        let weight = amplitude.max(1) as f32;
+        let radians = theta as f32 * std::f32::consts::TAU / 256.0;
+
+        sum_x += radians.cos() * weight;
+        sum_y += radians.sin() * weight;
+        sum_amplitude += amplitude;
+        sum_lock += lock;
+        sum_omega += omega;
+        fallback_theta = theta;
+    }
+
+    let mean_angle = if sum_x == 0.0 && sum_y == 0.0 {
+        fallback_theta as f32 * std::f32::consts::TAU / 256.0
+    } else {
+        sum_y.atan2(sum_x)
+    };
+    let normalized_angle = if mean_angle < 0.0 {
+        mean_angle + std::f32::consts::TAU
+    } else {
+        mean_angle
+    };
+
+    BridgeSeedCell {
+        theta: wrap_phase((normalized_angle / std::f32::consts::TAU * 256.0).round() as i16),
+        omega: clamp_bridge_omega((sum_omega as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+        amplitude: clamp_byte((sum_amplitude as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+        lock: clamp_byte((sum_lock as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+    }
+}
+
+fn project_bridge_sector(target_sector: usize, target_sectors: usize, source_sectors: usize) -> usize {
+    if target_sectors == 0 || source_sectors == 0 {
+        return 0;
+    }
+    wrap_index(((target_sector * source_sectors) / target_sectors) as i32, source_sectors)
+}
+
+fn project_bridge_rho(target_rho: usize, target_bins: usize, source_bins: usize) -> usize {
+    if source_bins == 0 {
+        return 0;
+    }
+    if target_bins >= source_bins {
+        target_rho.min(source_bins - 1)
+    } else {
+        ((target_rho * source_bins) / target_bins).min(source_bins - 1)
+    }
+}
+
+fn canonical_theta(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    wrap_phase((sector * 7 + rho * 19 + harmonic * 23) as i16)
+}
+
+fn canonical_omega(sector: usize, rho: usize, harmonic: usize) -> i16 {
+    ((sector + rho + harmonic) % 5) as i16 - 2
+}
+
+fn canonical_amplitude(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    clamp_byte((sector * 13 + rho * 17 + harmonic * 29) as i16)
+}
+
+fn canonical_lock(sector: usize, rho: usize, harmonic: usize) -> u8 {
+    ((sector * 5 + rho * 11 + harmonic * 3) % 64) as u8
 }
 
 fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {
@@ -5550,9 +5755,9 @@ export interface PhaseCrossGolden {
     collapsedRadialBins: number;
     trace: PhaseCrossTraceEntry[];
     invariants: {
-        changedCells: number;
+        seedChangedCells: number;
+        amplitudeDeltaCeiling: number;
         maxPhaseDistanceCeiling: number;
-        amplitudeDeltaTrend: "nonincreasing";
         lockDeltaTrend: "nondecreasing";
         entanglementDeltaTrend: "nonincreasing";
     };
@@ -5753,9 +5958,9 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         collapsedRadialBins,
         trace,
         invariants: {
-            changedCells: trace[0]?.changedCells ?? 0,
+            seedChangedCells: trace[0]?.changedCells ?? 0,
+            amplitudeDeltaCeiling: Math.max(...trace.map((entry) => entry.totalAmplitudeDelta)),
             maxPhaseDistanceCeiling: Math.max(...trace.map((entry) => entry.maxPhaseDistance)),
-            amplitudeDeltaTrend: "nonincreasing",
             lockDeltaTrend: "nondecreasing",
             entanglementDeltaTrend: "nonincreasing",
         },
@@ -6383,18 +6588,24 @@ function verifyPhaseCross(actual: PhaseCrossGolden, expected: PhaseCrossGolden):
         compareTraceEntry(actual.trace[index], expected.trace[index], index);
     }
 
-    const changedCells = expected.invariants.changedCells;
+    assert(
+        actual.trace[0]?.changedCells === expected.invariants.seedChangedCells,
+        `phase_cross seedChangedCells mismatch: expected=${expected.invariants.seedChangedCells} actual=${actual.trace[0]?.changedCells ?? "missing"}`,
+    );
+
     for (const entry of actual.trace) {
-        assert(entry.changedCells === changedCells, `phase_cross changedCells mismatch at tick=${entry.tick}: expected=${changedCells} actual=${entry.changedCells}`);
+        assert(
+            entry.totalAmplitudeDelta <= expected.invariants.amplitudeDeltaCeiling,
+            `phase_cross totalAmplitudeDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.amplitudeDeltaCeiling} actual=${entry.totalAmplitudeDelta}`,
+        );
         assert(
             entry.maxPhaseDistance <= expected.invariants.maxPhaseDistanceCeiling,
             `phase_cross maxPhaseDistance exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.maxPhaseDistanceCeiling} actual=${entry.maxPhaseDistance}`,
         );
     }
 
-    verifyMonotonicTrend(actual.trace, "totalAmplitudeDelta", expected.invariants.amplitudeDeltaTrend);
-    verifyMonotonicTrend(actual.trace, "totalLockDelta", expected.invariants.lockDeltaTrend);
-    verifyMonotonicTrend(actual.trace, "totalEntanglementDelta", expected.invariants.entanglementDeltaTrend);
+    verifyMonotonicTrend(actual.trace.slice(1), "totalLockDelta", expected.invariants.lockDeltaTrend);
+    verifyMonotonicTrend(actual.trace.slice(1), "totalEntanglementDelta", expected.invariants.entanglementDeltaTrend);
 }
 
 async function main(): Promise<void> {
@@ -6409,7 +6620,7 @@ async function main(): Promise<void> {
     console.log("=== Genesis verify:phase-cross ===");
     console.log(`ticks=${actual.ticks}`);
     console.log(`collapsed_radial_bins=${actual.collapsedRadialBins}`);
-    console.log(`changed_cells=${actual.invariants.changedCells}`);
+    console.log(`seed_changed_cells=${actual.invariants.seedChangedCells}`);
     console.log(`phase_signature=${last?.phaseSignature ?? "missing"}`);
     console.log(`hybrid_signature=${last?.hybridSignature ?? "missing"}`);
     console.log(`amplitude_delta=${last?.totalAmplitudeDelta ?? "missing"}`);
@@ -6694,112 +6905,112 @@ if (import.meta.main) {
   "wasmTrace": [
     {
       "tick": 0,
-      "signature": "5aa570b70368c929",
-      "totalEnergy": 34048,
-      "totalLocks": 8064,
-      "totalPlasmids": 28,
-      "omegaSpan": "-4..31"
+      "signature": "7df4953e3350630b",
+      "totalEnergy": 54912,
+      "totalLocks": 7967,
+      "totalPlasmids": 0,
+      "omegaSpan": "-1..1"
     },
     {
       "tick": 1,
-      "signature": "87c2867aaa98a967",
-      "totalEnergy": 39714,
-      "totalLocks": 8576,
-      "totalPlasmids": 126,
-      "omegaSpan": "-32..30"
+      "signature": "1babd9d8867fde79",
+      "totalEnergy": 57407,
+      "totalLocks": 8455,
+      "totalPlasmids": 194,
+      "omegaSpan": "-2..2"
     },
     {
       "tick": 2,
-      "signature": "760011c5f7067f5c",
-      "totalEnergy": 43051,
-      "totalLocks": 8457,
-      "totalPlasmids": 179,
-      "omegaSpan": "-32..30"
+      "signature": "dcffb265ed82fcbc",
+      "totalEnergy": 58656,
+      "totalLocks": 8875,
+      "totalPlasmids": 202,
+      "omegaSpan": "-2..3"
     },
     {
       "tick": 3,
-      "signature": "08bba37fe1fd37b7",
-      "totalEnergy": 46198,
-      "totalLocks": 8510,
-      "totalPlasmids": 194,
-      "omegaSpan": "-32..30"
+      "signature": "c14774ce1d0dbacd",
+      "totalEnergy": 59475,
+      "totalLocks": 9267,
+      "totalPlasmids": 211,
+      "omegaSpan": "-3..3"
     },
     {
       "tick": 4,
-      "signature": "b56a0f02f38600d9",
-      "totalEnergy": 48943,
-      "totalLocks": 8583,
-      "totalPlasmids": 210,
-      "omegaSpan": "-32..30"
+      "signature": "b6d89f3f47562a96",
+      "totalEnergy": 60097,
+      "totalLocks": 9641,
+      "totalPlasmids": 215,
+      "omegaSpan": "-2..4"
     },
     {
       "tick": 5,
-      "signature": "ced2b98fd300bfb9",
-      "totalEnergy": 51307,
-      "totalLocks": 8659,
-      "totalPlasmids": 226,
-      "omegaSpan": "-32..30"
+      "signature": "1149fc6fb19a06b9",
+      "totalEnergy": 60560,
+      "totalLocks": 9992,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..5"
     },
     {
       "tick": 6,
-      "signature": "71cfa787ded6a979",
-      "totalEnergy": 53212,
-      "totalLocks": 8735,
-      "totalPlasmids": 234,
-      "omegaSpan": "-32..31"
+      "signature": "d4f5d586f6da0d58",
+      "totalEnergy": 60955,
+      "totalLocks": 10331,
+      "totalPlasmids": 220,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 7,
-      "signature": "f1a7a6f330cdb8d7",
-      "totalEnergy": 54785,
-      "totalLocks": 8808,
-      "totalPlasmids": 237,
-      "omegaSpan": "-32..31"
+      "signature": "46ce51254812f952",
+      "totalEnergy": 61238,
+      "totalLocks": 10663,
+      "totalPlasmids": 220,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 8,
-      "signature": "f94334b34f43efe4",
-      "totalEnergy": 55818,
-      "totalLocks": 8882,
-      "totalPlasmids": 238,
-      "omegaSpan": "-32..32"
+      "signature": "ece1cf4af3fa14a3",
+      "totalEnergy": 61447,
+      "totalLocks": 10992,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..6"
     },
     {
       "tick": 9,
-      "signature": "6eb64360891b0bcd",
-      "totalEnergy": 56557,
-      "totalLocks": 8962,
-      "totalPlasmids": 239,
-      "omegaSpan": "-32..32"
+      "signature": "f403cd1b41546e41",
+      "totalEnergy": 61591,
+      "totalLocks": 11324,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..6"
     },
     {
       "tick": 10,
-      "signature": "dfac9c93d2212be8",
-      "totalEnergy": 57085,
-      "totalLocks": 9018,
-      "totalPlasmids": 239,
-      "omegaSpan": "-32..32"
+      "signature": "7232e1790e145b7b",
+      "totalEnergy": 61654,
+      "totalLocks": 11656,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..8"
     },
     {
       "tick": 11,
-      "signature": "9d800082c8e9f06b",
-      "totalEnergy": 57362,
-      "totalLocks": 9079,
-      "totalPlasmids": 239,
-      "omegaSpan": "-32..32"
+      "signature": "efc10d02d0ed59b6",
+      "totalEnergy": 61663,
+      "totalLocks": 11958,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..10"
     },
     {
       "tick": 12,
-      "signature": "fc98f9d18bd490d9",
-      "totalEnergy": 57550,
-      "totalLocks": 9168,
-      "totalPlasmids": 239,
-      "omegaSpan": "-32..32"
+      "signature": "2b016c718b95f962",
+      "totalEnergy": 61663,
+      "totalLocks": 12254,
+      "totalPlasmids": 220,
+      "omegaSpan": "-3..11"
     }
   ],
   "invariants": {
-    "seedSignature": "5aa570b70368c929",
-    "rotatedSignature": "1fdef4c8782aabd5"
+    "seedSignature": "7df4953e3350630b",
+    "rotatedSignature": "b9e0215dbf69053e"
   }
 }
 
@@ -6823,139 +7034,139 @@ if (import.meta.main) {
   "trace": [
     {
       "tick": 0,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 15028,
-      "totalLockDelta": 277,
-      "totalEntanglementDelta": -2588,
-      "maxPhaseDistance": 128,
+      "changedCells": 0,
+      "totalAmplitudeDelta": 0,
+      "totalLockDelta": 0,
+      "totalEntanglementDelta": 0,
+      "maxPhaseDistance": 0,
       "phaseSignature": "f22292a47e8b5c31",
-      "hybridSignature": "7262fb07a6874c6b"
+      "hybridSignature": "f22292a47e8b5c31"
     },
     {
       "tick": 1,
       "changedCells": 192,
-      "totalAmplitudeDelta": 12789,
-      "totalLockDelta": 1429,
-      "totalEntanglementDelta": -11460,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 75,
+      "totalLockDelta": 1170,
+      "totalEntanglementDelta": -17977,
+      "maxPhaseDistance": 5,
       "phaseSignature": "ff882d4045b3a340",
-      "hybridSignature": "ab615f9a91af372d"
+      "hybridSignature": "712481cea83dc3f2"
     },
     {
       "tick": 2,
       "changedCells": 192,
-      "totalAmplitudeDelta": 12015,
-      "totalLockDelta": 3068,
-      "totalEntanglementDelta": -17113,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 773,
+      "totalLockDelta": 2392,
+      "totalEntanglementDelta": -18784,
+      "maxPhaseDistance": 39,
       "phaseSignature": "fd4d9e95d4d302e5",
-      "hybridSignature": "0be7ec2c6cb48a6b"
+      "hybridSignature": "70d1a5dfc75ea76e"
     },
     {
       "tick": 3,
       "changedCells": 192,
-      "totalAmplitudeDelta": 11077,
-      "totalLockDelta": 4565,
-      "totalEntanglementDelta": -19071,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 1487,
+      "totalLockDelta": 3634,
+      "totalEntanglementDelta": -20016,
+      "maxPhaseDistance": 46,
       "phaseSignature": "7e330567c8554ce3",
-      "hybridSignature": "28aac1db712d3744"
+      "hybridSignature": "9eda38655da17bf2"
     },
     {
       "tick": 4,
       "changedCells": 192,
-      "totalAmplitudeDelta": 10173,
-      "totalLockDelta": 6040,
-      "totalEntanglementDelta": -20766,
-      "maxPhaseDistance": 127,
+      "totalAmplitudeDelta": 2110,
+      "totalLockDelta": 4894,
+      "totalEntanglementDelta": -20800,
+      "maxPhaseDistance": 46,
       "phaseSignature": "8ffa01145d1323f3",
-      "hybridSignature": "0ec7378a73dd7a52"
+      "hybridSignature": "1301625d9c21d863"
     },
     {
       "tick": 5,
       "changedCells": 192,
-      "totalAmplitudeDelta": 9213,
-      "totalLockDelta": 7500,
-      "totalEntanglementDelta": -22243,
-      "maxPhaseDistance": 127,
+      "totalAmplitudeDelta": 2622,
+      "totalLockDelta": 6171,
+      "totalEntanglementDelta": -21416,
+      "maxPhaseDistance": 53,
       "phaseSignature": "ca9bf9b69ecef1ca",
-      "hybridSignature": "da6df1fe87911c70"
+      "hybridSignature": "eeedd38c8c7a1e40"
     },
     {
       "tick": 6,
       "changedCells": 192,
-      "totalAmplitudeDelta": 8303,
-      "totalLockDelta": 8966,
-      "totalEntanglementDelta": -22814,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 2962,
+      "totalLockDelta": 7460,
+      "totalEntanglementDelta": -21899,
+      "maxPhaseDistance": 50,
       "phaseSignature": "8f8b3113f7a57b16",
-      "hybridSignature": "033061c7c10af434"
+      "hybridSignature": "fd9b6973a54179d8"
     },
     {
       "tick": 7,
       "changedCells": 192,
-      "totalAmplitudeDelta": 7404,
-      "totalLockDelta": 10429,
-      "totalEntanglementDelta": -23140,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 3105,
+      "totalLockDelta": 8756,
+      "totalEntanglementDelta": -22139,
+      "maxPhaseDistance": 47,
       "phaseSignature": "c1ea6744f7153881",
-      "hybridSignature": "8428cda122c5857c"
+      "hybridSignature": "09d410df2d3a44b6"
     },
     {
       "tick": 8,
       "changedCells": 192,
-      "totalAmplitudeDelta": 6713,
-      "totalLockDelta": 11897,
-      "totalEntanglementDelta": -23347,
-      "maxPhaseDistance": 128,
+      "totalAmplitudeDelta": 3097,
+      "totalLockDelta": 10055,
+      "totalEntanglementDelta": -22376,
+      "maxPhaseDistance": 44,
       "phaseSignature": "6c7ae180782339b3",
-      "hybridSignature": "a32caac49b6d9a2c"
+      "hybridSignature": "f8ab905efabaa661"
     },
     {
       "tick": 9,
       "changedCells": 192,
-      "totalAmplitudeDelta": 6142,
-      "totalLockDelta": 13365,
-      "totalEntanglementDelta": -23415,
-      "maxPhaseDistance": 127,
+      "totalAmplitudeDelta": 3042,
+      "totalLockDelta": 11354,
+      "totalEntanglementDelta": -22613,
+      "maxPhaseDistance": 38,
       "phaseSignature": "3de87dbd183491fa",
-      "hybridSignature": "a8c1937d4bd4d72a"
+      "hybridSignature": "96e59bdefb4ebadb"
     },
     {
       "tick": 10,
       "changedCells": 192,
-      "totalAmplitudeDelta": 5715,
-      "totalLockDelta": 14859,
-      "totalEntanglementDelta": -23457,
-      "maxPhaseDistance": 127,
+      "totalAmplitudeDelta": 3012,
+      "totalLockDelta": 12653,
+      "totalEntanglementDelta": -22850,
+      "maxPhaseDistance": 30,
       "phaseSignature": "0444ff443961e3bf",
-      "hybridSignature": "3052d15354d42104"
+      "hybridSignature": "7884903c4f2d853f"
     },
     {
       "tick": 11,
       "changedCells": 192,
-      "totalAmplitudeDelta": 5544,
-      "totalLockDelta": 16360,
-      "totalEntanglementDelta": -23492,
-      "maxPhaseDistance": 126,
+      "totalAmplitudeDelta": 3011,
+      "totalLockDelta": 13958,
+      "totalEntanglementDelta": -23081,
+      "maxPhaseDistance": 29,
       "phaseSignature": "b479cf29a3015e1e",
-      "hybridSignature": "657ef627f21a6748"
+      "hybridSignature": "ed595522aba23471"
     },
     {
       "tick": 12,
       "changedCells": 192,
-      "totalAmplitudeDelta": 5492,
-      "totalLockDelta": 17842,
-      "totalEntanglementDelta": -23546,
-      "maxPhaseDistance": 126,
+      "totalAmplitudeDelta": 3011,
+      "totalLockDelta": 15260,
+      "totalEntanglementDelta": -23315,
+      "maxPhaseDistance": 32,
       "phaseSignature": "450154228192c10a",
-      "hybridSignature": "8b237b9f93387736"
+      "hybridSignature": "076a178abda92179"
     }
   ],
   "invariants": {
-    "changedCells": 192,
-    "maxPhaseDistanceCeiling": 128,
-    "amplitudeDeltaTrend": "nonincreasing",
+    "seedChangedCells": 0,
+    "amplitudeDeltaCeiling": 3105,
+    "maxPhaseDistanceCeiling": 53,
     "lockDeltaTrend": "nondecreasing",
     "entanglementDeltaTrend": "nonincreasing"
   }

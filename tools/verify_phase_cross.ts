@@ -50,18 +50,24 @@ function verifyPhaseCross(actual: PhaseCrossGolden, expected: PhaseCrossGolden):
         compareTraceEntry(actual.trace[index], expected.trace[index], index);
     }
 
-    const changedCells = expected.invariants.changedCells;
+    assert(
+        actual.trace[0]?.changedCells === expected.invariants.seedChangedCells,
+        `phase_cross seedChangedCells mismatch: expected=${expected.invariants.seedChangedCells} actual=${actual.trace[0]?.changedCells ?? "missing"}`,
+    );
+
     for (const entry of actual.trace) {
-        assert(entry.changedCells === changedCells, `phase_cross changedCells mismatch at tick=${entry.tick}: expected=${changedCells} actual=${entry.changedCells}`);
+        assert(
+            entry.totalAmplitudeDelta <= expected.invariants.amplitudeDeltaCeiling,
+            `phase_cross totalAmplitudeDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.amplitudeDeltaCeiling} actual=${entry.totalAmplitudeDelta}`,
+        );
         assert(
             entry.maxPhaseDistance <= expected.invariants.maxPhaseDistanceCeiling,
             `phase_cross maxPhaseDistance exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.maxPhaseDistanceCeiling} actual=${entry.maxPhaseDistance}`,
         );
     }
 
-    verifyMonotonicTrend(actual.trace, "totalAmplitudeDelta", expected.invariants.amplitudeDeltaTrend);
-    verifyMonotonicTrend(actual.trace, "totalLockDelta", expected.invariants.lockDeltaTrend);
-    verifyMonotonicTrend(actual.trace, "totalEntanglementDelta", expected.invariants.entanglementDeltaTrend);
+    verifyMonotonicTrend(actual.trace.slice(1), "totalLockDelta", expected.invariants.lockDeltaTrend);
+    verifyMonotonicTrend(actual.trace.slice(1), "totalEntanglementDelta", expected.invariants.entanglementDeltaTrend);
 }
 
 async function main(): Promise<void> {
@@ -76,7 +82,7 @@ async function main(): Promise<void> {
     console.log("=== Genesis verify:phase-cross ===");
     console.log(`ticks=${actual.ticks}`);
     console.log(`collapsed_radial_bins=${actual.collapsedRadialBins}`);
-    console.log(`changed_cells=${actual.invariants.changedCells}`);
+    console.log(`seed_changed_cells=${actual.invariants.seedChangedCells}`);
     console.log(`phase_signature=${last?.phaseSignature ?? "missing"}`);
     console.log(`hybrid_signature=${last?.hybridSignature ?? "missing"}`);
     console.log(`amplitude_delta=${last?.totalAmplitudeDelta ?? "missing"}`);

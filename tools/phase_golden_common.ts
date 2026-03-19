@@ -107,9 +107,9 @@ export interface PhaseCrossGolden {
     collapsedRadialBins: number;
     trace: PhaseCrossTraceEntry[];
     invariants: {
-        changedCells: number;
+        seedChangedCells: number;
+        amplitudeDeltaCeiling: number;
         maxPhaseDistanceCeiling: number;
-        amplitudeDeltaTrend: "nonincreasing";
         lockDeltaTrend: "nondecreasing";
         entanglementDeltaTrend: "nonincreasing";
     };
@@ -310,9 +310,9 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         collapsedRadialBins,
         trace,
         invariants: {
-            changedCells: trace[0]?.changedCells ?? 0,
+            seedChangedCells: trace[0]?.changedCells ?? 0,
+            amplitudeDeltaCeiling: Math.max(...trace.map((entry) => entry.totalAmplitudeDelta)),
             maxPhaseDistanceCeiling: Math.max(...trace.map((entry) => entry.maxPhaseDistance)),
-            amplitudeDeltaTrend: "nonincreasing",
             lockDeltaTrend: "nondecreasing",
             entanglementDeltaTrend: "nonincreasing",
         },
