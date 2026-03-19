@@ -1,0 +1,112 @@
+‡¨fast_abs‡¨identity„¯structural_hashÙ@d4dd39d3bbef94feb0bf41186b2979062d0e8040936a7cc6af89eac4d19f4533¬context_hash¤init§version§parents‘Ù@24a6d1328091633db389b8ae8b75d8aec3987719538ce65dca502231e00a0360§essenceƒ¤type§pure_fn¥level©substrate¢ts§physics‚«energy_cost©stability¢io‚¢in¡v®i32@field:math£out®i32@field:math¤exprƒ¤args‘‚¤name¡v¤type£i32£ret£i32¤bodyƒ¤kind¢op¢op£mul¤args’ƒ¤kind£var¤name¡v¤type£i32ƒ¤kind¥const¥value¤bits ®implementation€¬mutation_log”ÙmMutated IR at [body.args.1.value] to: 8 -> [739bdfca87e3f9e8b00753d19563851173903d8dc45fa49022a7e41e615ae0a9]ÙnMutated IR at [body.args.1.value] to: 16 -> [5c999784776e19f4e5951478f752b868e024e2d91a7d0edb76915d99e167c36b]ÙmMutated IR at [body.args.1.value] to: 8 -> [24a6d1328091633db389b8ae8b75d8aec3987719538ce65dca502231e00a0360]ÙnMutated IR at [body.args.1.value] to: 16 -> [f578158aa8cb00fa114accb673c0b4e9f177e0a0aec8d9ad4eac808323bf38f7]¹calculate_structural_hash‡¨identity„¯structural_hashÙ@742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501¬context_hash¤core§version§parents§essenceƒ¤type§meta_fn¥level©substrate¢ts§physics‚«energy_cost
+©stability¢io‚¢in¤nodeªSigma3Node£out¦string¤exprƒ¤args‘‚¤name¤node¤typeªSigma3Node£ret¦string¤bodyÙ4sha256(JSON.stringify({essence, io, expr, parents}))®implementation¢tsÚSconst { encodeHex } = await import("jsr:@std/encoding/hex");
+const payload = JSON.stringify({
+  essence: node.essence,
+  io: node.io,
+  expr: node.expr,
+  parents: node.identity.parents
+});
+const msgUint8 = new TextEncoder().encode(payload);
+const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+return encodeHex(hashBuffer);¬mutation_log©mutate_ir‡¨identity„¯structural_hashÙ@15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456¬context_hash¤core§version§parents§essenceƒ¤type§meta_fn¥level©substrate¢ts§physics‚«energy_cost
+©stability¢io‚¢in…¥state¥State«targetAlias¦string¤path±(string|number)[]¨newValue£any­executeNeuron¨Function£out¶TransformResult<State>¤exprƒ¤args•‚¤name¥state¤type¥State‚¤name«targetAlias¤type¦string‚¤name¤path¤type±(string|number)[]‚¤name¨newValue¤type£any‚¤name­executeNeuron¤type¨Function£ret¶TransformResult<State>¤body¿state' = apply_ir_mutation(...)®implementation¢tsÚ|const next = structuredClone(state);
+        const diff = { added: [], updated: [], removed: [] };
+
+        const targetNode = next[targetAlias];
+        if (!targetNode) {
+          throw new Error(`Neuron ${targetAlias} not found in state.`);
+        }
+
+        const oldHash = targetNode.identity.structural_hash;
+        
+        // Mutate the IR tree by following the path
+        let current = targetNode.expr;
+        for (let i = 0; i < path.length - 1; i++) {
+            current = current[path[i]];
+        }
+        current[path[path.length - 1]] = newValue;
+        
+        // Execute the hash neuron to calculate the new hash
+        const newHash = await executeNeuron(next, "calculate_structural_hash", { node: targetNode });
+        
+        targetNode.identity = {
+          ...targetNode.identity,
+          structural_hash: newHash,
+          parents: [oldHash],
+          version: targetNode.identity.version + 1
+        };
+        
+        targetNode.mutation_log.push(`Mutated IR at [${path.join(".")}] to: ${JSON.stringify(newValue)} -> [${newHash}]`);
+        diff.updated.push(targetAlias);
+
+        return { next, diff };¬mutation_log³flush_state_to_disk‡¨identity„¯structural_hashÙ@84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3¬context_hash¤core§version§parents§essenceƒ¤type§meta_fn¥level©substrate¢ts§physics‚«energy_cost
+©stability¢io‚¢in‚©nextState¥StateªtargetFile¦string£out¤void¤exprƒ¤args’‚¤name©nextState¤type¥State‚¤nameªtargetFile¤type¦string£ret¤void¤body¸write(nextState) to Disk®implementation¢tsÚ7const { packTissueToBinary, serializeTissueToMarkdown } = await import("./quine.ts");
+if (targetFile.endsWith(".bin")) {
+  await Deno.writeFile(targetFile, packTissueToBinary(nextState));
+} else {
+  const markdownStr = serializeTissueToMarkdown(nextState);
+  await Deno.writeTextFile(targetFile, markdownStr);
+}¬mutation_log®tissue_history‡¨identity„¯structural_hashÙ@da4c146ec3d2d27879979c3316d4ff59f88683bda3765573c0614d315179f6b2¬context_hash¤core§version§parents‘Ù@da4c146ec3d2d27879979c3316d4ff59f88683bda3765573c0614d315179f6b2§essenceƒ¤type¦module¥level©substrate¢ts§physics‚«energy_cost
+©stability¢io‚¢in€£out€¤exprƒ¤args£ret¤void¤body¨log_file¯./history.jsonl®implementation€¬mutation_log’Ù3Appended epoch with 2 operations to ./history.jsonlÙ3Appended epoch with 2 operations to ./history.jsonl¬atomic_pulse‡¨identity„¯structural_hashÙ@b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105¬context_hash¤core§version§parents§essenceƒ¤type§meta_fn¥level©substrate¢ts§physics‚«energy_cost
+©stability¢io‚¢inƒ¥state¥StateªoperationsÙ1Array<{alias: string, args: Record<string, any>}>­executeNeuron¨Function£outÙ={ success: boolean, next: State, log: any[], error?: string }¤exprƒ¤args“‚¤name¥state¤type¥State‚¤nameªoperations¤typeÙ1Array<{alias: string, args: Record<string, any>}>‚¤name­executeNeuron¤type¨Function£retÙ={ success: boolean, next: State, log: any[], error?: string }¤bodyÙ/try { next = applyAll(ops) } catch { rollback }®implementation¢tsÚ	µlet tempState = structuredClone(state);
+        const epochLog = [];
+        
+        try {
+          for (const op of operations) {
+            const currentArgs = { ...op.args, state: tempState, executeNeuron };
+            const result = await executeNeuron(tempState, op.alias, currentArgs);
+            tempState = result.next;
+            epochLog.push({ alias: op.alias, diff: result.diff });
+          }
+          
+          for (const key in tempState) {
+            const node = tempState[key];
+            if (typeof node.expr !== "object") throw new Error(`Node ${key} missing IR logic branch`);
+            if (!Array.isArray(node.identity.parents)) throw new Error(`Node ${key} lineage is not a DAG`);
+            const calculatedHash = await executeNeuron(tempState, "calculate_structural_hash", { node });
+            if (node.identity.structural_hash !== calculatedHash) {
+                node.identity.structural_hash = calculatedHash;
+            }
+          }
+        } catch (e) {
+          return { success: false, next: state, log: [], error: e.message };
+        }
+        
+        // Record epoch in tissue_history
+        if (tempState["tissue_history"]) {
+           const historyNode = tempState["tissue_history"];
+           const oldHash = historyNode.identity.structural_hash;
+           
+           const epochRecord = {
+             timestamp: Date.now(),
+             operations: epochLog
+           };
+           
+           // Offload the heavy payload to an external append-only log file
+           let logFile = "./history.jsonl";
+           try {
+             const pointer = typeof historyNode.expr.body === "string" ? JSON.parse(historyNode.expr.body) : historyNode.expr.body;
+             if (pointer && pointer.log_file) logFile = pointer.log_file;
+           } catch(e) {}
+           
+           await Deno.writeTextFile(logFile, JSON.stringify(epochRecord) + "\\n", { append: true });
+           
+           const newHash = await executeNeuron(tempState, "calculate_structural_hash", { node: historyNode });
+           
+           historyNode.identity = {
+             ...historyNode.identity,
+             structural_hash: newHash,
+             parents: [oldHash],
+             version: historyNode.identity.version + 1
+           };
+           
+           historyNode.mutation_log.push(`Appended epoch with ${epochLog.length} operations to ${logFile}`);
+        }
+        
+        return { success: true, next: tempState, log: epochLog };¬mutation_log´rust_compiler_bridge‡¨identity„¯structural_hashÙ@f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246¬context_hash£sys§version§parents§essenceƒ¤type§meta_fn¥level©substrate¢ts§physics‚«energy_costd©stability¢io‚¢in‚©nodeAlias¦string¥state¥State£out¤void¤exprƒ¤args’‚¤name©nodeAlias¤type¦string‚¤name¥state¤type¥State£ret¤void¤bodyƒ¤kind¥const¥value ¤bits ®implementation¢tsÚÚconst targetNode = state[nodeAlias];
+        if (!targetNode) throw new Error(`Neuron ${nodeAlias} not found`);
+        const irJson = await Dispatcher.foldForRust(targetNode);
+        console.log(`[RUST BRIDGE] ğŸ“¤ Sending IR for ${nodeAlias} to Rust Compiler...`);
+        console.log(`[RUST BRIDGE] IR Payload: ${irJson}`);
+        console.log(`[RUST BRIDGE] ğŸ“¥ Awaiting implementation of WASM linker...`);
+        // Deno.run({ cmd: ["cargo", "run", "--", irJson] });¬mutation_log

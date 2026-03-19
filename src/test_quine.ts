@@ -1,9 +1,17 @@
-import { executeNeuron, parseTissueFromMarkdown } from "./quine.ts";
+import { executeNeuron, parseTissueFromMarkdown, unpackTissueFromBinary } from "./quine.ts";
 
 async function main() {
   console.log("=== OMEGA-64 | Σ³ ATOMIC PULSE TEST ===");
   
-  const Tissue = await parseTissueFromMarkdown("./I.md");
+  let Tissue;
+  try {
+    const binData = await Deno.readFile("./seed.bin");
+    Tissue = await unpackTissueFromBinary(binData);
+    console.log("🧬 Loaded organism from high-speed binary seed.bin!");
+  } catch (e) {
+    Tissue = await parseTissueFromMarkdown("./I.md");
+    console.log("📜 Loaded organism from slow markdown I.md.");
+  }
 
   console.log("Before atomic pulse:");
   console.log("Expr (fast_abs):", typeof Tissue.fast_abs.expr.body === "string" ? Tissue.fast_abs.expr.body : JSON.stringify(Tissue.fast_abs.expr.body));
@@ -58,10 +66,16 @@ async function main() {
   console.log("\nActivating meta_fn: flush_state_to_disk...");
   await executeNeuron(result.next, "flush_state_to_disk", {
     nextState: result.next,
+    targetFile: "./seed.bin"
+  });
+  
+  console.log("Activating meta_fn: flush_state_to_disk (Human Export)...");
+  await executeNeuron(result.next, "flush_state_to_disk", {
+    nextState: result.next,
     targetFile: "./I.md"
   });
   
-  console.log("Done! Check I.md.");
+  console.log("Done! Check seed.bin and I.md.");
 }
 
 if (import.meta.main) {

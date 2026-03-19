@@ -1,4 +1,5 @@
 import { encode } from "npm:@toon-format/toon";
+import { encode as packMsgPack, decode as unpackMsgPack } from "npm:@msgpack/msgpack";
 
 // --- TYPES (PHYSICS) ---
 
@@ -425,4 +426,16 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
   }
   
   return state;
+}
+
+// --- BINARY SEED (LUCA) ---
+
+export function packTissueToBinary(tissue: State): Uint8Array {
+  // Ultra-fast deterministic AST packing
+  return packMsgPack(tissue);
+}
+
+export async function unpackTissueFromBinary(buffer: Uint8Array): Promise<State> {
+  // Ultra-fast AST unpacking
+  return unpackMsgPack(buffer) as State;
 }

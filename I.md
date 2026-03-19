@@ -7,9 +7,9 @@
   calculate_structural_hash,core,meta_fn,ts,10,1,#calculate_structural_hash, 54
   mutate_ir,core,meta_fn,ts,10,1,#mutate_ir, 85
   flush_state_to_disk,core,meta_fn,ts,10,1,#flush_state_to_disk, 141
-  tissue_history,core,module,ts,10,1,#tissue_history, 166
-  atomic_pulse,core,meta_fn,ts,10,1,#atomic_pulse, 185
-  rust_compiler_bridge,sys,meta_fn,ts,100,1,#rust_compiler_bridge, 266
+  tissue_history,core,module,ts,10,1,#tissue_history, 170
+  atomic_pulse,core,meta_fn,ts,10,1,#atomic_pulse, 189
+  rust_compiler_bridge,sys,meta_fn,ts,100,1,#rust_compiler_bridge, 270
 ---
 
 # 🧬 THE TISSUE (ACTIVE CANON)
@@ -18,9 +18,9 @@
 
 ### fast_abs
 #### Identity
-hash: 1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9
-version: 22
-parents: ["83d7920d5a4da42d44bace7d9ad43e3d19700f14e33fdaed7c63acc40bb766b0"]
+hash: d4dd39d3bbef94feb0bf41186b2979062d0e8040936a7cc6af89eac4d19f4533
+version: 26
+parents: ["24a6d1328091633db389b8ae8b75d8aec3987719538ce65dca502231e00a0360"]
 
 #### IO
 in:
@@ -156,18 +156,22 @@ write(nextState) to Disk
 
 #### Implementation
 ```ts
-const { serializeTissueToMarkdown } = await import("./quine.ts");
-const markdownStr = serializeTissueToMarkdown(nextState);
-await Deno.writeTextFile(targetFile, markdownStr);
+const { packTissueToBinary, serializeTissueToMarkdown } = await import("./quine.ts");
+if (targetFile.endsWith(".bin")) {
+  await Deno.writeFile(targetFile, packTissueToBinary(nextState));
+} else {
+  const markdownStr = serializeTissueToMarkdown(nextState);
+  await Deno.writeTextFile(targetFile, markdownStr);
+}
 ```
 
 ---
 
 ### tissue_history
 #### Identity
-hash: 58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2
-version: 11
-parents: ["58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2"]
+hash: da4c146ec3d2d27879979c3316d4ff59f88683bda3765573c0614d315179f6b2
+version: 13
+parents: ["da4c146ec3d2d27879979c3316d4ff59f88683bda3765573c0614d315179f6b2"]
 
 #### IO
 in:
