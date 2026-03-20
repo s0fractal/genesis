@@ -1,4 +1,5 @@
 import { fnv1a_64 } from "../shared/hash";
+import { PhaseComputeEngine } from "../lens/phase_compute.js";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -14,12 +15,23 @@ export interface OracleCompatibleField {
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
+    private engine?: PhaseComputeEngine;
     private isRunning: boolean = false;
     private isBusy: boolean = false;
+    private requestQueue: number[] = [];
 
-    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory) {
+    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine) {
         this.wasmField = field;
         this.wasmMemory = memory;
+        this.engine = engine;
+    }
+
+    public request(idx: number) {
+        this.requestQueue.push(idx);
+    }
+
+    public getQueueSize(): number {
+        return this.engine ? this.requestQueue.length : this.wasmField.get_oracle_request_count();
     }
 
     public async boot() {
@@ -30,25 +42,31 @@ export class SovereignOracle {
     public sync() {
         if (!this.isRunning || this.isBusy) return;
         
-        // Polled every frame from the main physics loop (60Hz)
-        const count = this.wasmField.get_oracle_request_count();
-        if (count > 0) {
-            this.processQueue(count);
+        let count = 0;
+        let requests: number[] = [];
+
+        if (this.engine) {
+            count = this.requestQueue.length;
+            if (count > 0) {
+                requests = [...this.requestQueue];
+                this.requestQueue = [];
+                this.processQueue(count, requests);
+            }
+        } else {
+            // Legacy WASM fallback
+            count = this.wasmField.get_oracle_request_count();
+            if (count > 0) {
+                const requestPtr = this.wasmField.ptr_oracle_requests();
+                const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
+                requests = Array.from(requestArray);
+                this.wasmField.clear_oracle_requests();
+                this.processQueue(count, requests);
+            }
         }
     }
 
-    private async processQueue(count: number) {
+    private async processQueue(count: number, requests: number[]) {
         this.isBusy = true;
-        
-        // 1. Extract requests from WASM O-20 Ring Buffer
-        const requestPtr = this.wasmField.ptr_oracle_requests();
-        const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
-        
-        // Clone into TS space (Garbage Collected) 
-        const requests = Array.from(requestArray);
-        
-        // Immediately clear the WASM queue so physics can accumulate new distress signals independently
-        this.wasmField.clear_oracle_requests();
         
         console.log(`[ORACLE] Queue threshold triggered. Batching ${count} anomalous structural signatures for Semantic Resolution...`);
 
@@ -91,9 +109,21 @@ export class SovereignOracle {
     }
 
     private fulfillRequests(requests: number[], intent: string) {
-        // 3. The Return Path: Asynchronously encode LLM bytes directly back into WASM Plasmids (Standing Waves)
+        // 3. The Return Path: Asynchronously encode LLM bytes directly back into Plasmids
         const hash = fnv1a_64(intent);
+
+        if (this.engine) {
+            // O-23 Native WebGPU Interface
+            let success = 0;
+            for (const idx of requests) {
+                this.engine.injectPlasmid(idx, hash);
+                success++;
+            }
+            console.log(`[ORACLE] Successfully decoded and unlocked ${success} WebGPU cells.`);
+            return;
+        }
         
+        // Legacy WASM Interface
         let size = 0;
         if (this.wasmField.cell_count) {
             size = this.wasmField.cell_count();

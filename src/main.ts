@@ -19,6 +19,7 @@ import { PerturbationInjector } from "./lens/input";
 import { PhasePerturbationInjector } from "./lens/phase_input";
 import { PhaseReplayObserver } from "./lens/phase_replay_view";
 import { PhaseWebGPUObserver } from "./lens/phase_webgpu";
+import { PhaseComputeEngine } from "./lens/phase_compute";
 import { SemanticCoupler } from "./ontology/semantic_layer";
 import { SovereignOracle } from "./ontology/oracle";
 import {
@@ -133,36 +134,63 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
     const canvas = configureCanvas();
     const phaseField = new PhaseLatticeField(64, 10, 3);
-    const observer = new PhaseWebGPUObserver(canvas, phaseField, wasmMemory);
+    // Ontology 23: Native Metal compute instantiation
+    const adapter = await navigator.gpu.requestAdapter();
+    const device = await adapter!.requestDevice();
+    
+    const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+    await computeEngine.init();
+
+    const observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
     await observer.init();
 
-    const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory);
+    // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
+    const oracle = new SovereignOracle(phaseField, wasmMemory, computeEngine);
+    oracle.boot();
+
+    const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory, computeEngine, oracle);
     injector.attach();
 
     const coupler = new SemanticCoupler(injector);
     wireSemanticInput(coupler, "Inject phase attractor...");
 
-    // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
-    const oracle = new SovereignOracle(phaseField, wasmMemory);
-    oracle.boot();
-
     const loop = () => {
-        execute_phase_lattice_tick(phaseField);
+        computeEngine.tick();
         oracle.sync();
 
-        observer.render();
+        observer.render(computeEngine.getActiveBuffer());
         tickFps();
 
         if (frames === 0) {
             setHudStat("a", "AMPLITUDE", phase_lattice_total_amplitude(phaseField).toString());
             setHudStat("c", "SIGNATURE", phase_lattice_signature(phaseField).slice(0, 12));
-            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)} | Q ${phaseField.get_oracle_request_count()}`);
+            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)} | Q ${oracle.getQueueSize()}`);
         }
 
         requestAnimationFrame(loop);
     };
 
     loop();
+    
+    // O-24 Topos Debugger
+    (window as any).injectMycelialTest = () => {
+        const hash = 999999888888777n;
+        // Target diametric poles dynamically to avoid OOB
+        const cellA_top = Math.floor(phaseField.cell_count() * 0.1);
+        const cellB_bottom = Math.floor(phaseField.cell_count() * 0.9);
+        
+        console.log(`[MYCELIUM] Firing identical resonance flag into isolated nodes ${cellA_top} and ${cellB_bottom}`);
+        
+        computeEngine.injectPlasmid(cellA_top, hash);
+        computeEngine.injectEnergy(cellA_top, 200);
+        
+        // Use a short timeout so the TS Engine loop can flush the single-tick Uniform Buffer sequentially
+        setTimeout(() => {
+            computeEngine.injectPlasmid(cellB_bottom, hash);
+            computeEngine.injectEnergy(cellB_bottom, 200);
+        }, 100);
+    };
+    
     console.log("[Genesis] Phase lattice running. Use ?mode=phase to revisit this substrate.");
 }
 

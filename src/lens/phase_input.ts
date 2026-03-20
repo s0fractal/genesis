@@ -1,4 +1,6 @@
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseComputeEngine } from "./phase_compute.js";
+import { SovereignOracle } from "../ontology/oracle.js";
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -8,11 +10,15 @@ export class PhasePerturbationInjector {
     private canvas: HTMLCanvasElement;
     private field: PhaseLatticeField;
     private memory: WebAssembly.Memory;
+    private engine?: PhaseComputeEngine;
+    private oracle?: SovereignOracle;
 
-    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, memory: WebAssembly.Memory) {
+    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, oracle?: SovereignOracle) {
         this.canvas = canvas;
         this.field = field;
         this.memory = memory;
+        this.engine = engine;
+        this.oracle = oracle;
     }
 
     public attach() {
@@ -53,6 +59,17 @@ export class PhasePerturbationInjector {
         const harmonic = (plasmid[0] ^ plasmid[7]) % this.field.harmonics;
         const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
 
+        if (this.engine) {
+            // O-23 Native WebGPU staging buffer injection
+            this.engine.injectEnergy(idx, phaseShift);
+            if (this.oracle) {
+                // Request a semantic payload from LLM synchronously to the user click!
+                this.oracle.request(idx);
+            }
+            return;
+        }
+
+        // Legacy WASM buffer mutation
         const theta = new Uint8Array(this.memory.buffer, this.field.ptr_theta(), this.field.cell_count());
         const omega = new Int16Array(this.memory.buffer, this.field.ptr_omega(), this.field.cell_count());
         const amplitude = new Uint8Array(this.memory.buffer, this.field.ptr_amplitude(), this.field.cell_count());
