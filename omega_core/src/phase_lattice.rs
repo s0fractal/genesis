@@ -174,17 +174,14 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
             for sector in 0..sectors {
                 let idx = field.idx(sector, rho, harmonic);
 
-                if field.cell_status[idx] == 1 {
-                    // Cache Coherence: Retain structural memory perfectly for dormant cells.
-                    field.next_theta[idx] = field.theta[idx];
-                    field.next_omega[idx] = field.omega[idx];
-                    field.next_amplitude[idx] = field.amplitude[idx];
-                    field.next_lock[idx] = field.lock[idx];
-                    field.next_entanglement[idx] = field.entanglement[idx];
-                    field.next_cell_status[idx] = field.cell_status[idx];
-                    field.next_plasmids[idx] = field.plasmids[idx];
-                    continue;
-                }
+                // --- Ontology 27: Async TTL ---
+                // If cell_status is active, it indicates a TTL cooldown interval following an Oracle Request.
+                // The physics continue evolving seamlessly while the cooldown gracefully erodes.
+                let mut next_status_val = if field.cell_status[idx] > 0 {
+                    field.cell_status[idx].saturating_sub(1)
+                } else {
+                    0
+                };
 
                 let theta = field.theta[idx];
                 let omega = field.omega[idx];
@@ -267,12 +264,13 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     }
                 }
 
-                let mut next_status_val = field.cell_status[idx];
-
                 if !adopted && next_amplitude_val < 20 && next_lock_val < 10 && field.oracle_request_count < 1024 {
-                    field.oracle_requests[field.oracle_request_count as usize] = idx as u32;
-                    field.oracle_request_count += 1;
-                    next_status_val = 1;
+                    // Only request if completely cooled down
+                    if field.cell_status[idx] == 0 {
+                        field.oracle_requests[field.oracle_request_count as usize] = idx as u32;
+                        field.oracle_request_count += 1;
+                        next_status_val = 240; // 4 second TTLS Cooldown
+                    }
                 }
 
                 if next_amplitude_val < 15 && next_plasmid != 0 && local_next_theta % 4 == 0 {

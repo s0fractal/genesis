@@ -32,10 +32,10 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
             let idx = i + lane;
             if idx >= size { break; }
             
-            // --- Ontology 20: AOMQ Freeze ---
-            // If the cell is blocked awaiting Oracle semantic evaluation, freeze its temporal physics.
-            if field.cell_status[idx] == 1 {
-                continue;
+            // --- Ontology 27: Async TTL ---
+            // If the cell recently queried the Oracle, it enters a cooldown phase, preserving physics iteration.
+            if field.cell_status[idx] > 0 {
+                field.cell_status[idx] = field.cell_status[idx].saturating_sub(1);
             }
             
             let p = field.theta_now[idx];
@@ -106,12 +106,14 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                         }
                     }
                     
-                    // --- Ontology 20: Pray to the Oracle ---
-                    // If severe chaos persists (score > 160) and no local plasmid solved it, trigger an Oracle Request.
+                    // --- Ontology 27: Async TTL Proxy ---
+                    // Request an intent ONLY if not actively cooling down.
                     if !adopted && best_score > 160 && field.oracle_request_count < 1024 {
-                        field.oracle_requests[field.oracle_request_count] = idx as u32;
-                        field.oracle_request_count += 1;
-                        field.cell_status[idx] = 1; // AWAITING_ORACLE
+                        if field.cell_status[idx] == 0 {
+                            field.oracle_requests[field.oracle_request_count] = idx as u32;
+                            field.oracle_request_count += 1;
+                            field.cell_status[idx] = 240; // 4-second TTL
+                        }
                     }
                 }
             }
@@ -162,8 +164,10 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
     let status_prev = field.cell_status.clone();
 
     for idx in 0..size {
-        if status_prev[idx] == 1 {
-            continue;
+        if status_prev[idx] > 0 {
+            field.cell_status[idx] = status_prev[idx].saturating_sub(1);
+        } else {
+            field.cell_status[idx] = 0;
         }
 
         let sector = idx % width;
@@ -274,9 +278,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
 
             if !adopted && best_score > 160 && field.oracle_request_count < 1024 {
-                field.oracle_requests[field.oracle_request_count] = idx as u32;
-                field.oracle_request_count += 1;
-                field.cell_status[idx] = 1;
+                if status_prev[idx] == 0 {
+                    field.oracle_requests[field.oracle_request_count] = idx as u32;
+                    field.oracle_request_count += 1;
+                    field.cell_status[idx] = 240;
+                }
             }
         }
 
