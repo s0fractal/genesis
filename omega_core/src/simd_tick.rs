@@ -7,6 +7,7 @@ const BRIDGE_LOCK_GAIN: u8 = 8;
 const BRIDGE_LOCK_DECAY: u8 = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
+const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -212,12 +213,18 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             phase_cos(theta_prev[idx], theta_prev[inner_idx]) +
             phase_cos(theta_prev[idx], theta_prev[outer_idx]) +
             phase_cos(theta_prev[idx], synthetic_peer_theta) * 0.5;
+        let sustained_coherence_bonus = if boundary_depth == 1 && plasmids_prev[idx] == 0 && locks_prev[idx] >= 64 && coherence >= 3.0 {
+            BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
+        } else {
+            0
+        };
 
         let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + kuramoto.round() as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
         let coupled_energy = (
             best_energy +
             (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 +
+            sustained_coherence_bonus +
             boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
             (locks_prev[idx] as i16 / BRIDGE_LOCK_PENALTY_DIVISOR)
         ).clamp(0, 255);

@@ -16,6 +16,7 @@ const BRIDGE_LOCK_GAIN = 8;
 const BRIDGE_LOCK_DECAY = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS = 1;
+const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS = 2;
 
 export interface BridgeField {
     width: number;
@@ -205,6 +206,10 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[innerIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[outerIndex]));
         coherence = f32(coherence + f32(phaseCos(thetaPrev[index], syntheticPeerTheta) * 0.5));
+        const sustainedCoherenceBonus =
+            boundaryDepth === 1 && plasmidsPrev[index] === 0n && locksPrev[index] >= 64 && coherence >= 3
+                ? BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
+                : 0;
 
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
         const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
@@ -212,6 +217,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             clampByte(
                 bestEnergy +
                 roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) +
+                sustainedCoherenceBonus +
                 boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
                 Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR),
             );
