@@ -25,6 +25,8 @@ export interface PhaseCell extends PhaseCellAddress {
     amplitude: number;
     lock: number;
     entanglement: number;
+    cellStatus: number;
+    plasmids: bigint;
 }
 
 export interface PhaseField {
@@ -97,6 +99,8 @@ export function createPhaseField(
                     amplitude: clamp(Math.trunc(state.amplitude), 0, MAX_AMPLITUDE),
                     lock: clamp(Math.trunc(state.lock), 0, MAX_LOCK),
                     entanglement: clamp(Math.trunc(state.entanglement), 0, MAX_ENTANGLEMENT),
+                    cellStatus: state.cellStatus !== undefined ? state.cellStatus : 0,
+                    plasmids: state.plasmids !== undefined ? state.plasmids : 0n,
                 });
             }
         }
@@ -173,10 +177,56 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const lockDelta = coherence >= 3 ? 8 : -4;
 
                 const nextCell = getCell(next, sector, rho, harmonic);
-                nextCell.theta = wrapTheta(current.theta + current.omega + omegaDelta);
-                nextCell.omega = clamp(current.omega + omegaDelta, MIN_OMEGA, MAX_OMEGA);
-                nextCell.amplitude = clamp(current.amplitude + amplitudeDelta, 0, MAX_AMPLITUDE);
-                nextCell.lock = clamp(current.lock + lockDelta, 0, MAX_LOCK);
+                let nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, MAX_AMPLITUDE);
+                let nextLock = clamp(current.lock + lockDelta, 0, MAX_LOCK);
+                let nextTheta = wrapTheta(current.theta + current.omega + omegaDelta);
+                let nextOmega = clamp(current.omega + omegaDelta, MIN_OMEGA, MAX_OMEGA);
+                let adopted = false;
+
+                if (nextAmplitude < 140) {
+                    const neighbors = [left, right, inner, outer, harmonicPeer];
+                    let bestResonance = -2.0;
+                    let donorPlasmid = 0n;
+
+                    for (const neighbor of neighbors) {
+                        const candidatePlasmid = neighbor.plasmids;
+                        if (candidatePlasmid === 0n) continue;
+                        const candidateResonance = resonance(current.theta, neighbor.theta);
+                        if (candidateResonance > bestResonance) {
+                            bestResonance = candidateResonance;
+                            donorPlasmid = candidatePlasmid;
+                        }
+                    }
+
+                    if (donorPlasmid !== 0n && bestResonance > 0.6) {
+                        nextTheta = Number(donorPlasmid & 255n);
+                        const donorOmega = Number((donorPlasmid >> 8n) & 255n) - 128;
+                        nextOmega = clamp(donorOmega, MIN_OMEGA, MAX_OMEGA);
+                        nextCell.plasmids = donorPlasmid;
+                        adopted = true;
+                    }
+                }
+
+                if (!adopted && nextAmplitude < 20 && nextLock < 10) {
+                    // Cannot easily track oracleRequestCount in TS, but logically it just freezes the cell.
+                    // We will not implement the queue array in TS, just the status freeze.
+                    nextCell.cellStatus = 1;
+                }
+
+                if (nextAmplitude < 15 && current.plasmids !== 0n && nextTheta % 4 === 0) {
+                    nextCell.plasmids = 0n;
+                }
+
+                if (!adopted) {
+                    nextCell.theta = nextTheta;
+                    nextCell.omega = nextOmega;
+                } else {
+                    nextCell.theta = nextTheta;
+                    nextCell.omega = nextOmega;
+                }
+                
+                nextCell.amplitude = nextAmplitude;
+                nextCell.lock = nextLock;
 
                 if (field.shape.sectors % 2 === 0) {
                     const antipode = getCell(field, sector + field.shape.sectors / 2, rho, harmonic);
@@ -212,6 +262,8 @@ export function fieldSignature(field: PhaseField): string {
         cell.amplitude,
         cell.lock,
         cell.entanglement,
+        cell.cellStatus,
+        cell.plasmids.toString(),
     ]);
     return fnv1a_64(JSON.stringify(payload)).toString(16);
 }
@@ -228,6 +280,8 @@ export function structuralSignature(field: PhaseField): string {
         mixU64(hashValue(cell.amplitude));
         mixU64(hashValue(cell.lock));
         mixU64(hashValue(cell.entanglement));
+        mixU64(hashValue(cell.cellStatus));
+        mixU64(cell.plasmids);
     }
 
     return hash.toString(16).padStart(16, "0");
@@ -259,7 +313,9 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
             left.omega !== right.omega ||
             left.amplitude !== right.amplitude ||
             left.lock !== right.lock ||
-            left.entanglement !== right.entanglement
+            left.entanglement !== right.entanglement ||
+            left.cellStatus !== right.cellStatus ||
+            left.plasmids !== right.plasmids
         ) {
             return false;
         }

@@ -18,7 +18,7 @@ import { LensObserver } from "./lens/init";
 import { PerturbationInjector } from "./lens/input";
 import { PhasePerturbationInjector } from "./lens/phase_input";
 import { PhaseReplayObserver } from "./lens/phase_replay_view";
-import { PhaseLensObserver } from "./lens/phase_view";
+import { PhaseWebGPUObserver } from "./lens/phase_webgpu";
 import { SemanticCoupler } from "./ontology/semantic_layer";
 import { SovereignOracle } from "./ontology/oracle";
 import {
@@ -133,8 +133,8 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
     const canvas = configureCanvas();
     const phaseField = new PhaseLatticeField(64, 10, 3);
-    const observer = new PhaseLensObserver(canvas, phaseField, wasmMemory);
-    observer.init();
+    const observer = new PhaseWebGPUObserver(canvas, phaseField, wasmMemory);
+    await observer.init();
 
     const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory);
     injector.attach();
@@ -142,15 +142,21 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
     const coupler = new SemanticCoupler(injector);
     wireSemanticInput(coupler, "Inject phase attractor...");
 
+    // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
+    const oracle = new SovereignOracle(phaseField, wasmMemory);
+    oracle.boot();
+
     const loop = () => {
         execute_phase_lattice_tick(phaseField);
+        oracle.sync();
+
         observer.render();
         tickFps();
 
         if (frames === 0) {
             setHudStat("a", "AMPLITUDE", phase_lattice_total_amplitude(phaseField).toString());
             setHudStat("c", "SIGNATURE", phase_lattice_signature(phaseField).slice(0, 12));
-            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)}`);
+            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)} | Q ${phaseField.get_oracle_request_count()}`);
         }
 
         requestAnimationFrame(loop);

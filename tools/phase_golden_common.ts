@@ -394,6 +394,8 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
     const amplitude = new Uint8Array(memory.buffer, field.ptr_amplitude(), count);
     const lock = new Uint8Array(memory.buffer, field.ptr_lock(), count);
     const entanglement = new Uint8Array(memory.buffer, field.ptr_entanglement(), count);
+    const cellStatus = new Uint8Array(memory.buffer, field.ptr_cell_status(), count);
+    const plasmids = new BigUint64Array(memory.buffer, field.ptr_plasmids(), count);
 
     return Array.from({ length: count }, (_, index) => ({
         theta: theta[index],
@@ -401,6 +403,8 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
         amplitude: amplitude[index],
         lock: lock[index],
         entanglement: entanglement[index],
+        cellStatus: cellStatus[index],
+        plasmids: plasmids[index],
     }));
 }
 

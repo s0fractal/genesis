@@ -18,6 +18,10 @@ pub struct PhaseLatticeField {
     pub(crate) amplitude: Vec<u8>,
     pub(crate) lock: Vec<u8>,
     pub(crate) entanglement: Vec<u8>,
+    pub(crate) oracle_requests: Vec<u32>,
+    pub(crate) oracle_request_count: u32,
+    pub(crate) cell_status: Vec<u8>,
+    pub(crate) plasmids: Vec<u64>,
 }
 
 #[wasm_bindgen]
@@ -34,6 +38,10 @@ impl PhaseLatticeField {
             amplitude: vec![0; size],
             lock: vec![0; size],
             entanglement: vec![0; size],
+            oracle_requests: vec![0; 1024],
+            oracle_request_count: 0,
+            cell_status: vec![0; size],
+            plasmids: vec![0; size],
         };
         field.seed_deterministic();
         field
@@ -63,6 +71,26 @@ impl PhaseLatticeField {
         self.entanglement.as_ptr()
     }
 
+    pub fn ptr_oracle_requests(&self) -> *const u32 {
+        self.oracle_requests.as_ptr()
+    }
+
+    pub fn get_oracle_request_count(&self) -> u32 {
+        self.oracle_request_count
+    }
+
+    pub fn clear_oracle_requests(&mut self) {
+        self.oracle_request_count = 0;
+    }
+
+    pub fn ptr_cell_status(&self) -> *const u8 {
+        self.cell_status.as_ptr()
+    }
+
+    pub fn ptr_plasmids(&self) -> *const u64 {
+        self.plasmids.as_ptr()
+    }
+
     pub fn seed_deterministic(&mut self) {
         for harmonic in 0..self.harmonics as usize {
             for rho in 0..self.radial_bins as usize {
@@ -90,6 +118,8 @@ impl PhaseLatticeField {
         let mut next_amplitude = vec![0u8; self.amplitude.len()];
         let mut next_lock = vec![0u8; self.lock.len()];
         let mut next_entanglement = vec![0u8; self.entanglement.len()];
+        let mut next_cell_status = vec![0u8; self.cell_status.len()];
+        let mut next_plasmids = vec![0u64; self.plasmids.len()];
 
         for harmonic in 0..self.harmonics as usize {
             for rho in 0..self.radial_bins as usize {
@@ -102,6 +132,8 @@ impl PhaseLatticeField {
                     next_amplitude[target] = self.amplitude[source];
                     next_lock[target] = self.lock[source];
                     next_entanglement[target] = self.entanglement[source];
+                    next_cell_status[target] = self.cell_status[source];
+                    next_plasmids[target] = self.plasmids[source];
                 }
             }
         }
@@ -111,6 +143,8 @@ impl PhaseLatticeField {
         self.amplitude = next_amplitude;
         self.lock = next_lock;
         self.entanglement = next_entanglement;
+        self.cell_status = next_cell_status;
+        self.plasmids = next_plasmids;
     }
 }
 
@@ -122,6 +156,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
         for rho in 0..field.radial_bins as usize {
             for sector in 0..field.sectors as usize {
                 let idx = field.idx(sector, rho, harmonic);
+
+                if prev.cell_status[idx] == 1 {
+                    continue;
+                }
 
                 let theta = prev.theta[idx];
                 let omega = prev.omega[idx];
@@ -168,10 +206,52 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let amplitude_delta = (coherence * 6.0).round() as i16 - (lock / 64);
                 let lock_delta = if coherence >= 3.0 { 8 } else { -4 };
 
-                field.theta[idx] = next_theta;
-                field.omega[idx] = next_omega;
-                field.amplitude[idx] = clamp_byte(amplitude + amplitude_delta);
-                field.lock[idx] = clamp_byte(lock + lock_delta);
+                let next_amplitude = clamp_byte(amplitude + amplitude_delta);
+                let next_lock = clamp_byte(lock + lock_delta);
+
+                let mut adopted = false;
+                if next_amplitude < 140 {
+                    let neighbors = [left, right, inner, outer, harmonic_peer];
+                    let mut best_resonance = -2.0;
+                    let mut donor_plasmid = 0u64;
+
+                    for &neighbor_idx in &neighbors {
+                        let candidate_plasmid = prev.plasmids[neighbor_idx];
+                        if candidate_plasmid == 0 {
+                            continue;
+                        }
+                        let candidate_resonance = phase_cos(theta, prev.theta[neighbor_idx]);
+                        if candidate_resonance > best_resonance {
+                            best_resonance = candidate_resonance;
+                            donor_plasmid = candidate_plasmid;
+                        }
+                    }
+
+                    if donor_plasmid != 0 && best_resonance > 0.6 {
+                        field.theta[idx] = (donor_plasmid & 0xFF) as u8;
+                        let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
+                        field.omega[idx] = clamp_i16(donor_omega, MIN_OMEGA, MAX_OMEGA);
+                        field.plasmids[idx] = donor_plasmid;
+                        adopted = true;
+                    }
+                }
+
+                if !adopted && next_amplitude < 20 && next_lock < 10 && field.oracle_request_count < 1024 {
+                    field.oracle_requests[field.oracle_request_count as usize] = idx as u32;
+                    field.oracle_request_count += 1;
+                    field.cell_status[idx] = 1;
+                }
+
+                if next_amplitude < 15 && field.plasmids[idx] != 0 && next_theta % 4 == 0 {
+                    field.plasmids[idx] = 0;
+                }
+
+                if !adopted {
+                    field.theta[idx] = next_theta;
+                    field.omega[idx] = next_omega;
+                }
+                field.amplitude[idx] = next_amplitude;
+                field.lock[idx] = next_lock;
             }
         }
     }
@@ -192,6 +272,8 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
                 mix_u64(&mut hash, field.amplitude[idx] as u64);
                 mix_u64(&mut hash, field.lock[idx] as u64);
                 mix_u64(&mut hash, field.entanglement[idx] as u64);
+                mix_u64(&mut hash, field.cell_status[idx] as u64);
+                mix_u64(&mut hash, field.plasmids[idx]);
             }
         }
     }
@@ -293,6 +375,8 @@ mod tests {
         assert_eq!(left.amplitude, right.amplitude, "amplitude mismatch");
         assert_eq!(left.lock, right.lock, "lock mismatch");
         assert_eq!(left.entanglement, right.entanglement, "entanglement mismatch");
+        assert_eq!(left.cell_status, right.cell_status, "status mismatch");
+        assert_eq!(left.plasmids, right.plasmids, "plasmids mismatch");
     }
 
     #[test]

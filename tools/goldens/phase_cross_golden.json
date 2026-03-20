@@ -19,8 +19,8 @@
       "totalLockDelta": 0,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 0,
-      "phaseSignature": "f22292a47e8b5c31",
-      "hybridSignature": "f22292a47e8b5c31"
+      "phaseSignature": "3ac176b3de047431",
+      "hybridSignature": "3ac176b3de047431"
     },
     {
       "tick": 1,
@@ -29,8 +29,8 @@
       "totalLockDelta": -128,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 5,
-      "phaseSignature": "ff882d4045b3a340",
-      "hybridSignature": "fe4d542e6838f105"
+      "phaseSignature": "2ff9e472cdd84470",
+      "hybridSignature": "67765fca3596684d"
     },
     {
       "tick": 2,
@@ -39,8 +39,8 @@
       "totalLockDelta": -48,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
-      "phaseSignature": "fd4d9e95d4d302e5",
-      "hybridSignature": "199517269db13498"
+      "phaseSignature": "92b93bfd3280cbad",
+      "hybridSignature": "e31d48bcb3caa490"
     },
     {
       "tick": 3,
@@ -49,8 +49,8 @@
       "totalLockDelta": 119,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
-      "phaseSignature": "7e330567c8554ce3",
-      "hybridSignature": "99d899a712ef36ce"
+      "phaseSignature": "daefc75e1c90f223",
+      "hybridSignature": "d428ed92f81926f6"
     },
     {
       "tick": 4,
@@ -59,8 +59,8 @@
       "totalLockDelta": 364,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "8ffa01145d1323f3",
-      "hybridSignature": "691de02bab09163e"
+      "phaseSignature": "e434703289b2886b",
+      "hybridSignature": "974e61471ac88f8e"
     },
     {
       "tick": 5,
@@ -69,8 +69,8 @@
       "totalLockDelta": 686,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 29,
-      "phaseSignature": "ca9bf9b69ecef1ca",
-      "hybridSignature": "84262cf895ff22e6"
+      "phaseSignature": "fecf89566a3f77c2",
+      "hybridSignature": "8c9f9800bf8d1a4e"
     },
     {
       "tick": 6,
@@ -79,8 +79,8 @@
       "totalLockDelta": 1039,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 32,
-      "phaseSignature": "8f8b3113f7a57b16",
-      "hybridSignature": "21736997b700abe8"
+      "phaseSignature": "38367e943bcc8cbe",
+      "hybridSignature": "0bb0e1bf704c8de0"
     },
     {
       "tick": 7,
@@ -89,8 +89,8 @@
       "totalLockDelta": 1379,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 34,
-      "phaseSignature": "c1ea6744f7153881",
-      "hybridSignature": "b1490710544f5106"
+      "phaseSignature": "c432a6276a610c69",
+      "hybridSignature": "ca5d155bef7cfe16"
     },
     {
       "tick": 8,
@@ -99,8 +99,8 @@
       "totalLockDelta": 1719,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "6c7ae180782339b3",
-      "hybridSignature": "0c7bfa9301d5ed28"
+      "phaseSignature": "d331647226bf25db",
+      "hybridSignature": "c4e56cc0084989a8"
     },
     {
       "tick": 9,
@@ -109,8 +109,8 @@
       "totalLockDelta": 2059,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 31,
-      "phaseSignature": "3de87dbd183491fa",
-      "hybridSignature": "6bc2071b1c545073"
+      "phaseSignature": "87cab79fd00fe6a2",
+      "hybridSignature": "9dd67fdff468b423"
     },
     {
       "tick": 10,
@@ -119,8 +119,8 @@
       "totalLockDelta": 2399,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 27,
-      "phaseSignature": "0444ff443961e3bf",
-      "hybridSignature": "46079e60ccea61bf"
+      "phaseSignature": "f4ed375543b76d5f",
+      "hybridSignature": "97761b1ca758d857"
     },
     {
       "tick": 11,
@@ -129,8 +129,8 @@
       "totalLockDelta": 2739,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 30,
-      "phaseSignature": "b479cf29a3015e1e",
-      "hybridSignature": "807635e0644b2427"
+      "phaseSignature": "f1313a22b54a45ee",
+      "hybridSignature": "776a9ce2d0adfb5f"
     },
     {
       "tick": 12,
@@ -139,8 +139,8 @@
       "totalLockDelta": 3079,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "450154228192c10a",
-      "hybridSignature": "ce03a3808394b989"
+      "phaseSignature": "1bd5f63129dedbca",
+      "hybridSignature": "eae4b30e2c7ca541"
     }
   ],
   "invariants": {

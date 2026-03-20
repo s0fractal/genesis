@@ -1,13 +1,23 @@
-import { Field } from "../../omega_core/pkg/omega_core";
 import { fnv1a_64 } from "../shared/hash";
 
+export interface OracleCompatibleField {
+    get_oracle_request_count(): number;
+    ptr_oracle_requests(): number;
+    clear_oracle_requests(): void;
+    ptr_plasmids(): number;
+    ptr_cell_status(): number;
+    cell_count?(): number;
+    width?: number;
+    height?: number;
+}
+
 export class SovereignOracle {
-    private wasmField: Field;
+    private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private isRunning: boolean = false;
     private isBusy: boolean = false;
 
-    constructor(field: Field, memory: WebAssembly.Memory) {
+    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory) {
         this.wasmField = field;
         this.wasmMemory = memory;
     }
@@ -45,9 +55,9 @@ export class SovereignOracle {
         // 2. Spatial Batching: Construct the Macro-Prompt for LLM
         const prompt = `
             Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
-            The geometric field is experiencing severe topological tension at ${count} distinct cellular locations across the grid.
+            The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
             These nodes have locked natively, demanding semantic resolution.
-            Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos.
+            Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
             Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
         `.trim();
 
@@ -81,11 +91,17 @@ export class SovereignOracle {
     }
 
     private fulfillRequests(requests: number[], intent: string) {
-        // 3. The Return Path: Asynchronously encode LLM bytes directly back into WASM Plasmids
+        // 3. The Return Path: Asynchronously encode LLM bytes directly back into WASM Plasmids (Standing Waves)
         const hash = fnv1a_64(intent);
         
+        let size = 0;
+        if (this.wasmField.cell_count) {
+            size = this.wasmField.cell_count();
+        } else if (this.wasmField.width && this.wasmField.height) {
+            size = this.wasmField.width * this.wasmField.height;
+        }
+        
         const plasmidPtr = this.wasmField.ptr_plasmids();
-        const size = this.wasmField.width * this.wasmField.height;
         const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
         
         const statusPtr = this.wasmField.ptr_cell_status();
