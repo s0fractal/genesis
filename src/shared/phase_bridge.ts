@@ -54,11 +54,10 @@ export function buildBridgeSeed(width: number, height: number): BridgeField {
             const index = bridgeIndex(width, sector, rho);
             const leftIndex = bridgeIndex(width, wrapIndex(sector - 1, width), rho);
             const rightIndex = bridgeIndex(width, wrapIndex(sector + 1, width), rho);
-            const antipodeIndex = width % 2 === 0 ? bridgeIndex(width, (sector + width / 2) % width, rho) : index;
 
             thetaF1[index] = thetaNow[leftIndex];
             thetaF2[index] = thetaNow[rightIndex];
-            thetaF3[index] = thetaNow[antipodeIndex];
+            thetaF3[index] = thetaNow[index];
         }
     }
 
@@ -139,6 +138,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
     const activeRadialBins = Math.max(1, Math.min(height, BRIDGE_ACTIVE_RADIAL_BINS));
 
     const thetaPrev = field.thetaNow;
+    const thetaF3Prev = field.thetaF3;
     const omegaPrev = field.omega;
     const energyPrev = field.energy;
     const plasmidsPrev = field.plasmids;
@@ -158,13 +158,14 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         const innerIndex = bridgeIndex(width, sector, Math.max(0, radialRho - 1));
         const outerIndex = bridgeIndex(width, sector, Math.min(radialRho + 1, activeRadialBins - 1));
         const antipodeIndex = width % 2 === 0 ? bridgeIndex(width, (sector + width / 2) % width, rho) : index;
+        const syntheticPeerTheta = thetaF3Prev[index];
 
         const rawEnergy = energyPrev[index];
         const localTargetValue = localTarget(
             lut,
             thetaPrev,
             [leftIndex, rightIndex, innerIndex, outerIndex],
-            antipodeIndex,
+            index,
             false,
         );
 
@@ -182,21 +183,19 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const antipodeWeight = 0;
-
         let kuramoto = f32(0);
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[leftIndex]));
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[rightIndex]));
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[innerIndex]));
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[outerIndex]));
-        kuramoto = f32(kuramoto + f32(phaseSin(thetaPrev[index], thetaPrev[antipodeIndex]) * antipodeWeight));
+        kuramoto = f32(kuramoto + f32(phaseSin(thetaPrev[index], syntheticPeerTheta) * 0.5));
 
         let coherence = f32(0);
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[leftIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[rightIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[innerIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[outerIndex]));
-        coherence = f32(coherence + f32(phaseCos(thetaPrev[index], thetaPrev[antipodeIndex]) * antipodeWeight));
+        coherence = f32(coherence + f32(phaseCos(thetaPrev[index], syntheticPeerTheta) * 0.5));
 
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
         const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
@@ -207,7 +206,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         next.energy[index] = coupledEnergy;
         next.thetaF1[index] = thetaPrev[leftIndex];
         next.thetaF2[index] = thetaPrev[rightIndex];
-        next.thetaF3[index] = thetaPrev[antipodeIndex];
+        next.thetaF3[index] = thetaPrev[index];
 
         if (coherence >= 3 && coupledEnergy > 200) {
             next.plasmids[index] =

@@ -145,6 +145,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
     };
 
     let theta_prev = field.theta_now.clone();
+    let theta_f3_prev = field.theta_f3.clone();
     let omega_prev = field.omega.clone();
     let energy_prev = field.energy.clone();
     let plasmids_prev = field.plasmids.clone();
@@ -169,10 +170,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         } else {
             idx
         };
+        let synthetic_peer_theta = theta_f3_prev[idx];
 
         let p = theta_prev[idx];
         let raw_energy = energy_prev[idx] as i16;
-        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], antipode_idx, false);
+        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], idx, false);
 
         let mut best_energy = raw_energy;
         let mut best_score = i16::MAX;
@@ -188,21 +190,19 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let antipode_weight = 0.0;
-
         let kuramoto =
             phase_sin(theta_prev[idx], theta_prev[left_idx]) +
             phase_sin(theta_prev[idx], theta_prev[right_idx]) +
             phase_sin(theta_prev[idx], theta_prev[inner_idx]) +
             phase_sin(theta_prev[idx], theta_prev[outer_idx]) +
-            phase_sin(theta_prev[idx], theta_prev[antipode_idx]) * antipode_weight;
+            phase_sin(theta_prev[idx], synthetic_peer_theta) * 0.5;
 
         let coherence =
             phase_cos(theta_prev[idx], theta_prev[left_idx]) +
             phase_cos(theta_prev[idx], theta_prev[right_idx]) +
             phase_cos(theta_prev[idx], theta_prev[inner_idx]) +
             phase_cos(theta_prev[idx], theta_prev[outer_idx]) +
-            phase_cos(theta_prev[idx], theta_prev[antipode_idx]) * antipode_weight;
+            phase_cos(theta_prev[idx], synthetic_peer_theta) * 0.5;
 
         let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + kuramoto.round() as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
@@ -213,7 +213,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         field.energy[idx] = coupled_energy as u8;
         field.theta_f1[idx] = theta_prev[left_idx];
         field.theta_f2[idx] = theta_prev[right_idx];
-        field.theta_f3[idx] = theta_prev[antipode_idx];
+        field.theta_f3[idx] = theta_prev[idx];
 
         if coherence >= 3.0 && coupled_energy > 200 {
             let structural_plasmid =
@@ -346,15 +346,10 @@ pub fn seed_phase_bridge_pattern(field: &mut Field) {
             let idx = rho * width + sector;
             let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
             let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
-            let antipode_idx = if width % 2 == 0 {
-                idx_from_sector_rho(width, height, (sector + width / 2) % width, rho)
-            } else {
-                idx
-            };
 
             theta_f1[idx] = theta_now[left_idx];
             theta_f2[idx] = theta_now[right_idx];
-            theta_f3[idx] = theta_now[antipode_idx];
+            theta_f3[idx] = theta_now[idx];
         }
     }
 
