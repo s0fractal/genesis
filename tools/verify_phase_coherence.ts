@@ -1,5 +1,4 @@
 import {
-    PHASE_LUT_SIZE,
     assertFieldBounds,
     fieldSignature,
     fieldsEqual,
@@ -11,6 +10,7 @@ import {
     sumAmplitude,
     sumEntanglement,
 } from "../src/shared/phase_lattice.ts";
+import { PHASE_CONSTANTS } from "../src/shared/constants.ts";
 import { buildReferenceSeed } from "./phase_golden_common.ts";
 import type { PhaseField, PhaseFieldShape } from "../src/shared/phase_lattice.ts";
 
@@ -41,7 +41,7 @@ function verifyAngularAddressRotation(seed: PhaseField, ticks: number, deltaSect
 }
 
 function verifyWraparound(seed: PhaseField): void {
-    const fullPhaseTurn = rotateGlobalPhase(seed, PHASE_LUT_SIZE);
+    const fullPhaseTurn = rotateGlobalPhase(seed, PHASE_CONSTANTS.LUT_SIZE);
     const fullAddressTurn = rotateAngularAddress(seed, seed.shape.sectors);
     assert(fieldsEqual(seed, fullPhaseTurn), "Phase wraparound identity failed");
     assert(fieldsEqual(seed, fullAddressTurn), "Angular address wraparound identity failed");

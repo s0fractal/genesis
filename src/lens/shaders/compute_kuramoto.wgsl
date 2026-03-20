@@ -126,29 +126,29 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let t_harm = get_byte(params.off_theta, get_idx(sector, rho, harm_peer));
 
     // Kuramoto Delta sums
-    var kuramoto = phase_sin_sum(theta, t_left, 1.0) +
-                   phase_sin_sum(theta, t_right, 1.0) +
-                   phase_sin_sum(theta, t_inner, 1.0) +
-                   phase_sin_sum(theta, t_outer, 1.0) +
-                   phase_sin_sum(theta, t_harm, 0.5);
+    var kuramoto = phase_sin_sum(theta, t_left, COUPLING_BASE) +
+                   phase_sin_sum(theta, t_right, COUPLING_BASE) +
+                   phase_sin_sum(theta, t_inner, COUPLING_BASE) +
+                   phase_sin_sum(theta, t_outer, COUPLING_BASE) +
+                   phase_sin_sum(theta, t_harm, COUPLING_HARMONIC_PEER);
 
-    var coherence = phase_cos_sum(theta, t_left, 1.0) +
-                    phase_cos_sum(theta, t_right, 1.0) +
-                    phase_cos_sum(theta, t_inner, 1.0) +
-                    phase_cos_sum(theta, t_outer, 1.0) +
-                    phase_cos_sum(theta, t_harm, 0.5);
+    var coherence = phase_cos_sum(theta, t_left, COUPLING_BASE) +
+                    phase_cos_sum(theta, t_right, COUPLING_BASE) +
+                    phase_cos_sum(theta, t_inner, COUPLING_BASE) +
+                    phase_cos_sum(theta, t_outer, COUPLING_BASE) +
+                    phase_cos_sum(theta, t_harm, COUPLING_HARMONIC_PEER);
 
     // Antipode Coupling
     var next_ent = i32(entanglement);
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let t_anti = get_byte(params.off_theta, get_idx(antipode_sec, rho, harmonic));
-        let weight = (f32(entanglement) / 255.0) * 0.35;
+        let weight = (f32(entanglement) / MAX_ENTANGLEMENT) * COUPLING_ANTIPODE;
         kuramoto += phase_sin_sum(theta, t_anti, weight);
         coherence += phase_cos_sum(theta, t_anti, weight);
 
         let align = cos(phase_radians(theta, t_anti));
-        if (align > 0.92 && amplitude > 96) {
+        if (align > ANTIPODE_ALIGNMENT_THRESHOLD && amplitude > 96) {
             next_ent += 8;
         } else {
             next_ent -= 3;

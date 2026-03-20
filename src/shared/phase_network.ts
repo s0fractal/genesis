@@ -1,4 +1,5 @@
 import { fnv1a_64 } from "./hash.ts";
+import { SENATE_CONSTANTS } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
@@ -33,7 +34,9 @@ export class PhaseNetwork {
                 const p = e.data.payload as ForeignPlasmid;
                 
                 // O-48 & O-56: Payload & Identity Authentication
-                if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || p.locks <= 1000 || p.energy <= 220) {
+                if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
+                    p.locks <= SENATE_CONSTANTS.MYCELIUM_MIN_LOCKS || 
+                    p.energy <= SENATE_CONSTANTS.MYCELIUM_MIN_ENERGY) {
                     console.log(`🛡️ [Mycelium Firewall] Rejected Local Transmission. Insufficient Biological Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
                     return;
                 }
@@ -112,7 +115,9 @@ export class PhaseNetwork {
                     const p = data.payload as ForeignPlasmid;
                     
                     // O-48 & O-56: Payload & Identity Authentication
-                    if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || p.locks <= 1000 || p.energy <= 220) {
+                    if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
+                        p.locks <= SENATE_CONSTANTS.MYCELIUM_MIN_LOCKS || 
+                        p.energy <= SENATE_CONSTANTS.MYCELIUM_MIN_ENERGY) {
                         console.log(`🛡️ [WebRTC Firewall] Rejected Global Transmission. Insufficient Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
                         return;
                     }

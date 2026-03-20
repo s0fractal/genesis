@@ -1,0 +1,239 @@
+import initWasm from "../../omega_core/pkg/omega_core.js";
+import { PhaseReplayObserver } from "../lens/phase_replay_view.ts";
+import {
+  buildDiffSummary,
+  getReplayComparison,
+  getReplaySnapshot,
+  loadPhaseReplayDataset,
+  summarizeReplayDiff,
+} from "../replay/phase_replay.ts";
+import {
+  collapsePhaseField,
+  cropPhaseField,
+  hybridSnapshotSignature,
+  loadHybridReplayDataset,
+} from "../replay/hybrid_replay.ts";
+import type { ReplayCompareMode } from "../replay/phase_replay.ts";
+import type { PhaseField } from "../shared/phase_lattice.ts";
+import {
+  configureCanvas,
+  DOM,
+  setHudStat,
+  setInputMode,
+  tickFps,
+} from "./dom.ts";
+
+export async function bootstrapReplay(replayStack: string) {
+  console.log(
+    `[Genesis] Bootstrapping replay diff mode for stack=${replayStack}...`,
+  );
+  DOM.hudTitle?.replaceChildren(
+    replayStack === "cross"
+      ? "Φ Cross Diff"
+      : replayStack === "hybrid"
+      ? "Φ Hybrid Replay"
+      : "Φ Replay Diff",
+  );
+  DOM.statusLabel?.replaceChildren("LOADING CANONICAL TRACE");
+  setHudStat("a", "TICK", "0/0");
+  setHudStat("b", "FPS", "0");
+  setHudStat(
+    "c",
+    replayStack === "phase"
+      ? "PARITY"
+      : replayStack === "hybrid"
+      ? "TRACE"
+      : "MODE",
+    "loading",
+  );
+  setInputMode("replay");
+
+  const canvas = configureCanvas();
+  const observer = new PhaseReplayObserver(canvas);
+  observer.init();
+
+  const phaseDataset = await loadPhaseReplayDataset();
+  const wasm = replayStack === "phase" ? null : await initWasm();
+  // deno-lint-ignore no-explicit-any
+  const hybridDataset = wasm
+    ? await loadHybridReplayDataset(wasm as any)
+    : null;
+  let currentTick = 0;
+  let compareMode: ReplayCompareMode = "seed";
+  let playing = false;
+  let lastAdvance = performance.now();
+  const commonTicks = hybridDataset
+    ? Math.min(phaseDataset.golden.ticks, hybridDataset.golden.ticks)
+    : phaseDataset.golden.ticks;
+  const totalTicks = replayStack === "hybrid" && hybridDataset
+    ? hybridDataset.golden.ticks
+    : replayStack === "cross"
+    ? commonTicks
+    : phaseDataset.golden.ticks;
+
+  if (DOM.replayTickSlider) {
+    DOM.replayTickSlider.min = "0";
+    DOM.replayTickSlider.max = totalTicks.toString();
+    DOM.replayTickSlider.step = "1";
+    DOM.replayTickSlider.value = "0";
+  }
+  DOM.replayTickValue?.replaceChildren(`0/${totalTicks}`);
+  if (DOM.replayCompareSelect) {
+    DOM.replayCompareSelect.value = compareMode;
+    DOM.replayCompareSelect.disabled = replayStack === "cross";
+  }
+
+  const render = () => {
+    const boundedTick = Math.max(0, Math.min(totalTicks, currentTick));
+    let current: PhaseField;
+    let compare: PhaseField | null;
+    let title: string;
+    let statusLine: string;
+    let leftLabel: string;
+    let rightLabel: string;
+    let summary;
+
+    if (replayStack === "hybrid" && hybridDataset) {
+      current = hybridDataset.snapshots[boundedTick];
+      compare = getSnapshotComparison(
+        hybridDataset.snapshots,
+        boundedTick,
+        compareMode,
+      );
+      const hybridTrace = hybridDataset.golden.wasmTrace[boundedTick];
+      summary = buildDiffSummary(
+        current,
+        compare,
+        hybridSnapshotSignature(current),
+        hybridTrace.signature,
+        false,
+      );
+      title = "hybrid replay";
+      statusLine = `compare ${compareMode} | trace ${
+        hybridTrace.signature.slice(0, 8)
+      } | Ω ${hybridTrace.omegaSpan}`;
+      leftLabel = "view";
+      rightLabel = "golden";
+      setHudStat("c", "TRACE", hybridTrace.signature.slice(0, 12));
+      DOM.statusLabel?.replaceChildren(
+        `HYBRID Δ${summary.changedCells} | RAW ${
+          hybridTrace.signature.slice(0, 8)
+        } | Ω ${hybridTrace.omegaSpan}`,
+      );
+    } else if (replayStack === "cross" && hybridDataset) {
+      current = collapsePhaseField(
+        getReplaySnapshot(phaseDataset, boundedTick),
+        6,
+      );
+      compare = cropPhaseField(
+        hybridDataset.snapshots[boundedTick],
+        current.shape.radialBins,
+      );
+      summary = buildDiffSummary(
+        current,
+        compare,
+        hybridSnapshotSignature(current),
+        hybridSnapshotSignature(compare),
+        false,
+      );
+      title = "phase vs hybrid";
+      statusLine =
+        "cross diff | phase collapsed to 1 harmonic | hybrid cropped to 6 rings";
+      leftLabel = "phase";
+      rightLabel = "hybrid";
+      setHudStat("c", "MODE", "PH↔HY");
+      DOM.statusLabel?.replaceChildren(
+        `CROSS Δ${summary.changedCells} | PH ${
+          summary.referenceStructuralSignature.slice(0, 8)
+        } | HY ${summary.wasmStructuralSignature.slice(0, 8)}`,
+      );
+    } else {
+      current = getReplaySnapshot(phaseDataset, boundedTick);
+      compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
+      summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
+      const referenceTrace = phaseDataset.golden.referenceTrace[boundedTick];
+      const wasmTrace = phaseDataset.golden.wasmTrace[boundedTick];
+      title = "phase replay";
+      statusLine = `compare ${compareMode} | parity ${
+        summary.parityLocked ? "locked" : "drift"
+      }`;
+      leftLabel = "ref";
+      rightLabel = "wasm";
+      setHudStat("c", "PARITY", summary.parityLocked ? "LOCKED" : "DRIFT");
+      DOM.statusLabel?.replaceChildren(
+        `${compareMode.toUpperCase()} Δ${summary.changedCells} | REF ${
+          referenceTrace.structuralSignature.slice(0, 8)
+        } | WASM ${wasmTrace.structuralSignature.slice(0, 8)}`,
+      );
+    }
+
+    observer.render(current, compare, {
+      tick: boundedTick,
+      totalTicks,
+      compareMode: replayStack === "cross" ? "none" : compareMode,
+      summary,
+      title,
+      statusLine,
+      leftLabel,
+      rightLabel,
+    });
+
+    setHudStat("a", "TICK", `${boundedTick}/${totalTicks}`);
+    DOM.replayTickValue?.replaceChildren(`${boundedTick}/${totalTicks}`);
+  };
+
+  DOM.replayPlayButton?.addEventListener("click", () => {
+    playing = !playing;
+    DOM.replayPlayButton?.replaceChildren(playing ? "Pause" : "Play");
+    lastAdvance = performance.now();
+  });
+
+  DOM.replayTickSlider?.addEventListener("input", () => {
+    if (DOM.replayTickSlider) {
+      currentTick = Number(DOM.replayTickSlider.value);
+    }
+    playing = false;
+    DOM.replayPlayButton?.replaceChildren("Play");
+    render();
+  });
+
+  DOM.replayCompareSelect?.addEventListener("change", () => {
+    if (DOM.replayCompareSelect) {
+      compareMode = (DOM.replayCompareSelect.value as ReplayCompareMode) || "seed";
+    }
+    render();
+  });
+
+  const loop = (now: number) => {
+    tickFps();
+    if (playing && now - lastAdvance >= 680) {
+      currentTick = currentTick >= totalTicks ? 0 : currentTick + 1;
+      if (DOM.replayTickSlider) {
+        DOM.replayTickSlider.value = currentTick.toString();
+      }
+      lastAdvance = now;
+    }
+    render();
+    requestAnimationFrame(loop);
+  };
+
+  render();
+  requestAnimationFrame(loop);
+  console.log(
+    `[Genesis] Replay diff viewer active. Use ?mode=replay&stack=${replayStack} to inspect this trace.`,
+  );
+}
+
+function getSnapshotComparison(
+  snapshots: PhaseField[],
+  tick: number,
+  compareMode: ReplayCompareMode,
+): PhaseField | null {
+  if (compareMode === "none") {
+    return null;
+  }
+  if (compareMode === "seed") {
+    return snapshots[0];
+  }
+  return tick > 0 ? snapshots[tick - 1] : null;
+}

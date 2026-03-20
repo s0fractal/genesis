@@ -1,6 +1,7 @@
 import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
+import { SENATE_CONSTANTS } from "../shared/constants.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -153,10 +154,10 @@ export class SovereignOracle {
 
         // O-52 Phase 1: The Four Mask Prompts (Bitcoin Logic)
         const MASKS = [
-            { name: "NOMOS", role: "Proof of Work Validator. Dictate semantic density. Ensure evolutionary mutations are highly expensive and metabolically justified by Grid topology." },
-            { name: "LOGOS", role: "Merkle Root Custodian. Guarantee phylogenetic Lineage integrity. Formulate hashes that mathematically seal historical paths." },
-            { name: "CHRONOS", role: "Difficulty Adjudicator. Analyze Torus tension. Predict if the oscillator thresholds should dynamically thicken or accelerate." },
-            { name: "AION", role: "The Vacuum Protector. Defend the Empty Center. You inherently inject arbitrary Latent Entropy to prevent literal math crystallization." }
+            { name: SENATE_CONSTANTS.MASK_NOMOS, role: "Proof of Work Validator. Dictate semantic density. Ensure evolutionary mutations are highly expensive and metabolically justified by Grid topology." },
+            { name: SENATE_CONSTANTS.MASK_LOGOS, role: "Merkle Root Custodian. Guarantee phylogenetic Lineage integrity. Formulate hashes that mathematically seal historical paths." },
+            { name: SENATE_CONSTANTS.MASK_CHRONOS, role: "Difficulty Adjudicator. Analyze Torus tension. Predict if the oscillator thresholds should dynamically thicken or accelerate." },
+            { name: SENATE_CONSTANTS.MASK_AION, role: "The Vacuum Protector. Defend the Empty Center. You inherently inject arbitrary Latent Entropy to prevent literal math crystallization." }
         ];
 
         try {
@@ -187,9 +188,9 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
                     body: JSON.stringify(requestBody)
                 });
 
-                // O-40 Phase 1: Sovereign Oracle TTL (15.0s Strict Heartbeat)
+                // O-40 Phase 1: Sovereign Oracle TTL (Strict Heartbeat via Constants)
                 const timeoutPromise = new Promise<Response>((_, reject) => 
-                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), 15000)
+                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_CONSTANTS.ORACLE_TIMEOUT_MS)
                 );
 
                 const response = await Promise.race([fetchPromise, timeoutPromise]);
@@ -226,8 +227,9 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
                         
                         // O-54: The Shadow Network (AION Latent Divergence)
                         // AION inherently acts outside the law, refusing to vote in the Senate and immediately injecting latent entropy.
-                        if (maskName === "AION") {
-                            const latentBucket = 1000 + Math.floor(Math.random() * 24); // 1000-1024 spectrum
+                        if (maskName === SENATE_CONSTANTS.MASK_AION) {
+                            const range = SENATE_CONSTANTS.SHADOW_BUCKET_MAX - SENATE_CONSTANTS.SHADOW_BUCKET_MIN;
+                            const latentBucket = SENATE_CONSTANTS.SHADOW_BUCKET_MIN + Math.floor(Math.random() * range);
                             console.log(`[ORACLE] 🌑 AION (Vacuum Guard) bypassed Senate. Injected Latent Entropy into Shadow Bucket #${latentBucket}.`);
                             this.fulfillRequests(requests, intent, latentBucket);
                             

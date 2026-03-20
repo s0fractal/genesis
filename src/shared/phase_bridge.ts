@@ -1,5 +1,6 @@
 import { buildProjectedBridgeSeed, CANONICAL_PHASE_SHAPE } from "./phase_canonical.ts";
-import { wrapIndex, wrapTheta } from "./phase_lattice.ts";
+import { wrapIndex, phaseSine as phaseSin, phaseCosine as phaseCos } from "./topology_core.ts";
+import { PHASE_CONSTANTS } from "./constants.ts";
 
 const BRIDGE_FNV64_OFFSET_BASIS = 14695981039346656037n;
 const BRIDGE_FNV64_PRIME = 1099511628211n;
@@ -7,7 +8,6 @@ const BRIDGE_FNV64_MASK = (1n << 64n) - 1n;
 const BRIDGE_ZERO_LUT = new Int16Array(256);
 const BRIDGE_DELTAS = [1, 2, 3, 4] as const;
 const BRIDGE_MAX_OMEGA = 32;
-const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
 const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
 const BRIDGE_ADOPTION_RESONANCE_THRESHOLD = 0.6;
 const BRIDGE_COHERENCE_ENERGY_GAIN = 6;
@@ -216,7 +216,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 : 0;
 
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
-        const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
+        const nextTheta = wrapIndex(thetaPrev[index] + nextOmega, PHASE_CONSTANTS.LUT_SIZE);
         const coupledEnergy =
             clampByte(
                 bestEnergy +
@@ -446,23 +446,6 @@ function localTarget(
     }
 
     return count === 0 ? 0 : Math.trunc(total / count);
-}
-
-function signedPhaseDelta(fromTheta: number, toTheta: number): number {
-    const raw = wrapTheta(toTheta - fromTheta);
-    return raw > 128 ? raw - 256 : raw;
-}
-
-function phaseRadians(fromTheta: number, toTheta: number): number {
-    return f32(f32(signedPhaseDelta(fromTheta, toTheta)) * BRIDGE_PHASE_SCALE);
-}
-
-function phaseSin(fromTheta: number, toTheta: number): number {
-    return f32(Math.sin(phaseRadians(fromTheta, toTheta)));
-}
-
-function phaseCos(fromTheta: number, toTheta: number): number {
-    return f32(Math.cos(phaseRadians(fromTheta, toTheta)));
 }
 
 function roundTiesAwayFromZero(value: number): number {

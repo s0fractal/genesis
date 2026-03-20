@@ -1,11 +1,6 @@
 import { fnv1a_64 } from "./hash.ts";
-
-export const PHASE_LUT_SIZE = 256;
-export const MAX_AMPLITUDE = 255;
-export const MAX_LOCK = 255;
-export const MAX_ENTANGLEMENT = 255;
-export const MIN_OMEGA = -16;
-export const MAX_OMEGA = 16;
+import { wrapIndex, clamp, signedPhaseDelta, phaseDistance, phaseSine, phaseCosine as resonance } from "./topology_core.ts";
+import { PHASE_CONSTANTS } from "./constants.ts";
 
 export interface PhaseFieldShape {
     sectors: number;
@@ -38,16 +33,8 @@ const FNV64_OFFSET_BASIS = 14695981039346656037n;
 const FNV64_PRIME = 1099511628211n;
 const FNV64_MASK = (1n << 64n) - 1n;
 
-export function wrapIndex(value: number, modulo: number): number {
-    return ((value % modulo) + modulo) % modulo;
-}
-
 export function wrapTheta(theta: number): number {
-    return wrapIndex(theta, PHASE_LUT_SIZE);
-}
-
-export function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
+    return wrapIndex(theta, PHASE_CONSTANTS.LUT_SIZE);
 }
 
 export function fieldIndex(shape: PhaseFieldShape, sector: number, rho: number, harmonic: number): number {
@@ -63,25 +50,6 @@ export function getCell(field: PhaseField, sector: number, rho: number, harmonic
     )];
 }
 
-export function signedPhaseDelta(fromTheta: number, toTheta: number): number {
-    const delta = wrapTheta(toTheta - fromTheta);
-    return delta > PHASE_LUT_SIZE / 2 ? delta - PHASE_LUT_SIZE : delta;
-}
-
-export function phaseDistance(a: number, b: number): number {
-    return Math.abs(signedPhaseDelta(a, b));
-}
-
-export function resonance(a: number, b: number): number {
-    const radians = (signedPhaseDelta(a, b) / PHASE_LUT_SIZE) * Math.PI * 2;
-    return Math.cos(radians);
-}
-
-export function phaseSine(a: number, b: number): number {
-    const radians = (signedPhaseDelta(a, b) / PHASE_LUT_SIZE) * Math.PI * 2;
-    return Math.sin(radians);
-}
-
 export function createPhaseField(
     shape: PhaseFieldShape,
     initializer: (address: PhaseCellAddress) => Omit<PhaseCell, keyof PhaseCellAddress>,
@@ -95,10 +63,10 @@ export function createPhaseField(
                 cells.push({
                     ...address,
                     theta: wrapTheta(state.theta),
-                    omega: clamp(Math.trunc(state.omega), MIN_OMEGA, MAX_OMEGA),
-                    amplitude: clamp(Math.trunc(state.amplitude), 0, MAX_AMPLITUDE),
-                    lock: clamp(Math.trunc(state.lock), 0, MAX_LOCK),
-                    entanglement: clamp(Math.trunc(state.entanglement), 0, MAX_ENTANGLEMENT),
+                    omega: clamp(Math.trunc(state.omega), PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA),
+                    amplitude: clamp(Math.trunc(state.amplitude), 0, PHASE_CONSTANTS.MAX_AMPLITUDE),
+                    lock: clamp(Math.trunc(state.lock), 0, PHASE_CONSTANTS.MAX_LOCK),
+                    entanglement: clamp(Math.trunc(state.entanglement), 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT),
                     cellStatus: state.cellStatus !== undefined ? state.cellStatus : 0,
                     plasmids: state.plasmids !== undefined ? state.plasmids : 0n,
                 });
@@ -177,10 +145,10 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const lockDelta = coherence >= 3 ? 8 : -4;
 
                 const nextCell = getCell(next, sector, rho, harmonic);
-                let nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, MAX_AMPLITUDE);
-                let nextLock = clamp(current.lock + lockDelta, 0, MAX_LOCK);
+                let nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, PHASE_CONSTANTS.MAX_AMPLITUDE);
+                let nextLock = clamp(current.lock + lockDelta, 0, PHASE_CONSTANTS.MAX_LOCK);
                 let nextTheta = wrapTheta(current.theta + current.omega + omegaDelta);
-                let nextOmega = clamp(current.omega + omegaDelta, MIN_OMEGA, MAX_OMEGA);
+                let nextOmega = clamp(current.omega + omegaDelta, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
                 let adopted = false;
 
                 if (nextAmplitude < 140) {
@@ -201,7 +169,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     if (donorPlasmid !== 0n && bestResonance > 0.6) {
                         nextTheta = Number(donorPlasmid & 255n);
                         const donorOmega = Number((donorPlasmid >> 8n) & 255n) - 128;
-                        nextOmega = clamp(donorOmega, MIN_OMEGA, MAX_OMEGA);
+                        nextOmega = clamp(donorOmega, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
                         nextCell.plasmids = donorPlasmid;
                         adopted = true;
                     }
@@ -233,8 +201,8 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     const antipodeAlignment = resonance(current.theta, antipode.theta);
                     nextCell.entanglement =
                         antipodeAlignment > 0.92 && current.amplitude > 96
-                            ? clamp(current.entanglement + 8, 0, MAX_ENTANGLEMENT)
-                            : clamp(current.entanglement - 3, 0, MAX_ENTANGLEMENT);
+                            ? clamp(current.entanglement + 8, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT)
+                            : clamp(current.entanglement - 3, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT);
                 } else {
                     nextCell.entanglement = current.entanglement;
                 }
@@ -326,19 +294,19 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
 
 export function assertFieldBounds(field: PhaseField): void {
     for (const cell of field.cells) {
-        if (cell.theta < 0 || cell.theta >= PHASE_LUT_SIZE) {
+        if (cell.theta < 0 || cell.theta >= PHASE_CONSTANTS.LUT_SIZE) {
             throw new Error(`theta out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
-        if (cell.omega < MIN_OMEGA || cell.omega > MAX_OMEGA) {
+        if (cell.omega < PHASE_CONSTANTS.MIN_OMEGA || cell.omega > PHASE_CONSTANTS.MAX_OMEGA) {
             throw new Error(`omega out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
-        if (cell.amplitude < 0 || cell.amplitude > MAX_AMPLITUDE) {
+        if (cell.amplitude < 0 || cell.amplitude > PHASE_CONSTANTS.MAX_AMPLITUDE) {
             throw new Error(`amplitude out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
-        if (cell.lock < 0 || cell.lock > MAX_LOCK) {
+        if (cell.lock < 0 || cell.lock > PHASE_CONSTANTS.MAX_LOCK) {
             throw new Error(`lock out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
-        if (cell.entanglement < 0 || cell.entanglement > MAX_ENTANGLEMENT) {
+        if (cell.entanglement < 0 || cell.entanglement > PHASE_CONSTANTS.MAX_ENTANGLEMENT) {
             throw new Error(`entanglement out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
     }

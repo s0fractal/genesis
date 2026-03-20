@@ -24,12 +24,12 @@ import {
 } from "../src/replay/hybrid_replay.ts";
 import {
     fieldSignature,
-    phaseDistance,
     stepPhaseField,
     structuralSignature,
     sumAmplitude,
     sumEntanglement,
 } from "../src/shared/phase_lattice.ts";
+import { phaseDistance } from "../src/shared/topology_core.ts";
 import { buildCanonicalPhaseSeed } from "../src/shared/phase_canonical.ts";
 import {
     bridgeFieldSignature,

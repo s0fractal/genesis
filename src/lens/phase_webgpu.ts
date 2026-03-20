@@ -3,6 +3,7 @@
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from './phase_compute.ts';
+import { generateWgslConstants } from "../shared/constants.ts";
 
 export class PhaseWebGPUObserver {
     public heatmapEnabled: boolean = false;
@@ -51,7 +52,7 @@ export class PhaseWebGPUObserver {
         });
         
         const shaderModule = this.device.createShaderModule({
-            code: phaseLensWgsl 
+            code: generateWgslConstants() + phaseLensWgsl 
         });
 
         this.pipeline = this.device.createRenderPipeline({

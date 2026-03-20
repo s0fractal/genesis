@@ -1,11 +1,11 @@
 import {
     clonePhaseField,
-    phaseDistance,
     stepPhaseField,
     structuralSignature,
     sumAmplitude,
     sumEntanglement,
 } from "../shared/phase_lattice.ts";
+import { phaseDistance } from "../shared/topology_core.ts";
 import { buildCanonicalPhaseSeed } from "../shared/phase_canonical.ts";
 import type { PhaseField, PhaseFieldShape } from "../shared/phase_lattice.ts";
 

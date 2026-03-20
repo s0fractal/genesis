@@ -132,7 +132,7 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   
   // O-54: Ontological Camouflage (The Shadow Network)
   let bucket = (harmonic % 8u) * 128u + (rho % 16u) * 8u + (sector % 8u);
-  if (bucket >= 1000u) {
+  if (bucket >= u32(SHADOW_BUCKET_MIN) && bucket <= u32(SHADOW_BUCKET_MAX)) {
       out.is_latent = 1.0;
   } else {
       out.is_latent = 0.0;

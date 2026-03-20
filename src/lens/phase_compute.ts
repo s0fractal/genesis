@@ -1,6 +1,7 @@
 import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { generateWgslConstants } from "../shared/constants.ts";
 
 interface PendingInjection {
     idx: number;
@@ -109,8 +110,8 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.bufferB, this.offsets[4], new Uint8Array(mem, f.ptr_entanglement(), numCells));
         this.device.queue.writeBuffer(this.bufferB, this.offsets[5], new Uint8Array(mem, f.ptr_plasmids(), numCells * 8));
 
-        const shaderModule = this.device.createShaderModule({ code: computeKuramotoWgsl });
-        const mycelialModule = this.device.createShaderModule({ code: computeMycelialWgsl });
+        const shaderModule = this.device.createShaderModule({ code: generateWgslConstants() + computeKuramotoWgsl });
+        const mycelialModule = this.device.createShaderModule({ code: generateWgslConstants() + computeMycelialWgsl });
 
         this.pipeline = this.device.createComputePipeline({
             layout: 'auto',

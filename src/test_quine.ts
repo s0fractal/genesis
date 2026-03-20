@@ -1,5 +1,6 @@
 import { unpackTissueFromBinary, parseTissueFromMarkdown, executeNeuron, Dispatcher } from "./quine.ts";
 import { generateGeneticDrift } from "./compiler/mutator.ts";
+import { MUTATION_COSTS } from "./shared/constants.ts";
 
 async function main() {
   console.log("=== OMEGA-64 | Σ³ EVOLUTIONARY DREAM LOOP ===");
@@ -97,7 +98,7 @@ async function main() {
 
       let FATIGUE_THRESHOLD = 80;
       let PHOTOSYNTHESIS_RATE = 5;
-      let MUTATION_COST = 50;
+      let MUTATION_COST: number = MUTATION_COSTS.BASE;
       let ENERGY_REWARD = 200;
       try {
           const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
@@ -148,7 +149,7 @@ async function main() {
       if (targetNode.physics && typeof targetNode.physics.stability === "number") {
           if (targetNode.physics.stability > 0.95) {
               FATIGUE_THRESHOLD += 50; 
-              MUTATION_COST *= 2; 
+              MUTATION_COST = Math.min(MUTATION_COST * 2, MUTATION_COSTS.MAX); 
               console.log(`⏳ CHRONOS (Difficulty Adjustment): Extreme Semantic Density detected (>0.95). Thickening the mathematical fluid: FATIGUE_THRESHOLD increased to ${FATIGUE_THRESHOLD}, MUTATION_COST to ${MUTATION_COST}.`);
           } else if (targetNode.physics.stability < 0.2) {
               FATIGUE_THRESHOLD = Math.max(10, FATIGUE_THRESHOLD - 10);
@@ -158,7 +159,7 @@ async function main() {
       
       // O-35 Phase 2: Semantic Immunity (Hardened Core)
       if (targetNode.physics && typeof targetNode.physics.stability === "number" && targetNode.physics.stability > 0.9) {
-          MUTATION_COST *= 10;
+          MUTATION_COST = Math.min(MUTATION_COST * 10, MUTATION_COSTS.MAX);
           console.log(`🛡️ IMMUNE SYSTEM: Node '${targetAlias}' remains stable (>${targetNode.physics.stability.toFixed(2)}). Taxing 10x Metabolic Cost (${MUTATION_COST}).`);
       }
 
