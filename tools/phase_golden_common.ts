@@ -19,6 +19,7 @@ import initWasm, {
 import {
     collapsePhaseField,
     cropPhaseField,
+    snapshotHybridComparableField,
     snapshotHybridField,
 } from "../src/replay/hybrid_replay.ts";
 import {
@@ -119,7 +120,9 @@ export interface PhaseCrossGolden {
     trace: PhaseCrossTraceEntry[];
     invariants: {
         seedChangedCells: number;
+        changedCellsCeiling: number;
         amplitudeDeltaCeiling: number;
+        lockDeltaCeiling: number;
         maxPhaseDistanceCeiling: number;
         lockDeltaTrend: "nondecreasing";
         entanglementDeltaTrend: "nonincreasing";
@@ -332,7 +335,7 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     const trace: PhaseCrossTraceEntry[] = [];
     for (let tick = 0; tick <= ticks; tick++) {
         const phaseCollapsed = collapsePhaseField(phaseField, collapsedRadialBins);
-        const hybridCropped = cropPhaseField(snapshotHybridField(hybridField, wasm), collapsedRadialBins);
+        const hybridCropped = cropPhaseField(snapshotHybridComparableField(hybridField, wasm), collapsedRadialBins);
         const summary = buildCrossTraceEntry(tick, phaseCollapsed, hybridCropped);
         trace.push(summary);
 
@@ -351,7 +354,9 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         trace,
         invariants: {
             seedChangedCells: trace[0]?.changedCells ?? 0,
+            changedCellsCeiling: Math.max(...trace.map((entry) => entry.changedCells)),
             amplitudeDeltaCeiling: Math.max(...trace.map((entry) => entry.totalAmplitudeDelta)),
+            lockDeltaCeiling: Math.max(...trace.map((entry) => entry.totalLockDelta)),
             maxPhaseDistanceCeiling: Math.max(...trace.map((entry) => entry.maxPhaseDistance)),
             lockDeltaTrend: "nondecreasing",
             entanglementDeltaTrend: "nonincreasing",

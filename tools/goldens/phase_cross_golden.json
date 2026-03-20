@@ -24,128 +24,130 @@
     },
     {
       "tick": 1,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 75,
-      "totalLockDelta": 1170,
-      "totalEntanglementDelta": -17977,
+      "changedCells": 107,
+      "totalAmplitudeDelta": 38,
+      "totalLockDelta": 0,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 5,
       "phaseSignature": "ff882d4045b3a340",
-      "hybridSignature": "712481cea83dc3f2"
+      "hybridSignature": "9b78270a5596093c"
     },
     {
       "tick": 2,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 773,
-      "totalLockDelta": 2392,
-      "totalEntanglementDelta": -18784,
+      "changedCells": 133,
+      "totalAmplitudeDelta": 726,
+      "totalLockDelta": 208,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 39,
       "phaseSignature": "fd4d9e95d4d302e5",
-      "hybridSignature": "70d1a5dfc75ea76e"
+      "hybridSignature": "67723c9f568640c6"
     },
     {
       "tick": 3,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 1487,
-      "totalLockDelta": 3634,
-      "totalEntanglementDelta": -20016,
+      "changedCells": 165,
+      "totalAmplitudeDelta": 1434,
+      "totalLockDelta": 496,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 46,
       "phaseSignature": "7e330567c8554ce3",
-      "hybridSignature": "9eda38655da17bf2"
+      "hybridSignature": "568a6599fac6283a"
     },
     {
       "tick": 4,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2110,
-      "totalLockDelta": 4894,
-      "totalEntanglementDelta": -20800,
+      "changedCells": 187,
+      "totalAmplitudeDelta": 2058,
+      "totalLockDelta": 880,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 46,
       "phaseSignature": "8ffa01145d1323f3",
-      "hybridSignature": "1301625d9c21d863"
+      "hybridSignature": "9643987e26f3acb2"
     },
     {
       "tick": 5,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2622,
-      "totalLockDelta": 6171,
-      "totalEntanglementDelta": -21416,
+      "changedCells": 183,
+      "totalAmplitudeDelta": 2572,
+      "totalLockDelta": 1308,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 53,
       "phaseSignature": "ca9bf9b69ecef1ca",
-      "hybridSignature": "eeedd38c8c7a1e40"
+      "hybridSignature": "c97c6793a14e706d"
     },
     {
       "tick": 6,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2962,
-      "totalLockDelta": 7460,
-      "totalEntanglementDelta": -21899,
+      "changedCells": 186,
+      "totalAmplitudeDelta": 2915,
+      "totalLockDelta": 1760,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 50,
       "phaseSignature": "8f8b3113f7a57b16",
-      "hybridSignature": "fd9b6973a54179d8"
+      "hybridSignature": "6de65dfed6dc2a80"
     },
     {
       "tick": 7,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3105,
-      "totalLockDelta": 8756,
-      "totalEntanglementDelta": -22139,
+      "changedCells": 187,
+      "totalAmplitudeDelta": 3056,
+      "totalLockDelta": 2228,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 47,
       "phaseSignature": "c1ea6744f7153881",
-      "hybridSignature": "09d410df2d3a44b6"
+      "hybridSignature": "26f305711459b440"
     },
     {
       "tick": 8,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3097,
-      "totalLockDelta": 10055,
-      "totalEntanglementDelta": -22376,
+      "changedCells": 184,
+      "totalAmplitudeDelta": 3054,
+      "totalLockDelta": 2696,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 44,
       "phaseSignature": "6c7ae180782339b3",
-      "hybridSignature": "f8ab905efabaa661"
+      "hybridSignature": "b6f84b38040e071d"
     },
     {
       "tick": 9,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3042,
-      "totalLockDelta": 11354,
-      "totalEntanglementDelta": -22613,
+      "changedCells": 185,
+      "totalAmplitudeDelta": 2999,
+      "totalLockDelta": 3164,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 38,
       "phaseSignature": "3de87dbd183491fa",
-      "hybridSignature": "96e59bdefb4ebadb"
+      "hybridSignature": "055f05113b85e9cf"
     },
     {
       "tick": 10,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3012,
-      "totalLockDelta": 12653,
-      "totalEntanglementDelta": -22850,
+      "changedCells": 185,
+      "totalAmplitudeDelta": 2966,
+      "totalLockDelta": 3632,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 30,
       "phaseSignature": "0444ff443961e3bf",
-      "hybridSignature": "7884903c4f2d853f"
+      "hybridSignature": "4ea566a6bd0b820b"
     },
     {
       "tick": 11,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3011,
-      "totalLockDelta": 13958,
-      "totalEntanglementDelta": -23081,
+      "changedCells": 188,
+      "totalAmplitudeDelta": 2964,
+      "totalLockDelta": 4088,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 29,
       "phaseSignature": "b479cf29a3015e1e",
-      "hybridSignature": "ed595522aba23471"
+      "hybridSignature": "ab8e81bafc505bb2"
     },
     {
       "tick": 12,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3011,
-      "totalLockDelta": 15260,
-      "totalEntanglementDelta": -23315,
+      "changedCells": 191,
+      "totalAmplitudeDelta": 2964,
+      "totalLockDelta": 4544,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 32,
       "phaseSignature": "450154228192c10a",
-      "hybridSignature": "076a178abda92179"
+      "hybridSignature": "3d5bc4c373d8b054"
     }
   ],
   "invariants": {
     "seedChangedCells": 0,
-    "amplitudeDeltaCeiling": 3105,
+    "changedCellsCeiling": 191,
+    "amplitudeDeltaCeiling": 3056,
+    "lockDeltaCeiling": 4544,
     "maxPhaseDistanceCeiling": 53,
     "lockDeltaTrend": "nondecreasing",
     "entanglementDeltaTrend": "nonincreasing"

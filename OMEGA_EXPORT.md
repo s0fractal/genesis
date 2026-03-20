@@ -2493,7 +2493,7 @@ function projectRadialIndex(targetRho: number, targetBins: number, sourceBins: n
 
 ## `src/shared/phase_bridge.ts`
 ```ts
-import { buildProjectedBridgeSeed } from "./phase_canonical.ts";
+import { buildProjectedBridgeSeed, CANONICAL_PHASE_SHAPE } from "./phase_canonical.ts";
 import { wrapIndex, wrapTheta } from "./phase_lattice.ts";
 
 const BRIDGE_FNV64_OFFSET_BASIS = 14695981039346656037n;
@@ -2503,6 +2503,7 @@ const BRIDGE_ZERO_LUT = new Int16Array(256);
 const BRIDGE_DELTAS = [1, 2, 3, 4] as const;
 const BRIDGE_MAX_OMEGA = 32;
 const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
+const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
 
 export interface BridgeField {
     width: number;
@@ -2630,6 +2631,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
     const size = field.width * field.height;
     const width = field.width;
     const height = field.height;
+    const activeRadialBins = Math.max(1, Math.min(height, BRIDGE_ACTIVE_RADIAL_BINS));
 
     const thetaPrev = field.thetaNow;
     const omegaPrev = field.omega;
@@ -2645,10 +2647,11 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
 
         const sector = index % width;
         const rho = Math.trunc(index / width);
+        const radialRho = Math.min(rho, activeRadialBins - 1);
         const leftIndex = bridgeIndex(width, wrapIndex(sector - 1, width), rho);
         const rightIndex = bridgeIndex(width, wrapIndex(sector + 1, width), rho);
-        const innerIndex = bridgeIndex(width, sector, Math.max(0, rho - 1));
-        const outerIndex = bridgeIndex(width, sector, Math.min(rho + 1, height - 1));
+        const innerIndex = bridgeIndex(width, sector, Math.max(0, radialRho - 1));
+        const outerIndex = bridgeIndex(width, sector, Math.min(radialRho + 1, activeRadialBins - 1));
         const antipodeIndex = width % 2 === 0 ? bridgeIndex(width, (sector + width / 2) % width, rho) : index;
 
         const rawEnergy = energyPrev[index];
@@ -2657,7 +2660,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             thetaPrev,
             [leftIndex, rightIndex, innerIndex, outerIndex],
             antipodeIndex,
-            width % 2 === 0,
+            false,
         );
 
         let bestEnergy = rawEnergy;
@@ -2674,7 +2677,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const antipodeWeight = width % 2 === 0 ? f32(f32(locksPrev[index] / 255) * 0.35) : 0;
+        const antipodeWeight = 0;
 
         let kuramoto = f32(0);
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[leftIndex]));
@@ -2701,7 +2704,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         next.thetaF2[index] = thetaPrev[rightIndex];
         next.thetaF3[index] = thetaPrev[antipodeIndex];
 
-        if (coherence > 3 && coupledEnergy > 200) {
+        if (coherence >= 3 && coupledEnergy > 200) {
             next.plasmids[index] =
                 BigInt(next.thetaNow[index]) |
                 (BigInt(next.omega[index]) << 8n) |
@@ -2742,12 +2745,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const alignment = Math.max(
-            phaseCos(thetaPrev[index], thetaPrev[rightIndex]),
-            phaseCos(thetaPrev[index], thetaPrev[antipodeIndex]),
-        );
         next.hebbianLocks[index] =
-            alignment > 0.92 ? saturatingAddByte(locksPrev[index], 2) : saturatingSubByte(locksPrev[index], 1);
+            coherence >= 3 ? saturatingAddByte(locksPrev[index], 8) : saturatingSubByte(locksPrev[index], 4);
 
         if (coupledEnergy < 15 && next.plasmids[index] !== 0n && next.thetaNow[index] % 4 === 0) {
             next.plasmids[index] = 0n;
@@ -4696,6 +4695,38 @@ export function snapshotHybridField(field: Field, wasm: WebAssembly.Exports): Ph
     );
 }
 
+export function snapshotHybridComparableField(field: Field, wasm: WebAssembly.Exports): PhaseField {
+    const memory = wasm.memory;
+    if (!(memory instanceof WebAssembly.Memory)) {
+        throw new Error("WASM memory export is unavailable");
+    }
+
+    const cellCount = field.width * field.height;
+    const theta = new Uint8Array(memory.buffer, field.ptr_theta_now(), cellCount);
+    const omega = new Uint8Array(memory.buffer, field.ptr_omega(), cellCount);
+    const energy = new Uint8Array(memory.buffer, field.ptr_energy(), cellCount);
+    const locks = new Uint8Array(memory.buffer, field.ptr_hebbian_locks(), cellCount);
+
+    return createPhaseField(
+        {
+            sectors: field.width,
+            radialBins: field.height,
+            harmonics: 1,
+        },
+        ({ sector, rho }) => {
+            const index = rho * field.width + sector;
+            return {
+                theta: theta[index],
+                omega: decodeBridgeOmega(omega[index]),
+                amplitude: energy[index],
+                lock: locks[index],
+                // Cross-mode admission should compare only registers that actually exist in bridge mode.
+                entanglement: 0,
+            };
+        },
+    );
+}
+
 function validateHybridSnapshot(field: Field, trace: HybridReplayTraceEntry): void {
     const signature = field_signature(field);
     if (signature !== trace.signature) {
@@ -4999,6 +5030,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
     let size = field.x.len();
     let width = field.width as usize;
     let height = field.height as usize;
+    let active_radial_bins = usize::max(1, usize::min(height, 6));
     let default_lut: [i16; 256] = [0; 256];
     let lut = if lut_ptr.is_null() {
         &default_lut[..]
@@ -5020,11 +5052,12 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let sector = idx % width;
         let rho = idx / width;
+        let radial_rho = usize::min(rho, active_radial_bins - 1);
 
         let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
         let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
-        let inner_idx = idx_from_sector_rho(width, height, sector, rho.saturating_sub(1));
-        let outer_idx = idx_from_sector_rho(width, height, sector, usize::min(rho + 1, height - 1));
+        let inner_idx = idx_from_sector_rho(width, height, sector, radial_rho.saturating_sub(1));
+        let outer_idx = idx_from_sector_rho(width, height, sector, usize::min(radial_rho + 1, active_radial_bins - 1));
         let antipode_idx = if width % 2 == 0 {
             idx_from_sector_rho(width, height, (sector + width / 2) % width, rho)
         } else {
@@ -5033,7 +5066,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let p = theta_prev[idx];
         let raw_energy = energy_prev[idx] as i16;
-        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], antipode_idx, width % 2 == 0);
+        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], antipode_idx, false);
 
         let mut best_energy = raw_energy;
         let mut best_score = i16::MAX;
@@ -5049,11 +5082,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let antipode_weight = if width % 2 == 0 {
-            (locks_prev[idx] as f32 / 255.0) * 0.35
-        } else {
-            0.0
-        };
+        let antipode_weight = 0.0;
 
         let kuramoto =
             phase_sin(theta_prev[idx], theta_prev[left_idx]) +
@@ -5080,7 +5109,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         field.theta_f2[idx] = theta_prev[right_idx];
         field.theta_f3[idx] = theta_prev[antipode_idx];
 
-        if coherence > 3.0 && coupled_energy > 200 {
+        if coherence >= 3.0 && coupled_energy > 200 {
             let structural_plasmid =
                 (field.theta_now[idx] as u64) |
                 ((field.omega[idx] as u64) << 8) |
@@ -5122,11 +5151,10 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let alignment = phase_cos(theta_prev[idx], theta_prev[right_idx]).max(phase_cos(theta_prev[idx], theta_prev[antipode_idx]));
-        if alignment > 0.92 {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(2);
+        if coherence >= 3.0 {
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(8);
         } else {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(1);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(4);
         }
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {
@@ -6134,6 +6162,7 @@ import initWasm, {
 import {
     collapsePhaseField,
     cropPhaseField,
+    snapshotHybridComparableField,
     snapshotHybridField,
 } from "../src/replay/hybrid_replay.ts";
 import {
@@ -6234,7 +6263,9 @@ export interface PhaseCrossGolden {
     trace: PhaseCrossTraceEntry[];
     invariants: {
         seedChangedCells: number;
+        changedCellsCeiling: number;
         amplitudeDeltaCeiling: number;
+        lockDeltaCeiling: number;
         maxPhaseDistanceCeiling: number;
         lockDeltaTrend: "nondecreasing";
         entanglementDeltaTrend: "nonincreasing";
@@ -6447,7 +6478,7 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     const trace: PhaseCrossTraceEntry[] = [];
     for (let tick = 0; tick <= ticks; tick++) {
         const phaseCollapsed = collapsePhaseField(phaseField, collapsedRadialBins);
-        const hybridCropped = cropPhaseField(snapshotHybridField(hybridField, wasm), collapsedRadialBins);
+        const hybridCropped = cropPhaseField(snapshotHybridComparableField(hybridField, wasm), collapsedRadialBins);
         const summary = buildCrossTraceEntry(tick, phaseCollapsed, hybridCropped);
         trace.push(summary);
 
@@ -6466,7 +6497,9 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         trace,
         invariants: {
             seedChangedCells: trace[0]?.changedCells ?? 0,
+            changedCellsCeiling: Math.max(...trace.map((entry) => entry.changedCells)),
             amplitudeDeltaCeiling: Math.max(...trace.map((entry) => entry.totalAmplitudeDelta)),
+            lockDeltaCeiling: Math.max(...trace.map((entry) => entry.totalLockDelta)),
             maxPhaseDistanceCeiling: Math.max(...trace.map((entry) => entry.maxPhaseDistance)),
             lockDeltaTrend: "nondecreasing",
             entanglementDeltaTrend: "nonincreasing",
@@ -7255,8 +7288,16 @@ function verifyPhaseCross(actual: PhaseCrossGolden, expected: PhaseCrossGolden):
 
     for (const entry of actual.trace) {
         assert(
+            entry.changedCells <= expected.invariants.changedCellsCeiling,
+            `phase_cross changedCells exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.changedCellsCeiling} actual=${entry.changedCells}`,
+        );
+        assert(
             entry.totalAmplitudeDelta <= expected.invariants.amplitudeDeltaCeiling,
             `phase_cross totalAmplitudeDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.amplitudeDeltaCeiling} actual=${entry.totalAmplitudeDelta}`,
+        );
+        assert(
+            entry.totalLockDelta <= expected.invariants.lockDeltaCeiling,
+            `phase_cross totalLockDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.lockDeltaCeiling} actual=${entry.totalLockDelta}`,
         );
         assert(
             entry.maxPhaseDistance <= expected.invariants.maxPhaseDistanceCeiling,
@@ -7573,99 +7614,99 @@ if (import.meta.main) {
     },
     {
       "tick": 1,
-      "signature": "1babd9d8867fde79",
-      "totalEnergy": 57407,
-      "totalLocks": 8455,
+      "signature": "ddf4d854a05252f6",
+      "totalEnergy": 57426,
+      "totalLocks": 10015,
       "totalPlasmids": 194,
       "omegaSpan": "-2..2"
     },
     {
       "tick": 2,
-      "signature": "dcffb265ed82fcbc",
-      "totalEnergy": 58656,
-      "totalLocks": 8875,
-      "totalPlasmids": 202,
+      "signature": "fd53a46c8fb6a8cd",
+      "totalEnergy": 58683,
+      "totalLocks": 11791,
+      "totalPlasmids": 200,
       "omegaSpan": "-2..3"
     },
     {
       "tick": 3,
-      "signature": "c14774ce1d0dbacd",
-      "totalEnergy": 59475,
-      "totalLocks": 9267,
-      "totalPlasmids": 211,
+      "signature": "16f8dc00bb8e2fe5",
+      "totalEnergy": 59504,
+      "totalLocks": 13455,
+      "totalPlasmids": 209,
       "omegaSpan": "-3..3"
     },
     {
       "tick": 4,
-      "signature": "b6d89f3f47562a96",
-      "totalEnergy": 60097,
-      "totalLocks": 9641,
-      "totalPlasmids": 215,
+      "signature": "babb8e889dc5203a",
+      "totalEnergy": 60117,
+      "totalLocks": 15023,
+      "totalPlasmids": 213,
       "omegaSpan": "-2..4"
     },
     {
       "tick": 5,
-      "signature": "1149fc6fb19a06b9",
-      "totalEnergy": 60560,
-      "totalLocks": 9992,
-      "totalPlasmids": 218,
+      "signature": "e7ab7119547dca0a",
+      "totalEnergy": 60571,
+      "totalLocks": 16547,
+      "totalPlasmids": 216,
       "omegaSpan": "-2..5"
     },
     {
       "tick": 6,
-      "signature": "d4f5d586f6da0d58",
-      "totalEnergy": 60955,
-      "totalLocks": 10331,
-      "totalPlasmids": 220,
+      "signature": "ceeae7e7d9e1803d",
+      "totalEnergy": 60959,
+      "totalLocks": 18047,
+      "totalPlasmids": 218,
       "omegaSpan": "-2..6"
     },
     {
       "tick": 7,
-      "signature": "46ce51254812f952",
-      "totalEnergy": 61238,
-      "totalLocks": 10663,
-      "totalPlasmids": 220,
+      "signature": "f49164c9b65671f7",
+      "totalEnergy": 61271,
+      "totalLocks": 19531,
+      "totalPlasmids": 218,
       "omegaSpan": "-2..6"
     },
     {
       "tick": 8,
-      "signature": "ece1cf4af3fa14a3",
-      "totalEnergy": 61447,
-      "totalLocks": 10992,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..6"
+      "signature": "d9b9f704bf5c1641",
+      "totalEnergy": 61474,
+      "totalLocks": 21015,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 9,
-      "signature": "f403cd1b41546e41",
-      "totalEnergy": 61591,
-      "totalLocks": 11324,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..6"
+      "signature": "6bb26b4f7e235eb2",
+      "totalEnergy": 61618,
+      "totalLocks": 22499,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 10,
-      "signature": "7232e1790e145b7b",
-      "totalEnergy": 61654,
-      "totalLocks": 11656,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..8"
+      "signature": "d390ddc6827f2234",
+      "totalEnergy": 61684,
+      "totalLocks": 23983,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..8"
     },
     {
       "tick": 11,
-      "signature": "efc10d02d0ed59b6",
-      "totalEnergy": 61663,
-      "totalLocks": 11958,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..10"
+      "signature": "88a8682a2adf5e78",
+      "totalEnergy": 61694,
+      "totalLocks": 25479,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..10"
     },
     {
       "tick": 12,
-      "signature": "2b016c718b95f962",
-      "totalEnergy": 61663,
-      "totalLocks": 12254,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..11"
+      "signature": "8d1d1e60fca0f527",
+      "totalEnergy": 61694,
+      "totalLocks": 26975,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..11"
     }
   ],
   "wasmTrace": [
@@ -7679,104 +7720,104 @@ if (import.meta.main) {
     },
     {
       "tick": 1,
-      "signature": "1babd9d8867fde79",
-      "totalEnergy": 57407,
-      "totalLocks": 8455,
+      "signature": "ddf4d854a05252f6",
+      "totalEnergy": 57426,
+      "totalLocks": 10015,
       "totalPlasmids": 194,
       "omegaSpan": "-2..2"
     },
     {
       "tick": 2,
-      "signature": "dcffb265ed82fcbc",
-      "totalEnergy": 58656,
-      "totalLocks": 8875,
-      "totalPlasmids": 202,
+      "signature": "fd53a46c8fb6a8cd",
+      "totalEnergy": 58683,
+      "totalLocks": 11791,
+      "totalPlasmids": 200,
       "omegaSpan": "-2..3"
     },
     {
       "tick": 3,
-      "signature": "c14774ce1d0dbacd",
-      "totalEnergy": 59475,
-      "totalLocks": 9267,
-      "totalPlasmids": 211,
+      "signature": "16f8dc00bb8e2fe5",
+      "totalEnergy": 59504,
+      "totalLocks": 13455,
+      "totalPlasmids": 209,
       "omegaSpan": "-3..3"
     },
     {
       "tick": 4,
-      "signature": "b6d89f3f47562a96",
-      "totalEnergy": 60097,
-      "totalLocks": 9641,
-      "totalPlasmids": 215,
+      "signature": "babb8e889dc5203a",
+      "totalEnergy": 60117,
+      "totalLocks": 15023,
+      "totalPlasmids": 213,
       "omegaSpan": "-2..4"
     },
     {
       "tick": 5,
-      "signature": "1149fc6fb19a06b9",
-      "totalEnergy": 60560,
-      "totalLocks": 9992,
-      "totalPlasmids": 218,
+      "signature": "e7ab7119547dca0a",
+      "totalEnergy": 60571,
+      "totalLocks": 16547,
+      "totalPlasmids": 216,
       "omegaSpan": "-2..5"
     },
     {
       "tick": 6,
-      "signature": "d4f5d586f6da0d58",
-      "totalEnergy": 60955,
-      "totalLocks": 10331,
-      "totalPlasmids": 220,
+      "signature": "ceeae7e7d9e1803d",
+      "totalEnergy": 60959,
+      "totalLocks": 18047,
+      "totalPlasmids": 218,
       "omegaSpan": "-2..6"
     },
     {
       "tick": 7,
-      "signature": "46ce51254812f952",
-      "totalEnergy": 61238,
-      "totalLocks": 10663,
-      "totalPlasmids": 220,
+      "signature": "f49164c9b65671f7",
+      "totalEnergy": 61271,
+      "totalLocks": 19531,
+      "totalPlasmids": 218,
       "omegaSpan": "-2..6"
     },
     {
       "tick": 8,
-      "signature": "ece1cf4af3fa14a3",
-      "totalEnergy": 61447,
-      "totalLocks": 10992,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..6"
+      "signature": "d9b9f704bf5c1641",
+      "totalEnergy": 61474,
+      "totalLocks": 21015,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 9,
-      "signature": "f403cd1b41546e41",
-      "totalEnergy": 61591,
-      "totalLocks": 11324,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..6"
+      "signature": "6bb26b4f7e235eb2",
+      "totalEnergy": 61618,
+      "totalLocks": 22499,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..6"
     },
     {
       "tick": 10,
-      "signature": "7232e1790e145b7b",
-      "totalEnergy": 61654,
-      "totalLocks": 11656,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..8"
+      "signature": "d390ddc6827f2234",
+      "totalEnergy": 61684,
+      "totalLocks": 23983,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..8"
     },
     {
       "tick": 11,
-      "signature": "efc10d02d0ed59b6",
-      "totalEnergy": 61663,
-      "totalLocks": 11958,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..10"
+      "signature": "88a8682a2adf5e78",
+      "totalEnergy": 61694,
+      "totalLocks": 25479,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..10"
     },
     {
       "tick": 12,
-      "signature": "2b016c718b95f962",
-      "totalEnergy": 61663,
-      "totalLocks": 12254,
-      "totalPlasmids": 220,
-      "omegaSpan": "-3..11"
+      "signature": "8d1d1e60fca0f527",
+      "totalEnergy": 61694,
+      "totalLocks": 26975,
+      "totalPlasmids": 218,
+      "omegaSpan": "-2..11"
     }
   ],
   "invariants": {
     "seedSignature": "7df4953e3350630b",
-    "rotatedSignature": "b9e0215dbf69053e"
+    "rotatedSignature": "2093b575ec9f72bf"
   }
 }
 
@@ -7810,128 +7851,130 @@ if (import.meta.main) {
     },
     {
       "tick": 1,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 75,
-      "totalLockDelta": 1170,
-      "totalEntanglementDelta": -17977,
+      "changedCells": 107,
+      "totalAmplitudeDelta": 38,
+      "totalLockDelta": 0,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 5,
       "phaseSignature": "ff882d4045b3a340",
-      "hybridSignature": "712481cea83dc3f2"
+      "hybridSignature": "9b78270a5596093c"
     },
     {
       "tick": 2,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 773,
-      "totalLockDelta": 2392,
-      "totalEntanglementDelta": -18784,
+      "changedCells": 133,
+      "totalAmplitudeDelta": 726,
+      "totalLockDelta": 208,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 39,
       "phaseSignature": "fd4d9e95d4d302e5",
-      "hybridSignature": "70d1a5dfc75ea76e"
+      "hybridSignature": "67723c9f568640c6"
     },
     {
       "tick": 3,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 1487,
-      "totalLockDelta": 3634,
-      "totalEntanglementDelta": -20016,
+      "changedCells": 165,
+      "totalAmplitudeDelta": 1434,
+      "totalLockDelta": 496,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 46,
       "phaseSignature": "7e330567c8554ce3",
-      "hybridSignature": "9eda38655da17bf2"
+      "hybridSignature": "568a6599fac6283a"
     },
     {
       "tick": 4,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2110,
-      "totalLockDelta": 4894,
-      "totalEntanglementDelta": -20800,
+      "changedCells": 187,
+      "totalAmplitudeDelta": 2058,
+      "totalLockDelta": 880,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 46,
       "phaseSignature": "8ffa01145d1323f3",
-      "hybridSignature": "1301625d9c21d863"
+      "hybridSignature": "9643987e26f3acb2"
     },
     {
       "tick": 5,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2622,
-      "totalLockDelta": 6171,
-      "totalEntanglementDelta": -21416,
+      "changedCells": 183,
+      "totalAmplitudeDelta": 2572,
+      "totalLockDelta": 1308,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 53,
       "phaseSignature": "ca9bf9b69ecef1ca",
-      "hybridSignature": "eeedd38c8c7a1e40"
+      "hybridSignature": "c97c6793a14e706d"
     },
     {
       "tick": 6,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 2962,
-      "totalLockDelta": 7460,
-      "totalEntanglementDelta": -21899,
+      "changedCells": 186,
+      "totalAmplitudeDelta": 2915,
+      "totalLockDelta": 1760,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 50,
       "phaseSignature": "8f8b3113f7a57b16",
-      "hybridSignature": "fd9b6973a54179d8"
+      "hybridSignature": "6de65dfed6dc2a80"
     },
     {
       "tick": 7,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3105,
-      "totalLockDelta": 8756,
-      "totalEntanglementDelta": -22139,
+      "changedCells": 187,
+      "totalAmplitudeDelta": 3056,
+      "totalLockDelta": 2228,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 47,
       "phaseSignature": "c1ea6744f7153881",
-      "hybridSignature": "09d410df2d3a44b6"
+      "hybridSignature": "26f305711459b440"
     },
     {
       "tick": 8,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3097,
-      "totalLockDelta": 10055,
-      "totalEntanglementDelta": -22376,
+      "changedCells": 184,
+      "totalAmplitudeDelta": 3054,
+      "totalLockDelta": 2696,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 44,
       "phaseSignature": "6c7ae180782339b3",
-      "hybridSignature": "f8ab905efabaa661"
+      "hybridSignature": "b6f84b38040e071d"
     },
     {
       "tick": 9,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3042,
-      "totalLockDelta": 11354,
-      "totalEntanglementDelta": -22613,
+      "changedCells": 185,
+      "totalAmplitudeDelta": 2999,
+      "totalLockDelta": 3164,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 38,
       "phaseSignature": "3de87dbd183491fa",
-      "hybridSignature": "96e59bdefb4ebadb"
+      "hybridSignature": "055f05113b85e9cf"
     },
     {
       "tick": 10,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3012,
-      "totalLockDelta": 12653,
-      "totalEntanglementDelta": -22850,
+      "changedCells": 185,
+      "totalAmplitudeDelta": 2966,
+      "totalLockDelta": 3632,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 30,
       "phaseSignature": "0444ff443961e3bf",
-      "hybridSignature": "7884903c4f2d853f"
+      "hybridSignature": "4ea566a6bd0b820b"
     },
     {
       "tick": 11,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3011,
-      "totalLockDelta": 13958,
-      "totalEntanglementDelta": -23081,
+      "changedCells": 188,
+      "totalAmplitudeDelta": 2964,
+      "totalLockDelta": 4088,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 29,
       "phaseSignature": "b479cf29a3015e1e",
-      "hybridSignature": "ed595522aba23471"
+      "hybridSignature": "ab8e81bafc505bb2"
     },
     {
       "tick": 12,
-      "changedCells": 192,
-      "totalAmplitudeDelta": 3011,
-      "totalLockDelta": 15260,
-      "totalEntanglementDelta": -23315,
+      "changedCells": 191,
+      "totalAmplitudeDelta": 2964,
+      "totalLockDelta": 4544,
+      "totalEntanglementDelta": 0,
       "maxPhaseDistance": 32,
       "phaseSignature": "450154228192c10a",
-      "hybridSignature": "076a178abda92179"
+      "hybridSignature": "3d5bc4c373d8b054"
     }
   ],
   "invariants": {
     "seedChangedCells": 0,
-    "amplitudeDeltaCeiling": 3105,
+    "changedCellsCeiling": 191,
+    "amplitudeDeltaCeiling": 3056,
+    "lockDeltaCeiling": 4544,
     "maxPhaseDistanceCeiling": 53,
     "lockDeltaTrend": "nondecreasing",
     "entanglementDeltaTrend": "nonincreasing"

@@ -177,6 +177,38 @@ export function snapshotHybridField(field: Field, wasm: WebAssembly.Exports): Ph
     );
 }
 
+export function snapshotHybridComparableField(field: Field, wasm: WebAssembly.Exports): PhaseField {
+    const memory = wasm.memory;
+    if (!(memory instanceof WebAssembly.Memory)) {
+        throw new Error("WASM memory export is unavailable");
+    }
+
+    const cellCount = field.width * field.height;
+    const theta = new Uint8Array(memory.buffer, field.ptr_theta_now(), cellCount);
+    const omega = new Uint8Array(memory.buffer, field.ptr_omega(), cellCount);
+    const energy = new Uint8Array(memory.buffer, field.ptr_energy(), cellCount);
+    const locks = new Uint8Array(memory.buffer, field.ptr_hebbian_locks(), cellCount);
+
+    return createPhaseField(
+        {
+            sectors: field.width,
+            radialBins: field.height,
+            harmonics: 1,
+        },
+        ({ sector, rho }) => {
+            const index = rho * field.width + sector;
+            return {
+                theta: theta[index],
+                omega: decodeBridgeOmega(omega[index]),
+                amplitude: energy[index],
+                lock: locks[index],
+                // Cross-mode admission should compare only registers that actually exist in bridge mode.
+                entanglement: 0,
+            };
+        },
+    );
+}
+
 function validateHybridSnapshot(field: Field, trace: HybridReplayTraceEntry): void {
     const signature = field_signature(field);
     if (signature !== trace.signature) {

@@ -136,6 +136,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
     let size = field.x.len();
     let width = field.width as usize;
     let height = field.height as usize;
+    let active_radial_bins = usize::max(1, usize::min(height, 6));
     let default_lut: [i16; 256] = [0; 256];
     let lut = if lut_ptr.is_null() {
         &default_lut[..]
@@ -157,11 +158,12 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let sector = idx % width;
         let rho = idx / width;
+        let radial_rho = usize::min(rho, active_radial_bins - 1);
 
         let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
         let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
-        let inner_idx = idx_from_sector_rho(width, height, sector, rho.saturating_sub(1));
-        let outer_idx = idx_from_sector_rho(width, height, sector, usize::min(rho + 1, height - 1));
+        let inner_idx = idx_from_sector_rho(width, height, sector, radial_rho.saturating_sub(1));
+        let outer_idx = idx_from_sector_rho(width, height, sector, usize::min(radial_rho + 1, active_radial_bins - 1));
         let antipode_idx = if width % 2 == 0 {
             idx_from_sector_rho(width, height, (sector + width / 2) % width, rho)
         } else {
@@ -170,7 +172,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let p = theta_prev[idx];
         let raw_energy = energy_prev[idx] as i16;
-        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], antipode_idx, width % 2 == 0);
+        let local_target = local_target(lut, &theta_prev, [left_idx, right_idx, inner_idx, outer_idx], antipode_idx, false);
 
         let mut best_energy = raw_energy;
         let mut best_score = i16::MAX;
@@ -186,11 +188,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let antipode_weight = if width % 2 == 0 {
-            (locks_prev[idx] as f32 / 255.0) * 0.35
-        } else {
-            0.0
-        };
+        let antipode_weight = 0.0;
 
         let kuramoto =
             phase_sin(theta_prev[idx], theta_prev[left_idx]) +
@@ -217,7 +215,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         field.theta_f2[idx] = theta_prev[right_idx];
         field.theta_f3[idx] = theta_prev[antipode_idx];
 
-        if coherence > 3.0 && coupled_energy > 200 {
+        if coherence >= 3.0 && coupled_energy > 200 {
             let structural_plasmid =
                 (field.theta_now[idx] as u64) |
                 ((field.omega[idx] as u64) << 8) |
@@ -259,11 +257,10 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let alignment = phase_cos(theta_prev[idx], theta_prev[right_idx]).max(phase_cos(theta_prev[idx], theta_prev[antipode_idx]));
-        if alignment > 0.92 {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(2);
+        if coherence >= 3.0 {
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(8);
         } else {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(1);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(4);
         }
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {

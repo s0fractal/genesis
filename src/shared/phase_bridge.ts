@@ -1,4 +1,4 @@
-import { buildProjectedBridgeSeed } from "./phase_canonical.ts";
+import { buildProjectedBridgeSeed, CANONICAL_PHASE_SHAPE } from "./phase_canonical.ts";
 import { wrapIndex, wrapTheta } from "./phase_lattice.ts";
 
 const BRIDGE_FNV64_OFFSET_BASIS = 14695981039346656037n;
@@ -8,6 +8,7 @@ const BRIDGE_ZERO_LUT = new Int16Array(256);
 const BRIDGE_DELTAS = [1, 2, 3, 4] as const;
 const BRIDGE_MAX_OMEGA = 32;
 const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
+const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
 
 export interface BridgeField {
     width: number;
@@ -135,6 +136,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
     const size = field.width * field.height;
     const width = field.width;
     const height = field.height;
+    const activeRadialBins = Math.max(1, Math.min(height, BRIDGE_ACTIVE_RADIAL_BINS));
 
     const thetaPrev = field.thetaNow;
     const omegaPrev = field.omega;
@@ -150,10 +152,11 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
 
         const sector = index % width;
         const rho = Math.trunc(index / width);
+        const radialRho = Math.min(rho, activeRadialBins - 1);
         const leftIndex = bridgeIndex(width, wrapIndex(sector - 1, width), rho);
         const rightIndex = bridgeIndex(width, wrapIndex(sector + 1, width), rho);
-        const innerIndex = bridgeIndex(width, sector, Math.max(0, rho - 1));
-        const outerIndex = bridgeIndex(width, sector, Math.min(rho + 1, height - 1));
+        const innerIndex = bridgeIndex(width, sector, Math.max(0, radialRho - 1));
+        const outerIndex = bridgeIndex(width, sector, Math.min(radialRho + 1, activeRadialBins - 1));
         const antipodeIndex = width % 2 === 0 ? bridgeIndex(width, (sector + width / 2) % width, rho) : index;
 
         const rawEnergy = energyPrev[index];
@@ -162,7 +165,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             thetaPrev,
             [leftIndex, rightIndex, innerIndex, outerIndex],
             antipodeIndex,
-            width % 2 === 0,
+            false,
         );
 
         let bestEnergy = rawEnergy;
@@ -179,7 +182,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const antipodeWeight = width % 2 === 0 ? f32(f32(locksPrev[index] / 255) * 0.35) : 0;
+        const antipodeWeight = 0;
 
         let kuramoto = f32(0);
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[leftIndex]));
@@ -206,7 +209,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         next.thetaF2[index] = thetaPrev[rightIndex];
         next.thetaF3[index] = thetaPrev[antipodeIndex];
 
-        if (coherence > 3 && coupledEnergy > 200) {
+        if (coherence >= 3 && coupledEnergy > 200) {
             next.plasmids[index] =
                 BigInt(next.thetaNow[index]) |
                 (BigInt(next.omega[index]) << 8n) |
@@ -247,12 +250,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const alignment = Math.max(
-            phaseCos(thetaPrev[index], thetaPrev[rightIndex]),
-            phaseCos(thetaPrev[index], thetaPrev[antipodeIndex]),
-        );
         next.hebbianLocks[index] =
-            alignment > 0.92 ? saturatingAddByte(locksPrev[index], 2) : saturatingSubByte(locksPrev[index], 1);
+            coherence >= 3 ? saturatingAddByte(locksPrev[index], 8) : saturatingSubByte(locksPrev[index], 4);
 
         if (coupledEnergy < 15 && next.plasmids[index] !== 0n && next.thetaNow[index] % 4 === 0) {
             next.plasmids[index] = 0n;

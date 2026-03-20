@@ -57,8 +57,16 @@ function verifyPhaseCross(actual: PhaseCrossGolden, expected: PhaseCrossGolden):
 
     for (const entry of actual.trace) {
         assert(
+            entry.changedCells <= expected.invariants.changedCellsCeiling,
+            `phase_cross changedCells exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.changedCellsCeiling} actual=${entry.changedCells}`,
+        );
+        assert(
             entry.totalAmplitudeDelta <= expected.invariants.amplitudeDeltaCeiling,
             `phase_cross totalAmplitudeDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.amplitudeDeltaCeiling} actual=${entry.totalAmplitudeDelta}`,
+        );
+        assert(
+            entry.totalLockDelta <= expected.invariants.lockDeltaCeiling,
+            `phase_cross totalLockDelta exceeded ceiling at tick=${entry.tick}: ceiling=${expected.invariants.lockDeltaCeiling} actual=${entry.totalLockDelta}`,
         );
         assert(
             entry.maxPhaseDistance <= expected.invariants.maxPhaseDistanceCeiling,
