@@ -105,6 +105,14 @@ async function main(): Promise<void> {
 
         phase = stepPhaseField(phase);
         bridge = stepBridgeField(bridge);
+        
+        // Anti-Freeze: The Phase Lattice (O-19.5) lacks the O-20 Oracle Queue.
+        // To maintain cross-topology parity, we must artificially thaw the Hybrid Bridge
+        // so it doesn't skip ticks while waiting for an Oracle that isn't connected in this suite.
+        bridge.oracleRequestCount = 0;
+        for (let i = 0; i < bridge.cellStatus.length; i++) {
+            bridge.cellStatus[i] = 0;
+        }
     }
 
     const byPhaseDistance = [...records].sort((left, right) => right.phaseDistance - left.phaseDistance);

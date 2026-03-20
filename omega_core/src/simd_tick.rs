@@ -8,6 +8,7 @@ const BRIDGE_LOCK_DECAY: u8 = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
+const BRIDGE_DEPTH2_LOCK_THRESHOLD: f32 = 2.5;
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -213,6 +214,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             phase_cos(theta_prev[idx], theta_prev[inner_idx]) +
             phase_cos(theta_prev[idx], theta_prev[outer_idx]) +
             phase_cos(theta_prev[idx], synthetic_peer_theta) * 0.5;
+
         let sustained_coherence_bonus = if boundary_depth == 1 && plasmids_prev[idx] == 0 && locks_prev[idx] >= 64 && coherence >= 3.0 {
             BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
         } else {
@@ -278,7 +280,8 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        if coherence >= 3.0 {
+        let lock_threshold = if boundary_depth == 2 { BRIDGE_DEPTH2_LOCK_THRESHOLD } else { 3.0 };
+        if coherence >= lock_threshold {
             field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN + if boundary_depth <= 1 { BRIDGE_BOUNDARY_LOCK_BONUS } else { 0 });
         } else {
             field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);

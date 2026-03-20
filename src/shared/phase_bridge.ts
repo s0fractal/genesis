@@ -17,6 +17,8 @@ const BRIDGE_LOCK_DECAY = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS = 2;
+const BRIDGE_DEPTH2_LOCK_THRESHOLD = Math.fround(2.5);
+
 
 export interface BridgeField {
     width: number;
@@ -206,6 +208,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[innerIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[outerIndex]));
         coherence = f32(coherence + f32(phaseCos(thetaPrev[index], syntheticPeerTheta) * 0.5));
+
         const sustainedCoherenceBonus =
             boundaryDepth === 1 && plasmidsPrev[index] === 0n && locksPrev[index] >= 64 && coherence >= 3
                 ? BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
@@ -270,8 +273,9 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
+        const lockThreshold = boundaryDepth === 2 ? BRIDGE_DEPTH2_LOCK_THRESHOLD : f32(3.0);
         next.hebbianLocks[index] =
-            coherence >= 3
+            coherence >= lockThreshold
                 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN + boundaryBonus * BRIDGE_BOUNDARY_LOCK_BONUS)
                 : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
 
