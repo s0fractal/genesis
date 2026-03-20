@@ -128,7 +128,17 @@ const next = structuredClone(state);
             // O-34 Phase 3: Mathematical Bypass (Zero Distance)
             return { next, diff };
         }
-        current[targetKey] = newValue;
+        
+        let writeValue = newValue;
+        // O-39 Phase 1: Apriori Limits (Prevent Hyperinflation)
+        if (targetAlias === "tissue_constants" && targetKey === "ENERGY_REWARD") {
+            if (typeof writeValue === "number") {
+                if (writeValue < 5) writeValue = 5;
+                if (writeValue > 1000) writeValue = 1000;
+            }
+        }
+
+        current[targetKey] = writeValue;
         
         // Execute the hash neuron to calculate the new hash
         const newHash = await executeNeuron(next, "calculate_structural_hash", { node: targetNode });
@@ -287,13 +297,37 @@ write(nextState) to Disk
 
 #### Implementation
 ```ts
-const { packTissueToBinary, executeNeuron } = await import("./quine.ts");
-if (targetFile.endsWith(".bin")) {
-  await Deno.writeFile(targetFile, packTissueToBinary(nextState));
-} else {
-  const markdownStr = await executeNeuron(nextState, "serialize_tissue", { tissue: nextState });
-  await Deno.writeTextFile(targetFile, markdownStr);
-}
+const { executeNeuron } = await import("./quine.ts");
+const markdownStr = await executeNeuron(nextState, "serialize_tissue", { tissue: nextState });
+await Deno.writeTextFile(targetFile, markdownStr);
+```
+
+---
+
+### flush_binary_to_disk
+#### Identity
+hash: pending
+version: 1
+
+#### IO
+in:
+  nextState: State
+  targetFile: string
+out: void
+
+#### Physics
+energy_cost: 0
+stability: 1.0
+
+#### IR
+```json
+{ "action": "msgpack_encode_to_vram", "target": "seed.bin" }
+```
+
+#### Implementation
+```ts
+const { encode } = await import("npm:@msgpack/msgpack");
+await Deno.writeFile(targetFile, encode(nextState));
 ```
 
 ---
@@ -366,6 +400,8 @@ let tempState = structuredClone(state);
             if (!Array.isArray(node.identity.parents)) throw new Error(`Node ${key} lineage is not a DAG`);
             const calculatedHash = await executeNeuron(tempState, "calculate_structural_hash", { node });
             if (node.identity.structural_hash !== calculatedHash) {
+                // O-35 Phase 1: Crystal Identity DAG Preservation
+                node.identity.parents = [node.identity.structural_hash];
                 node.identity.structural_hash = calculatedHash;
                 mutated = true;
             }
@@ -406,7 +442,85 @@ let tempState = structuredClone(state);
            historyNode.mutation_log.push(`Appended ZK-Ledger Epoch [${oldHash.substring(0,8)} -> ${epochHash.substring(0,8)}] to ${logFile}`);
         }
         
+        // O-36 Phase 2: Macro-Economic Thermodynamics Regulation
+        const govRes = await executeNeuron(tempState, "metabolic_governor", { state: tempState });
+        tempState = govRes.next;
+        
         return { success: true, next: tempState, log: epochLog };
+```
+
+---
+
+### metabolic_governor
+#### Identity
+hash: pending
+version: 1
+
+#### IO
+in:
+  state: State
+out: TransformResult<State>
+
+#### Physics
+energy_cost: 0
+stability: 1.0
+
+#### IR
+```json
+{ "action": "recalculate_thermodynamics" }
+```
+
+#### Implementation
+```ts
+const next = structuredClone(state);
+let totalEnergy = 0;
+let nodeCount = 0;
+
+for (const key in next) {
+    const node = next[key];
+    if (node.physics && typeof node.physics.energy_cost === "number") {
+        totalEnergy += node.physics.energy_cost;
+        nodeCount++;
+    }
+}
+
+const meanEnergy = nodeCount > 0 ? totalEnergy / nodeCount : 0;
+const constantsNode = next["tissue_constants"];
+
+if (constantsNode && constantsNode.ir) {
+    try {
+        const body = typeof constantsNode.ir.body === "string" ? JSON.parse(constantsNode.ir.body) : constantsNode.ir.body;
+        
+        let targetCost = body.MUTATION_COST;
+        const maxSustainableTax = Math.floor(meanEnergy * 0.5);
+        
+        // Prevent Universal Heat Death
+        if (targetCost > maxSustainableTax) {
+            targetCost = maxSustainableTax;
+        }
+        
+        // Ontology 39 Phase 1: Apriori Limits
+        if (targetCost < 5) targetCost = 5;
+        if (targetCost > 500) targetCost = 500;
+        
+        // Ontology 39 Phase 2: Variable Half-Life (Inertial Smoothing)
+        const oldCost = body.MUTATION_COST;
+        const smoothedCost = Math.floor((oldCost * 0.9) + (targetCost * 0.1));
+        
+        if (smoothedCost !== oldCost) {
+            body.MUTATION_COST = smoothedCost;
+            constantsNode.ir.body = JSON.stringify(body, null, 2);
+            constantsNode.mutation_log.push(`Governor Intervention (O-39): Smoothed MUTATION_COST to ${smoothedCost} (Target was ${targetCost}) ensuring dimensional economic safety.`);
+            
+            const newHash = await executeNeuron(next, "calculate_structural_hash", { node: constantsNode });
+            constantsNode.identity.parents = [constantsNode.identity.structural_hash];
+            constantsNode.identity.structural_hash = newHash;
+            constantsNode.identity.version++;
+        }
+    } catch (e) {}
+}
+
+return { next, diff: { added: [], updated: ["tissue_constants"], removed: [] } };
 ```
 
 ---

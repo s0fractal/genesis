@@ -10,7 +10,7 @@ struct Params {
   off_entanglement: u32,
   off_plasmids: u32,
   aspect_ratio: f32,
-  pad1: u32,
+  heatmap_toggle: u32,
   pad2: u32,
 };
 
@@ -129,11 +129,21 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   out.position = view_proj * vec4<f32>(quad_pos, 1.0);
   out.uv = quad[vi];
 
-  // Visuals
   let hue = fract(theta + 0.5);
   let sat = 0.6 + entanglement;
   let val = 0.3 + amplitude * 0.7;
   var base_color = hsv2rgb(hue, min(1.0, sat), min(1.0, val));
+
+  // O-42 Phase 1: Future Tension Heatmap Rendering ♨️
+  if (params.heatmap_toggle == 1u) {
+      let omega = get_byte(params.off_omega, idx, byte_offset);
+      let stress_t = abs(theta - omega);
+      let stress = min(stress_t, 1.0 - stress_t) * 2.0;
+      
+      let t_hue = (1.0 - stress) * 0.4;
+      let t_val = stress * 2.0 + 0.2;
+      base_color = hsv2rgb(t_hue, 1.0, min(1.0, t_val));
+  }
 
   // Semantic Plasmid Overlay
   if (plasmid_low != 0u || plasmid_high != 0u) {

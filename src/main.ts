@@ -199,6 +199,13 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const coupler = new SemanticCoupler(injector);
   wireSemanticInput(coupler, "Inject phase attractor...");
 
+  globalThis.addEventListener("keydown", (e) => {
+      if (e.key === "h" || e.key === "H") {
+          observer.heatmapEnabled = !observer.heatmapEnabled;
+          console.log(`[OS] Tension Heatmap explicitly ${observer.heatmapEnabled ? "ENABLED" : "DISABLED"}!`);
+      }
+  });
+
   let lastShedCheck = performance.now();
 
   const loop = async () => {
@@ -228,11 +235,47 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
                 if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
                     console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
-                    console.log(`🧨 Terminating active WASM Tensors & VRAM Pipelines...`);
+                    console.log(`🧨 Securing VRAM Pointers for Morphological Migration...`);
                     
+                    // O-37 Phase 1: Morphological Interpolation (Nearest-Neighbor)
+                    const oldSectors = phaseField.sectors;
+                    const oldRadial = phaseField.radial_bins;
+                    const oldHarm = phaseField.harmonics;
+                    
+                    // Backup old tensors by safely duplicating via slice() before free
+                    const _OCount = phaseField.cell_count();
+                    const oldTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), _OCount).slice();
+                    const oldOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), _OCount).slice();
+                    const oldPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), _OCount).slice();
+
                     phaseField.free();
                     phaseField = new PhaseLatticeField(tSectors, tRadial, tHarm);
                     
+                    // Restore data mapped visually to the new topological dimensional sizes
+                    const newTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), phaseField.cell_count());
+                    const newOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), phaseField.cell_count());
+                    const newPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), phaseField.cell_count());
+
+                    for (let h = 0; h < tHarm; h++) {
+                        const oldH = Math.min(h, oldHarm - 1);
+                        for (let r = 0; r < tRadial; r++) {
+                            const ratioR = r / tRadial;
+                            const oldR = Math.min(Math.floor(ratioR * oldRadial), oldRadial - 1);
+                            for (let s = 0; s < tSectors; s++) {
+                                const ratioS = s / tSectors;
+                                const oldS = Math.min(Math.floor(ratioS * oldSectors), oldSectors - 1);
+                                
+                                const oldIdx = oldH * oldRadial * oldSectors + oldR * oldSectors + oldS;
+                                const newIdx = h * tRadial * tSectors + r * tSectors + s;
+                                
+                                newTheta[newIdx] = oldTheta[oldIdx];
+                                newOmega[newIdx] = oldOmega[oldIdx];
+                                newPlasmids[newIdx] = oldPlasmids[oldIdx];
+                            }
+                        }
+                    }
+                    console.log(`✨ Topological interpolation fully migrated across WASM geometries.`);
+
                     computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
                     await computeEngine.init();
 

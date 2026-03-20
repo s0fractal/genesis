@@ -1,6 +1,6 @@
 {
   "name": "omega-genesis",
-  "version": "33.0.0",
+  "version": "42.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

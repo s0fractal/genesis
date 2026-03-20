@@ -246,12 +246,12 @@ export class PhaseComputeEngine {
         this.injections.set(index, inj);
     }
 
+    private nextInjId = -1000;
+
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
         if (!this.device) return;
-        const injId = -100 - bucketId;
-        const inj = this.injections.get(injId) || { idx: 0xFFFFFFFF, bucket: bucketId, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
-        inj.hashLow = Number(hash & 0xFFFFFFFFn);
-        inj.hashHigh = Number(hash >> 32n);
+        const injId = this.nextInjId--;
+        const inj = { idx: 0xFFFFFFFF, bucket: bucketId, hashLow: Number(hash & 0xFFFFFFFFn), hashHigh: Number(hash >> 32n), amp: 200, phase: 0, ent: 128 };
         this.injections.set(injId, inj);
     }
 

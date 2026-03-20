@@ -5,6 +5,7 @@ import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from './phase_compute.ts';
 
 export class PhaseWebGPUObserver {
+    public heatmapEnabled: boolean = false;
     private canvas: HTMLCanvasElement;
     private device: GPUDevice;
     private context!: GPUCanvasContext;
@@ -123,7 +124,7 @@ export class PhaseWebGPUObserver {
         viewU32[8] = Math.floor(this.engine.offsets[4] / 4);
         viewU32[9] = Math.floor(this.engine.offsets[5] / 4);
         viewF32[10] = aspect;
-        viewU32[11] = 0;
+        viewU32[11] = this.heatmapEnabled ? 1 : 0;
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
 

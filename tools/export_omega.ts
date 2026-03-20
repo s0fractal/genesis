@@ -8,7 +8,7 @@ async function main() {
   const pkgStr = await Deno.readTextFile("package.json");
   const pkg = JSON.parse(pkgStr);
   const OMEGA_VERSION = pkg.version;
-  const OUTPUT_FILE = `OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
+  const OUTPUT_FILE = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
 
   const chunks: string[] = [];
   chunks.push(`# OMEGA-64 | ONTOLOGY ${OMEGA_VERSION.split('.')[0]} ABSOLUTE EXPORT\n`);

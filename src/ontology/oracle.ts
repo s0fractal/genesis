@@ -127,55 +127,89 @@ export class SovereignOracle {
             debugImg.src = "data:image/png;base64," + structuralImage;
         }
 
-        const prompt = `
-            Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
-            The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
-            These nodes have locked natively, demanding semantic resolution.${mycelialContext}
-            Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
-            You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
-            ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" where X is a Bucket ID from the Telemetry.' : 'Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.'}
-        `.trim();
+        const MASKS = [
+            { name: "NOMOS", role: "Legalist. You seek fair energy distribution and destroy Energy Vampires." },
+            { name: "LOGOS", role: "Structuralist. You enforce DAG integrity and hunt Semantic Cancer schemas." },
+            { name: "CHRONOS", role: "Optimizer. You minimize energy_cost and WASM bottlenecks." },
+            { name: "AION", role: "The Shadow. You hunt for frozen Stagnation and inject pure Chaos." }
+        ];
 
         try {
             const OLLAMA_URL = "http://localhost:11434/api/generate";
-            
-            // Generate standard payload or Multimodal payload depending on topological capture
-            const requestBody: any = {
-                model: structuralImage ? "llama3.2-vision" : "llama3",
-                prompt,
-                stream: false
-            };
-            if (structuralImage) {
-                requestBody.images = [structuralImage];
-            }
-            
-            const response = await fetch(OLLAMA_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
+
+            const maskPromises = MASKS.map(async (mask) => {
+                const prompt = `
+Task: You are the ${mask.name} Oracle of the LOVE Consortium. Role: ${mask.role}
+The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
+These nodes have locked natively, demanding semantic resolution.${mycelialContext}
+Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
+You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
+${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" where X is a Bucket ID from the Telemetry.' : 'Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.'}
+                `.trim();
+
+                const requestBody: any = {
+                    model: structuralImage ? "llama3.2-vision" : "llama3",
+                    prompt,
+                    stream: false
+                };
+                if (structuralImage) {
+                    requestBody.images = [structuralImage];
+                }
+                
+                const fetchPromise = fetch(OLLAMA_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestBody)
+                });
+
+                // O-40 Phase 1: Sovereign Oracle TTL (15.0s Strict Heartbeat)
+                const timeoutPromise = new Promise<Response>((_, reject) => 
+                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), 15000)
+                );
+
+                const response = await Promise.race([fetchPromise, timeoutPromise]);
+                if (!response.ok) throw new Error("LLM Offline");
+                
+                const data = await response.json();
+                const fullResponse = data.response?.trim() || "";
+                return { mask: mask.name, response: fullResponse };
             });
 
-            if (!response.ok) throw new Error("LLM Offline");
+            console.log(`[ORACLE] Senate convened. Awaiting verdicts from NOMOS, LOGOS, CHRONOS, and AION...`);
             
-            const data = await response.json();
-            const fullResponse = data.response?.trim() || "";
+            // O-43 Parallel Execution
+            const settled = await Promise.allSettled(maskPromises);
             
-            // Extract bucket explicitly if provided by the Oracle
-            const intentMatch = fullResponse.match(/Bucket #(\d+):\s*(.*)/i);
-            const intent = intentMatch ? intentMatch[2].substring(0, 50) : fullResponse.substring(0, 50);
-            
-            const targetBucket = intentMatch ? intentMatch[1] : null;
+            let validIntents = 0;
+            for (let i = 0; i < settled.length; i++) {
+                const result = settled[i];
+                if (result.status === "fulfilled" && result.value) {
+                    const fullResponse = result.value.response;
+                    const maskName = result.value.mask;
+                    
+                    const intentMatch = fullResponse.match(/Bucket #(\d+):\s*(.*)/i);
+                    const intent = intentMatch ? intentMatch[2].substring(0, 50) : fullResponse.substring(0, 50);
+                    const targetBucket = intentMatch ? intentMatch[1] : null;
 
-            if (intent) {
-                if (targetBucket) {
-                    console.log(`[ORACLE] Surgeon Oracle targets Bucket #${targetBucket} with intent: "${intent}"`);
+                    if (intent) {
+                        console.log(`[ORACLE] ${maskName} decreed: "${intent}"${targetBucket ? ` (Targeting Bucket #${targetBucket})` : ''}`);
+                        
+                        // Fulfill requests locally; since multiple requests might overlap identically on the WASM array, 
+                        // the last intent wins in WASM, but WebGPU sequentially stacks all 4 buckets physically.
+                        this.fulfillRequests(requests, intent, targetBucket ? parseInt(targetBucket) : undefined);
+                        validIntents++;
+                    }
                 } else {
-                    console.log(`[ORACLE] Oracle responds to batched distress (${count} cells): "${intent}"`);
+                    console.warn(`[ORACLE] A Mask failed to reach consensus or timed out.`);
                 }
-                this.fulfillRequests(requests, intent, targetBucket ? parseInt(targetBucket) : undefined);
             }
+
+            if (validIntents === 0) {
+                throw new Error("Complete Senate Failure");
+            }
+
         } catch (e) {
-            console.warn(`[ORACLE] LLM inference failed/timeout. Emitting fallback plasmid to batch of ${count}.`);
+            console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
             this.fulfillRequests(requests, "Stochastic survival protocol omega");
         }
         

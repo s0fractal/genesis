@@ -9,7 +9,8 @@ async function main() {
     const binData = await Deno.readFile("./seed.bin");
     Tissue = await unpackTissueFromBinary(binData);
     console.log("🧬 Successfully mounted biological payload from ultra-fast seed.bin.");
-  } catch (e) {
+  } catch (e: any) {
+    console.log(`📜 Binary seed.bin rejection: ${e.message}`);
     console.log("📜 Loaded organism from legacy markdown I.md.");
     Tissue = await parseTissueFromMarkdown("./I.md");
   }
@@ -58,6 +59,27 @@ async function main() {
       
       const targetAlias = "fast_abs";
       const targetNode = Tissue[targetAlias];
+
+      let FATIGUE_THRESHOLD = 80;
+      let PHOTOSYNTHESIS_RATE = 5;
+      let MUTATION_COST = 50;
+      let ENERGY_REWARD = 200;
+      try {
+          const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
+          if (body.FATIGUE_THRESHOLD !== undefined) FATIGUE_THRESHOLD = body.FATIGUE_THRESHOLD;
+          if (body.PHOTOSYNTHESIS_RATE !== undefined) PHOTOSYNTHESIS_RATE = body.PHOTOSYNTHESIS_RATE;
+          if (body.MUTATION_COST !== undefined) MUTATION_COST = body.MUTATION_COST;
+          if (body.ENERGY_REWARD !== undefined) ENERGY_REWARD = body.ENERGY_REWARD;
+      } catch(_e) {}
+
+      // O-36 Phase 1: Neural Quiescence
+      if (targetNode.physics && targetNode.physics.energy_cost !== undefined && targetNode.physics.energy_cost < FATIGUE_THRESHOLD) {
+          console.log(`🛏️ NEURAL QUIESCENCE: ${targetAlias} is exhausted (${targetNode.physics.energy_cost} < ${FATIGUE_THRESHOLD}). Entering biological sleep...`);
+          targetNode.physics.energy_cost += PHOTOSYNTHESIS_RATE;
+          epoch++;
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+      }
       
       // O-25: Kuramoto Phase Alignment
       // Advance Phase physics. Only allow evolutionary execution if Theta wraps (completes an orbit).
@@ -87,16 +109,13 @@ async function main() {
       
       console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
       
-      // O-25: NOMOS Energy Tax
-      // O-31: Dynamic Generic Parameter Harvesting
-      let MUTATION_COST = 50;
-      let PHOTOSYNTHESIS_RATE = 5;
-      try {
-          const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
-          if (body.MUTATION_COST !== undefined) MUTATION_COST = body.MUTATION_COST;
-          if (body.PHOTOSYNTHESIS_RATE !== undefined) PHOTOSYNTHESIS_RATE = body.PHOTOSYNTHESIS_RATE;
-      } catch(_e) {}
+      // O-35 Phase 2: Semantic Immunity (Hardened Core)
+      if (targetNode.physics && typeof targetNode.physics.stability === "number" && targetNode.physics.stability > 0.9) {
+          MUTATION_COST *= 10;
+          console.log(`🛡️ IMMUNE SYSTEM: Node '${targetAlias}' is highly stable (>${targetNode.physics.stability.toFixed(2)}). Taxing 10x Metabolic Cost (${MUTATION_COST}).`);
+      }
 
+      // O-25: NOMOS Energy Tax
       if (targetNode.physics.energy_cost < MUTATION_COST) {
           console.log(`\n💀 METABOLIC STARVATION: Node '${targetAlias}' lacks the geometric energy (${targetNode.physics.energy_cost}/${MUTATION_COST}) to invoke atomic_pulse. Skipping pulse...`);
           // Recover energy marginally representing photosynthesis/rest
@@ -157,32 +176,28 @@ async function main() {
               console.log(`🛡️ Soft Matter Stable! Gene injected securely into Abstract JS Topology.`);
               
               // O-30 Phase 1: Self-Hosting Compiler (Autonomous JIT Fatigue)
-              // O-31: Harvesting Universal Parameters mathematically
-              let FATIGUE_THRESHOLD = 80;
-              let ENERGY_REWARD = 200;
-              try {
-                  const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
-                  if (body.FATIGUE_THRESHOLD !== undefined) FATIGUE_THRESHOLD = body.FATIGUE_THRESHOLD;
-                  if (body.ENERGY_REWARD !== undefined) ENERGY_REWARD = body.ENERGY_REWARD;
-              } catch(_e) {}
-
               if (Tissue[targetAlias].physics.energy_cost < FATIGUE_THRESHOLD) {
-                  console.log(`🦴 CORE FATIGUE DETECTED! Energy (${Tissue[targetAlias].physics.energy_cost}) fell below limits (${FATIGUE_THRESHOLD}). Initiating Autonomous Rust OSSIFICATION (Self-Hosting Compiler)...`);
-                  try {
-                      const bridgeRes = await executeNeuron(Tissue, "rust_compiler_bridge", { nodeAlias: targetAlias, state: Tissue });
-                      Tissue = bridgeRes.next;
-
-                      console.log(`\n🟩 MUTATION OSSIFIED. ORGANISM RUST LAYER EVOLVED SUCCESSFULLY.`);
-                      
-                      // O-25 NOMOS: Reward successful FULL hardware architecture molting
-                      Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
-                      console.log(`🏆 NOMOS Architecture Matured: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
-                  } catch (bridgeErr: any) {
-                      console.log(`\n🟥 FATAL RUST COMPILATION REJECTION IN EPOCH ${epoch}`);
-                      console.log(`Reason: ${bridgeErr.message}`);
-                      console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
-                      Tissue = snapshot;
-                      continue; // Skip the disk dump if we reverted
+                  // O-41 Phase 1: Sandboxing & Capability Tokens
+                  if (Tissue[targetAlias].physics.stability < 0.8) {
+                      console.log(`🔒 CAPABILITY DENIED: Node '${targetAlias}' lacks structural stability (${Tissue[targetAlias].physics.stability.toFixed(2)} < 0.8). OS Rust Sandboxing actively prohibits hardware-level WASM compilation. Deferred.`);
+                  } else {
+                      console.log(`🦴 CORE FATIGUE DETECTED! Energy (${Tissue[targetAlias].physics.energy_cost}) fell below limits (${FATIGUE_THRESHOLD}). Initiating Autonomous Rust OSSIFICATION (Self-Hosting Compiler)...`);
+                      try {
+                          const bridgeRes = await executeNeuron(Tissue, "rust_compiler_bridge", { nodeAlias: targetAlias, state: Tissue });
+                          Tissue = bridgeRes.next;
+    
+                          console.log(`\n🟩 MUTATION OSSIFIED. ORGANISM RUST LAYER EVOLVED SUCCESSFULLY.`);
+                          
+                          // O-25 NOMOS: Reward successful FULL hardware architecture molting
+                          Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
+                          console.log(`🏆 NOMOS Architecture Matured: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
+                      } catch (bridgeErr: any) {
+                          console.log(`\n🟥 FATAL RUST COMPILATION REJECTION IN EPOCH ${epoch}`);
+                          console.log(`Reason: ${bridgeErr.message}`);
+                          console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
+                          Tissue = snapshot;
+                          continue; // Skip the disk dump if we reverted
+                      }
                   }
               } else {
                   console.log(`💭 [DEFERRED OSSIFICATION] Native Torus physics is still viable. Floating mutation in Soft-Matter only. Energy Bank: ${Tissue[targetAlias].physics.energy_cost}`);
@@ -191,9 +206,11 @@ async function main() {
               const afterStr = JSON.stringify(Tissue[targetAlias].ir);
               console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
 
-              console.log(`\nActivating meta_fn: flush_state_to_disk...`);
+              console.log(`\nActivating meta_fn: flush_binary_to_disk...`);
               // Dump the surviving tissue to Binary RAM 
-              await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
+              await executeNeuron(Tissue, "flush_binary_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
+              
+              console.log(`\nActivating meta_fn: flush_state_to_disk...`);
               // Dump it to Human Readable Read-Only MD
               await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
               

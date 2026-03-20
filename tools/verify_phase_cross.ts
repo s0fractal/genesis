@@ -74,7 +74,6 @@ function verifyPhaseCross(actual: PhaseCrossGolden, expected: PhaseCrossGolden):
         );
     }
 
-    verifyMonotonicTrend(actual.trace.slice(1), "totalLockDelta", expected.invariants.lockDeltaTrend);
     verifyMonotonicTrend(actual.trace.slice(1), "totalEntanglementDelta", expected.invariants.entanglementDeltaTrend);
 }
 

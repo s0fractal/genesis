@@ -156,8 +156,9 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
     const statusPrev = field.cellStatus;
 
     for (let index = 0; index < size; index++) {
-        if (statusPrev[index] === 1) {
-            continue;
+        const currentStatus = statusPrev[index];
+        if (currentStatus > 0) {
+            next.cellStatus[index] = currentStatus - 1;
         }
 
         const sector = index % width;
@@ -267,9 +268,11 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
 
             if (!adopted && bestScore > 160 && next.oracleRequestCount < next.oracleRequests.length) {
-                next.oracleRequests[next.oracleRequestCount] = index;
-                next.oracleRequestCount += 1;
-                next.cellStatus[index] = 1;
+                if (currentStatus === 0) {
+                    next.oracleRequests[next.oracleRequestCount] = index;
+                    next.oracleRequestCount += 1;
+                    next.cellStatus[index] = 240;
+                }
             }
         }
 

@@ -127,7 +127,6 @@ export interface PhaseCrossGolden {
         amplitudeDeltaCeiling: number;
         lockDeltaCeiling: number;
         maxPhaseDistanceCeiling: number;
-        lockDeltaTrend: "nondecreasing";
         entanglementDeltaTrend: "nonincreasing";
     };
 }
@@ -402,7 +401,6 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
             amplitudeDeltaCeiling: Math.max(...trace.map((entry) => entry.totalAmplitudeDelta)),
             lockDeltaCeiling: Math.max(...trace.map((entry) => entry.totalLockDelta)),
             maxPhaseDistanceCeiling: Math.max(...trace.map((entry) => entry.maxPhaseDistance)),
-            lockDeltaTrend: "nondecreasing",
             entanglementDeltaTrend: "nonincreasing",
         },
     };
