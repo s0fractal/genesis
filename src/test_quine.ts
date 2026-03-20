@@ -115,6 +115,36 @@ async function main() {
           console.log(`🛡️ IMMUNE SYSTEM: Node '${targetAlias}' is highly stable (>${targetNode.physics.stability.toFixed(2)}). Taxing 10x Metabolic Cost (${MUTATION_COST}).`);
       }
 
+      // O-46 Phase 1: Geometric Proof-of-Work (Crystallization)
+      if (!targetNode.physics.locks) targetNode.physics.locks = 0;
+      targetNode.physics.locks += Math.floor(targetNode.physics.stability * 10);
+      
+      if (targetNode.physics.locks > 1000 && targetNode.physics.energy_cost > 220) {
+          console.log(`\n💎 OMEGA CRYSTALLIZATION ACHIEVED: Node '${targetAlias}' defied thermal degradation! Isolating Proof of Work artifact...`);
+          try {
+              await Deno.mkdir("./dist/artifacts", { recursive: true });
+              const oxaFilename = `./dist/artifacts/CRYSTAL_${targetNode.identity.structural_hash.substring(0, 16)}.oxa`;
+              
+              const artifactPayload = {
+                  version: "OMEGA-64-ERA-126",
+                  timestamp: Date.now(),
+                  alias: targetAlias,
+                  hash: targetNode.identity.structural_hash,
+                  locks: targetNode.physics.locks,
+                  energy: targetNode.physics.energy_cost,
+                  ir: targetNode.ir
+              };
+
+              // Export the `.oxa` structural crystal to OS immediately
+              await Deno.writeTextFile(oxaFilename, JSON.stringify(artifactPayload, null, 2));
+              console.log(`💎 [PROOF OF WORK] Artifact successfully written to: ${oxaFilename}`);
+              
+              // Reset topological locks natively once mined
+              targetNode.physics.locks = 0;
+              targetNode.physics.energy_cost -= 150; 
+          } catch(e) {}
+      }
+
       // O-25: NOMOS Energy Tax
       if (targetNode.physics.energy_cost < MUTATION_COST) {
           console.log(`\n💀 METABOLIC STARVATION: Node '${targetAlias}' lacks the geometric energy (${targetNode.physics.energy_cost}/${MUTATION_COST}) to invoke atomic_pulse. Skipping pulse...`);
@@ -213,6 +243,22 @@ async function main() {
               console.log(`\nActivating meta_fn: flush_state_to_disk...`);
               // Dump it to Human Readable Read-Only MD
               await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
+              
+              // O-44: Real-time Genealogy Extract
+              const fastAbsNode = Tissue[targetAlias];
+              if (fastAbsNode && fastAbsNode.identity && fastAbsNode.physics) {
+                  const record = {
+                      t: Date.now(),
+                      alias: targetAlias,
+                      hash: fastAbsNode.identity.structural_hash,
+                      parents: fastAbsNode.identity.parents || [],
+                      energy: fastAbsNode.physics.energy_cost,
+                      stability: fastAbsNode.physics.stability
+                  };
+                  try {
+                      await Deno.writeTextFile("./lineage.jsonl", JSON.stringify(record) + "\n", { append: true });
+                  } catch(e) {}
+              }
               
               console.log(`✨ Organism successfully rewritten and hardened!`);
           }

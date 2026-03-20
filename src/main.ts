@@ -21,6 +21,10 @@ import { PhaseWebGPUObserver } from "./lens/phase_webgpu.ts";
 import { PhaseComputeEngine } from "./lens/phase_compute.ts";
 import { SemanticCoupler } from "./ontology/semantic_layer.ts";
 import { SovereignOracle } from "./ontology/oracle.ts";
+import { PhylogeneticCanvas } from "./ontology/phylogeny.ts";
+import { PhaseNetwork } from "./shared/phase_network.ts";
+
+const START_MS = performance.now();
 import {
   buildDiffSummary,
   getReplayComparison,
@@ -178,7 +182,6 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   );
   await observer.init();
 
-  // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
   const oracle = new SovereignOracle(
     phaseField,
     wasmMemory,
@@ -186,6 +189,18 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
     observer,
   );
   oracle.boot();
+
+  // O-45: Phase Network Initialization (WebRTC/Local Broadcast)
+  const network = new PhaseNetwork((plasmid) => {
+      console.log(`🍄 [Mycelium] Horizontal Gene Transfer: Absorbing Exogenous Plasmid ${plasmid.hash.substring(0,8)}... into Bucket #${plasmid.targetBucket}`);
+      try {
+          computeEngine.injectPlasmidIntoBucket(plasmid.targetBucket, BigInt(plasmid.hash));
+      } catch(e) {}
+  });
+
+  oracle.bindNetwork((hash, targetBucket) => {
+      network.broadcastPlasmid(hash.toString(), targetBucket);
+  });
 
   const injector = new PhasePerturbationInjector(
     canvas,
@@ -207,6 +222,10 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   });
 
   let lastShedCheck = performance.now();
+  
+  // O-44: Phylogenetic HUD Initialization
+  const phylogenyHUD = new PhylogeneticCanvas();
+  let lastPhylogenyCheck = performance.now();
 
   const loop = async () => {
     // O-32: Morphological Hot-Reloading Polling (Shedding Event)
@@ -294,6 +313,12 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 }
             }
         } catch(_e) {}
+    }
+
+    // O-44: Lineage Verification Sync (1Hz)
+    if (nowLocal - lastPhylogenyCheck > 1000) {
+        lastPhylogenyCheck = nowLocal;
+        phylogenyHUD.tick();
     }
 
     computeEngine.tick();

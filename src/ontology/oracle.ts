@@ -17,7 +17,15 @@ export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private engine?: PhaseComputeEngine;
-    private visualizer?: PhaseWebGPUObserver;
+    private observer?: PhaseWebGPUObserver;
+    
+    // O-45 WebRTC Transmitter
+    private onBroadcast?: (hash: bigint, targetBucket: number) => void;
+
+    // The single central prompt logic is preserved but now delegated internally
+    // as we transition to Ontology 43 (Four Masks)
+    private systemPrompts: Record<string, string> = {};
+
     private isRunning: boolean = false;
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
@@ -26,13 +34,13 @@ export class SovereignOracle {
         this.wasmField = field;
         this.wasmMemory = memory;
         this.engine = engine;
-        this.visualizer = visualizer;
+        this.observer = visualizer; // Renamed visualizer to observer
     }
 
     public rebind(field: OracleCompatibleField, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
         this.engine = engine;
-        this.visualizer = visualizer;
+        this.observer = visualizer; // Renamed visualizer to observer
     }
 
     public request(idx: number) {
@@ -46,6 +54,9 @@ export class SovereignOracle {
     public async boot() {
         this.isRunning = true;
         console.log("[ORACLE] Asynchronous Batched AOMQ (Ontology 20) initialized.");
+        if (this.engine) {
+            this.engine.init();
+        }
     }
 
     public sync() {
@@ -72,6 +83,10 @@ export class SovereignOracle {
                 this.processQueue(count, requests);
             }
         }
+    }
+
+    public bindNetwork(callback: (hash: bigint, targetBucket: number) => void) {
+        this.onBroadcast = callback;
     }
 
     private async processQueue(count: number, requests: number[]) {
@@ -109,12 +124,12 @@ export class SovereignOracle {
             }
         }
 
-        // 2. Spatial Batching: Construct the Macro-Prompt for LLM
-        let structuralImage = "";
-        if (this.visualizer) {
+        // 2. Spatial Batching: Construct            // O-42: Embed Torus Heatmap
+        let structuralImage = null;
+        if (this.observer) {
             try {
-                // Read the graphical buffer layout
-                structuralImage = this.visualizer.extractImageBase64(512);
+                // Ensure frame capture happens before WebGPU flushes the buffer state
+                structuralImage = this.observer.extractImageBase64(512);
             } catch (e) {
                 console.warn("[ORACLE] Failed to extract physical topology:", e);
             }
@@ -225,10 +240,12 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
             if (targetBucket !== undefined) {
                 this.engine.injectPlasmidIntoBucket(targetBucket, hash);
                 console.log(`[ORACLE] Successfully decoded algorithm and flooded Bucket #${targetBucket} with Resonance Plasmid.`);
+                if (this.onBroadcast) this.onBroadcast(hash, targetBucket);
             } else {
                 let success = 0;
                 for (const idx of requests) {
                     this.engine.injectPlasmid(idx, hash);
+                    if (this.onBroadcast) this.onBroadcast(hash, idx);
                     success++;
                 }
                 console.log(`[ORACLE] Successfully decoded and unlocked ${success} WebGPU cells.`);
