@@ -8,7 +8,7 @@ const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dis
 
 async function main() {
   const chunks: string[] = [];
-  chunks.push("# OMEGA-64 | ONTOLOGY 24 ABSOLUTE EXPORT\n");
+  chunks.push("# OMEGA-64 | ONTOLOGY 27 ABSOLUTE EXPORT\n");
   chunks.push("This document contains the entire architectural core of the Genesis Spore, spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n");
 
   const addFile = async (path: string) => {
@@ -25,8 +25,8 @@ async function main() {
 
   // Root essentials
   await addFile("I.md");
+  await addFile("README.md");
   await addFile("package.json");
-  await addFile("PHASE_COHERENCE_SPEC.md");
   await addFile("tools/export_omega.ts");
   await addFile("index.html");
   await addFile("vite.config.ts");
@@ -41,6 +41,12 @@ async function main() {
   // Walk Rust Core
   console.log("\nSweeping omega_core/src/ ...");
   for await (const entry of walk("omega_core/src", { exts: TARGET_EXTS, skip: EXCLUDE_DIRS })) {
+    if (entry.isFile) await addFile(entry.path);
+  }
+
+  // Walk Docs
+  console.log("\nSweeping docs/ ...");
+  for await (const entry of walk("docs", { exts: [".md"], skip: EXCLUDE_DIRS })) {
     if (entry.isFile) await addFile(entry.path);
   }
 
