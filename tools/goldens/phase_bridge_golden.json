@@ -14,97 +14,97 @@
     },
     {
       "tick": 1,
-      "signature": "951d0eea2ea95639",
+      "signature": "b32e1477e15f1531",
       "totalEnergy": 57719,
-      "totalLocks": 10015,
+      "totalLocks": 10207,
       "totalPlasmids": 196,
       "omegaSpan": "-2..2"
     },
     {
       "tick": 2,
-      "signature": "94d06b684967cb80",
+      "signature": "5189ca2462802380",
       "totalEnergy": 59126,
-      "totalLocks": 11807,
+      "totalLocks": 12167,
       "totalPlasmids": 204,
       "omegaSpan": "-3..3"
     },
     {
       "tick": 3,
-      "signature": "f7f82a4e08733c4a",
-      "totalEnergy": 60077,
-      "totalLocks": 13487,
+      "signature": "0b815378e8a7e03e",
+      "totalEnergy": 60076,
+      "totalLocks": 14004,
       "totalPlasmids": 211,
       "omegaSpan": "-4..3"
     },
     {
       "tick": 4,
-      "signature": "354ae36f16bebfb6",
-      "totalEnergy": 60741,
-      "totalLocks": 15079,
+      "signature": "a3b6151fc724b041",
+      "totalEnergy": 60740,
+      "totalLocks": 15745,
       "totalPlasmids": 222,
       "omegaSpan": "-3..4"
     },
     {
       "tick": 5,
-      "signature": "5a8e0d4f67a4e49b",
-      "totalEnergy": 61133,
-      "totalLocks": 16567,
+      "signature": "2b88d60febd44b2a",
+      "totalEnergy": 61132,
+      "totalLocks": 17375,
       "totalPlasmids": 226,
       "omegaSpan": "-4..5"
     },
     {
       "tick": 6,
-      "signature": "55506d8a4e39c35d",
-      "totalEnergy": 61367,
-      "totalLocks": 18027,
+      "signature": "240308b6bb18f8fc",
+      "totalEnergy": 61365,
+      "totalLocks": 18974,
       "totalPlasmids": 227,
       "omegaSpan": "-5..5"
     },
     {
       "tick": 7,
-      "signature": "0b14a616684a3a83",
-      "totalEnergy": 61564,
-      "totalLocks": 19523,
+      "signature": "52d5ad0613ed8164",
+      "totalEnergy": 61562,
+      "totalLocks": 20612,
       "totalPlasmids": 227,
       "omegaSpan": "-6..5"
     },
     {
       "tick": 8,
-      "signature": "afc05a676ec3face",
-      "totalEnergy": 61689,
-      "totalLocks": 21019,
+      "signature": "d0679e1fe659a1b5",
+      "totalEnergy": 61687,
+      "totalLocks": 22250,
       "totalPlasmids": 227,
       "omegaSpan": "-6..5"
     },
     {
       "tick": 9,
-      "signature": "351bdb10d34539fd",
-      "totalEnergy": 61769,
-      "totalLocks": 22515,
+      "signature": "a2b04d7b3c0cd692",
+      "totalEnergy": 61767,
+      "totalLocks": 23888,
       "totalPlasmids": 227,
       "omegaSpan": "-7..5"
     },
     {
       "tick": 10,
-      "signature": "eabd3d4604c54751",
+      "signature": "b909d09db689aede",
       "totalEnergy": 61781,
-      "totalLocks": 24011,
+      "totalLocks": 25526,
       "totalPlasmids": 227,
       "omegaSpan": "-8..7"
     },
     {
       "tick": 11,
-      "signature": "931d340cc21e91ed",
+      "signature": "5b8d1e1fb896937e",
       "totalEnergy": 61781,
-      "totalLocks": 25507,
+      "totalLocks": 27164,
       "totalPlasmids": 227,
       "omegaSpan": "-8..8"
     },
     {
       "tick": 12,
-      "signature": "26b4f62768b34262",
+      "signature": "1c148c7d8e7ea415",
       "totalEnergy": 61781,
-      "totalLocks": 27003,
+      "totalLocks": 28802,
       "totalPlasmids": 227,
       "omegaSpan": "-8..9"
     }
@@ -120,103 +120,103 @@
     },
     {
       "tick": 1,
-      "signature": "951d0eea2ea95639",
+      "signature": "b32e1477e15f1531",
       "totalEnergy": 57719,
-      "totalLocks": 10015,
+      "totalLocks": 10207,
       "totalPlasmids": 196,
       "omegaSpan": "-2..2"
     },
     {
       "tick": 2,
-      "signature": "94d06b684967cb80",
+      "signature": "5189ca2462802380",
       "totalEnergy": 59126,
-      "totalLocks": 11807,
+      "totalLocks": 12167,
       "totalPlasmids": 204,
       "omegaSpan": "-3..3"
     },
     {
       "tick": 3,
-      "signature": "f7f82a4e08733c4a",
-      "totalEnergy": 60077,
-      "totalLocks": 13487,
+      "signature": "0b815378e8a7e03e",
+      "totalEnergy": 60076,
+      "totalLocks": 14004,
       "totalPlasmids": 211,
       "omegaSpan": "-4..3"
     },
     {
       "tick": 4,
-      "signature": "354ae36f16bebfb6",
-      "totalEnergy": 60741,
-      "totalLocks": 15079,
+      "signature": "a3b6151fc724b041",
+      "totalEnergy": 60740,
+      "totalLocks": 15745,
       "totalPlasmids": 222,
       "omegaSpan": "-3..4"
     },
     {
       "tick": 5,
-      "signature": "5a8e0d4f67a4e49b",
-      "totalEnergy": 61133,
-      "totalLocks": 16567,
+      "signature": "2b88d60febd44b2a",
+      "totalEnergy": 61132,
+      "totalLocks": 17375,
       "totalPlasmids": 226,
       "omegaSpan": "-4..5"
     },
     {
       "tick": 6,
-      "signature": "55506d8a4e39c35d",
-      "totalEnergy": 61367,
-      "totalLocks": 18027,
+      "signature": "240308b6bb18f8fc",
+      "totalEnergy": 61365,
+      "totalLocks": 18974,
       "totalPlasmids": 227,
       "omegaSpan": "-5..5"
     },
     {
       "tick": 7,
-      "signature": "0b14a616684a3a83",
-      "totalEnergy": 61564,
-      "totalLocks": 19523,
+      "signature": "52d5ad0613ed8164",
+      "totalEnergy": 61562,
+      "totalLocks": 20612,
       "totalPlasmids": 227,
       "omegaSpan": "-6..5"
     },
     {
       "tick": 8,
-      "signature": "afc05a676ec3face",
-      "totalEnergy": 61689,
-      "totalLocks": 21019,
+      "signature": "d0679e1fe659a1b5",
+      "totalEnergy": 61687,
+      "totalLocks": 22250,
       "totalPlasmids": 227,
       "omegaSpan": "-6..5"
     },
     {
       "tick": 9,
-      "signature": "351bdb10d34539fd",
-      "totalEnergy": 61769,
-      "totalLocks": 22515,
+      "signature": "a2b04d7b3c0cd692",
+      "totalEnergy": 61767,
+      "totalLocks": 23888,
       "totalPlasmids": 227,
       "omegaSpan": "-7..5"
     },
     {
       "tick": 10,
-      "signature": "eabd3d4604c54751",
+      "signature": "b909d09db689aede",
       "totalEnergy": 61781,
-      "totalLocks": 24011,
+      "totalLocks": 25526,
       "totalPlasmids": 227,
       "omegaSpan": "-8..7"
     },
     {
       "tick": 11,
-      "signature": "931d340cc21e91ed",
+      "signature": "5b8d1e1fb896937e",
       "totalEnergy": 61781,
-      "totalLocks": 25507,
+      "totalLocks": 27164,
       "totalPlasmids": 227,
       "omegaSpan": "-8..8"
     },
     {
       "tick": 12,
-      "signature": "26b4f62768b34262",
+      "signature": "1c148c7d8e7ea415",
       "totalEnergy": 61781,
-      "totalLocks": 27003,
+      "totalLocks": 28802,
       "totalPlasmids": 227,
       "omegaSpan": "-8..9"
     }
   ],
   "invariants": {
     "seedSignature": "8068aadd61b90e7f",
-    "rotatedSignature": "ab16a6dc68bef00e"
+    "rotatedSignature": "7343e2811fecad1d"
   }
 }

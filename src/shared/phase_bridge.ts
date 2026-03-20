@@ -14,6 +14,8 @@ const BRIDGE_COHERENCE_ENERGY_GAIN = 6;
 const BRIDGE_LOCK_PENALTY_DIVISOR = 64;
 const BRIDGE_LOCK_GAIN = 8;
 const BRIDGE_LOCK_DECAY = 4;
+const BRIDGE_BOUNDARY_ENERGY_BONUS = 0;
+const BRIDGE_BOUNDARY_LOCK_BONUS = 1;
 
 export interface BridgeField {
     width: number;
@@ -158,6 +160,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         const sector = index % width;
         const rho = Math.trunc(index / width);
         const radialRho = Math.min(rho, activeRadialBins - 1);
+        const boundaryDepth = Math.min(radialRho, activeRadialBins - 1 - radialRho);
+        const boundaryBonus = boundaryDepth <= 1 ? 1 : 0;
         const leftIndex = bridgeIndex(width, wrapIndex(sector - 1, width), rho);
         const rightIndex = bridgeIndex(width, wrapIndex(sector + 1, width), rho);
         const innerIndex = bridgeIndex(width, sector, Math.max(0, radialRho - 1));
@@ -205,7 +209,12 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
         const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
         const coupledEnergy =
-            clampByte(bestEnergy + roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) - Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR));
+            clampByte(
+                bestEnergy +
+                roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) +
+                boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
+                Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR),
+            );
 
         next.thetaNow[index] = nextTheta;
         next.omega[index] = encodeBridgeOmega(nextOmega);
@@ -256,7 +265,9 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         }
 
         next.hebbianLocks[index] =
-            coherence >= 3 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN) : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
+            coherence >= 3
+                ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN + boundaryBonus * BRIDGE_BOUNDARY_LOCK_BONUS)
+                : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
 
         if (coupledEnergy < 15 && next.plasmids[index] !== 0n && next.thetaNow[index] % 4 === 0) {
             next.plasmids[index] = 0n;

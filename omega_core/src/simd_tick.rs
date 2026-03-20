@@ -5,6 +5,8 @@ const BRIDGE_COHERENCE_ENERGY_GAIN: f32 = 6.0;
 const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
 const BRIDGE_LOCK_GAIN: u8 = 8;
 const BRIDGE_LOCK_DECAY: u8 = 4;
+const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
+const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -165,6 +167,8 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         let sector = idx % width;
         let rho = idx / width;
         let radial_rho = usize::min(rho, active_radial_bins - 1);
+        let boundary_depth = usize::min(radial_rho, active_radial_bins - 1 - radial_rho);
+        let boundary_bonus = if boundary_depth <= 1 { 1i16 } else { 0i16 };
 
         let left_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 - 1, width), rho);
         let right_idx = idx_from_sector_rho(width, height, wrap_index(sector as i32 + 1, width), rho);
@@ -213,7 +217,8 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
         let coupled_energy = (
             best_energy +
-            (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 -
+            (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 +
+            boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
             (locks_prev[idx] as i16 / BRIDGE_LOCK_PENALTY_DIVISOR)
         ).clamp(0, 255);
 
@@ -267,7 +272,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         }
 
         if coherence >= 3.0 {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN + if boundary_depth <= 1 { BRIDGE_BOUNDARY_LOCK_BONUS } else { 0 });
         } else {
             field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);
         }
