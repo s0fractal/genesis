@@ -1,3 +1,5 @@
-omega_core/target/
+target/
 node_modules/
 dist/
+
+OMEGA_EXPORT.md
