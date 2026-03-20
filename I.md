@@ -72,7 +72,7 @@ const { encodeHex } = await import("jsr:@std/encoding/hex");
 const payload = JSON.stringify({
   essence: node.essence,
   io: node.io,
-  expr: node.expr,
+  ir: node.ir,
   parents: node.identity.parents
 });
 const msgUint8 = new TextEncoder().encode(payload);
@@ -114,7 +114,7 @@ const next = structuredClone(state);
         const oldHash = targetNode.identity.structural_hash;
         
         // Mutate the IR tree by following the path
-        let current = targetNode.expr;
+        let current = targetNode.ir;
         for (let i = 0; i < path.length - 1; i++) {
             current = current[path[i]];
         }
@@ -210,19 +210,26 @@ let tempState = structuredClone(state);
         
         try {
           for (const op of operations) {
+            const target = tempState[op.alias];
+            if (target && target.physics && target.physics.energy_cost !== undefined) {
+               if (target.physics.energy_cost < 50) throw new Error(`NOMOS Metabolic Rejection: ${op.alias} lacks sufficient energy.`);
+               target.physics.energy_cost -= 50;
+            }
             const currentArgs = { ...op.args, state: tempState, executeNeuron };
             const result = await executeNeuron(tempState, op.alias, currentArgs);
             tempState = result.next;
             epochLog.push({ alias: op.alias, diff: result.diff });
           }
           
+          let mutated = false;
           for (const key in tempState) {
             const node = tempState[key];
-            if (typeof node.expr !== "object") throw new Error(`Node ${key} missing IR logic branch`);
+            if (typeof node.ir !== "object" || !node.ir.body) throw new Error(`Node ${key} missing IR logic branch`);
             if (!Array.isArray(node.identity.parents)) throw new Error(`Node ${key} lineage is not a DAG`);
             const calculatedHash = await executeNeuron(tempState, "calculate_structural_hash", { node });
             if (node.identity.structural_hash !== calculatedHash) {
                 node.identity.structural_hash = calculatedHash;
+                mutated = true;
             }
           }
         } catch (e) {
@@ -230,7 +237,7 @@ let tempState = structuredClone(state);
         }
         
         // Record epoch in tissue_history
-        if (tempState["tissue_history"]) {
+        if (mutated && tempState["tissue_history"]) {
            const historyNode = tempState["tissue_history"];
            const oldHash = historyNode.identity.structural_hash;
            

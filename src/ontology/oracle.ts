@@ -1,6 +1,6 @@
-import { fnv1a_64 } from "../shared/hash";
-import { PhaseComputeEngine } from "../lens/phase_compute.js";
-import { PhaseWebGPUObserver } from "../lens/phase_webgpu.js";
+import { fnv1a_64 } from "../shared/hash.ts";
+import { PhaseComputeEngine } from "../lens/phase_compute.ts";
+import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -79,19 +79,27 @@ export class SovereignOracle {
             let activeBuckets = 0;
             let totalX = 0;
             let totalY = 0;
+            const bucketDetails: string[] = [];
             
             for (let i = 0; i < 1024; i++) {
                 const count = centroids[i * 4 + 2];
                 if (count > 0) {
                     activeBuckets++;
-                    totalX += centroids[i * 4];
-                    totalY += centroids[i * 4 + 1];
+                    const bx = centroids[i * 4];
+                    const by = centroids[i * 4 + 1];
+                    totalX += bx;
+                    totalY += by;
+                    if (bucketDetails.length < 5) {
+                        bucketDetails.push(`Bucket #${i}: Center (x:${bx.toFixed(1)}, y:${by.toFixed(1)})`);
+                    }
                 }
             }
             
             if (activeBuckets > 0) {
                 const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
-                mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are physically pulling the Torus toward absolute phase angle ${avgTheta.toFixed(1)} degrees. Acknowledge this geometric reality in your response.`;
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are pulling the Torus toward angle ${avgTheta.toFixed(1)} degrees.` +
+                                  `\nHere is spatial data for the strongest local clusters:\n${bucketDetails.join("\n")}\n` +
+                                  `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket. Optionally prepend "Bucket #X: " to your semantic concept.`;
             }
         }
 
@@ -144,10 +152,20 @@ export class SovereignOracle {
             if (!response.ok) throw new Error("LLM Offline");
             
             const data = await response.json();
-            const intent = data.response?.trim().substring(0, 50);
+            const fullResponse = data.response?.trim() || "";
+            
+            // Extract bucket explicitly if provided by the Oracle
+            const intentMatch = fullResponse.match(/Bucket #(\d+):\s*(.*)/i);
+            const intent = intentMatch ? intentMatch[2].substring(0, 50) : fullResponse.substring(0, 50);
+            
+            const targetBucket = intentMatch ? intentMatch[1] : null;
 
             if (intent) {
-                console.log(`[ORACLE] Oracle responds to batched distress (${count} cells): "${intent}"`);
+                if (targetBucket) {
+                    console.log(`[ORACLE] Surgeon Oracle targets Bucket #${targetBucket} with intent: "${intent}"`);
+                } else {
+                    console.log(`[ORACLE] Oracle responds to batched distress (${count} cells): "${intent}"`);
+                }
                 this.fulfillRequests(requests, intent);
             }
         } catch (e) {

@@ -205,7 +205,7 @@ export function serializeTissueToMarkdown(tissue: State): string {
               }
               nodeBlock += `\`\`\`json\n${bodyStr}\n\`\`\`\n\n`;
            } else {
-              nodeBlock += `\`\`\`json\n${JSON.stringify(node.expr.body, null, 2)}\n\`\`\`\n\n`;
+              nodeBlock += `\`\`\`json\n${JSON.stringify(node.ir.body, null, 2)}\n\`\`\`\n\n`;
            }
         }
         

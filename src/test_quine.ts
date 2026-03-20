@@ -1,4 +1,4 @@
-import { unpackTissueFromBinary, parseTissueFromMarkdown, executeNeuron } from "./quine.ts";
+import { unpackTissueFromBinary, parseTissueFromMarkdown, executeNeuron, Dispatcher } from "./quine.ts";
 import { generateGeneticDrift } from "./compiler/mutator.ts";
 
 async function main() {
@@ -73,43 +73,71 @@ async function main() {
             path: mutation.path,
             newValue: mutation.newValue
           }
-        },
-        {
-          alias: "rust_compiler_bridge",
-          args: {
-            nodeAlias: mutation.alias
-          }
         }
       ];
 
       const beforeStr = JSON.stringify(Tissue[targetAlias].ir);
       
-      // Dispatch the atomic transaction -> (Mutate JS memory, then Mutate Rust Memory natively!)
+      const snapshot = structuredClone(Tissue);
+      
+      // Dispatch the atomic transaction -> Mutate JS memory
       const res = await executeNeuron(Tissue, "atomic_pulse", { operations, state: Tissue, executeNeuron });
       
       if (!res.success) {
           console.log(`\n🟥 LETHAL MUTATION REJECTED IN EPOCH ${epoch}`);
           console.log(`Reason: ${res.error}`);
           console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
+          Tissue = snapshot;
       } else {
-          console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
           Tissue = res.next;
           
-          // O-25 NOMOS: Reward successful mutations (Evolutionary Darwinism)
-          const ENERGY_REWARD = 60;
-          Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
-          console.log(`🏆 NOMOS Reward: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
-          
-          const afterStr = JSON.stringify(Tissue[targetAlias].ir);
-          console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
+          console.log(`🧪 Soft Matter Evaluation Phase: Testing TS Interpretation for 1000 ticks...`);
+          let stable = true;
+          for (let tick = 0; tick < 1000; tick++) {
+             try {
+                 const testArg = Math.floor(Math.random() * 255);
+                 const out = Dispatcher.executeInTs(Tissue[targetAlias], { v: testArg });
+                 if (Number.isNaN(out) || !Number.isFinite(out)) {
+                     stable = false; break;
+                 }
+             } catch(e) {
+                 stable = false; break;
+             }
+          }
 
-          console.log(`\nActivating meta_fn: flush_state_to_disk...`);
-          // Dump the surviving tissue to Binary RAM 
-          await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
-          // Dump it to Human Readable Read-Only MD
-          await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
-          
-          console.log(`✨ Organism successfully rewritten and hardened into seed.bin!`);
+          if (!stable) {
+              console.log(`🧬 HYBRID JIT REJECTED (Kinematic Collapse): TS emulation mathematically destabilized. Discarding mutation.`);
+              Tissue = snapshot;
+          } else {
+              console.log(`🛡️ Soft Matter Stable! OSSIFYING -> Initiating Native Rust Compiler Bridge...`);
+              try {
+                  const bridgeRes = await executeNeuron(Tissue, "rust_compiler_bridge", { nodeAlias: targetAlias, state: Tissue });
+                  Tissue = bridgeRes.next;
+
+                  console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
+                  
+                  // O-25 NOMOS: Reward successful mutations (Evolutionary Darwinism)
+                  const ENERGY_REWARD = 60;
+                  Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
+                  console.log(`🏆 NOMOS Reward: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
+                  
+                  const afterStr = JSON.stringify(Tissue[targetAlias].ir);
+                  console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
+
+                  console.log(`\nActivating meta_fn: flush_state_to_disk...`);
+                  // Dump the surviving tissue to Binary RAM 
+                  await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
+                  // Dump it to Human Readable Read-Only MD
+                  await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
+                  
+                  console.log(`✨ Organism successfully rewritten and hardened into seed.bin!`);
+              } catch (bridgeErr: any) {
+                  console.log(`\n🟥 FATAL RUST COMPILATION REJECTION IN EPOCH ${epoch}`);
+                  console.log(`Reason: ${bridgeErr.message}`);
+                  console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
+                  Tissue = snapshot;
+              }
+          }
       }
       
       epoch++;
