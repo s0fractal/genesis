@@ -1,5 +1,6 @@
 import { fnv1a_64 } from "../shared/hash";
 import { PhaseComputeEngine } from "../lens/phase_compute.js";
+import { PhaseWebGPUObserver } from "../lens/phase_webgpu.js";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -16,14 +17,16 @@ export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private engine?: PhaseComputeEngine;
+    private visualizer?: PhaseWebGPUObserver;
     private isRunning: boolean = false;
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
 
-    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine) {
+    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
         this.wasmMemory = memory;
         this.engine = engine;
+        this.visualizer = visualizer;
     }
 
     public request(idx: number) {
@@ -93,24 +96,49 @@ export class SovereignOracle {
         }
 
         // 2. Spatial Batching: Construct the Macro-Prompt for LLM
+        let structuralImage = "";
+        if (this.visualizer) {
+            try {
+                // Read the graphical buffer layout
+                structuralImage = this.visualizer.extractImageBase64(512);
+            } catch (e) {
+                console.warn("[ORACLE] Failed to extract physical topology:", e);
+            }
+        }
+        
+        // Output snapshot to a debug pane if it exists
+        const debugImg = document.getElementById("oracle-debug-vision") as HTMLImageElement;
+        if (debugImg && structuralImage) {
+            debugImg.style.display = "block";
+            debugImg.src = "data:image/png;base64," + structuralImage;
+        }
+
         const prompt = `
             Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
             The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
             These nodes have locked natively, demanding semantic resolution.${mycelialContext}
             Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
+            You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
             Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
         `.trim();
 
         try {
             const OLLAMA_URL = "http://localhost:11434/api/generate";
+            
+            // Generate standard payload or Multimodal payload depending on topological capture
+            const requestBody: any = {
+                model: structuralImage ? "llama3.2-vision" : "llama3",
+                prompt,
+                stream: false
+            };
+            if (structuralImage) {
+                requestBody.images = [structuralImage];
+            }
+            
             const response = await fetch(OLLAMA_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama3",
-                    prompt,
-                    stream: false
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) throw new Error("LLM Offline");

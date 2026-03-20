@@ -2,7 +2,7 @@
 
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
-import { PhaseComputeEngine } from './phase_compute.js';
+import { PhaseComputeEngine } from './phase_compute.ts';
 
 export class PhaseWebGPUObserver {
     private canvas: HTMLCanvasElement;
@@ -24,10 +24,11 @@ export class PhaseWebGPUObserver {
         this.startTime = performance.now();
     }
 
+    // deno-lint-ignore require-await
     async init() {
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
-        const numCells = this.field.cell_count();
+        const _numCells = this.field.cell_count();
         
         const format = navigator.gpu.getPreferredCanvasFormat();
         this.context.configure({
@@ -143,5 +144,19 @@ export class PhaseWebGPUObserver {
         pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
+    }
+
+    extractImageBase64(downscaleSize = 512): string {
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = downscaleSize;
+        tempCanvas.height = downscaleSize;
+        const ctx = tempCanvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, downscaleSize, downscaleSize);
+            // Slice off the "data:image/png;base64," header correctly for direct Ollama ingestion
+            const dataUrl = tempCanvas.toDataURL("image/png");
+            return dataUrl.substring(dataUrl.indexOf(",") + 1);
+        }
+        return "";
     }
 }

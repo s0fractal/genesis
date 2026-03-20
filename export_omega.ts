@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
 const OUTPUT_FILE = "OMEGA_EXPORT.md";

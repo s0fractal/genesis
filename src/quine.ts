@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 import { encode } from "npm:@toon-format/toon";
 import { encode as packMsgPack, decode as unpackMsgPack } from "npm:@msgpack/msgpack";
 
@@ -98,7 +99,7 @@ export const Dispatcher = {
       }
       return 0;
     };
-    return run(node.expr.body as IRNode);
+    return run(node.ir.body as IRNode);
   },
   
   validateNodeIntegrity(node: Sigma3Node): boolean {

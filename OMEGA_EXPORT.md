@@ -1,6 +1,6 @@
-# OMEGA-64 | ONTOLOGY 17 ABSOLUTE EXPORT
+# OMEGA-64 | ONTOLOGY 24 ABSOLUTE EXPORT
 
-This document contains the entire architectural core of the Genesis Spore, including the TS genetic transpiler, the Rust WASM SIMD execution threads, and the Biological Context Substrate (`I.md`).
+This document contains the entire architectural core of the Genesis Spore, spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.
 
 ---
 
@@ -335,6 +335,94 @@ const targetNode = state[nodeAlias];
 
 ```
 
+## `verify_wgsl.ts`
+```ts
+// deno-lint-ignore-file
+const kura = await Deno.readTextFile("./src/lens/shaders/compute_kuramoto.wgsl");
+const myc = await Deno.readTextFile("./src/lens/shaders/compute_mycelial.wgsl");
+
+const adapter = await navigator.gpu.requestAdapter();
+const device = await adapter?.requestDevice();
+
+if (!device) throw new Error("No WebGPU available");
+
+// deno-lint-ignore no-explicit-any
+(device as any).onuncapturederror = ((event: any) => {
+    console.error("UNCAPTURED ERROR:", event.error);
+}) as any;
+
+const kMod = device.createShaderModule({ code: kura });
+const mMod = device.createShaderModule({ code: myc });
+
+const kPipe = device.createComputePipeline({ layout: 'auto', compute: { module: kMod, entryPoint: 'main' } });
+const mPipe = device.createComputePipeline({ layout: 'auto', compute: { module: mMod, entryPoint: 'main' } });
+
+// Fake buffers
+const bufA = device.createBuffer({ size: 1920 * 8, usage: GPUBufferUsage.STORAGE });
+const bufB = device.createBuffer({ size: 1920 * 8, usage: GPUBufferUsage.STORAGE });
+const padUniform = device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM });
+const mycBuf = device.createBuffer({ size: 16384, usage: GPUBufferUsage.STORAGE });
+
+console.log("Creating Kuramoto BindGroup...");
+device.pushErrorScope("validation");
+device.createBindGroup({
+    layout: kPipe.getBindGroupLayout(0),
+    entries: [
+        { binding: 0, resource: { buffer: bufA } },
+        { binding: 1, resource: { buffer: bufB } },
+        { binding: 2, resource: { buffer: padUniform } },
+        { binding: 3, resource: { buffer: mycBuf } }
+    ]
+});
+const errK = await device.popErrorScope();
+if (errK) console.error("K BIND ERROR:", errK.message);
+
+console.log("Creating Mycelial BindGroup...");
+device.pushErrorScope("validation");
+device.createBindGroup({
+    layout: mPipe.getBindGroupLayout(0),
+    entries: [
+        { binding: 0, resource: { buffer: bufA } },
+        { binding: 2, resource: { buffer: padUniform } },
+        { binding: 3, resource: { buffer: mycBuf } }
+    ]
+});
+const errM = await device.popErrorScope();
+if (errM) console.error("M BIND ERROR:", errM.message);
+
+console.log("Done.");
+
+```
+
+## `puppeteer_probe.ts`
+```ts
+// deno-lint-ignore-file
+import { chromium } from "npm:playwright";
+
+async function run() {
+    const browser = await chromium.launch({ args: ["--enable-unsafe-webgpu"] });
+    const page = await browser.newPage();
+    
+    page.on("console", msg => {
+        const text = msg.text();
+        if (text.includes("error") || text.includes("warning") || text.includes("Error") || text.includes("Invalid")) {
+            console.log("BROWSER LOG:", text);
+        }
+    });
+
+    console.log("Navigating to local phase...");
+    await page.goto("http://localhost:5173/?mode=phase");
+    
+    console.log("Waiting 3s...");
+    await new Promise(r => setTimeout(r, 3000));
+    
+    await browser.close();
+}
+
+run();
+
+```
+
 ## `package.json`
 ```json
 {
@@ -343,26 +431,27 @@ const targetNode = state[nodeAlias];
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "analyze:phase-cross": "node --experimental-strip-types tools/analyze_phase_cross.ts",
+    "analyze:phase-cross": "deno run -A tools/analyze_phase_cross.ts",
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
     "serve": "vite preview",
-    "generate:phase-goldens": "npm run build:wasm && node --experimental-strip-types tools/generate_phase_goldens.ts",
-    "verify:phase-coherence:ref": "node --experimental-strip-types tools/verify_phase_coherence.ts",
+    "generate:phase-goldens": "deno run -A tools/generate_phase_goldens.ts",
+    "verify:phase-coherence:ref": "deno run -A tools/verify_phase_coherence.ts",
     "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",
-    "verify:phase-coherence:wasm": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_coherence_wasm.ts",
-    "verify:phase-coherence": "npm run verify:phase-coherence:ref && npm run verify:phase-coherence:kernel && npm run verify:phase-coherence:wasm",
-    "verify:phase-cross": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_cross.ts",
-    "verify:phase-parity": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_parity.ts",
+    "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
+    "verify:phase-coherence": "deno task verify:phase-coherence:ref && deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
+    "verify:phase-cross": "deno run -A tools/verify_phase_cross.ts",
+    "verify:phase-parity": "deno run -A tools/verify_phase_parity.ts",
     "verify:phase-bridge:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_bridge",
-    "verify:phase-bridge:parity": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_bridge_parity.ts",
-    "verify:phase-bridge:wasm": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_bridge_wasm.ts",
-    "verify:phase-bridge": "npm run verify:phase-bridge:kernel && npm run verify:phase-bridge:parity && npm run verify:phase-bridge:wasm",
-    "verify:phase-goldens": "npm run build:wasm && node --experimental-strip-types tools/verify_phase_goldens.ts",
-    "verify:phase-stack": "npm run verify:phase-coherence && npm run verify:phase-parity && npm run verify:phase-bridge && npm run verify:phase-cross && npm run verify:phase-goldens"
+    "verify:phase-bridge:parity": "deno run -A tools/verify_phase_bridge_parity.ts",
+    "verify:phase-bridge:wasm": "deno run -A tools/verify_phase_bridge_wasm.ts",
+    "verify:phase-bridge": "deno task verify:phase-bridge:kernel && deno task verify:phase-bridge:parity && deno task verify:phase-bridge:wasm",
+    "verify:phase-goldens": "deno run -A tools/verify_phase_goldens.ts",
+    "verify:phase-stack": "deno task verify:phase-coherence && deno task verify:phase-parity && deno task verify:phase-bridge && deno task verify:phase-cross && deno task verify:phase-goldens"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",
+    "puppeteer": "^24.40.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
   },
@@ -632,6 +721,7 @@ but "a phase lattice that may be rendered as a grid when useful".
 
 ## `export_omega.ts`
 ```ts
+// deno-lint-ignore-file
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
 const OUTPUT_FILE = "OMEGA_EXPORT.md";
@@ -641,8 +731,8 @@ const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dis
 
 async function main() {
   const chunks: string[] = [];
-  chunks.push("# OMEGA-64 | ONTOLOGY 17 ABSOLUTE EXPORT\n");
-  chunks.push("This document contains the entire architectural core of the Genesis Spore, including the TS genetic transpiler, the Rust WASM SIMD execution threads, and the Biological Context Substrate (`I.md`).\n\n---\n");
+  chunks.push("# OMEGA-64 | ONTOLOGY 24 ABSOLUTE EXPORT\n");
+  chunks.push("This document contains the entire architectural core of the Genesis Spore, spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n");
 
   const addFile = async (path: string) => {
     try {
@@ -658,6 +748,8 @@ async function main() {
 
   // Root essentials
   await addFile("I.md");
+  await addFile("verify_wgsl.ts");
+  await addFile("puppeteer_probe.ts");
   await addFile("package.json");
   await addFile("PHASE_COHERENCE_SPEC.md");
   await addFile("export_omega.ts");
@@ -974,6 +1066,10 @@ main();
             <div><span id="stat-b-label">FPS</span> <span id="stat-b-value" class="stat-value">0</span></div>
             <div><span id="stat-c-label">OBSERVER</span> <span id="stat-c-value" class="stat-value">WebGPU Lens</span></div>
         </div>
+        
+        <div style="display: flex; justify-content: flex-end;">
+            <img id="oracle-debug-vision" style="width: 128px; height: 128px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); display: none; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" />
+        </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>
@@ -1024,6 +1120,7 @@ opt-level = 3
 
 ## `src/quine.ts`
 ```ts
+// deno-lint-ignore-file
 import { encode } from "npm:@toon-format/toon";
 import { encode as packMsgPack, decode as unpackMsgPack } from "npm:@msgpack/msgpack";
 
@@ -1086,7 +1183,7 @@ export interface Sigma3Node {
   essence: Essence;
   physics: Physics;
   io: Record<string, any>;
-  expr: IRFunction;
+  ir: IRFunction;
   implementation?: {
     ts?: string;
     wasm?: string;
@@ -1100,7 +1197,7 @@ export type State = Record<string, Sigma3Node>;
 
 export const Dispatcher = {
   async foldForRust(node: Sigma3Node): Promise<string> {
-    return JSON.stringify(node.expr);
+    return JSON.stringify(node.ir);
   },
 
   executeInTs(node: Sigma3Node, args: Record<string, number>): number {
@@ -1124,7 +1221,18 @@ export const Dispatcher = {
       }
       return 0;
     };
-    return run(node.expr.body as IRNode);
+    return run(node.ir.body as IRNode);
+  },
+  
+  validateNodeIntegrity(node: Sigma3Node): boolean {
+    return !!(
+        node && 
+        node.identity && 
+        node.identity.context_hash && 
+        node.ir && 
+        node.physics && 
+        node.physics.energy_cost !== undefined
+    );
   }
 };
 
@@ -1140,6 +1248,10 @@ export async function executeNeuron(
   const neuron = state[alias];
   if (!neuron) {
     throw new Error(`Cannot execute neuron ${alias}: Not found in active state tissue.`);
+  }
+  
+  if (!Dispatcher.validateNodeIntegrity(neuron)) {
+      throw new Error(`Metabolic Reject: Neuron ${alias} failed structural validation. Structural execution denied.`);
   }
   
   const { essence } = neuron;
@@ -1206,10 +1318,10 @@ export function serializeTissueToMarkdown(tissue: State): string {
         nodeBlock += serializeIO(node.io);
         nodeBlock += `\n`;
 
-        if (node.expr && node.expr.body !== undefined) {
+        if (node.ir && node.ir.body !== undefined) {
            nodeBlock += `#### IR\n`;
-           if (typeof node.expr.body === "string" || Array.isArray(node.expr.body)) {
-              let bodyStr = typeof node.expr.body === "string" ? node.expr.body : JSON.stringify(node.expr.body);
+           if (typeof node.ir.body === "string" || Array.isArray(node.ir.body)) {
+              let bodyStr = typeof node.ir.body === "string" ? node.ir.body : JSON.stringify(node.ir.body);
               if (bodyStr.startsWith('"') && bodyStr.endsWith('"')) {
                  bodyStr = JSON.parse(bodyStr); // unescape string safely
               }
@@ -1383,7 +1495,7 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
           essence: { type: pointer.type as any, level: 1, substrate: pointer.substrate as any },
           physics: { energy_cost: pointer.energy, stability: pointer.stability },
           io: {},
-          expr: { args: [], ret: "void", body: "" },
+          ir: { args: [], ret: "void", body: "" },
           implementation: {},
           mutation_log: []
       };
@@ -1407,16 +1519,16 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
              if (parsed.in) {
                  for (const [k, v] of Object.entries(parsed.in)) {
                      const typePart = (v as string).split("@")[0];
-                     node.expr.args.push({ name: k, type: typePart });
+                     node.ir.args.push({ name: k, type: typePart });
                  }
              }
-             node.expr.ret = typeof node.io.out === "string" ? node.io.out.split("@")[0] : "void";
+             node.ir.ret = typeof node.io.out === "string" ? node.io.out.split("@")[0] : "void";
           } else if (currentSection === "IR") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();
              try {
-                 node.expr.body = JSON.parse(codeBody);
+                 node.ir.body = JSON.parse(codeBody);
              } catch(e) {
-                 node.expr.body = codeBody;
+                 node.ir.body = codeBody;
              }
           } else if (currentSection === "Implementation") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();
@@ -1534,448 +1646,582 @@ main();
 ## `src/main.ts`
 ```ts
 import initWasm, {
-    Field,
-    PhaseLatticeField,
-    execute_phase_bridge_tick,
-    execute_phase_lattice_tick,
-    execute_simd_tick,
-    field_omega_span,
-    field_signature,
-    field_total_energy,
-    field_total_locks,
-    field_total_plasmids,
-    phase_lattice_omega_span,
-    phase_lattice_signature,
-    phase_lattice_total_amplitude,
-    phase_lattice_total_entanglement,
+  execute_phase_bridge_tick,
+  execute_simd_tick,
+  Field,
+  field_omega_span,
+  field_signature,
+  field_total_energy,
+  field_total_locks,
+  field_total_plasmids,
+  phase_lattice_omega_span,
+  phase_lattice_signature,
+  phase_lattice_total_amplitude,
+  phase_lattice_total_entanglement,
+  PhaseLatticeField,
 } from "../omega_core/pkg/omega_core.js";
-import { LensObserver } from "./lens/init";
-import { PerturbationInjector } from "./lens/input";
-import { PhasePerturbationInjector } from "./lens/phase_input";
-import { PhaseReplayObserver } from "./lens/phase_replay_view";
-import { PhaseWebGPUObserver } from "./lens/phase_webgpu";
-import { PhaseComputeEngine } from "./lens/phase_compute";
-import { SemanticCoupler } from "./ontology/semantic_layer";
-import { SovereignOracle } from "./ontology/oracle";
+import { LensObserver } from "./lens/init.ts";
+import { PerturbationInjector } from "./lens/input.ts";
+import { PhasePerturbationInjector } from "./lens/phase_input.ts";
+import { PhaseReplayObserver } from "./lens/phase_replay_view.ts";
+import { PhaseWebGPUObserver } from "./lens/phase_webgpu.ts";
+import { PhaseComputeEngine } from "./lens/phase_compute.ts";
+import { SemanticCoupler } from "./ontology/semantic_layer.ts";
+import { SovereignOracle } from "./ontology/oracle.ts";
 import {
-    buildDiffSummary,
-    getReplayComparison,
-    getReplaySnapshot,
-    loadPhaseReplayDataset,
-    summarizeReplayDiff,
-} from "./replay/phase_replay";
+  buildDiffSummary,
+  getReplayComparison,
+  getReplaySnapshot,
+  loadPhaseReplayDataset,
+  summarizeReplayDiff,
+} from "./replay/phase_replay.ts";
 import {
-    collapsePhaseField,
-    cropPhaseField,
-    hybridSnapshotSignature,
-    loadHybridReplayDataset,
-} from "./replay/hybrid_replay";
-import type { ReplayCompareMode } from "./replay/phase_replay";
-import type { PhaseField } from "./shared/phase_lattice";
+  collapsePhaseField,
+  cropPhaseField,
+  hybridSnapshotSignature,
+  loadHybridReplayDataset,
+} from "./replay/hybrid_replay.ts";
+import type { ReplayCompareMode } from "./replay/phase_replay.ts";
+import type { PhaseField } from "./shared/phase_lattice.ts";
 
 let lastTime = performance.now();
 let frames = 0;
 const hudTitle = document.getElementById("hud-title") as HTMLDivElement | null;
-const statusLabel = document.getElementById("status-label") as HTMLSpanElement | null;
-const statALabel = document.getElementById("stat-a-label") as HTMLSpanElement | null;
-const statAValue = document.getElementById("stat-a-value") as HTMLSpanElement | null;
-const statBLabel = document.getElementById("stat-b-label") as HTMLSpanElement | null;
-const statBValue = document.getElementById("stat-b-value") as HTMLSpanElement | null;
-const statCLabel = document.getElementById("stat-c-label") as HTMLSpanElement | null;
-const statCValue = document.getElementById("stat-c-value") as HTMLSpanElement | null;
-const semanticInputGroup = document.getElementById("semantic-input-group") as HTMLDivElement | null;
-const replayControls = document.getElementById("replay-controls") as HTMLDivElement | null;
-const replayPlayButton = document.getElementById("replay-play") as HTMLButtonElement | null;
-const replayTickSlider = document.getElementById("replay-tick") as HTMLInputElement | null;
-const replayTickValue = document.getElementById("replay-tick-value") as HTMLSpanElement | null;
-const replayCompareSelect = document.getElementById("replay-compare") as HTMLSelectElement | null;
-const mode = new URLSearchParams(window.location.search).get("mode") || "classic";
-const replayStack = new URLSearchParams(window.location.search).get("stack") || "phase";
+const statusLabel = document.getElementById("status-label") as
+  | HTMLSpanElement
+  | null;
+const statALabel = document.getElementById("stat-a-label") as
+  | HTMLSpanElement
+  | null;
+const statAValue = document.getElementById("stat-a-value") as
+  | HTMLSpanElement
+  | null;
+const statBLabel = document.getElementById("stat-b-label") as
+  | HTMLSpanElement
+  | null;
+const statBValue = document.getElementById("stat-b-value") as
+  | HTMLSpanElement
+  | null;
+const statCLabel = document.getElementById("stat-c-label") as
+  | HTMLSpanElement
+  | null;
+const statCValue = document.getElementById("stat-c-value") as
+  | HTMLSpanElement
+  | null;
+const semanticInputGroup = document.getElementById("semantic-input-group") as
+  | HTMLDivElement
+  | null;
+const replayControls = document.getElementById("replay-controls") as
+  | HTMLDivElement
+  | null;
+const replayPlayButton = document.getElementById("replay-play") as
+  | HTMLButtonElement
+  | null;
+const replayTickSlider = document.getElementById("replay-tick") as
+  | HTMLInputElement
+  | null;
+const replayTickValue = document.getElementById("replay-tick-value") as
+  | HTMLSpanElement
+  | null;
+const replayCompareSelect = document.getElementById("replay-compare") as
+  | HTMLSelectElement
+  | null;
+const mode = new URLSearchParams(globalThis.location.search).get("mode") ||
+  "classic";
+const replayStack =
+  new URLSearchParams(globalThis.location.search).get("stack") || "phase";
 
 function configureCanvas() {
-    const canvas = document.getElementById("lens-canvas") as HTMLCanvasElement;
+  const canvas = document.getElementById("lens-canvas") as HTMLCanvasElement;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  window.addEventListener("resize", () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+  });
 
-    window.addEventListener("resize", () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    });
-
-    return canvas;
+  return canvas;
 }
 
 function wireSemanticInput(coupler: SemanticCoupler, placeholder: string) {
-    const input = document.getElementById("semantic-input") as HTMLInputElement;
-    const button = document.getElementById("semantic-submit") as HTMLButtonElement;
-    input.placeholder = placeholder;
+  const input = document.getElementById("semantic-input") as HTMLInputElement;
+  const button = document.getElementById(
+    "semantic-submit",
+  ) as HTMLButtonElement;
+  input.placeholder = placeholder;
 
-    const dispatchIntent = () => {
-        const val = input.value.trim();
-        if (val) {
-            coupler.projectIntent(val);
-            input.value = "";
-        }
-    };
+  const dispatchIntent = () => {
+    const val = input.value.trim();
+    if (val) {
+      coupler.projectIntent(val);
+      input.value = "";
+    }
+  };
 
-    button.addEventListener("click", dispatchIntent);
-    input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") dispatchIntent();
-    });
+  button.addEventListener("click", dispatchIntent);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") dispatchIntent();
+  });
 }
 
 function tickFps() {
-    frames++;
-    const now = performance.now();
-    if (now - lastTime > 1000) {
-        statBValue?.replaceChildren(frames.toString());
-        frames = 0;
-        lastTime = now;
-    }
+  frames++;
+  const now = performance.now();
+  if (now - lastTime > 1000) {
+    statBValue?.replaceChildren(frames.toString());
+    frames = 0;
+    lastTime = now;
+  }
 }
 
 function setHudStat(
-    slot: "a" | "b" | "c",
-    label: string,
-    value: string,
+  slot: "a" | "b" | "c",
+  label: string,
+  value: string,
 ) {
-    if (slot === "a") {
-        statALabel?.replaceChildren(label);
-        statAValue?.replaceChildren(value);
-        return;
-    }
-    if (slot === "b") {
-        statBLabel?.replaceChildren(label);
-        statBValue?.replaceChildren(value);
-        return;
-    }
-    statCLabel?.replaceChildren(label);
-    statCValue?.replaceChildren(value);
+  if (slot === "a") {
+    statALabel?.replaceChildren(label);
+    statAValue?.replaceChildren(value);
+    return;
+  }
+  if (slot === "b") {
+    statBLabel?.replaceChildren(label);
+    statBValue?.replaceChildren(value);
+    return;
+  }
+  statCLabel?.replaceChildren(label);
+  statCValue?.replaceChildren(value);
 }
 
 function setInputMode(target: "semantic" | "replay") {
-    semanticInputGroup?.toggleAttribute("hidden", target !== "semantic");
-    replayControls?.toggleAttribute("hidden", target !== "replay");
+  semanticInputGroup?.toggleAttribute("hidden", target !== "semantic");
+  replayControls?.toggleAttribute("hidden", target !== "replay");
 }
 
 async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
-    console.log("[Genesis] Bootstrapping experimental phase lattice mode...");
-    hudTitle?.replaceChildren("Φ Phase Lattice");
-    statusLabel?.replaceChildren("PHASE MODE ACTIVE");
-    setHudStat("a", "SECTORS", "64x10x3");
-    setHudStat("b", "FPS", "0");
-    setHudStat("c", "SIGNATURE", "warming");
-    setInputMode("semantic");
+  console.log("[Genesis] Bootstrapping experimental phase lattice mode...");
+  hudTitle?.replaceChildren("Φ Phase Lattice");
+  statusLabel?.replaceChildren("PHASE MODE ACTIVE");
+  setHudStat("a", "SECTORS", "64x10x3");
+  setHudStat("b", "FPS", "0");
+  setHudStat("c", "SIGNATURE", "warming");
+  setInputMode("semantic");
 
-    const canvas = configureCanvas();
-    const phaseField = new PhaseLatticeField(64, 10, 3);
-    // Ontology 23: Native Metal compute instantiation
-    const adapter = await navigator.gpu.requestAdapter();
-    const device = await adapter!.requestDevice();
-    
-    const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
-    await computeEngine.init();
+  const canvas = configureCanvas();
+  const phaseField = new PhaseLatticeField(64, 10, 3);
+  // Ontology 23: Native Metal compute instantiation
+  const adapter = await navigator.gpu.requestAdapter();
+  const device = await adapter!.requestDevice();
 
-    const observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
-    await observer.init();
+  const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+  await computeEngine.init();
 
-    // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
-    const oracle = new SovereignOracle(phaseField, wasmMemory, computeEngine);
-    oracle.boot();
+  const observer = new PhaseWebGPUObserver(
+    canvas,
+    phaseField,
+    computeEngine,
+    device,
+  );
+  await observer.init();
 
-    const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory, computeEngine, oracle);
-    injector.attach();
+  // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
+  const oracle = new SovereignOracle(
+    phaseField,
+    wasmMemory,
+    computeEngine,
+    observer,
+  );
+  oracle.boot();
 
-    const coupler = new SemanticCoupler(injector);
-    wireSemanticInput(coupler, "Inject phase attractor...");
+  const injector = new PhasePerturbationInjector(
+    canvas,
+    phaseField,
+    wasmMemory,
+    computeEngine,
+    oracle,
+  );
+  injector.attach();
 
-    const loop = () => {
-        computeEngine.tick();
-        oracle.sync();
+  const coupler = new SemanticCoupler(injector);
+  wireSemanticInput(coupler, "Inject phase attractor...");
 
-        observer.render(computeEngine.getActiveBuffer());
-        tickFps();
+  const loop = () => {
+    computeEngine.tick();
+    oracle.sync();
 
-        if (frames === 0) {
-            setHudStat("a", "AMPLITUDE", phase_lattice_total_amplitude(phaseField).toString());
-            setHudStat("c", "SIGNATURE", phase_lattice_signature(phaseField).slice(0, 12));
-            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)} | Q ${oracle.getQueueSize()}`);
-        }
+    observer.render(computeEngine.getActiveBuffer());
+    tickFps();
 
-        requestAnimationFrame(loop);
-    };
+    if (frames === 0) {
+      setHudStat(
+        "a",
+        "AMPLITUDE",
+        phase_lattice_total_amplitude(phaseField).toString(),
+      );
+      setHudStat(
+        "c",
+        "SIGNATURE",
+        phase_lattice_signature(phaseField).slice(0, 12),
+      );
+      statusLabel?.replaceChildren(
+        `ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${
+          phase_lattice_omega_span(phaseField)
+        } | Q ${oracle.getQueueSize()}`,
+      );
+    }
 
-    loop();
-    
-    // O-24 Topos Debugger
-    (window as any).injectMycelialTest = () => {
-        const hash = 999999888888777n;
-        // Target diametric poles dynamically to avoid OOB
-        const cellA_top = Math.floor(phaseField.cell_count() * 0.1);
-        const cellB_bottom = Math.floor(phaseField.cell_count() * 0.9);
-        
-        console.log(`[MYCELIUM] Firing identical resonance flag into isolated nodes ${cellA_top} and ${cellB_bottom}`);
-        
-        computeEngine.injectPlasmid(cellA_top, hash);
-        computeEngine.injectEnergy(cellA_top, 200);
-        
-        // Use a short timeout so the TS Engine loop can flush the single-tick Uniform Buffer sequentially
-        setTimeout(() => {
-            computeEngine.injectPlasmid(cellB_bottom, hash);
-            computeEngine.injectEnergy(cellB_bottom, 200);
-        }, 100);
-    };
-    
-    console.log("[Genesis] Phase lattice running. Use ?mode=phase to revisit this substrate.");
+    requestAnimationFrame(loop);
+  };
+
+  loop();
+
+  // O-24 Topos Debugger
+  // deno-lint-ignore no-explicit-any
+  (globalThis as any).injectMycelialTest = () => {
+    const hash = 999999888888777n;
+    // Target diametric poles dynamically to avoid OOB
+    const cellA_top = Math.floor(phaseField.cell_count() * 0.1);
+    const cellB_bottom = Math.floor(phaseField.cell_count() * 0.9);
+
+    console.log(
+      `[MYCELIUM] Firing identical resonance flag into isolated nodes ${cellA_top} and ${cellB_bottom}`,
+    );
+
+    computeEngine.injectPlasmid(cellA_top, hash);
+    computeEngine.injectEnergy(cellA_top, 200);
+
+    // Use a short timeout so the TS Engine loop can flush the single-tick Uniform Buffer sequentially
+    setTimeout(() => {
+      computeEngine.injectPlasmid(cellB_bottom, hash);
+      computeEngine.injectEnergy(cellB_bottom, 200);
+    }, 100);
+  };
+
+  console.log(
+    "[Genesis] Phase lattice running. Use ?mode=phase to revisit this substrate.",
+  );
 }
 
 async function bootstrapReplay() {
-    console.log(`[Genesis] Bootstrapping replay diff mode for stack=${replayStack}...`);
-    hudTitle?.replaceChildren(replayStack === "cross" ? "Φ Cross Diff" : replayStack === "hybrid" ? "Φ Hybrid Replay" : "Φ Replay Diff");
-    statusLabel?.replaceChildren("LOADING CANONICAL TRACE");
-    setHudStat("a", "TICK", "0/0");
-    setHudStat("b", "FPS", "0");
-    setHudStat("c", replayStack === "phase" ? "PARITY" : replayStack === "hybrid" ? "TRACE" : "MODE", "loading");
-    setInputMode("replay");
+  console.log(
+    `[Genesis] Bootstrapping replay diff mode for stack=${replayStack}...`,
+  );
+  hudTitle?.replaceChildren(
+    replayStack === "cross"
+      ? "Φ Cross Diff"
+      : replayStack === "hybrid"
+      ? "Φ Hybrid Replay"
+      : "Φ Replay Diff",
+  );
+  statusLabel?.replaceChildren("LOADING CANONICAL TRACE");
+  setHudStat("a", "TICK", "0/0");
+  setHudStat("b", "FPS", "0");
+  setHudStat(
+    "c",
+    replayStack === "phase"
+      ? "PARITY"
+      : replayStack === "hybrid"
+      ? "TRACE"
+      : "MODE",
+    "loading",
+  );
+  setInputMode("replay");
 
-    const canvas = configureCanvas();
-    const observer = new PhaseReplayObserver(canvas);
-    observer.init();
+  const canvas = configureCanvas();
+  const observer = new PhaseReplayObserver(canvas);
+  observer.init();
 
-    const phaseDataset = await loadPhaseReplayDataset();
-    const wasm = replayStack === "phase" ? null : await initWasm();
-    const hybridDataset = wasm ? await loadHybridReplayDataset(wasm) : null;
-    let currentTick = 0;
-    let compareMode: ReplayCompareMode = "seed";
-    let playing = false;
-    let lastAdvance = performance.now();
-    const commonTicks = hybridDataset ? Math.min(phaseDataset.golden.ticks, hybridDataset.golden.ticks) : phaseDataset.golden.ticks;
-    const totalTicks = replayStack === "hybrid" && hybridDataset ? hybridDataset.golden.ticks : replayStack === "cross" ? commonTicks : phaseDataset.golden.ticks;
+  const phaseDataset = await loadPhaseReplayDataset();
+  const wasm = replayStack === "phase" ? null : await initWasm();
+  // deno-lint-ignore no-explicit-any
+  const hybridDataset = wasm
+    ? await loadHybridReplayDataset(wasm as any)
+    : null;
+  let currentTick = 0;
+  let compareMode: ReplayCompareMode = "seed";
+  let playing = false;
+  let lastAdvance = performance.now();
+  const commonTicks = hybridDataset
+    ? Math.min(phaseDataset.golden.ticks, hybridDataset.golden.ticks)
+    : phaseDataset.golden.ticks;
+  const totalTicks = replayStack === "hybrid" && hybridDataset
+    ? hybridDataset.golden.ticks
+    : replayStack === "cross"
+    ? commonTicks
+    : phaseDataset.golden.ticks;
 
-    if (replayTickSlider) {
-        replayTickSlider.min = "0";
-        replayTickSlider.max = totalTicks.toString();
-        replayTickSlider.step = "1";
-        replayTickSlider.value = "0";
+  if (replayTickSlider) {
+    replayTickSlider.min = "0";
+    replayTickSlider.max = totalTicks.toString();
+    replayTickSlider.step = "1";
+    replayTickSlider.value = "0";
+  }
+  replayTickValue?.replaceChildren(`0/${totalTicks}`);
+  if (replayCompareSelect) {
+    replayCompareSelect.value = compareMode;
+    replayCompareSelect.disabled = replayStack === "cross";
+  }
+
+  const render = () => {
+    const boundedTick = Math.max(0, Math.min(totalTicks, currentTick));
+    let current: PhaseField;
+    let compare: PhaseField | null;
+    let title: string;
+    let statusLine: string;
+    let leftLabel: string;
+    let rightLabel: string;
+    let summary;
+
+    if (replayStack === "hybrid" && hybridDataset) {
+      current = hybridDataset.snapshots[boundedTick];
+      compare = getSnapshotComparison(
+        hybridDataset.snapshots,
+        boundedTick,
+        compareMode,
+      );
+      const hybridTrace = hybridDataset.golden.wasmTrace[boundedTick];
+      summary = buildDiffSummary(
+        current,
+        compare,
+        hybridSnapshotSignature(current),
+        hybridTrace.signature,
+        false,
+      );
+      title = "hybrid replay";
+      statusLine = `compare ${compareMode} | trace ${
+        hybridTrace.signature.slice(0, 8)
+      } | Ω ${hybridTrace.omegaSpan}`;
+      leftLabel = "view";
+      rightLabel = "golden";
+      setHudStat("c", "TRACE", hybridTrace.signature.slice(0, 12));
+      statusLabel?.replaceChildren(
+        `HYBRID Δ${summary.changedCells} | RAW ${
+          hybridTrace.signature.slice(0, 8)
+        } | Ω ${hybridTrace.omegaSpan}`,
+      );
+    } else if (replayStack === "cross" && hybridDataset) {
+      current = collapsePhaseField(
+        getReplaySnapshot(phaseDataset, boundedTick),
+        6,
+      );
+      compare = cropPhaseField(
+        hybridDataset.snapshots[boundedTick],
+        current.shape.radialBins,
+      );
+      summary = buildDiffSummary(
+        current,
+        compare,
+        hybridSnapshotSignature(current),
+        hybridSnapshotSignature(compare),
+        false,
+      );
+      title = "phase vs hybrid";
+      statusLine =
+        "cross diff | phase collapsed to 1 harmonic | hybrid cropped to 6 rings";
+      leftLabel = "phase";
+      rightLabel = "hybrid";
+      setHudStat("c", "MODE", "PH↔HY");
+      statusLabel?.replaceChildren(
+        `CROSS Δ${summary.changedCells} | PH ${
+          summary.referenceStructuralSignature.slice(0, 8)
+        } | HY ${summary.wasmStructuralSignature.slice(0, 8)}`,
+      );
+    } else {
+      current = getReplaySnapshot(phaseDataset, boundedTick);
+      compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
+      summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
+      const referenceTrace = phaseDataset.golden.referenceTrace[boundedTick];
+      const wasmTrace = phaseDataset.golden.wasmTrace[boundedTick];
+      title = "phase replay";
+      statusLine = `compare ${compareMode} | parity ${
+        summary.parityLocked ? "locked" : "drift"
+      }`;
+      leftLabel = "ref";
+      rightLabel = "wasm";
+      setHudStat("c", "PARITY", summary.parityLocked ? "LOCKED" : "DRIFT");
+      statusLabel?.replaceChildren(
+        `${compareMode.toUpperCase()} Δ${summary.changedCells} | REF ${
+          referenceTrace.structuralSignature.slice(0, 8)
+        } | WASM ${wasmTrace.structuralSignature.slice(0, 8)}`,
+      );
     }
-    replayTickValue?.replaceChildren(`0/${totalTicks}`);
-    if (replayCompareSelect) {
-        replayCompareSelect.value = compareMode;
-        replayCompareSelect.disabled = replayStack === "cross";
+
+    observer.render(current, compare, {
+      tick: boundedTick,
+      totalTicks,
+      compareMode: replayStack === "cross" ? "none" : compareMode,
+      summary,
+      title,
+      statusLine,
+      leftLabel,
+      rightLabel,
+    });
+
+    setHudStat("a", "TICK", `${boundedTick}/${totalTicks}`);
+    replayTickValue?.replaceChildren(`${boundedTick}/${totalTicks}`);
+  };
+
+  replayPlayButton?.addEventListener("click", () => {
+    playing = !playing;
+    replayPlayButton.replaceChildren(playing ? "Pause" : "Play");
+    lastAdvance = performance.now();
+  });
+
+  replayTickSlider?.addEventListener("input", () => {
+    currentTick = Number(replayTickSlider.value);
+    playing = false;
+    replayPlayButton?.replaceChildren("Play");
+    render();
+  });
+
+  replayCompareSelect?.addEventListener("change", () => {
+    compareMode = (replayCompareSelect.value as ReplayCompareMode) || "seed";
+    render();
+  });
+
+  const loop = (now: number) => {
+    tickFps();
+    if (playing && now - lastAdvance >= 680) {
+      currentTick = currentTick >= totalTicks ? 0 : currentTick + 1;
+      if (replayTickSlider) {
+        replayTickSlider.value = currentTick.toString();
+      }
+      lastAdvance = now;
     }
-
-    const render = () => {
-        const boundedTick = Math.max(0, Math.min(totalTicks, currentTick));
-        let current: PhaseField;
-        let compare: PhaseField | null;
-        let title: string;
-        let statusLine: string;
-        let leftLabel: string;
-        let rightLabel: string;
-        let summary;
-
-        if (replayStack === "hybrid" && hybridDataset) {
-            current = hybridDataset.snapshots[boundedTick];
-            compare = getSnapshotComparison(hybridDataset.snapshots, boundedTick, compareMode);
-            const hybridTrace = hybridDataset.golden.wasmTrace[boundedTick];
-            summary = buildDiffSummary(
-                current,
-                compare,
-                hybridSnapshotSignature(current),
-                hybridTrace.signature,
-                false,
-            );
-            title = "hybrid replay";
-            statusLine = `compare ${compareMode} | trace ${hybridTrace.signature.slice(0, 8)} | Ω ${hybridTrace.omegaSpan}`;
-            leftLabel = "view";
-            rightLabel = "golden";
-            setHudStat("c", "TRACE", hybridTrace.signature.slice(0, 12));
-            statusLabel?.replaceChildren(`HYBRID Δ${summary.changedCells} | RAW ${hybridTrace.signature.slice(0, 8)} | Ω ${hybridTrace.omegaSpan}`);
-        } else if (replayStack === "cross" && hybridDataset) {
-            current = collapsePhaseField(getReplaySnapshot(phaseDataset, boundedTick), 6);
-            compare = cropPhaseField(hybridDataset.snapshots[boundedTick], current.shape.radialBins);
-            summary = buildDiffSummary(
-                current,
-                compare,
-                hybridSnapshotSignature(current),
-                hybridSnapshotSignature(compare),
-                false,
-            );
-            title = "phase vs hybrid";
-            statusLine = "cross diff | phase collapsed to 1 harmonic | hybrid cropped to 6 rings";
-            leftLabel = "phase";
-            rightLabel = "hybrid";
-            setHudStat("c", "MODE", "PH↔HY");
-            statusLabel?.replaceChildren(
-                `CROSS Δ${summary.changedCells} | PH ${summary.referenceStructuralSignature.slice(0, 8)} | HY ${summary.wasmStructuralSignature.slice(0, 8)}`,
-            );
-        } else {
-            current = getReplaySnapshot(phaseDataset, boundedTick);
-            compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
-            summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
-            const referenceTrace = phaseDataset.golden.referenceTrace[boundedTick];
-            const wasmTrace = phaseDataset.golden.wasmTrace[boundedTick];
-            title = "phase replay";
-            statusLine = `compare ${compareMode} | parity ${summary.parityLocked ? "locked" : "drift"}`;
-            leftLabel = "ref";
-            rightLabel = "wasm";
-            setHudStat("c", "PARITY", summary.parityLocked ? "LOCKED" : "DRIFT");
-            statusLabel?.replaceChildren(
-                `${compareMode.toUpperCase()} Δ${summary.changedCells} | REF ${referenceTrace.structuralSignature.slice(0, 8)} | WASM ${wasmTrace.structuralSignature.slice(0, 8)}`,
-            );
-        }
-
-        observer.render(current, compare, {
-            tick: boundedTick,
-            totalTicks,
-            compareMode: replayStack === "cross" ? "none" : compareMode,
-            summary,
-            title,
-            statusLine,
-            leftLabel,
-            rightLabel,
-        });
-
-        setHudStat("a", "TICK", `${boundedTick}/${totalTicks}`);
-        replayTickValue?.replaceChildren(`${boundedTick}/${totalTicks}`);
-    };
-
-    replayPlayButton?.addEventListener("click", () => {
-        playing = !playing;
-        replayPlayButton.replaceChildren(playing ? "Pause" : "Play");
-        lastAdvance = performance.now();
-    });
-
-    replayTickSlider?.addEventListener("input", () => {
-        currentTick = Number(replayTickSlider.value);
-        playing = false;
-        replayPlayButton?.replaceChildren("Play");
-        render();
-    });
-
-    replayCompareSelect?.addEventListener("change", () => {
-        compareMode = (replayCompareSelect.value as ReplayCompareMode) || "seed";
-        render();
-    });
-
-    const loop = (now: number) => {
-        tickFps();
-        if (playing && now - lastAdvance >= 680) {
-            currentTick = currentTick >= totalTicks ? 0 : currentTick + 1;
-            if (replayTickSlider) {
-                replayTickSlider.value = currentTick.toString();
-            }
-            lastAdvance = now;
-        }
-        render();
-        requestAnimationFrame(loop);
-    };
-
     render();
     requestAnimationFrame(loop);
-    console.log(`[Genesis] Replay diff viewer active. Use ?mode=replay&stack=${replayStack} to inspect this trace.`);
+  };
+
+  render();
+  requestAnimationFrame(loop);
+  console.log(
+    `[Genesis] Replay diff viewer active. Use ?mode=replay&stack=${replayStack} to inspect this trace.`,
+  );
 }
 
 async function bootstrap() {
-    console.log("[O-64] Bootstrapping Genesis Ontology 10 Environment...");
+  console.log("[O-64] Bootstrapping Genesis Ontology 10 Environment...");
 
-    if (mode === "replay") {
-        await bootstrapReplay();
-        return;
+  if (mode === "replay") {
+    await bootstrapReplay();
+    return;
+  }
+
+  // 0. Boot WebAssembly 128-bit SIMD Core
+  const wasm = await initWasm();
+  const wasmMemory = wasm.memory as WebAssembly.Memory;
+  if (mode === "phase") {
+    await bootstrapPhase(wasmMemory);
+    return;
+  }
+  setInputMode("semantic");
+
+  const wasmField = new Field(256, 256);
+  console.log(
+    `[O-64] Rust WASM SIMD Core initialized. Field base pointer allocated at memory offset: ${wasmField.ptr_x()}`,
+  );
+
+  // The WASM linear array natively acts as our global sync target.
+
+  // 2. Map Visual Lens
+  const isHybrid = mode === "hybrid";
+  hudTitle?.replaceChildren(
+    isHybrid ? "Σ³ Phase Bridge" : "Σ³ Semantic Coupler",
+  );
+  statusLabel?.replaceChildren(
+    isHybrid ? "HYBRID PHASE ACTIVE" : "OMEGA-64 ACTIVE",
+  );
+  setHudStat(
+    "a",
+    isHybrid ? "GRID" : "MUTATION CANDIDATES",
+    isHybrid ? "256x256" : "1024",
+  );
+  setHudStat("b", "FPS", "0");
+  setHudStat(
+    "c",
+    isHybrid ? "SIGNATURE" : "OBSERVER",
+    isHybrid ? "warming" : "WebGPU Lens",
+  );
+  const canvas = configureCanvas();
+
+  // 3. Mount Substrate Observers
+  const observer = new LensObserver(canvas, null);
+  observer.setWasmContext(wasmField, wasmMemory);
+  await observer.init();
+
+  // 4. Initialize GPU Tournament Mutator
+  // OBSOLETE: The GPU compute pipeline is deprecated in Ontology 11.
+  // Darwinism is now executed natively in Rust WASM via horizontal gene transfer.
+
+  // 5. Connect User Interaction Arrays
+  const injector = new PerturbationInjector(canvas, wasmField);
+  injector.attach();
+
+  // 6. Bind the Semantic NLP Layer
+  const coupler = new SemanticCoupler(injector);
+
+  // Ontology 20: Ignite the Asynchronous Oracle Queue
+  const oracle = new SovereignOracle(wasmField, wasmMemory);
+  oracle.boot(); // Enable the queue processing flags
+
+  // Front-End Reactivity
+  wireSemanticInput(coupler, "Inject ontological intent...");
+
+  // 7. Master Physics Rhythm
+  const loop = () => {
+    // Step 1: Execute WASM SIMD Tick natively
+    // Provide a dummy LUT pointer (0) since trigonometry LUT isn't bound yet.
+    if (isHybrid) {
+      execute_phase_bridge_tick(wasmField, 0);
+    } else {
+      execute_simd_tick(wasmField, 0);
     }
 
-    // 0. Boot WebAssembly 128-bit SIMD Core
-    const wasm = await initWasm();
-    const wasmMemory = wasm.memory as WebAssembly.Memory;
-    if (mode === "phase") {
-        await bootstrapPhase(wasmMemory);
-        return;
+    // Step 2: Draw mathematical Light
+    observer.render();
+
+    // Step 3: Service Asynchronous Oracle Queue
+    oracle.sync();
+
+    // System Telemetry
+    tickFps();
+    if (isHybrid && frames === 0) {
+      setHudStat("a", "ENERGY", field_total_energy(wasmField).toString());
+      setHudStat("c", "SIGNATURE", field_signature(wasmField).slice(0, 12));
+      statusLabel?.replaceChildren(
+        `PL ${field_total_plasmids(wasmField)} | LK ${
+          field_total_locks(wasmField)
+        } | Ω ${
+          field_omega_span(wasmField)
+        } | Q ${wasmField.get_oracle_request_count()}`,
+      );
     }
-    setInputMode("semantic");
 
-    const wasmField = new Field(256, 256);
-    console.log(`[O-64] Rust WASM SIMD Core initialized. Field base pointer allocated at memory offset: ${wasmField.ptr_x()}`);
+    // Recursively drive the full unified pipeline
+    requestAnimationFrame(loop);
+  };
 
-    // The WASM linear array natively acts as our global sync target.
-
-    // 2. Map Visual Lens
-    const isHybrid = mode === "hybrid";
-    hudTitle?.replaceChildren(isHybrid ? "Σ³ Phase Bridge" : "Σ³ Semantic Coupler");
-    statusLabel?.replaceChildren(isHybrid ? "HYBRID PHASE ACTIVE" : "OMEGA-64 ACTIVE");
-    setHudStat("a", isHybrid ? "GRID" : "MUTATION CANDIDATES", isHybrid ? "256x256" : "1024");
-    setHudStat("b", "FPS", "0");
-    setHudStat("c", isHybrid ? "SIGNATURE" : "OBSERVER", isHybrid ? "warming" : "WebGPU Lens");
-    const canvas = configureCanvas();
-
-    // 3. Mount Substrate Observers
-    const observer = new LensObserver(canvas, null);
-    observer.setWasmContext(wasmField, wasmMemory);
-    await observer.init();
-    
-    // 4. Initialize GPU Tournament Mutator
-    // OBSOLETE: The GPU compute pipeline is deprecated in Ontology 11.
-    // Darwinism is now executed natively in Rust WASM via horizontal gene transfer.
-
-    // 5. Connect User Interaction Arrays
-    const injector = new PerturbationInjector(canvas, wasmField);
-    injector.attach();
-
-    // 6. Bind the Semantic NLP Layer
-    const coupler = new SemanticCoupler(injector);
-
-    // Ontology 20: Ignite the Asynchronous Oracle Queue
-    const oracle = new SovereignOracle(wasmField, wasmMemory);
-    oracle.boot(); // Enable the queue processing flags
-
-    // Front-End Reactivity
-    wireSemanticInput(coupler, "Inject ontological intent...");
-
-    // 7. Master Physics Rhythm
-    const loop = () => {
-        // Step 1: Execute WASM SIMD Tick natively
-        // Provide a dummy LUT pointer (0) since trigonometry LUT isn't bound yet.
-        if (isHybrid) {
-            execute_phase_bridge_tick(wasmField, 0);
-        } else {
-            execute_simd_tick(wasmField, 0);
-        }
-
-        // Step 2: Draw mathematical Light
-        observer.render();
-
-        // Step 3: Service Asynchronous Oracle Queue
-        oracle.sync();
-
-        // System Telemetry
-        tickFps();
-        if (isHybrid && frames === 0) {
-            setHudStat("a", "ENERGY", field_total_energy(wasmField).toString());
-            setHudStat("c", "SIGNATURE", field_signature(wasmField).slice(0, 12));
-            statusLabel?.replaceChildren(`PL ${field_total_plasmids(wasmField)} | LK ${field_total_locks(wasmField)} | Ω ${field_omega_span(wasmField)} | Q ${wasmField.get_oracle_request_count()}`);
-        }
-
-        // Recursively drive the full unified pipeline
-        requestAnimationFrame(loop);
-    };
-
-    loop();
-    console.log("[O-64] System breathing. Evolution pipeline running unconditionally.");
+  loop();
+  console.log(
+    "[O-64] System breathing. Evolution pipeline running unconditionally.",
+  );
 }
 
 bootstrap().catch(console.error);
 
 function getSnapshotComparison(
-    snapshots: PhaseField[],
-    tick: number,
-    compareMode: ReplayCompareMode,
+  snapshots: PhaseField[],
+  tick: number,
+  compareMode: ReplayCompareMode,
 ): PhaseField | null {
-    if (compareMode === "none") {
-        return null;
-    }
-    if (compareMode === "seed") {
-        return snapshots[0];
-    }
-    return tick > 0 ? snapshots[tick - 1] : null;
+  if (compareMode === "none") {
+    return null;
+  }
+  if (compareMode === "seed") {
+    return snapshots[0];
+  }
+  return tick > 0 ? snapshots[tick - 1] : null;
 }
 
 ```
@@ -2049,34 +2295,34 @@ export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
  * AST Execution Engine (Phase Shift Simulator).
  * Recursively runs an expression tree geometry within the Phase Space constraints.
  */
-export function executePhaseGeometricAST(expr: any, env: Record<string, PhaseVector>): PhaseVector {
-    if (expr.kind === "const") {
-        return linearToPhase(expr.value);
+export function executePhaseGeometricAST(ir: any, env: Record<string, PhaseVector>): PhaseVector {
+    if (ir.kind === "const") {
+        return linearToPhase(ir.value);
     }
     
-    if (expr.kind === "var") {
-        if (!env[expr.name]) throw new Error(`Geometrical Variable ${expr.name} not supplied in Phase environment.`);
-        return env[expr.name];
+    if (ir.kind === "var") {
+        if (!env[ir.name]) throw new Error(`Geometrical Variable ${ir.name} not supplied in Phase environment.`);
+        return env[ir.name];
     }
     
-    if (expr.kind === "op") {
+    if (ir.kind === "op") {
         // Geometric Translation
-        if (expr.op === "add") {
-            const left = executePhaseGeometricAST(expr.args[0], env);
-            const right = executePhaseGeometricAST(expr.args[1], env);
+        if (ir.op === "add") {
+            const left = executePhaseGeometricAST(ir.args[0], env);
+            const right = executePhaseGeometricAST(ir.args[1], env);
             return phaseShiftAdd(left, right);
         }
         
         // Advanced Orbits
-        if (expr.op === "mul") {
-            const left = executePhaseGeometricAST(expr.args[0], env);
-            const right = executePhaseGeometricAST(expr.args[1], env);
+        if (ir.op === "mul") {
+            const left = executePhaseGeometricAST(ir.args[0], env);
+            const right = executePhaseGeometricAST(ir.args[1], env);
             const linearOut = phaseToLinear(left) * phaseToLinear(right);
             return linearToPhase(linearOut); 
         }
     }
     
-    throw new Error(`Unhandled Geometric Configuration: ${expr.kind}`);
+    throw new Error(`Unhandled Geometric Configuration: ${ir.kind}`);
 }
 
 ```
@@ -3063,6 +3309,7 @@ function f32(value: number): number {
 ```ts
 import { fnv1a_64 } from "../shared/hash";
 import { PhaseComputeEngine } from "../lens/phase_compute.js";
+import { PhaseWebGPUObserver } from "../lens/phase_webgpu.js";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -3079,14 +3326,16 @@ export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private engine?: PhaseComputeEngine;
+    private visualizer?: PhaseWebGPUObserver;
     private isRunning: boolean = false;
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
 
-    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine) {
+    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
         this.wasmMemory = memory;
         this.engine = engine;
+        this.visualizer = visualizer;
     }
 
     public request(idx: number) {
@@ -3133,25 +3382,72 @@ export class SovereignOracle {
         
         console.log(`[ORACLE] Queue threshold triggered. Batching ${count} anomalous structural signatures for Semantic Resolution...`);
 
+        let mycelialContext = "";
+        if (this.engine) {
+            const centroids = await this.engine.readMycelialCentroids();
+            let activeBuckets = 0;
+            let totalX = 0;
+            let totalY = 0;
+            
+            for (let i = 0; i < 1024; i++) {
+                const count = centroids[i * 4 + 2];
+                if (count > 0) {
+                    activeBuckets++;
+                    totalX += centroids[i * 4];
+                    totalY += centroids[i * 4 + 1];
+                }
+            }
+            
+            if (activeBuckets > 0) {
+                const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are physically pulling the Torus toward absolute phase angle ${avgTheta.toFixed(1)} degrees. Acknowledge this geometric reality in your response.`;
+            }
+        }
+
         // 2. Spatial Batching: Construct the Macro-Prompt for LLM
+        let structuralImage = "";
+        if (this.visualizer) {
+            try {
+                // Read the graphical buffer layout
+                structuralImage = this.visualizer.extractImageBase64(512);
+            } catch (e) {
+                console.warn("[ORACLE] Failed to extract physical topology:", e);
+            }
+        }
+        
+        // Output snapshot to a debug pane if it exists
+        const debugImg = document.getElementById("oracle-debug-vision") as HTMLImageElement;
+        if (debugImg && structuralImage) {
+            debugImg.style.display = "block";
+            debugImg.src = "data:image/png;base64," + structuralImage;
+        }
+
         const prompt = `
             Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
             The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
-            These nodes have locked natively, demanding semantic resolution.
+            These nodes have locked natively, demanding semantic resolution.${mycelialContext}
             Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
+            You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
             Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
         `.trim();
 
         try {
             const OLLAMA_URL = "http://localhost:11434/api/generate";
+            
+            // Generate standard payload or Multimodal payload depending on topological capture
+            const requestBody: any = {
+                model: structuralImage ? "llama3.2-vision" : "llama3",
+                prompt,
+                stream: false
+            };
+            if (structuralImage) {
+                requestBody.images = [structuralImage];
+            }
+            
             const response = await fetch(OLLAMA_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "llama3",
-                    prompt,
-                    stream: false
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) throw new Error("LLM Offline");
@@ -3303,7 +3599,8 @@ export class PhaseComputeEngine {
         this.wasmMemory = memory;
         this.startTime = performance.now();
         
-        this.device.onuncapturederror = (event) => {
+        // deno-lint-ignore no-explicit-any
+        (this.device as any).onuncapturederror = ((event: any) => {
             console.error("[O-64 GPU FATAL]", event.error);
             const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
             if (!errDiv.id) {
@@ -3312,9 +3609,11 @@ export class PhaseComputeEngine {
                 document.body.appendChild(errDiv);
             }
             errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
-        };
+            // deno-lint-ignore no-explicit-any
+        }) as any;
     }
 
+    // deno-lint-ignore require-await
     async init() {
         const numCells = this.field.cell_count();
         const S_U8 = numCells;
@@ -3500,7 +3799,7 @@ export class PhaseComputeEngine {
 
     injectPlasmid(index: number, hash: bigint) {
         if (!this.device) return;
-        let inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
+        const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
         inj.hashLow = Number(hash & 0xFFFFFFFFn);
         inj.hashHigh = Number(hash >> 32n);
         this.injections.set(index, inj);
@@ -3508,11 +3807,36 @@ export class PhaseComputeEngine {
 
     injectEnergy(index: number, phaseShift: number) {
         if (!this.device) return;
-        let inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 };
+        const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 };
         inj.amp = 255;
         inj.phase = phaseShift;
         inj.ent = 255;
         this.injections.set(index, inj);
+    }
+
+    async readMycelialCentroids(): Promise<Float32Array> {
+        if (!this.device) return new Float32Array(0);
+        
+        const size = this.mycelialBuffer.size;
+        const stagingBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(this.mycelialBuffer, 0, stagingBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        // Await the hardware transfer from VRAM to System RAM
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const copyBuffer = stagingBuffer.getMappedRange();
+        const f32Data = new Float32Array(copyBuffer.slice(0));
+        
+        stagingBuffer.unmap();
+        // Discard the staging bridge explicitly to free heap bounds
+        stagingBuffer.destroy();
+        
+        return f32Data;
     }
 }
 
@@ -4864,7 +5188,7 @@ fn main(
 
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
-import { PhaseComputeEngine } from './phase_compute.js';
+import { PhaseComputeEngine } from './phase_compute.ts';
 
 export class PhaseWebGPUObserver {
     private canvas: HTMLCanvasElement;
@@ -4886,10 +5210,11 @@ export class PhaseWebGPUObserver {
         this.startTime = performance.now();
     }
 
+    // deno-lint-ignore require-await
     async init() {
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
-        const numCells = this.field.cell_count();
+        const _numCells = this.field.cell_count();
         
         const format = navigator.gpu.getPreferredCanvasFormat();
         this.context.configure({
@@ -5005,6 +5330,20 @@ export class PhaseWebGPUObserver {
         pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);
+    }
+
+    extractImageBase64(downscaleSize = 512): string {
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = downscaleSize;
+        tempCanvas.height = downscaleSize;
+        const ctx = tempCanvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, downscaleSize, downscaleSize);
+            // Slice off the "data:image/png;base64," header correctly for direct Ollama ingestion
+            const dataUrl = tempCanvas.toDataURL("image/png");
+            return dataUrl.substring(dataUrl.indexOf(",") + 1);
+        }
+        return "";
     }
 }
 
@@ -5186,6 +5525,26 @@ async function main() {
       const targetAlias = "fast_abs";
       const targetNode = Tissue[targetAlias];
       
+      // O-25: Kuramoto Phase Alignment
+      // Advance Phase physics. Only allow evolutionary execution if Theta wraps (completes an orbit).
+      if (!targetNode.physics.temporal) {
+          const freq = targetNode.physics.energy_cost < 20 ? 64 : 1;
+          targetNode.physics.temporal = { frequency: freq, phase: 0 };
+      }
+      targetNode.physics.temporal.phase += targetNode.physics.temporal.frequency;
+      console.log(`⏱️ Kuramoto Clock: ${targetAlias} phase advanced to ${targetNode.physics.temporal.phase}/256`);
+      
+      if (targetNode.physics.temporal.phase < 256) {
+          console.log(`💤 Ribosome Dormant. Node '${targetAlias}' has not reached zenith (Theta=0). Skipping epoch...`);
+          epoch++;
+          await new Promise(r => setTimeout(r, 200)); // Fast-forward time
+          continue;
+      }
+      
+      // Node has fired! Wrap phase and extract energy.
+      targetNode.physics.temporal.phase %= 256;
+      console.log(`⚡ RIBOSOME IGNITION: Node '${targetAlias}' crossed Theta=0 Resonance! Initiating evolutionary pulse...`);
+      
       const mutation = generateGeneticDrift(targetAlias, targetNode);
       if (!mutation) {
           console.log(`❌ Organism is perfectly sterilized (No mutable paths found).`);
@@ -5193,6 +5552,22 @@ async function main() {
       }
       
       console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
+      
+      // O-25: NOMOS Energy Tax
+      // Nodes must surrender mathematical volume (Torus Energy) to power compiling routines.
+      const MUTATION_COST = 50;
+      if (targetNode.physics.energy_cost < MUTATION_COST) {
+          console.log(`\n💀 METABOLIC STARVATION: Node '${targetAlias}' lacks the geometric energy (${targetNode.physics.energy_cost}/${MUTATION_COST}) to invoke atomic_pulse. Skipping pulse...`);
+          // Recover energy marginally representing photosynthesis/rest
+          targetNode.physics.energy_cost += 5; 
+          epoch++;
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+      }
+      
+      // Deduct the energy natively
+      targetNode.physics.energy_cost -= MUTATION_COST;
+      console.log(`🔥 NOMOS: Extracted ${MUTATION_COST} energy from '${targetAlias}'. Remaining Bank: ${targetNode.physics.energy_cost}`);
       
       const operations = [
         {
@@ -5211,7 +5586,7 @@ async function main() {
         }
       ];
 
-      const beforeStr = JSON.stringify(Tissue[targetAlias].expr);
+      const beforeStr = JSON.stringify(Tissue[targetAlias].ir);
       
       // Dispatch the atomic transaction -> (Mutate JS memory, then Mutate Rust Memory natively!)
       const res = await executeNeuron(Tissue, "atomic_pulse", { operations, state: Tissue, executeNeuron });
@@ -5224,7 +5599,12 @@ async function main() {
           console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
           Tissue = res.next;
           
-          const afterStr = JSON.stringify(Tissue[targetAlias].expr);
+          // O-25 NOMOS: Reward successful mutations (Evolutionary Darwinism)
+          const ENERGY_REWARD = 60;
+          Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
+          console.log(`🏆 NOMOS Reward: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
+          
+          const afterStr = JSON.stringify(Tissue[targetAlias].ir);
           console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
 
           console.log(`\nActivating meta_fn: flush_state_to_disk...`);
@@ -5237,8 +5617,8 @@ async function main() {
       }
       
       epoch++;
-      // Give the visual grid a heartbeat baseline to render the shockwave (7 seconds).
-      await new Promise(r => setTimeout(r, 7000));
+      // Wait a fraction of a second before the next geometric frame
+      await new Promise(r => setTimeout(r, 1000));
   }
 }
 
@@ -5873,8 +6253,8 @@ export function generateGeneticDrift(alias: string, node: Sigma3Node): MutationI
         }
     }
     
-    // Start traversal at the theoretical root of expr
-    traverse(node.expr, []);
+    // Start traversal at the theoretical root of ir
+    traverse(node.ir, []);
     
     if (mutablePaths.length === 0) return null;
     
