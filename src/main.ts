@@ -235,11 +235,12 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   // O-44: Phylogenetic HUD Initialization
   const phylogenyHUD = new PhylogeneticCanvas();
   let lastPhylogenyCheck = performance.now();
+  let isShedding = false; // O-57
 
   const loop = async () => {
     // O-32: Morphological Hot-Reloading Polling (Shedding Event)
     const nowLocal = performance.now();
-    if (nowLocal - lastShedCheck > 1000) {
+    if (nowLocal - lastShedCheck > 1000 && !isShedding) {
         lastShedCheck = nowLocal;
         try {
             const res = await fetch("/I.md", { cache: "no-store" });
@@ -269,62 +270,66 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 if (tSectors < 8) tSectors = 8;
                 if (tRadial < 8) tRadial = 8;
 
-                if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
-                    console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
-                    console.log(`🧨 Securing VRAM Pointers for Morphological Migration...`);
-                    
-                    // O-37 Phase 1: Morphological Interpolation (Nearest-Neighbor)
-                    const oldSectors = phaseField.sectors;
-                    const oldRadial = phaseField.radial_bins;
-                    const oldHarm = phaseField.harmonics;
-                    
-                    // Backup old tensors by safely duplicating via slice() before free
-                    const _OCount = phaseField.cell_count();
-                    const oldTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), _OCount).slice();
-                    const oldOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), _OCount).slice();
-                    const oldPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), _OCount).slice();
+                    if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
+                        console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
+                        console.log(`🧨 Securing VRAM Pointers for Asynchronous Morphological Migration...`);
+                        
+                        isShedding = true;
+                        statusLabel?.replaceChildren(`SHEDDING IN PROGRESS (${tSectors}x${tRadial}x${tHarm})...`);
+                        
+                        // O-57: Asynchronous Morphological Interpolation (Nearest-Neighbor WebWorker)
+                        const oldSectors = phaseField.sectors;
+                        const oldRadial = phaseField.radial_bins;
+                        const oldHarm = phaseField.harmonics;
+                        
+                        // Backup old tensors by safely duplicating via slice() before free
+                        const _OCount = phaseField.cell_count();
+                        const oldTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), _OCount).slice();
+                        const oldOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), _OCount).slice();
+                        const oldPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), _OCount).slice();
 
-                    phaseField.free();
-                    phaseField = new PhaseLatticeField(tSectors, tRadial, tHarm);
-                    
-                    // Restore data mapped visually to the new topological dimensional sizes
-                    const newTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), phaseField.cell_count());
-                    const newOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), phaseField.cell_count());
-                    const newPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), phaseField.cell_count());
+                        const worker = new Worker(new URL("./workers/shedding_worker.ts", import.meta.url), { type: "module" });
+                        
+                        worker.postMessage({
+                            oldTheta, oldOmega, oldPlasmids,
+                            oldSectors, oldRadial, oldHarm,
+                            tSectors, tRadial, tHarm
+                        }, [oldTheta.buffer, oldOmega.buffer, oldPlasmids.buffer]);
 
-                    for (let h = 0; h < tHarm; h++) {
-                        const oldH = Math.min(h, oldHarm - 1);
-                        for (let r = 0; r < tRadial; r++) {
-                            const ratioR = r / tRadial;
-                            const oldR = Math.min(Math.floor(ratioR * oldRadial), oldRadial - 1);
-                            for (let s = 0; s < tSectors; s++) {
-                                const ratioS = s / tSectors;
-                                const oldS = Math.min(Math.floor(ratioS * oldSectors), oldSectors - 1);
-                                
-                                const oldIdx = oldH * oldRadial * oldSectors + oldR * oldSectors + oldS;
-                                const newIdx = h * tRadial * tSectors + r * tSectors + s;
-                                
-                                newTheta[newIdx] = oldTheta[oldIdx];
-                                newOmega[newIdx] = oldOmega[oldIdx];
-                                newPlasmids[newIdx] = oldPlasmids[oldIdx];
-                            }
-                        }
+                        worker.onmessage = async (e) => {
+                            const { newTheta, newOmega, newPlasmids } = e.data;
+                            
+                            phaseField.free();
+                            phaseField = new PhaseLatticeField(tSectors, tRadial, tHarm);
+                            
+                            const ptrTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), phaseField.cell_count());
+                            const ptrOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), phaseField.cell_count());
+                            const ptrPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), phaseField.cell_count());
+                            
+                            ptrTheta.set(newTheta);
+                            ptrOmega.set(newOmega);
+                            ptrPlasmids.set(newPlasmids);
+                            
+                            console.log(`✨ Topological interpolation fully migrated across WASM geometries via WebWorker.`);
+
+                            computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+                            await computeEngine.init();
+
+                            observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
+                            await observer.init();
+
+                            // Rebind global daemon observers identically
+                            oracle.rebind(phaseField, computeEngine, observer);
+                            injector.rebind(phaseField, computeEngine);
+                            
+                            setHudStat("a", "SECTORS", `${tSectors}x${tRadial}x${tHarm}`);
+                            statusLabel?.replaceChildren("PHASE MODE ACTIVE");
+                            console.log(`✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`);
+                            
+                            isShedding = false;
+                            worker.terminate();
+                        };
                     }
-                    console.log(`✨ Topological interpolation fully migrated across WASM geometries.`);
-
-                    computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
-                    await computeEngine.init();
-
-                    observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
-                    await observer.init();
-
-                    // Rebind global daemon observers identically
-                    oracle.rebind(phaseField, computeEngine, observer);
-                    injector.rebind(phaseField, computeEngine);
-                    
-                    setHudStat("a", "SECTORS", `${tSectors}x${tRadial}x${tHarm}`);
-                    console.log(`✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`);
-                }
                         }
                     }
                 }
@@ -338,10 +343,12 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
         phylogenyHUD.tick();
     }
 
-    computeEngine.tick();
-    oracle.sync();
+    if (!isShedding) {
+        computeEngine.tick();
+        oracle.sync();
+        observer.render(computeEngine.getActiveBuffer());
+    }
 
-    observer.render(computeEngine.getActiveBuffer());
     tickFps();
 
     if (frames === 0) {
