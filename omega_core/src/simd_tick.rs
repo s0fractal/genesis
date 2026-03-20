@@ -1,6 +1,11 @@
 use wasm_bindgen::prelude::*;
 use crate::memory::Field;
 
+const BRIDGE_COHERENCE_ENERGY_GAIN: f32 = 6.0;
+const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
+const BRIDGE_LOCK_GAIN: u8 = 8;
+const BRIDGE_LOCK_DECAY: u8 = 4;
+
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
     let size = field.x.len();
@@ -206,7 +211,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + kuramoto.round() as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
-        let coupled_energy = (best_energy + (coherence * 6.0).round() as i16 - (locks_prev[idx] as i16 / 64)).clamp(0, 255);
+        let coupled_energy = (
+            best_energy +
+            (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 -
+            (locks_prev[idx] as i16 / BRIDGE_LOCK_PENALTY_DIVISOR)
+        ).clamp(0, 255);
 
         field.theta_now[idx] = next_theta;
         field.omega[idx] = encode_bridge_omega(next_omega);
@@ -258,9 +267,9 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         }
 
         if coherence >= 3.0 {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(8);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN);
         } else {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(4);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);
         }
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {

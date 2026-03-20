@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "analyze:phase-cross": "node --experimental-strip-types tools/analyze_phase_cross.ts",
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
     "serve": "vite preview",

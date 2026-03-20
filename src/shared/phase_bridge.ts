@@ -10,6 +10,10 @@ const BRIDGE_MAX_OMEGA = 32;
 const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
 const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
 const BRIDGE_ADOPTION_RESONANCE_THRESHOLD = 0.6;
+const BRIDGE_COHERENCE_ENERGY_GAIN = 6;
+const BRIDGE_LOCK_PENALTY_DIVISOR = 64;
+const BRIDGE_LOCK_GAIN = 8;
+const BRIDGE_LOCK_DECAY = 4;
 
 export interface BridgeField {
     width: number;
@@ -200,7 +204,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
 
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
         const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
-        const coupledEnergy = clampByte(bestEnergy + roundTiesAwayFromZero(f32(coherence * 6)) - Math.trunc(locksPrev[index] / 64));
+        const coupledEnergy =
+            clampByte(bestEnergy + roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) - Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR));
 
         next.thetaNow[index] = nextTheta;
         next.omega[index] = encodeBridgeOmega(nextOmega);
@@ -251,7 +256,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         }
 
         next.hebbianLocks[index] =
-            coherence >= 3 ? saturatingAddByte(locksPrev[index], 8) : saturatingSubByte(locksPrev[index], 4);
+            coherence >= 3 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN) : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
 
         if (coupledEnergy < 15 && next.plasmids[index] !== 0n && next.thetaNow[index] % 4 === 0) {
             next.plasmids[index] = 0n;

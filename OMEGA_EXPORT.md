@@ -343,6 +343,7 @@ const targetNode = state[nodeAlias];
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "analyze:phase-cross": "node --experimental-strip-types tools/analyze_phase_cross.ts",
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
     "serve": "vite preview",
@@ -2505,6 +2506,10 @@ const BRIDGE_MAX_OMEGA = 32;
 const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
 const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
 const BRIDGE_ADOPTION_RESONANCE_THRESHOLD = 0.6;
+const BRIDGE_COHERENCE_ENERGY_GAIN = 6;
+const BRIDGE_LOCK_PENALTY_DIVISOR = 64;
+const BRIDGE_LOCK_GAIN = 8;
+const BRIDGE_LOCK_DECAY = 4;
 
 export interface BridgeField {
     width: number;
@@ -2695,7 +2700,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
 
         const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
         const nextTheta = wrapTheta(thetaPrev[index] + nextOmega);
-        const coupledEnergy = clampByte(bestEnergy + roundTiesAwayFromZero(f32(coherence * 6)) - Math.trunc(locksPrev[index] / 64));
+        const coupledEnergy =
+            clampByte(bestEnergy + roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) - Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR));
 
         next.thetaNow[index] = nextTheta;
         next.omega[index] = encodeBridgeOmega(nextOmega);
@@ -2746,7 +2752,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         }
 
         next.hebbianLocks[index] =
-            coherence >= 3 ? saturatingAddByte(locksPrev[index], 8) : saturatingSubByte(locksPrev[index], 4);
+            coherence >= 3 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN) : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
 
         if (coupledEnergy < 15 && next.plasmids[index] !== 0n && next.thetaNow[index] % 4 === 0) {
             next.plasmids[index] = 0n;
@@ -4895,6 +4901,11 @@ pub fn ${name}(${argsStr}) -> ${fn.ret} {
 use wasm_bindgen::prelude::*;
 use crate::memory::Field;
 
+const BRIDGE_COHERENCE_ENERGY_GAIN: f32 = 6.0;
+const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
+const BRIDGE_LOCK_GAIN: u8 = 8;
+const BRIDGE_LOCK_DECAY: u8 = 4;
+
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
     let size = field.x.len();
@@ -5100,7 +5111,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + kuramoto.round() as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
-        let coupled_energy = (best_energy + (coherence * 6.0).round() as i16 - (locks_prev[idx] as i16 / 64)).clamp(0, 255);
+        let coupled_energy = (
+            best_energy +
+            (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 -
+            (locks_prev[idx] as i16 / BRIDGE_LOCK_PENALTY_DIVISOR)
+        ).clamp(0, 255);
 
         field.theta_now[idx] = next_theta;
         field.omega[idx] = encode_bridge_omega(next_omega);
@@ -5152,9 +5167,9 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         }
 
         if coherence >= 3.0 {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(8);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN);
         } else {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(4);
+            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);
         }
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {
@@ -7368,6 +7383,145 @@ async function main() {
 if (import.meta.main) {
     main().catch(console.error);
 }
+
+```
+
+## `tools/analyze_phase_cross.ts`
+```ts
+import { buildCanonicalPhaseSeed } from "../src/shared/phase_canonical.ts";
+import { cropPhaseField, collapsePhaseField } from "../src/replay/hybrid_replay.ts";
+import { phaseDistance, stepPhaseField } from "../src/shared/phase_lattice.ts";
+import { buildBridgeSeed, stepBridgeField } from "../src/shared/phase_bridge.ts";
+
+interface DriftRecord {
+    tick: number;
+    sector: number;
+    rho: number;
+    phaseDistance: number;
+    amplitudeDelta: number;
+    lockDelta: number;
+    phaseTheta: number;
+    hybridTheta: number;
+    phaseOmega: number;
+    hybridOmega: number;
+    phaseAmplitude: number;
+    hybridAmplitude: number;
+    phaseLock: number;
+    hybridLock: number;
+    hybridPlasmid: string;
+    bridgeThetaF1: number;
+    bridgeThetaF2: number;
+    bridgeThetaF3: number;
+}
+
+function formatRecord(record: DriftRecord): string {
+    return [
+        `tick=${record.tick}`,
+        `sector=${record.sector}`,
+        `rho=${record.rho}`,
+        `phase_distance=${record.phaseDistance}`,
+        `amplitude_delta=${record.amplitudeDelta}`,
+        `lock_delta=${record.lockDelta}`,
+        `phase_theta=${record.phaseTheta}`,
+        `hybrid_theta=${record.hybridTheta}`,
+        `phase_omega=${record.phaseOmega}`,
+        `hybrid_omega=${record.hybridOmega}`,
+        `phase_amplitude=${record.phaseAmplitude}`,
+        `hybrid_amplitude=${record.hybridAmplitude}`,
+        `phase_lock=${record.phaseLock}`,
+        `hybrid_lock=${record.hybridLock}`,
+        `hybrid_plasmid=${record.hybridPlasmid}`,
+        `bridge_theta_f1=${record.bridgeThetaF1}`,
+        `bridge_theta_f2=${record.bridgeThetaF2}`,
+        `bridge_theta_f3=${record.bridgeThetaF3}`,
+    ].join(" ");
+}
+
+async function main(): Promise<void> {
+    const ticks = 12;
+    let phase = buildCanonicalPhaseSeed();
+    let bridge = buildBridgeSeed(32, 8);
+
+    const records: DriftRecord[] = [];
+
+    for (let tick = 0; tick <= ticks; tick++) {
+        const phaseCollapsed = collapsePhaseField(phase, 6);
+        const hybridComparable = cropPhaseField(
+            {
+                shape: {
+                    sectors: 32,
+                    radialBins: 8,
+                    harmonics: 1,
+                },
+                cells: Array.from({ length: 32 * 8 }, (_, index) => ({
+                    sector: index % 32,
+                    rho: Math.floor(index / 32),
+                    harmonic: 0,
+                    theta: bridge.thetaNow[index],
+                    omega: bridge.omega[index] > 127 ? bridge.omega[index] - 256 : bridge.omega[index],
+                    amplitude: bridge.energy[index],
+                    lock: bridge.hebbianLocks[index],
+                    entanglement: 0,
+                })),
+            },
+            6,
+        );
+
+        for (let index = 0; index < phaseCollapsed.cells.length; index++) {
+            const phaseCell = phaseCollapsed.cells[index];
+            const hybridCell = hybridComparable.cells[index];
+            const bridgeIndex = phaseCell.rho * 32 + phaseCell.sector;
+            records.push({
+                tick,
+                sector: phaseCell.sector,
+                rho: phaseCell.rho,
+                phaseDistance: phaseDistance(phaseCell.theta, hybridCell.theta),
+                amplitudeDelta: phaseCell.amplitude - hybridCell.amplitude,
+                lockDelta: phaseCell.lock - hybridCell.lock,
+                phaseTheta: phaseCell.theta,
+                hybridTheta: hybridCell.theta,
+                phaseOmega: phaseCell.omega,
+                hybridOmega: hybridCell.omega,
+                phaseAmplitude: phaseCell.amplitude,
+                hybridAmplitude: hybridCell.amplitude,
+                phaseLock: phaseCell.lock,
+                hybridLock: hybridCell.lock,
+                hybridPlasmid: bridge.plasmids[bridgeIndex].toString(),
+                bridgeThetaF1: bridge.thetaF1[bridgeIndex],
+                bridgeThetaF2: bridge.thetaF2[bridgeIndex],
+                bridgeThetaF3: bridge.thetaF3[bridgeIndex],
+            });
+        }
+
+        phase = stepPhaseField(phase);
+        bridge = stepBridgeField(bridge);
+    }
+
+    const byPhaseDistance = [...records].sort((left, right) => right.phaseDistance - left.phaseDistance);
+    const byAmplitudeDelta = [...records].sort((left, right) => Math.abs(right.amplitudeDelta) - Math.abs(left.amplitudeDelta));
+    const byLockDelta = [...records].sort((left, right) => Math.abs(right.lockDelta) - Math.abs(left.lockDelta));
+
+    console.log("=== Genesis analyze:phase-cross ===");
+    console.log(`ticks=${ticks}`);
+    console.log("top_phase_distance:");
+    for (const record of byPhaseDistance.slice(0, 5)) {
+        console.log(formatRecord(record));
+    }
+    console.log("top_amplitude_delta:");
+    for (const record of byAmplitudeDelta.slice(0, 5)) {
+        console.log(formatRecord(record));
+    }
+    console.log("top_lock_delta:");
+    for (const record of byLockDelta.slice(0, 5)) {
+        console.log(formatRecord(record));
+    }
+    console.log("status=PASS");
+}
+
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
 
 ```
 
