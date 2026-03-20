@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "export": "deno run -A tools/export_omega.ts",
     "analyze:phase-cross": "deno run -A tools/analyze_phase_cross.ts",
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
