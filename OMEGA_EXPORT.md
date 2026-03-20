@@ -367,7 +367,8 @@ const targetNode = state[nodeAlias];
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "@msgpack/msgpack": "^3.1.3"
+    "@msgpack/msgpack": "^3.1.3",
+    "playwright": "^1.58.2"
   }
 }
 
@@ -1552,7 +1553,8 @@ import { LensObserver } from "./lens/init";
 import { PerturbationInjector } from "./lens/input";
 import { PhasePerturbationInjector } from "./lens/phase_input";
 import { PhaseReplayObserver } from "./lens/phase_replay_view";
-import { PhaseLensObserver } from "./lens/phase_view";
+import { PhaseWebGPUObserver } from "./lens/phase_webgpu";
+import { PhaseComputeEngine } from "./lens/phase_compute";
 import { SemanticCoupler } from "./ontology/semantic_layer";
 import { SovereignOracle } from "./ontology/oracle";
 import {
@@ -1667,30 +1669,63 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
     const canvas = configureCanvas();
     const phaseField = new PhaseLatticeField(64, 10, 3);
-    const observer = new PhaseLensObserver(canvas, phaseField, wasmMemory);
-    observer.init();
+    // Ontology 23: Native Metal compute instantiation
+    const adapter = await navigator.gpu.requestAdapter();
+    const device = await adapter!.requestDevice();
+    
+    const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+    await computeEngine.init();
 
-    const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory);
+    const observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
+    await observer.init();
+
+    // O-22: Bind the Sovereign Oracle purely to the Phase Lattice
+    const oracle = new SovereignOracle(phaseField, wasmMemory, computeEngine);
+    oracle.boot();
+
+    const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory, computeEngine, oracle);
     injector.attach();
 
     const coupler = new SemanticCoupler(injector);
     wireSemanticInput(coupler, "Inject phase attractor...");
 
     const loop = () => {
-        execute_phase_lattice_tick(phaseField);
-        observer.render();
+        computeEngine.tick();
+        oracle.sync();
+
+        observer.render(computeEngine.getActiveBuffer());
         tickFps();
 
         if (frames === 0) {
             setHudStat("a", "AMPLITUDE", phase_lattice_total_amplitude(phaseField).toString());
             setHudStat("c", "SIGNATURE", phase_lattice_signature(phaseField).slice(0, 12));
-            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)}`);
+            statusLabel?.replaceChildren(`ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${phase_lattice_omega_span(phaseField)} | Q ${oracle.getQueueSize()}`);
         }
 
         requestAnimationFrame(loop);
     };
 
     loop();
+    
+    // O-24 Topos Debugger
+    (window as any).injectMycelialTest = () => {
+        const hash = 999999888888777n;
+        // Target diametric poles dynamically to avoid OOB
+        const cellA_top = Math.floor(phaseField.cell_count() * 0.1);
+        const cellB_bottom = Math.floor(phaseField.cell_count() * 0.9);
+        
+        console.log(`[MYCELIUM] Firing identical resonance flag into isolated nodes ${cellA_top} and ${cellB_bottom}`);
+        
+        computeEngine.injectPlasmid(cellA_top, hash);
+        computeEngine.injectEnergy(cellA_top, 200);
+        
+        // Use a short timeout so the TS Engine loop can flush the single-tick Uniform Buffer sequentially
+        setTimeout(() => {
+            computeEngine.injectPlasmid(cellB_bottom, hash);
+            computeEngine.injectEnergy(cellB_bottom, 200);
+        }, 100);
+    };
+    
     console.log("[Genesis] Phase lattice running. Use ?mode=phase to revisit this substrate.");
 }
 
@@ -2075,6 +2110,8 @@ export interface PhaseCell extends PhaseCellAddress {
     amplitude: number;
     lock: number;
     entanglement: number;
+    cellStatus: number;
+    plasmids: bigint;
 }
 
 export interface PhaseField {
@@ -2147,6 +2184,8 @@ export function createPhaseField(
                     amplitude: clamp(Math.trunc(state.amplitude), 0, MAX_AMPLITUDE),
                     lock: clamp(Math.trunc(state.lock), 0, MAX_LOCK),
                     entanglement: clamp(Math.trunc(state.entanglement), 0, MAX_ENTANGLEMENT),
+                    cellStatus: state.cellStatus !== undefined ? state.cellStatus : 0,
+                    plasmids: state.plasmids !== undefined ? state.plasmids : 0n,
                 });
             }
         }
@@ -2223,10 +2262,56 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const lockDelta = coherence >= 3 ? 8 : -4;
 
                 const nextCell = getCell(next, sector, rho, harmonic);
-                nextCell.theta = wrapTheta(current.theta + current.omega + omegaDelta);
-                nextCell.omega = clamp(current.omega + omegaDelta, MIN_OMEGA, MAX_OMEGA);
-                nextCell.amplitude = clamp(current.amplitude + amplitudeDelta, 0, MAX_AMPLITUDE);
-                nextCell.lock = clamp(current.lock + lockDelta, 0, MAX_LOCK);
+                let nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, MAX_AMPLITUDE);
+                let nextLock = clamp(current.lock + lockDelta, 0, MAX_LOCK);
+                let nextTheta = wrapTheta(current.theta + current.omega + omegaDelta);
+                let nextOmega = clamp(current.omega + omegaDelta, MIN_OMEGA, MAX_OMEGA);
+                let adopted = false;
+
+                if (nextAmplitude < 140) {
+                    const neighbors = [left, right, inner, outer, harmonicPeer];
+                    let bestResonance = -2.0;
+                    let donorPlasmid = 0n;
+
+                    for (const neighbor of neighbors) {
+                        const candidatePlasmid = neighbor.plasmids;
+                        if (candidatePlasmid === 0n) continue;
+                        const candidateResonance = resonance(current.theta, neighbor.theta);
+                        if (candidateResonance > bestResonance) {
+                            bestResonance = candidateResonance;
+                            donorPlasmid = candidatePlasmid;
+                        }
+                    }
+
+                    if (donorPlasmid !== 0n && bestResonance > 0.6) {
+                        nextTheta = Number(donorPlasmid & 255n);
+                        const donorOmega = Number((donorPlasmid >> 8n) & 255n) - 128;
+                        nextOmega = clamp(donorOmega, MIN_OMEGA, MAX_OMEGA);
+                        nextCell.plasmids = donorPlasmid;
+                        adopted = true;
+                    }
+                }
+
+                if (!adopted && nextAmplitude < 20 && nextLock < 10) {
+                    // Cannot easily track oracleRequestCount in TS, but logically it just freezes the cell.
+                    // We will not implement the queue array in TS, just the status freeze.
+                    nextCell.cellStatus = 1;
+                }
+
+                if (nextAmplitude < 15 && current.plasmids !== 0n && nextTheta % 4 === 0) {
+                    nextCell.plasmids = 0n;
+                }
+
+                if (!adopted) {
+                    nextCell.theta = nextTheta;
+                    nextCell.omega = nextOmega;
+                } else {
+                    nextCell.theta = nextTheta;
+                    nextCell.omega = nextOmega;
+                }
+                
+                nextCell.amplitude = nextAmplitude;
+                nextCell.lock = nextLock;
 
                 if (field.shape.sectors % 2 === 0) {
                     const antipode = getCell(field, sector + field.shape.sectors / 2, rho, harmonic);
@@ -2262,6 +2347,8 @@ export function fieldSignature(field: PhaseField): string {
         cell.amplitude,
         cell.lock,
         cell.entanglement,
+        cell.cellStatus,
+        cell.plasmids.toString(),
     ]);
     return fnv1a_64(JSON.stringify(payload)).toString(16);
 }
@@ -2278,6 +2365,8 @@ export function structuralSignature(field: PhaseField): string {
         mixU64(hashValue(cell.amplitude));
         mixU64(hashValue(cell.lock));
         mixU64(hashValue(cell.entanglement));
+        mixU64(hashValue(cell.cellStatus));
+        mixU64(cell.plasmids);
     }
 
     return hash.toString(16).padStart(16, "0");
@@ -2309,7 +2398,9 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
             left.omega !== right.omega ||
             left.amplitude !== right.amplitude ||
             left.lock !== right.lock ||
-            left.entanglement !== right.entanglement
+            left.entanglement !== right.entanglement ||
+            left.cellStatus !== right.cellStatus ||
+            left.plasmids !== right.plasmids
         ) {
             return false;
         }
@@ -2513,6 +2604,8 @@ const BRIDGE_LOCK_DECAY = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS = 2;
+const BRIDGE_DEPTH2_LOCK_THRESHOLD = Math.fround(2.5);
+
 
 export interface BridgeField {
     width: number;
@@ -2702,6 +2795,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[innerIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[outerIndex]));
         coherence = f32(coherence + f32(phaseCos(thetaPrev[index], syntheticPeerTheta) * 0.5));
+
         const sustainedCoherenceBonus =
             boundaryDepth === 1 && plasmidsPrev[index] === 0n && locksPrev[index] >= 64 && coherence >= 3
                 ? BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
@@ -2766,8 +2860,9 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
+        const lockThreshold = boundaryDepth === 2 ? BRIDGE_DEPTH2_LOCK_THRESHOLD : f32(3.0);
         next.hebbianLocks[index] =
-            coherence >= 3
+            coherence >= lockThreshold
                 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN + boundaryBonus * BRIDGE_BOUNDARY_LOCK_BONUS)
                 : saturatingSubByte(locksPrev[index], BRIDGE_LOCK_DECAY);
 
@@ -2966,18 +3061,40 @@ function f32(value: number): number {
 
 ## `src/ontology/oracle.ts`
 ```ts
-import { Field } from "../../omega_core/pkg/omega_core";
 import { fnv1a_64 } from "../shared/hash";
+import { PhaseComputeEngine } from "../lens/phase_compute.js";
+
+export interface OracleCompatibleField {
+    get_oracle_request_count(): number;
+    ptr_oracle_requests(): number;
+    clear_oracle_requests(): void;
+    ptr_plasmids(): number;
+    ptr_cell_status(): number;
+    cell_count?(): number;
+    width?: number;
+    height?: number;
+}
 
 export class SovereignOracle {
-    private wasmField: Field;
+    private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
+    private engine?: PhaseComputeEngine;
     private isRunning: boolean = false;
     private isBusy: boolean = false;
+    private requestQueue: number[] = [];
 
-    constructor(field: Field, memory: WebAssembly.Memory) {
+    constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine) {
         this.wasmField = field;
         this.wasmMemory = memory;
+        this.engine = engine;
+    }
+
+    public request(idx: number) {
+        this.requestQueue.push(idx);
+    }
+
+    public getQueueSize(): number {
+        return this.engine ? this.requestQueue.length : this.wasmField.get_oracle_request_count();
     }
 
     public async boot() {
@@ -2988,34 +3105,40 @@ export class SovereignOracle {
     public sync() {
         if (!this.isRunning || this.isBusy) return;
         
-        // Polled every frame from the main physics loop (60Hz)
-        const count = this.wasmField.get_oracle_request_count();
-        if (count > 0) {
-            this.processQueue(count);
+        let count = 0;
+        let requests: number[] = [];
+
+        if (this.engine) {
+            count = this.requestQueue.length;
+            if (count > 0) {
+                requests = [...this.requestQueue];
+                this.requestQueue = [];
+                this.processQueue(count, requests);
+            }
+        } else {
+            // Legacy WASM fallback
+            count = this.wasmField.get_oracle_request_count();
+            if (count > 0) {
+                const requestPtr = this.wasmField.ptr_oracle_requests();
+                const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
+                requests = Array.from(requestArray);
+                this.wasmField.clear_oracle_requests();
+                this.processQueue(count, requests);
+            }
         }
     }
 
-    private async processQueue(count: number) {
+    private async processQueue(count: number, requests: number[]) {
         this.isBusy = true;
-        
-        // 1. Extract requests from WASM O-20 Ring Buffer
-        const requestPtr = this.wasmField.ptr_oracle_requests();
-        const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
-        
-        // Clone into TS space (Garbage Collected) 
-        const requests = Array.from(requestArray);
-        
-        // Immediately clear the WASM queue so physics can accumulate new distress signals independently
-        this.wasmField.clear_oracle_requests();
         
         console.log(`[ORACLE] Queue threshold triggered. Batching ${count} anomalous structural signatures for Semantic Resolution...`);
 
         // 2. Spatial Batching: Construct the Macro-Prompt for LLM
         const prompt = `
             Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
-            The geometric field is experiencing severe topological tension at ${count} distinct cellular locations across the grid.
+            The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
             These nodes have locked natively, demanding semantic resolution.
-            Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos.
+            Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
             Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
         `.trim();
 
@@ -3049,11 +3172,29 @@ export class SovereignOracle {
     }
 
     private fulfillRequests(requests: number[], intent: string) {
-        // 3. The Return Path: Asynchronously encode LLM bytes directly back into WASM Plasmids
+        // 3. The Return Path: Asynchronously encode LLM bytes directly back into Plasmids
         const hash = fnv1a_64(intent);
+
+        if (this.engine) {
+            // O-23 Native WebGPU Interface
+            let success = 0;
+            for (const idx of requests) {
+                this.engine.injectPlasmid(idx, hash);
+                success++;
+            }
+            console.log(`[ORACLE] Successfully decoded and unlocked ${success} WebGPU cells.`);
+            return;
+        }
+        
+        // Legacy WASM Interface
+        let size = 0;
+        if (this.wasmField.cell_count) {
+            size = this.wasmField.cell_count();
+        } else if (this.wasmField.width && this.wasmField.height) {
+            size = this.wasmField.width * this.wasmField.height;
+        }
         
         const plasmidPtr = this.wasmField.ptr_plasmids();
-        const size = this.wasmField.width * this.wasmField.height;
         const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
         
         const statusPtr = this.wasmField.ptr_cell_status();
@@ -3114,6 +3255,264 @@ export class SemanticCoupler {
         // In Ontology 11, we inject the raw Hash array as an 8-byte Plasmid Memory structure
         this.injector["inject"](x, y, energy, radius, phaseShift, hashBytes);
         console.log(`[Σ³] Projected Plasmid '${intent}' -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
+    }
+}
+
+```
+
+## `src/lens/phase_compute.ts`
+```ts
+import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
+import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
+import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+
+interface PendingInjection {
+    idx: number;
+    hashLow: number;
+    hashHigh: number;
+    amp: number;
+    phase: number;
+    ent: number;
+}
+
+export class PhaseComputeEngine {
+    public device: GPUDevice;
+    public bufferA!: GPUBuffer;
+    public bufferB!: GPUBuffer;
+    public paramsBuffer!: GPUBuffer;
+    public mycelialBuffer!: GPUBuffer;
+    
+    private pipeline!: GPUComputePipeline;
+    private mycelialPipeline!: GPUComputePipeline;
+    
+    private bindGroupA!: GPUBindGroup;
+    private bindGroupB!: GPUBindGroup;
+    private mycelialBindGroupA!: GPUBindGroup;
+    private mycelialBindGroupB!: GPUBindGroup;
+    
+    private field: PhaseLatticeField;
+    private wasmMemory: WebAssembly.Memory;
+    private isPingPongA: boolean = true;
+    public offsets: number[] = [];
+    private startTime: number;
+    private injections = new Map<number, PendingInjection>();
+
+    constructor(device: GPUDevice, field: PhaseLatticeField, memory: WebAssembly.Memory) {
+        this.device = device;
+        this.field = field;
+        this.wasmMemory = memory;
+        this.startTime = performance.now();
+        
+        this.device.onuncapturederror = (event) => {
+            console.error("[O-64 GPU FATAL]", event.error);
+            const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
+            if (!errDiv.id) {
+                errDiv.id = 'wgsl-err';
+                errDiv.style.cssText = 'position:fixed;top:50px;left:10px;color:#ff3333;z-index:9999;font-size:12px;background:rgba(0,0,0,0.9);padding:10px;font-family:monospace;max-width:80vw;';
+                document.body.appendChild(errDiv);
+            }
+            errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
+        };
+    }
+
+    async init() {
+        const numCells = this.field.cell_count();
+        const S_U8 = numCells;
+        const S_I16 = numCells * 2;
+        const S_U64 = numCells * 8;
+        
+        let cursor = 0;
+        const offTheta = cursor; cursor += S_U8;
+        const offOmega = cursor; cursor += S_I16;
+        const offAmplitude = cursor; cursor += S_U8;
+        const offLock = cursor; cursor += S_U8;
+        const offEntanglement = cursor; cursor += S_U8;
+        const offPlasmids = cursor; cursor += S_U64;
+        
+        this.offsets = [offTheta, offOmega, offAmplitude, offLock, offEntanglement, offPlasmids];
+
+        this.bufferA = this.device.createBuffer({
+            size: cursor,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.bufferB = this.device.createBuffer({
+            size: cursor,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.paramsBuffer = this.device.createBuffer({
+            size: 112,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        // 1024 Mycelial Buckets * 16 bytes per bucket (i32, i32, u32, pad)
+        this.mycelialBuffer = this.device.createBuffer({
+            size: 16384,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        // Seed deterministic WASM state into Buffer A
+        const mem = this.wasmMemory.buffer;
+        const f = this.field;
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[0], new Uint8Array(mem, f.ptr_theta(), numCells));
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[1], new Uint8Array(mem, f.ptr_omega(), numCells * 2));
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[2], new Uint8Array(mem, f.ptr_amplitude(), numCells));
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[3], new Uint8Array(mem, f.ptr_lock(), numCells));
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[4], new Uint8Array(mem, f.ptr_entanglement(), numCells));
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[5], new Uint8Array(mem, f.ptr_plasmids(), numCells * 8));
+        // Clone into B so atomic updates work on initialized memory
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[0], new Uint8Array(mem, f.ptr_theta(), numCells));
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[1], new Uint8Array(mem, f.ptr_omega(), numCells * 2));
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[2], new Uint8Array(mem, f.ptr_amplitude(), numCells));
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[3], new Uint8Array(mem, f.ptr_lock(), numCells));
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[4], new Uint8Array(mem, f.ptr_entanglement(), numCells));
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[5], new Uint8Array(mem, f.ptr_plasmids(), numCells * 8));
+
+        const shaderModule = this.device.createShaderModule({ code: computeKuramotoWgsl });
+        const mycelialModule = this.device.createShaderModule({ code: computeMycelialWgsl });
+
+        this.pipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: {
+                module: shaderModule,
+                entryPoint: 'main'
+            }
+        });
+
+        this.mycelialPipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: {
+                module: mycelialModule,
+                entryPoint: 'main'
+            }
+        });
+
+        this.bindGroupA = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.bufferA } },
+                { binding: 1, resource: { buffer: this.bufferB } },
+                { binding: 2, resource: { buffer: this.paramsBuffer } },
+                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+            ]
+        });
+
+        this.bindGroupB = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.bufferB } },
+                { binding: 1, resource: { buffer: this.bufferA } },
+                { binding: 2, resource: { buffer: this.paramsBuffer } },
+                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+            ]
+        });
+
+        this.mycelialBindGroupA = this.device.createBindGroup({
+            layout: this.mycelialPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.bufferA } },
+                { binding: 2, resource: { buffer: this.paramsBuffer } },
+                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+            ]
+        });
+
+        this.mycelialBindGroupB = this.device.createBindGroup({
+            layout: this.mycelialPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.bufferB } },
+                { binding: 2, resource: { buffer: this.paramsBuffer } },
+                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+            ]
+        });
+    }
+
+    tick() {
+        if (!this.device) return;
+
+        const time = (performance.now() - this.startTime) / 1000.0;
+        const uniformBuffer = new ArrayBuffer(72);
+        const viewU32 = new Uint32Array(uniformBuffer);
+        const viewF32 = new Float32Array(uniformBuffer);
+
+        let activeInj: PendingInjection | null = null;
+        for (const [idx, inj] of this.injections.entries()) {
+            activeInj = inj;
+            this.injections.delete(idx);
+            break; // Process one injection per frame mathematically
+        }
+
+        viewU32[0] = this.field.sectors;
+        viewU32[1] = this.field.radial_bins;
+        viewU32[2] = this.field.harmonics;
+        viewF32[3] = time;
+        viewU32[4] = Math.floor(this.offsets[0] / 4);
+        viewU32[5] = Math.floor(this.offsets[1] / 4);
+        viewU32[6] = Math.floor(this.offsets[2] / 4);
+        viewU32[7] = Math.floor(this.offsets[3] / 4);
+        viewU32[8] = Math.floor(this.offsets[4] / 4);
+        viewU32[9] = Math.floor(this.offsets[5] / 4);
+        viewF32[10] = 16.0 / 9.0;
+        viewU32[11] = activeInj ? activeInj.idx : 0xFFFFFFFF;
+        viewU32[12] = activeInj ? activeInj.hashLow : 0;
+        viewU32[13] = activeInj ? activeInj.hashHigh : 0;
+        viewU32[14] = activeInj ? activeInj.amp : 0;
+        viewU32[15] = activeInj ? activeInj.phase : 0;
+        viewU32[16] = activeInj ? activeInj.ent : 0;
+        viewU32[17] = 0;
+
+        this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
+        
+        // Zero-out the Mycelial buffer natively on the GPU (Zero-cost, zero-GC)
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.clearBuffer(this.mycelialBuffer, 0, 16384);
+
+        const numCells = this.field.cell_count();
+        const workgroups = Math.ceil(numCells / 64);
+        
+        // Pass 0: Mycelial Aggregation (Accumulate Mean-Fields via Atomically)
+        const pass0 = commandEncoder.beginComputePass();
+        pass0.setPipeline(this.mycelialPipeline);
+        pass0.setBindGroup(0, this.isPingPongA ? this.mycelialBindGroupA : this.mycelialBindGroupB);
+        pass0.dispatchWorkgroups(workgroups);
+        pass0.end();
+
+        // Pass 1: Kuramoto Evolution (Resolve Topological Forces)
+        // A fresh compute pass guarantees a hardware memory barrier from Pass 0
+        const pass1 = commandEncoder.beginComputePass();
+        pass1.setPipeline(this.pipeline);
+        pass1.setBindGroup(0, this.isPingPongA ? this.bindGroupA : this.bindGroupB);
+        pass1.dispatchWorkgroups(workgroups);
+        pass1.end();
+
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        // Flip ping-pong.
+        // If we compute reading A, output goes to B. Next flip reads B and outputs to A.
+        this.isPingPongA = !this.isPingPongA;
+    }
+
+    getActiveBuffer(): GPUBuffer {
+        // We just completed a tick, meaning the NEWEST data is in the buffer we WRITTEN to
+        // If isPingPongA is now FALSE, we just finished executing A->B, so B is newest data.
+        return this.isPingPongA ? this.bufferB : this.bufferA;
+    }
+
+    injectPlasmid(index: number, hash: bigint) {
+        if (!this.device) return;
+        let inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
+        inj.hashLow = Number(hash & 0xFFFFFFFFn);
+        inj.hashHigh = Number(hash >> 32n);
+        this.injections.set(index, inj);
+    }
+
+    injectEnergy(index: number, phaseShift: number) {
+        if (!this.device) return;
+        let inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 };
+        inj.amp = 255;
+        inj.phase = phaseShift;
+        inj.ent = 255;
+        this.injections.set(index, inj);
     }
 }
 
@@ -3578,6 +3977,8 @@ export class PerturbationInjector {
 ## `src/lens/phase_input.ts`
 ```ts
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseComputeEngine } from "./phase_compute.js";
+import { SovereignOracle } from "../ontology/oracle.js";
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -3587,11 +3988,15 @@ export class PhasePerturbationInjector {
     private canvas: HTMLCanvasElement;
     private field: PhaseLatticeField;
     private memory: WebAssembly.Memory;
+    private engine?: PhaseComputeEngine;
+    private oracle?: SovereignOracle;
 
-    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, memory: WebAssembly.Memory) {
+    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, oracle?: SovereignOracle) {
         this.canvas = canvas;
         this.field = field;
         this.memory = memory;
+        this.engine = engine;
+        this.oracle = oracle;
     }
 
     public attach() {
@@ -3632,6 +4037,17 @@ export class PhasePerturbationInjector {
         const harmonic = (plasmid[0] ^ plasmid[7]) % this.field.harmonics;
         const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
 
+        if (this.engine) {
+            // O-23 Native WebGPU staging buffer injection
+            this.engine.injectEnergy(idx, phaseShift);
+            if (this.oracle) {
+                // Request a semantic payload from LLM synchronously to the user click!
+                this.oracle.request(idx);
+            }
+            return;
+        }
+
+        // Legacy WASM buffer mutation
         const theta = new Uint8Array(this.memory.buffer, this.field.ptr_theta(), this.field.cell_count());
         const omega = new Int16Array(this.memory.buffer, this.field.ptr_omega(), this.field.cell_count());
         const amplitude = new Uint8Array(this.memory.buffer, this.field.ptr_amplitude(), this.field.cell_count());
@@ -3727,6 +4143,82 @@ export class EvolutionPipeline {
         applyPass.end();
 
         this.device.queue.submit([encoder.finish()]);
+    }
+}
+
+```
+
+## `src/lens/shaders/compute_mycelial.wgsl`
+```wgsl
+struct MycelialBucket {
+    x_sum: atomic<i32>,
+    y_sum: atomic<i32>,
+    count: atomic<u32>,
+    padding: u32,
+}
+
+@group(0) @binding(0) var<storage, read> buffer_a: array<u32>;
+@group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
+
+struct Params {
+    sectors: u32,
+    radial_bins: u32,
+    harmonics: u32,
+    time: f32,
+    off_theta: u32,
+    off_omega: u32,
+    off_amplitude: u32,
+    off_lock: u32,
+    off_ent: u32,
+    off_plasmid: u32,
+    aspect: f32,
+    inj_idx: u32,
+    inj_hash_low: u32,
+    inj_hash_high: u32,
+    inj_amp: u32,
+    inj_phase: u32,
+    inj_ent: u32,
+    pad1: u32,
+}
+
+const SCALE: f32 = 1000.0;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let idx = global_id.x;
+    let total_cells = params.sectors * params.radial_bins * params.harmonics;
+    if (idx >= total_cells) {
+        return;
+    }
+
+    // Read 64-bit plasmid (2x u32)
+    let p_idx = params.off_plasmid + idx * 2u;
+    let plasmid_low = buffer_a[p_idx];
+    let plasmid_high = buffer_a[p_idx + 1u];
+
+    // If plasmid is non-zero, this cell belongs to a Semantic Mycelial Thread
+    if (plasmid_low != 0u || plasmid_high != 0u) {
+        // Simple hash to find the bucket [0..1023]
+        // FNV-1a mixes are already well-distributed, just XOR and modulo
+        let hash = (plasmid_low ^ plasmid_high);
+        let bucket_idx = hash & 1023u; // Modulo 1024
+
+        // Read physical phase
+        let t_idx = params.off_theta + idx / 4u;
+        let t_word = buffer_a[t_idx];
+        let t_shift = (idx % 4u) * 8u;
+        let theta_u8 = (t_word >> t_shift) & 0xFFu;
+        let theta = f32(theta_u8) / 255.0 * 6.283185307;
+
+        // Convert to Cartesian X/Y scaled to i32 for atomic adds
+        let x_scaled = i32(cos(theta) * SCALE);
+        let y_scaled = i32(sin(theta) * SCALE);
+
+        // Atomically accumulate to the global bucket
+        atomicAdd(&mycelial_centroids[bucket_idx].x_sum, x_scaled);
+        atomicAdd(&mycelial_centroids[bucket_idx].y_sum, y_scaled);
+        atomicAdd(&mycelial_centroids[bucket_idx].count, 1u);
     }
 }
 
@@ -3913,6 +4405,410 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
 
 ```
 
+## `src/lens/shaders/phase_lens.wgsl`
+```wgsl
+struct Params {
+  sectors: u32,
+  radial_bins: u32,
+  harmonics: u32,
+  time: f32,
+  off_theta: u32,
+  off_omega: u32,
+  off_amplitude: u32,
+  off_lock: u32,
+  off_entanglement: u32,
+  off_plasmids: u32,
+  aspect_ratio: f32,
+  pad1: u32,
+  pad2: u32,
+};
+
+@group(0) @binding(0) var<storage, read> field: array<u32>;
+@group(0) @binding(1) var<uniform> params: Params;
+
+struct VertexOutput {
+  @builtin(position) position: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+  @location(1) color: vec3<f32>,
+  @location(2) glow: f32,
+};
+
+fn extract_byte(u32_val: u32, byte_idx: u32) -> f32 {
+    let shift = byte_idx * 8u;
+    let b = (u32_val >> shift) & 0xFFu;
+    return f32(b) / 255.0;
+}
+
+fn get_byte(base_offset: u32, idx: u32, byte_offset: u32) -> f32 {
+    return extract_byte(field[base_offset + (idx / 4u)], byte_offset);
+}
+
+fn hsv2rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
+  let c = v * s;
+  let h_prime = fract(h) * 6.0;
+  let x = c * (1.0 - abs(fract(h_prime / 2.0) * 2.0 - 1.0));
+  let m = v - c;
+
+  var rgb = vec3<f32>(0.0, 0.0, 0.0);
+  if (h_prime < 1.0) { rgb = vec3<f32>(c, x, 0.0); } 
+  else if (h_prime < 2.0) { rgb = vec3<f32>(x, c, 0.0); } 
+  else if (h_prime < 3.0) { rgb = vec3<f32>(0.0, c, x); } 
+  else if (h_prime < 4.0) { rgb = vec3<f32>(0.0, x, c); } 
+  else if (h_prime < 5.0) { rgb = vec3<f32>(x, 0.0, c); } 
+  else { rgb = vec3<f32>(c, 0.0, x); }
+
+  return rgb + vec3<f32>(m);
+}
+
+fn look_at(eye: vec3<f32>, focal_point: vec3<f32>, up: vec3<f32>) -> mat4x4<f32> {
+    let z = normalize(eye - focal_point);
+    let x = normalize(cross(up, z));
+    let y = cross(z, x);
+    return mat4x4<f32>(
+        vec4<f32>(x.x, y.x, z.x, 0.0),
+        vec4<f32>(x.y, y.y, z.y, 0.0),
+        vec4<f32>(x.z, y.z, z.z, 0.0),
+        vec4<f32>(-dot(x, eye), -dot(y, eye), -dot(z, eye), 1.0)
+    );
+}
+
+fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> mat4x4<f32> {
+    let f = 1.0 / tan(fov * 0.5);
+    return mat4x4<f32>(
+        vec4<f32>(f / aspect, 0.0, 0.0, 0.0),
+        vec4<f32>(0.0, f, 0.0, 0.0),
+        vec4<f32>(0.0, 0.0, -far / (far - near), -1.0),
+        vec4<f32>(0.0, 0.0, -(near * far) / (far - near), 0.0)
+    );
+}
+
+@vertex
+fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) -> VertexOutput {
+  let harmonic = idx / (params.radial_bins * params.sectors);
+  let rem = idx % (params.radial_bins * params.sectors);
+  let rho = rem / params.sectors;
+  let sector = rem % params.sectors;
+
+  // Extract memory buffers
+  let byte_offset = idx % 4u;
+
+  let theta = get_byte(params.off_theta, idx, byte_offset);
+  let amplitude = get_byte(params.off_amplitude, idx, byte_offset);
+  let entanglement = get_byte(params.off_entanglement, idx, byte_offset);
+  let lock = get_byte(params.off_lock, idx, byte_offset);
+
+  // Plasmids are 8 bytes (2x u32)
+  let p_u32_idx = params.off_plasmids + (idx * 2u);
+  let plasmid_low = field[p_u32_idx];
+  let plasmid_high = field[p_u32_idx + 1u];
+
+  let angle = f32(sector) / f32(params.sectors) * 6.2831853;
+  let radius_t = f32(rho + 1u) / f32(params.radial_bins + 1u);
+  let major_radius = 2.8 * radius_t;
+  let z = (f32(harmonic) - f32(params.harmonics - 1u) * 0.5) * 0.6;
+
+  // Slight wobble based on time and entanglement to simulate wave medium
+  let wobble_z = sin(params.time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * entanglement;
+  let base_pos = vec3<f32>(cos(angle) * major_radius, sin(angle) * major_radius, z + wobble_z);
+
+  // Quad Billboard
+  let quad = array<vec2<f32>, 4>(
+    vec2<f32>(-1.0, -1.0),
+    vec2<f32>( 1.0, -1.0),
+    vec2<f32>(-1.0,  1.0),
+    vec2<f32>( 1.0,  1.0)
+  );
+
+  let cam_radius = 5.5;
+  let cam_x = cos(params.time * 0.15) * cam_radius;
+  let cam_y = sin(params.time * 0.15) * cam_radius;
+  let cam_z = 3.5 + sin(params.time * 0.08) * 1.5;
+  
+  let view = look_at(vec3<f32>(cam_x, cam_y, cam_z), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
+  let proj = perspective(0.785398, params.aspect_ratio, 0.1, 100.0);
+  let view_proj = proj * view;
+
+  let right = vec3<f32>(view[0][0], view[1][0], view[2][0]);
+  let up = vec3<f32>(view[0][1], view[1][1], view[2][1]);
+  
+  let particle_size = 0.04 + amplitude * 0.12 + entanglement * 0.22;
+  let quad_pos = base_pos + (right * quad[vi].x + up * quad[vi].y) * particle_size;
+
+  var out: VertexOutput;
+  out.position = view_proj * vec4<f32>(quad_pos, 1.0);
+  out.uv = quad[vi];
+
+  // Visuals
+  let hue = fract(theta + 0.5);
+  let sat = 0.6 + entanglement;
+  let val = 0.3 + amplitude * 0.7;
+  var base_color = hsv2rgb(hue, min(1.0, sat), min(1.0, val));
+
+  // Semantic Plasmid Overlay
+  if (plasmid_low != 0u || plasmid_high != 0u) {
+      let signature = plasmid_low ^ plasmid_high;
+      let p_hue = f32(signature & 0xFFu) / 255.0;
+      let p_sat = 0.6 + (f32((signature >> 8u) & 0xFFu) / 637.5);
+      let p_color = hsv2rgb(p_hue, min(1.0, p_sat), 1.0);
+      base_color = mix(base_color, p_color, 0.85);
+  }
+
+  out.color = base_color;
+  out.glow = 0.25 + min(0.75, lock * 0.5 + amplitude * 0.5);
+  return out;
+}
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+  // Circular particle
+  let dist = length(in.uv);
+  if (dist > 1.0) {
+    discard;
+  }
+
+  let alpha = (1.0 - smoothstep(0.5, 1.0, dist)) * in.glow;
+  return vec4<f32>(in.color, alpha);
+}
+
+```
+
+## `src/lens/shaders/compute_kuramoto.wgsl`
+```wgsl
+// O-23 Native Metal Kuramoto Physics Compute Shader
+
+struct Params {
+  sectors: u32,
+  radial_bins: u32,
+  harmonics: u32,
+  time: f32,
+  off_theta: u32,
+  off_omega: u32,
+  off_amplitude: u32,
+  off_lock: u32,
+  off_entanglement: u32,
+  off_plasmids: u32,
+  aspect_ratio: f32,
+  inj_idx: u32,
+  inj_hash_low: u32,
+  inj_hash_high: u32,
+  inj_amp: u32,
+  inj_phase: u32,
+  inj_ent: u32,
+  pad1: u32,
+};
+
+@group(0) @binding(0) var<storage, read> field_in: array<u32>;
+@group(0) @binding(1) var<storage, read_write> field_out: array<atomic<u32>>;
+@group(0) @binding(2) var<uniform> params: Params;
+
+struct MycelialBucket {
+    x_sum: atomic<i32>,
+    y_sum: atomic<i32>,
+    count: atomic<u32>,
+    padding: u32,
+}
+
+@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
+
+// Memory unpackers
+fn ext_byte(u32_val: u32, byte_idx: u32) -> u32 {
+    return (u32_val >> (byte_idx * 8u)) & 0xFFu;
+}
+fn get_byte(base_offset: u32, idx: u32) -> u32 {
+    return ext_byte(field_in[base_offset + (idx / 4u)], idx % 4u);
+}
+fn set_byte(base_offset: u32, idx: u32, val: u32) {
+    let shift = (idx % 4u) * 8u;
+    let mask = 0xFFu << shift;
+    let val_shifted = (val & 0xFFu) << shift;
+    let u32_idx = base_offset + (idx / 4u);
+    atomicAnd(&field_out[u32_idx], ~mask);
+    atomicOr(&field_out[u32_idx], val_shifted);
+}
+
+// i16 packing
+fn get_i16(base_offset: u32, idx: u32) -> i32 {
+    let arr_idx = base_offset + (idx / 2u);
+    let u32_val = field_in[arr_idx];
+    let shift = (idx % 2u) * 16u;
+    let u16_val = (u32_val >> shift) & 0xFFFFu;
+    if ((u16_val & 0x8000u) != 0u) {
+        return i32(u16_val) - 65536;
+    }
+    return i32(u16_val);
+}
+fn set_i16(base_offset: u32, idx: u32, val: i32) {
+    let shift = (idx % 2u) * 16u;
+    let mask = 0xFFFFu << shift;
+    let val_shifted = (u32(val) & 0xFFFFu) << shift;
+    let u32_idx = base_offset + (idx / 2u);
+    atomicAnd(&field_out[u32_idx], ~mask);
+    atomicOr(&field_out[u32_idx], val_shifted);
+}
+
+fn wrap_index(val: i32, modulo: i32) -> u32 {
+    let rem = val % modulo;
+    if (rem < 0) {
+        return u32(rem + modulo);
+    }
+    return u32(rem);
+}
+
+fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
+    return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
+}
+
+fn phase_radians(from_theta: u32, to_theta: u32) -> f32 {
+    let diff = (i32(to_theta) - i32(from_theta)) % 256;
+    var raw = diff;
+    if (raw < 0) { raw = raw + 256; }
+    if (raw > 128) { raw = raw - 256; }
+    return f32(raw) * 6.2831853 / 256.0;
+}
+
+fn phase_sin_sum(p_from: u32, p_to: u32, weight: f32) -> f32 { return sin(phase_radians(p_from, p_to)) * weight; }
+fn phase_cos_sum(p_from: u32, p_to: u32, weight: f32) -> f32 { return cos(phase_radians(p_from, p_to)) * weight; }
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let total_cells = params.sectors * params.radial_bins * params.harmonics;
+    let idx = global_id.x;
+    if (idx >= total_cells) { return; }
+
+    // Recover multidimensional address
+    let sector = idx % params.sectors;
+    let tmp = idx / params.sectors;
+    let rho = tmp % params.radial_bins;
+    let harmonic = tmp / params.radial_bins;
+
+    // Load Cell State from field_in
+    let theta = get_byte(params.off_theta, idx);
+    let omega = get_i16(params.off_omega, idx);
+    let amplitude = i32(get_byte(params.off_amplitude, idx));
+    let lock = i32(get_byte(params.off_lock, idx));
+    let entanglement = get_byte(params.off_entanglement, idx);
+
+    // Neighborhood Phase Lookups
+    let left_sec = wrap_index(i32(sector) - 1, i32(params.sectors));
+    let right_sec = wrap_index(i32(sector) + 1, i32(params.sectors));
+    let inner_rho = max(0u, rho - 1u);
+    let outer_rho = min(params.radial_bins - 1u, rho + 1u);
+    let harm_peer = wrap_index(i32(harmonic) + 1, i32(params.harmonics));
+
+    let t_left = get_byte(params.off_theta, get_idx(left_sec, rho, harmonic));
+    let t_right = get_byte(params.off_theta, get_idx(right_sec, rho, harmonic));
+    let t_inner = get_byte(params.off_theta, get_idx(sector, inner_rho, harmonic));
+    let t_outer = get_byte(params.off_theta, get_idx(sector, outer_rho, harmonic));
+    let t_harm = get_byte(params.off_theta, get_idx(sector, rho, harm_peer));
+
+    // Kuramoto Delta sums
+    var kuramoto = phase_sin_sum(theta, t_left, 1.0) +
+                   phase_sin_sum(theta, t_right, 1.0) +
+                   phase_sin_sum(theta, t_inner, 1.0) +
+                   phase_sin_sum(theta, t_outer, 1.0) +
+                   phase_sin_sum(theta, t_harm, 0.5);
+
+    var coherence = phase_cos_sum(theta, t_left, 1.0) +
+                    phase_cos_sum(theta, t_right, 1.0) +
+                    phase_cos_sum(theta, t_inner, 1.0) +
+                    phase_cos_sum(theta, t_outer, 1.0) +
+                    phase_cos_sum(theta, t_harm, 0.5);
+
+    // Antipode Coupling
+    var next_ent = i32(entanglement);
+    if (params.sectors % 2u == 0u) {
+        let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
+        let t_anti = get_byte(params.off_theta, get_idx(antipode_sec, rho, harmonic));
+        let weight = (f32(entanglement) / 255.0) * 0.35;
+        kuramoto += phase_sin_sum(theta, t_anti, weight);
+        coherence += phase_cos_sum(theta, t_anti, weight);
+
+        let align = cos(phase_radians(theta, t_anti));
+        if (align > 0.92 && amplitude > 96) {
+            next_ent += 8;
+        } else {
+            next_ent -= 3;
+        }
+        set_byte(params.off_entanglement, idx, u32(clamp(next_ent, 0, 255)));
+    } else {
+        set_byte(params.off_entanglement, idx, entanglement); // Carry over
+    }
+
+    // O-24: Transdimensional Mycelial Lattice Topology
+    let p_u32_idx = params.off_plasmids + (idx * 2u);
+    let plasmid_low = field_in[p_u32_idx];
+    let plasmid_high = field_in[p_u32_idx + 1u];
+
+    if (plasmid_low != 0u || plasmid_high != 0u) {
+        // Find bucket from FNV-1a structural hash
+        let hash = (plasmid_low ^ plasmid_high);
+        let bucket_idx = hash & 1023u;
+
+        let m_count = atomicLoad(&mycelial_centroids[bucket_idx].count);
+        // Only trigger non-local pull if more than 1 node shares this exact LLM Semantic Intent
+        if (m_count > 1u) {
+            let m_x = f32(atomicLoad(&mycelial_centroids[bucket_idx].x_sum));
+            let m_y = f32(atomicLoad(&mycelial_centroids[bucket_idx].y_sum));
+
+            // Cartesian recovery back to Radians
+            var centroid_theta_rad = atan2(m_y, m_x);
+            if (centroid_theta_rad < 0.0) {
+                centroid_theta_rad += 6.283185307;
+            }
+            
+            // Map back to 0-255 u8 Phase integer
+            let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
+
+            // Apply a Massive K=4.0 structural pull toward the specific Mycelial thought group
+            let mycelial_pull = phase_sin_sum(theta, centroid, 4.0);
+            kuramoto += mycelial_pull;
+            coherence += phase_cos_sum(theta, centroid, 4.0);
+        }
+    }
+
+    // Kinematic Updates
+    let omega_delta = i32(round(kuramoto));
+    let next_omega = clamp(omega + omega_delta, -16, 16);
+    var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
+
+    let amp_delta = i32(round(coherence * 6.0)) - (lock / 64);
+    let lock_delta = select(-4, 8, coherence >= 3.0);
+
+    var next_amp = clamp(amplitude + amp_delta, 0, 255);
+    var next_lock = clamp(lock + lock_delta, 0, 255);
+    var target_ent = u32(clamp(next_ent, 0, 255));
+    
+    // Evaluate O-22 Explicit Intent Injection via Uniform Params
+    if (params.inj_idx == idx && params.inj_amp > 0u) {
+        next_amp = i32(params.inj_amp);
+        next_theta = params.inj_phase;
+        target_ent = params.inj_ent;
+        next_lock = 0; // Break kinematic lock to enforce adoption
+        
+        let p_u32_idx = params.off_plasmids + (idx * 2u);
+        atomicAnd(&field_out[p_u32_idx], 0u);
+        atomicOr(&field_out[p_u32_idx], params.inj_hash_low);
+        atomicAnd(&field_out[p_u32_idx + 1u], 0u);
+        atomicOr(&field_out[p_u32_idx + 1u], params.inj_hash_high);
+    } else {
+        // Carry over existing plasmids if no injection overrides them
+        let p_u32_idx = params.off_plasmids + (idx * 2u);
+        atomicOr(&field_out[p_u32_idx], field_in[p_u32_idx]);
+        atomicOr(&field_out[p_u32_idx + 1u], field_in[p_u32_idx + 1u]);
+    }
+
+    set_byte(params.off_theta, idx, next_theta);
+    set_i16(params.off_omega, idx, next_omega);
+    set_byte(params.off_amplitude, idx, u32(next_amp));
+    set_byte(params.off_lock, idx, u32(next_lock));
+    if (params.sectors % 2u == 0u || (params.inj_idx == idx && params.inj_amp > 0u)) {
+        // Write entanglement if we computed antipode or if we got an injection
+        set_byte(params.off_entanglement, idx, target_ent);
+    }
+}
+
+```
+
 ## `src/lens/shaders/compute_reduce.wgsl`
 ```wgsl
 struct Pair {
@@ -3958,6 +4854,158 @@ fn main(
   if (lid.x == 0u) {
     out[wid.x] = shared_arr[0];
   }
+}
+
+```
+
+## `src/lens/phase_webgpu.ts`
+```ts
+/// <reference types="@webgpu/types" />
+
+import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
+import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseComputeEngine } from './phase_compute.js';
+
+export class PhaseWebGPUObserver {
+    private canvas: HTMLCanvasElement;
+    private device: GPUDevice;
+    private context!: GPUCanvasContext;
+    private pipeline!: GPURenderPipeline;
+    private bindGroupA!: GPUBindGroup;
+    private bindGroupB!: GPUBindGroup;
+    private paramsBuffer!: GPUBuffer;
+    private field: PhaseLatticeField;
+    private engine: PhaseComputeEngine;
+    private startTime: number;
+
+    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
+        this.canvas = canvas;
+        this.field = field;
+        this.engine = engine;
+        this.device = device;
+        this.startTime = performance.now();
+    }
+
+    async init() {
+        this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
+        
+        const numCells = this.field.cell_count();
+        
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        this.context.configure({
+            device: this.device,
+            format,
+            alphaMode: 'opaque'
+        });
+
+        this.context.configure({
+            device: this.device,
+            format,
+            alphaMode: 'opaque'
+        });
+
+        // 112 bytes total structurally
+        this.paramsBuffer = this.device.createBuffer({
+            size: 112,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        
+        const shaderModule = this.device.createShaderModule({
+            code: phaseLensWgsl 
+        });
+
+        this.pipeline = this.device.createRenderPipeline({
+            layout: 'auto',
+            vertex: {
+                module: shaderModule,
+                entryPoint: 'vs_main'
+            },
+            fragment: {
+                module: shaderModule,
+                entryPoint: 'fs_main',
+                targets: [{
+                    format,
+                    blend: {
+                        color: {
+                            srcFactor: 'src-alpha',
+                            dstFactor: 'one-minus-src-alpha',
+                            operation: 'add'
+                        },
+                        alpha: {
+                            srcFactor: 'one',
+                            dstFactor: 'one-minus-src-alpha',
+                            operation: 'add'
+                        }
+                    }
+                }]
+            },
+            primitive: { topology: 'triangle-strip' }
+        });
+
+        this.bindGroupA = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.engine.bufferA } },
+                { binding: 1, resource: { buffer: this.paramsBuffer } }
+            ]
+        });
+        
+        this.bindGroupB = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.engine.bufferB } },
+                { binding: 1, resource: { buffer: this.paramsBuffer } }
+            ]
+        });
+    }
+
+    render(activeFieldBuffer: GPUBuffer) {
+        if (!this.device || !this.context) return;
+        
+        const activeBindGroup = activeFieldBuffer === this.engine.bufferA ? this.bindGroupA : this.bindGroupB;
+
+        const numCells = this.field.cell_count();
+
+        const time = (performance.now() - this.startTime) / 1000.0;
+        const aspect = this.canvas.width / this.canvas.height;
+
+        const uniformBuffer = new ArrayBuffer(48);
+        const viewU32 = new Uint32Array(uniformBuffer);
+        const viewF32 = new Float32Array(uniformBuffer);
+
+        viewU32[0] = this.field.sectors;
+        viewU32[1] = this.field.radial_bins;
+        viewU32[2] = this.field.harmonics;
+        viewF32[3] = time;
+        viewU32[4] = Math.floor(this.engine.offsets[0] / 4);
+        viewU32[5] = Math.floor(this.engine.offsets[1] / 4);
+        viewU32[6] = Math.floor(this.engine.offsets[2] / 4);
+        viewU32[7] = Math.floor(this.engine.offsets[3] / 4);
+        viewU32[8] = Math.floor(this.engine.offsets[4] / 4);
+        viewU32[9] = Math.floor(this.engine.offsets[5] / 4);
+        viewF32[10] = aspect;
+        viewU32[11] = 0;
+
+        this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
+
+        const commandEncoder = this.device.createCommandEncoder();
+
+        const pass = commandEncoder.beginRenderPass({
+            colorAttachments: [{
+                view: this.context.getCurrentTexture().createView(),
+                loadOp: 'clear',
+                clearValue: { r: 0.02, g: 0.03, b: 0.06, a: 1 },
+                storeOp: 'store'
+            }]
+        });
+
+        pass.setPipeline(this.pipeline);
+        pass.setBindGroup(0, activeBindGroup);
+        pass.draw(4, numCells); 
+        pass.end();
+
+        this.device.queue.submit([commandEncoder.finish()]);
+    }
 }
 
 ```
@@ -4925,6 +5973,7 @@ const BRIDGE_LOCK_DECAY: u8 = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
+const BRIDGE_DEPTH2_LOCK_THRESHOLD: f32 = 2.5;
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -5130,6 +6179,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             phase_cos(theta_prev[idx], theta_prev[inner_idx]) +
             phase_cos(theta_prev[idx], theta_prev[outer_idx]) +
             phase_cos(theta_prev[idx], synthetic_peer_theta) * 0.5;
+
         let sustained_coherence_bonus = if boundary_depth == 1 && plasmids_prev[idx] == 0 && locks_prev[idx] >= 64 && coherence >= 3.0 {
             BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
         } else {
@@ -5195,7 +6245,8 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        if coherence >= 3.0 {
+        let lock_threshold = if boundary_depth == 2 { BRIDGE_DEPTH2_LOCK_THRESHOLD } else { 3.0 };
+        if coherence >= lock_threshold {
             field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN + if boundary_depth <= 1 { BRIDGE_BOUNDARY_LOCK_BONUS } else { 0 });
         } else {
             field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);
@@ -5762,6 +6813,10 @@ pub struct PhaseLatticeField {
     pub(crate) amplitude: Vec<u8>,
     pub(crate) lock: Vec<u8>,
     pub(crate) entanglement: Vec<u8>,
+    pub(crate) oracle_requests: Vec<u32>,
+    pub(crate) oracle_request_count: u32,
+    pub(crate) cell_status: Vec<u8>,
+    pub(crate) plasmids: Vec<u64>,
 }
 
 #[wasm_bindgen]
@@ -5778,6 +6833,10 @@ impl PhaseLatticeField {
             amplitude: vec![0; size],
             lock: vec![0; size],
             entanglement: vec![0; size],
+            oracle_requests: vec![0; 1024],
+            oracle_request_count: 0,
+            cell_status: vec![0; size],
+            plasmids: vec![0; size],
         };
         field.seed_deterministic();
         field
@@ -5807,6 +6866,26 @@ impl PhaseLatticeField {
         self.entanglement.as_ptr()
     }
 
+    pub fn ptr_oracle_requests(&self) -> *const u32 {
+        self.oracle_requests.as_ptr()
+    }
+
+    pub fn get_oracle_request_count(&self) -> u32 {
+        self.oracle_request_count
+    }
+
+    pub fn clear_oracle_requests(&mut self) {
+        self.oracle_request_count = 0;
+    }
+
+    pub fn ptr_cell_status(&self) -> *const u8 {
+        self.cell_status.as_ptr()
+    }
+
+    pub fn ptr_plasmids(&self) -> *const u64 {
+        self.plasmids.as_ptr()
+    }
+
     pub fn seed_deterministic(&mut self) {
         for harmonic in 0..self.harmonics as usize {
             for rho in 0..self.radial_bins as usize {
@@ -5834,6 +6913,8 @@ impl PhaseLatticeField {
         let mut next_amplitude = vec![0u8; self.amplitude.len()];
         let mut next_lock = vec![0u8; self.lock.len()];
         let mut next_entanglement = vec![0u8; self.entanglement.len()];
+        let mut next_cell_status = vec![0u8; self.cell_status.len()];
+        let mut next_plasmids = vec![0u64; self.plasmids.len()];
 
         for harmonic in 0..self.harmonics as usize {
             for rho in 0..self.radial_bins as usize {
@@ -5846,6 +6927,8 @@ impl PhaseLatticeField {
                     next_amplitude[target] = self.amplitude[source];
                     next_lock[target] = self.lock[source];
                     next_entanglement[target] = self.entanglement[source];
+                    next_cell_status[target] = self.cell_status[source];
+                    next_plasmids[target] = self.plasmids[source];
                 }
             }
         }
@@ -5855,6 +6938,8 @@ impl PhaseLatticeField {
         self.amplitude = next_amplitude;
         self.lock = next_lock;
         self.entanglement = next_entanglement;
+        self.cell_status = next_cell_status;
+        self.plasmids = next_plasmids;
     }
 }
 
@@ -5866,6 +6951,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
         for rho in 0..field.radial_bins as usize {
             for sector in 0..field.sectors as usize {
                 let idx = field.idx(sector, rho, harmonic);
+
+                if prev.cell_status[idx] == 1 {
+                    continue;
+                }
 
                 let theta = prev.theta[idx];
                 let omega = prev.omega[idx];
@@ -5912,10 +7001,52 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let amplitude_delta = (coherence * 6.0).round() as i16 - (lock / 64);
                 let lock_delta = if coherence >= 3.0 { 8 } else { -4 };
 
-                field.theta[idx] = next_theta;
-                field.omega[idx] = next_omega;
-                field.amplitude[idx] = clamp_byte(amplitude + amplitude_delta);
-                field.lock[idx] = clamp_byte(lock + lock_delta);
+                let next_amplitude = clamp_byte(amplitude + amplitude_delta);
+                let next_lock = clamp_byte(lock + lock_delta);
+
+                let mut adopted = false;
+                if next_amplitude < 140 {
+                    let neighbors = [left, right, inner, outer, harmonic_peer];
+                    let mut best_resonance = -2.0;
+                    let mut donor_plasmid = 0u64;
+
+                    for &neighbor_idx in &neighbors {
+                        let candidate_plasmid = prev.plasmids[neighbor_idx];
+                        if candidate_plasmid == 0 {
+                            continue;
+                        }
+                        let candidate_resonance = phase_cos(theta, prev.theta[neighbor_idx]);
+                        if candidate_resonance > best_resonance {
+                            best_resonance = candidate_resonance;
+                            donor_plasmid = candidate_plasmid;
+                        }
+                    }
+
+                    if donor_plasmid != 0 && best_resonance > 0.6 {
+                        field.theta[idx] = (donor_plasmid & 0xFF) as u8;
+                        let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
+                        field.omega[idx] = clamp_i16(donor_omega, MIN_OMEGA, MAX_OMEGA);
+                        field.plasmids[idx] = donor_plasmid;
+                        adopted = true;
+                    }
+                }
+
+                if !adopted && next_amplitude < 20 && next_lock < 10 && field.oracle_request_count < 1024 {
+                    field.oracle_requests[field.oracle_request_count as usize] = idx as u32;
+                    field.oracle_request_count += 1;
+                    field.cell_status[idx] = 1;
+                }
+
+                if next_amplitude < 15 && field.plasmids[idx] != 0 && next_theta % 4 == 0 {
+                    field.plasmids[idx] = 0;
+                }
+
+                if !adopted {
+                    field.theta[idx] = next_theta;
+                    field.omega[idx] = next_omega;
+                }
+                field.amplitude[idx] = next_amplitude;
+                field.lock[idx] = next_lock;
             }
         }
     }
@@ -5936,6 +7067,8 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
                 mix_u64(&mut hash, field.amplitude[idx] as u64);
                 mix_u64(&mut hash, field.lock[idx] as u64);
                 mix_u64(&mut hash, field.entanglement[idx] as u64);
+                mix_u64(&mut hash, field.cell_status[idx] as u64);
+                mix_u64(&mut hash, field.plasmids[idx]);
             }
         }
     }
@@ -6037,6 +7170,8 @@ mod tests {
         assert_eq!(left.amplitude, right.amplitude, "amplitude mismatch");
         assert_eq!(left.lock, right.lock, "lock mismatch");
         assert_eq!(left.entanglement, right.entanglement, "entanglement mismatch");
+        assert_eq!(left.cell_status, right.cell_status, "status mismatch");
+        assert_eq!(left.plasmids, right.plasmids, "plasmids mismatch");
     }
 
     #[test]
@@ -6576,6 +7711,8 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
     const amplitude = new Uint8Array(memory.buffer, field.ptr_amplitude(), count);
     const lock = new Uint8Array(memory.buffer, field.ptr_lock(), count);
     const entanglement = new Uint8Array(memory.buffer, field.ptr_entanglement(), count);
+    const cellStatus = new Uint8Array(memory.buffer, field.ptr_cell_status(), count);
+    const plasmids = new BigUint64Array(memory.buffer, field.ptr_plasmids(), count);
 
     return Array.from({ length: count }, (_, index) => ({
         theta: theta[index],
@@ -6583,6 +7720,8 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
         amplitude: amplitude[index],
         lock: lock[index],
         entanglement: entanglement[index],
+        cellStatus: cellStatus[index],
+        plasmids: plasmids[index],
     }));
 }
 
@@ -7524,6 +8663,14 @@ async function main(): Promise<void> {
 
         phase = stepPhaseField(phase);
         bridge = stepBridgeField(bridge);
+        
+        // Anti-Freeze: The Phase Lattice (O-19.5) lacks the O-20 Oracle Queue.
+        // To maintain cross-topology parity, we must artificially thaw the Hybrid Bridge
+        // so it doesn't skip ticks while waiting for an Oracle that isn't connected in this suite.
+        bridge.oracleRequestCount = 0;
+        for (let i = 0; i < bridge.cellStatus.length; i++) {
+            bridge.cellStatus[i] = 0;
+        }
     }
 
     const byPhaseDistance = [...records].sort((left, right) => right.phaseDistance - left.phaseDistance);
@@ -7567,92 +8714,92 @@ main().catch((error) => {
   "referenceTrace": [
     {
       "tick": 0,
-      "legacySignature": "4a686fa9994442bc",
-      "structuralSignature": "2bda5b1839298778",
+      "legacySignature": "d119e9f7b5059374",
+      "structuralSignature": "5a999eb2b3e727b0",
       "totalAmplitude": 120926,
       "totalEntanglement": 0
     },
     {
       "tick": 1,
-      "legacySignature": "2b6cc8496de397f8",
-      "structuralSignature": "62827ff023e7427b",
+      "legacySignature": "7342307980a5f348",
+      "structuralSignature": "3460be00e2f10673",
       "totalAmplitude": 127018,
       "totalEntanglement": 0
     },
     {
       "tick": 2,
-      "legacySignature": "521f5c9f5b190833",
-      "structuralSignature": "317bc663b45b2004",
+      "legacySignature": "e13eb7b75f1e2f8b",
+      "structuralSignature": "64e49fda9d349244",
       "totalAmplitude": 132240,
       "totalEntanglement": 0
     },
     {
       "tick": 3,
-      "legacySignature": "8a38208c2c623d7a",
-      "structuralSignature": "211127b59e189b27",
+      "legacySignature": "54741c5fa2ea6ad2",
+      "structuralSignature": "c751ea06dd3402ff",
       "totalAmplitude": 136586,
       "totalEntanglement": 0
     },
     {
       "tick": 4,
-      "legacySignature": "996070a196871b51",
-      "structuralSignature": "f0e7d60643dda4f7",
+      "legacySignature": "b7c359ca09ddd679",
+      "structuralSignature": "90c65e091ddf9147",
       "totalAmplitude": 140076,
       "totalEntanglement": 0
     },
     {
       "tick": 5,
-      "legacySignature": "299bd1e707eacebc",
-      "structuralSignature": "4991be9cfc5456da",
+      "legacySignature": "b18b965423c16ca4",
+      "structuralSignature": "6018ebf568189dd2",
       "totalAmplitude": 142749,
       "totalEntanglement": 0
     },
     {
       "tick": 6,
-      "legacySignature": "4d16fc5d545edc79",
-      "structuralSignature": "e8b855be7939256c",
+      "legacySignature": "a1e0266d6b11b6f1",
+      "structuralSignature": "dff11c4c72c10de4",
       "totalAmplitude": 144689,
       "totalEntanglement": 0
     },
     {
       "tick": 7,
-      "legacySignature": "1ea6fe78be3790d3",
-      "structuralSignature": "604b981c2e6e900c",
+      "legacySignature": "f29013735e6b332b",
+      "structuralSignature": "0b33f6bbfa623e3c",
       "totalAmplitude": 145887,
       "totalEntanglement": 0
     },
     {
       "tick": 8,
-      "legacySignature": "2cb3a1f676a21830",
-      "structuralSignature": "5366eb984826af5f",
+      "legacySignature": "2214d1133fa40e98",
+      "structuralSignature": "1e8c9fcc660cd027",
       "totalAmplitude": 146489,
       "totalEntanglement": 0
     },
     {
       "tick": 9,
-      "legacySignature": "209b55b4a7cf1c1c",
-      "structuralSignature": "d78915616cc641c1",
+      "legacySignature": "a6b3cdd265c740b4",
+      "structuralSignature": "a8e1d9a36b7d3431",
       "totalAmplitude": 146759,
       "totalEntanglement": 0
     },
     {
       "tick": 10,
-      "legacySignature": "c90ebd74cbc55fbb",
-      "structuralSignature": "744335a0bda0c3d1",
+      "legacySignature": "45714103df6ab443",
+      "structuralSignature": "2fb620ce9775aae9",
       "totalAmplitude": 146856,
       "totalEntanglement": 0
     },
     {
       "tick": 11,
-      "legacySignature": "e336a6ebd629e11c",
-      "structuralSignature": "62f0186299b27228",
+      "legacySignature": "63933c6f9f67542c",
+      "structuralSignature": "25feef810fa0bf98",
       "totalAmplitude": 146880,
       "totalEntanglement": 0
     },
     {
       "tick": 12,
-      "legacySignature": "97b4b64bdfcfa2cf",
-      "structuralSignature": "8019c378a2d54cb5",
+      "legacySignature": "3322e0ba8f65d52f",
+      "structuralSignature": "378e26b26232cb25",
       "totalAmplitude": 146880,
       "totalEntanglement": 0
     }
@@ -7660,115 +8807,115 @@ main().catch((error) => {
   "wasmTrace": [
     {
       "tick": 0,
-      "legacySignature": "2bda5b1839298778",
-      "structuralSignature": "2bda5b1839298778",
+      "legacySignature": "5a999eb2b3e727b0",
+      "structuralSignature": "5a999eb2b3e727b0",
       "totalAmplitude": 120926,
       "totalEntanglement": 0,
       "omegaSpan": "-2..2"
     },
     {
       "tick": 1,
-      "legacySignature": "62827ff023e7427b",
-      "structuralSignature": "62827ff023e7427b",
+      "legacySignature": "3460be00e2f10673",
+      "structuralSignature": "3460be00e2f10673",
       "totalAmplitude": 127018,
       "totalEntanglement": 0,
       "omegaSpan": "-3..3"
     },
     {
       "tick": 2,
-      "legacySignature": "317bc663b45b2004",
-      "structuralSignature": "317bc663b45b2004",
+      "legacySignature": "64e49fda9d349244",
+      "structuralSignature": "64e49fda9d349244",
       "totalAmplitude": 132240,
       "totalEntanglement": 0,
       "omegaSpan": "-4..4"
     },
     {
       "tick": 3,
-      "legacySignature": "211127b59e189b27",
-      "structuralSignature": "211127b59e189b27",
+      "legacySignature": "c751ea06dd3402ff",
+      "structuralSignature": "c751ea06dd3402ff",
       "totalAmplitude": 136586,
       "totalEntanglement": 0,
       "omegaSpan": "-5..4"
     },
     {
       "tick": 4,
-      "legacySignature": "f0e7d60643dda4f7",
-      "structuralSignature": "f0e7d60643dda4f7",
+      "legacySignature": "90c65e091ddf9147",
+      "structuralSignature": "90c65e091ddf9147",
       "totalAmplitude": 140076,
       "totalEntanglement": 0,
       "omegaSpan": "-5..5"
     },
     {
       "tick": 5,
-      "legacySignature": "4991be9cfc5456da",
-      "structuralSignature": "4991be9cfc5456da",
+      "legacySignature": "6018ebf568189dd2",
+      "structuralSignature": "6018ebf568189dd2",
       "totalAmplitude": 142749,
       "totalEntanglement": 0,
       "omegaSpan": "-6..5"
     },
     {
       "tick": 6,
-      "legacySignature": "e8b855be7939256c",
-      "structuralSignature": "e8b855be7939256c",
+      "legacySignature": "dff11c4c72c10de4",
+      "structuralSignature": "dff11c4c72c10de4",
       "totalAmplitude": 144689,
       "totalEntanglement": 0,
       "omegaSpan": "-7..6"
     },
     {
       "tick": 7,
-      "legacySignature": "604b981c2e6e900c",
-      "structuralSignature": "604b981c2e6e900c",
+      "legacySignature": "0b33f6bbfa623e3c",
+      "structuralSignature": "0b33f6bbfa623e3c",
       "totalAmplitude": 145887,
       "totalEntanglement": 0,
       "omegaSpan": "-8..7"
     },
     {
       "tick": 8,
-      "legacySignature": "5366eb984826af5f",
-      "structuralSignature": "5366eb984826af5f",
+      "legacySignature": "1e8c9fcc660cd027",
+      "structuralSignature": "1e8c9fcc660cd027",
       "totalAmplitude": 146489,
       "totalEntanglement": 0,
       "omegaSpan": "-9..7"
     },
     {
       "tick": 9,
-      "legacySignature": "d78915616cc641c1",
-      "structuralSignature": "d78915616cc641c1",
+      "legacySignature": "a8e1d9a36b7d3431",
+      "structuralSignature": "a8e1d9a36b7d3431",
       "totalAmplitude": 146759,
       "totalEntanglement": 0,
       "omegaSpan": "-9..8"
     },
     {
       "tick": 10,
-      "legacySignature": "744335a0bda0c3d1",
-      "structuralSignature": "744335a0bda0c3d1",
+      "legacySignature": "2fb620ce9775aae9",
+      "structuralSignature": "2fb620ce9775aae9",
       "totalAmplitude": 146856,
       "totalEntanglement": 0,
       "omegaSpan": "-9..8"
     },
     {
       "tick": 11,
-      "legacySignature": "62f0186299b27228",
-      "structuralSignature": "62f0186299b27228",
+      "legacySignature": "25feef810fa0bf98",
+      "structuralSignature": "25feef810fa0bf98",
       "totalAmplitude": 146880,
       "totalEntanglement": 0,
       "omegaSpan": "-10..8"
     },
     {
       "tick": 12,
-      "legacySignature": "8019c378a2d54cb5",
-      "structuralSignature": "8019c378a2d54cb5",
+      "legacySignature": "378e26b26232cb25",
+      "structuralSignature": "378e26b26232cb25",
       "totalAmplitude": 146880,
       "totalEntanglement": 0,
       "omegaSpan": "-10..8"
     }
   ],
   "invariants": {
-    "referenceSeedLegacySignature": "4a686fa9994442bc",
-    "referenceSeedStructuralSignature": "2bda5b1839298778",
-    "wasmSeedStructuralSignature": "2bda5b1839298778",
-    "rotatedPhaseStructuralSignature": "bf28ae9525323477",
-    "rotatedAddressStructuralSignature": "4bb9f773ce4a25fd"
+    "referenceSeedLegacySignature": "d119e9f7b5059374",
+    "referenceSeedStructuralSignature": "5a999eb2b3e727b0",
+    "wasmSeedStructuralSignature": "5a999eb2b3e727b0",
+    "rotatedPhaseStructuralSignature": "9c0cfb677601ef47",
+    "rotatedAddressStructuralSignature": "decbdcd4d32964cd"
   }
 }
 
@@ -8024,8 +9171,8 @@ main().catch((error) => {
       "totalLockDelta": 0,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 0,
-      "phaseSignature": "f22292a47e8b5c31",
-      "hybridSignature": "f22292a47e8b5c31"
+      "phaseSignature": "3ac176b3de047431",
+      "hybridSignature": "3ac176b3de047431"
     },
     {
       "tick": 1,
@@ -8034,8 +9181,8 @@ main().catch((error) => {
       "totalLockDelta": -128,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 5,
-      "phaseSignature": "ff882d4045b3a340",
-      "hybridSignature": "fe4d542e6838f105"
+      "phaseSignature": "2ff9e472cdd84470",
+      "hybridSignature": "67765fca3596684d"
     },
     {
       "tick": 2,
@@ -8044,8 +9191,8 @@ main().catch((error) => {
       "totalLockDelta": -48,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
-      "phaseSignature": "fd4d9e95d4d302e5",
-      "hybridSignature": "199517269db13498"
+      "phaseSignature": "92b93bfd3280cbad",
+      "hybridSignature": "e31d48bcb3caa490"
     },
     {
       "tick": 3,
@@ -8054,8 +9201,8 @@ main().catch((error) => {
       "totalLockDelta": 119,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
-      "phaseSignature": "7e330567c8554ce3",
-      "hybridSignature": "99d899a712ef36ce"
+      "phaseSignature": "daefc75e1c90f223",
+      "hybridSignature": "d428ed92f81926f6"
     },
     {
       "tick": 4,
@@ -8064,8 +9211,8 @@ main().catch((error) => {
       "totalLockDelta": 364,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "8ffa01145d1323f3",
-      "hybridSignature": "691de02bab09163e"
+      "phaseSignature": "e434703289b2886b",
+      "hybridSignature": "974e61471ac88f8e"
     },
     {
       "tick": 5,
@@ -8074,8 +9221,8 @@ main().catch((error) => {
       "totalLockDelta": 686,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 29,
-      "phaseSignature": "ca9bf9b69ecef1ca",
-      "hybridSignature": "84262cf895ff22e6"
+      "phaseSignature": "fecf89566a3f77c2",
+      "hybridSignature": "8c9f9800bf8d1a4e"
     },
     {
       "tick": 6,
@@ -8084,8 +9231,8 @@ main().catch((error) => {
       "totalLockDelta": 1039,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 32,
-      "phaseSignature": "8f8b3113f7a57b16",
-      "hybridSignature": "21736997b700abe8"
+      "phaseSignature": "38367e943bcc8cbe",
+      "hybridSignature": "0bb0e1bf704c8de0"
     },
     {
       "tick": 7,
@@ -8094,8 +9241,8 @@ main().catch((error) => {
       "totalLockDelta": 1379,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 34,
-      "phaseSignature": "c1ea6744f7153881",
-      "hybridSignature": "b1490710544f5106"
+      "phaseSignature": "c432a6276a610c69",
+      "hybridSignature": "ca5d155bef7cfe16"
     },
     {
       "tick": 8,
@@ -8104,8 +9251,8 @@ main().catch((error) => {
       "totalLockDelta": 1719,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "6c7ae180782339b3",
-      "hybridSignature": "0c7bfa9301d5ed28"
+      "phaseSignature": "d331647226bf25db",
+      "hybridSignature": "c4e56cc0084989a8"
     },
     {
       "tick": 9,
@@ -8114,8 +9261,8 @@ main().catch((error) => {
       "totalLockDelta": 2059,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 31,
-      "phaseSignature": "3de87dbd183491fa",
-      "hybridSignature": "6bc2071b1c545073"
+      "phaseSignature": "87cab79fd00fe6a2",
+      "hybridSignature": "9dd67fdff468b423"
     },
     {
       "tick": 10,
@@ -8124,8 +9271,8 @@ main().catch((error) => {
       "totalLockDelta": 2399,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 27,
-      "phaseSignature": "0444ff443961e3bf",
-      "hybridSignature": "46079e60ccea61bf"
+      "phaseSignature": "f4ed375543b76d5f",
+      "hybridSignature": "97761b1ca758d857"
     },
     {
       "tick": 11,
@@ -8134,8 +9281,8 @@ main().catch((error) => {
       "totalLockDelta": 2739,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 30,
-      "phaseSignature": "b479cf29a3015e1e",
-      "hybridSignature": "807635e0644b2427"
+      "phaseSignature": "f1313a22b54a45ee",
+      "hybridSignature": "776a9ce2d0adfb5f"
     },
     {
       "tick": 12,
@@ -8144,8 +9291,8 @@ main().catch((error) => {
       "totalLockDelta": 3079,
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
-      "phaseSignature": "450154228192c10a",
-      "hybridSignature": "ce03a3808394b989"
+      "phaseSignature": "1bd5f63129dedbca",
+      "hybridSignature": "eae4b30e2c7ca541"
     }
   ],
   "invariants": {

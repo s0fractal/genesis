@@ -60,7 +60,7 @@ export interface Sigma3Node {
   essence: Essence;
   physics: Physics;
   io: Record<string, any>;
-  expr: IRFunction;
+  ir: IRFunction;
   implementation?: {
     ts?: string;
     wasm?: string;
@@ -74,7 +74,7 @@ export type State = Record<string, Sigma3Node>;
 
 export const Dispatcher = {
   async foldForRust(node: Sigma3Node): Promise<string> {
-    return JSON.stringify(node.expr);
+    return JSON.stringify(node.ir);
   },
 
   executeInTs(node: Sigma3Node, args: Record<string, number>): number {
@@ -99,6 +99,17 @@ export const Dispatcher = {
       return 0;
     };
     return run(node.expr.body as IRNode);
+  },
+  
+  validateNodeIntegrity(node: Sigma3Node): boolean {
+    return !!(
+        node && 
+        node.identity && 
+        node.identity.context_hash && 
+        node.ir && 
+        node.physics && 
+        node.physics.energy_cost !== undefined
+    );
   }
 };
 
@@ -114,6 +125,10 @@ export async function executeNeuron(
   const neuron = state[alias];
   if (!neuron) {
     throw new Error(`Cannot execute neuron ${alias}: Not found in active state tissue.`);
+  }
+  
+  if (!Dispatcher.validateNodeIntegrity(neuron)) {
+      throw new Error(`Metabolic Reject: Neuron ${alias} failed structural validation. Structural execution denied.`);
   }
   
   const { essence } = neuron;
@@ -180,10 +195,10 @@ export function serializeTissueToMarkdown(tissue: State): string {
         nodeBlock += serializeIO(node.io);
         nodeBlock += `\n`;
 
-        if (node.expr && node.expr.body !== undefined) {
+        if (node.ir && node.ir.body !== undefined) {
            nodeBlock += `#### IR\n`;
-           if (typeof node.expr.body === "string" || Array.isArray(node.expr.body)) {
-              let bodyStr = typeof node.expr.body === "string" ? node.expr.body : JSON.stringify(node.expr.body);
+           if (typeof node.ir.body === "string" || Array.isArray(node.ir.body)) {
+              let bodyStr = typeof node.ir.body === "string" ? node.ir.body : JSON.stringify(node.ir.body);
               if (bodyStr.startsWith('"') && bodyStr.endsWith('"')) {
                  bodyStr = JSON.parse(bodyStr); // unescape string safely
               }
@@ -357,7 +372,7 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
           essence: { type: pointer.type as any, level: 1, substrate: pointer.substrate as any },
           physics: { energy_cost: pointer.energy, stability: pointer.stability },
           io: {},
-          expr: { args: [], ret: "void", body: "" },
+          ir: { args: [], ret: "void", body: "" },
           implementation: {},
           mutation_log: []
       };
@@ -381,16 +396,16 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
              if (parsed.in) {
                  for (const [k, v] of Object.entries(parsed.in)) {
                      const typePart = (v as string).split("@")[0];
-                     node.expr.args.push({ name: k, type: typePart });
+                     node.ir.args.push({ name: k, type: typePart });
                  }
              }
-             node.expr.ret = typeof node.io.out === "string" ? node.io.out.split("@")[0] : "void";
+             node.ir.ret = typeof node.io.out === "string" ? node.io.out.split("@")[0] : "void";
           } else if (currentSection === "IR") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();
              try {
-                 node.expr.body = JSON.parse(codeBody);
+                 node.ir.body = JSON.parse(codeBody);
              } catch(e) {
-                 node.expr.body = codeBody;
+                 node.ir.body = codeBody;
              }
           } else if (currentSection === "Implementation") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();

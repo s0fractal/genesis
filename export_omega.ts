@@ -7,8 +7,8 @@ const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dis
 
 async function main() {
   const chunks: string[] = [];
-  chunks.push("# OMEGA-64 | ONTOLOGY 17 ABSOLUTE EXPORT\n");
-  chunks.push("This document contains the entire architectural core of the Genesis Spore, including the TS genetic transpiler, the Rust WASM SIMD execution threads, and the Biological Context Substrate (`I.md`).\n\n---\n");
+  chunks.push("# OMEGA-64 | ONTOLOGY 24 ABSOLUTE EXPORT\n");
+  chunks.push("This document contains the entire architectural core of the Genesis Spore, spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n");
 
   const addFile = async (path: string) => {
     try {
@@ -24,6 +24,8 @@ async function main() {
 
   // Root essentials
   await addFile("I.md");
+  await addFile("verify_wgsl.ts");
+  await addFile("puppeteer_probe.ts");
   await addFile("package.json");
   await addFile("PHASE_COHERENCE_SPEC.md");
   await addFile("export_omega.ts");

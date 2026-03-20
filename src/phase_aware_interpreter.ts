@@ -65,32 +65,32 @@ export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
  * AST Execution Engine (Phase Shift Simulator).
  * Recursively runs an expression tree geometry within the Phase Space constraints.
  */
-export function executePhaseGeometricAST(expr: any, env: Record<string, PhaseVector>): PhaseVector {
-    if (expr.kind === "const") {
-        return linearToPhase(expr.value);
+export function executePhaseGeometricAST(ir: any, env: Record<string, PhaseVector>): PhaseVector {
+    if (ir.kind === "const") {
+        return linearToPhase(ir.value);
     }
     
-    if (expr.kind === "var") {
-        if (!env[expr.name]) throw new Error(`Geometrical Variable ${expr.name} not supplied in Phase environment.`);
-        return env[expr.name];
+    if (ir.kind === "var") {
+        if (!env[ir.name]) throw new Error(`Geometrical Variable ${ir.name} not supplied in Phase environment.`);
+        return env[ir.name];
     }
     
-    if (expr.kind === "op") {
+    if (ir.kind === "op") {
         // Geometric Translation
-        if (expr.op === "add") {
-            const left = executePhaseGeometricAST(expr.args[0], env);
-            const right = executePhaseGeometricAST(expr.args[1], env);
+        if (ir.op === "add") {
+            const left = executePhaseGeometricAST(ir.args[0], env);
+            const right = executePhaseGeometricAST(ir.args[1], env);
             return phaseShiftAdd(left, right);
         }
         
         // Advanced Orbits
-        if (expr.op === "mul") {
-            const left = executePhaseGeometricAST(expr.args[0], env);
-            const right = executePhaseGeometricAST(expr.args[1], env);
+        if (ir.op === "mul") {
+            const left = executePhaseGeometricAST(ir.args[0], env);
+            const right = executePhaseGeometricAST(ir.args[1], env);
             const linearOut = phaseToLinear(left) * phaseToLinear(right);
             return linearToPhase(linearOut); 
         }
     }
     
-    throw new Error(`Unhandled Geometric Configuration: ${expr.kind}`);
+    throw new Error(`Unhandled Geometric Configuration: ${ir.kind}`);
 }

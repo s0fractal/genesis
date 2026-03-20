@@ -21,6 +21,26 @@ async function main() {
       const targetAlias = "fast_abs";
       const targetNode = Tissue[targetAlias];
       
+      // O-25: Kuramoto Phase Alignment
+      // Advance Phase physics. Only allow evolutionary execution if Theta wraps (completes an orbit).
+      if (!targetNode.physics.temporal) {
+          const freq = targetNode.physics.energy_cost < 20 ? 64 : 1;
+          targetNode.physics.temporal = { frequency: freq, phase: 0 };
+      }
+      targetNode.physics.temporal.phase += targetNode.physics.temporal.frequency;
+      console.log(`⏱️ Kuramoto Clock: ${targetAlias} phase advanced to ${targetNode.physics.temporal.phase}/256`);
+      
+      if (targetNode.physics.temporal.phase < 256) {
+          console.log(`💤 Ribosome Dormant. Node '${targetAlias}' has not reached zenith (Theta=0). Skipping epoch...`);
+          epoch++;
+          await new Promise(r => setTimeout(r, 200)); // Fast-forward time
+          continue;
+      }
+      
+      // Node has fired! Wrap phase and extract energy.
+      targetNode.physics.temporal.phase %= 256;
+      console.log(`⚡ RIBOSOME IGNITION: Node '${targetAlias}' crossed Theta=0 Resonance! Initiating evolutionary pulse...`);
+      
       const mutation = generateGeneticDrift(targetAlias, targetNode);
       if (!mutation) {
           console.log(`❌ Organism is perfectly sterilized (No mutable paths found).`);
@@ -28,6 +48,22 @@ async function main() {
       }
       
       console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
+      
+      // O-25: NOMOS Energy Tax
+      // Nodes must surrender mathematical volume (Torus Energy) to power compiling routines.
+      const MUTATION_COST = 50;
+      if (targetNode.physics.energy_cost < MUTATION_COST) {
+          console.log(`\n💀 METABOLIC STARVATION: Node '${targetAlias}' lacks the geometric energy (${targetNode.physics.energy_cost}/${MUTATION_COST}) to invoke atomic_pulse. Skipping pulse...`);
+          // Recover energy marginally representing photosynthesis/rest
+          targetNode.physics.energy_cost += 5; 
+          epoch++;
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+      }
+      
+      // Deduct the energy natively
+      targetNode.physics.energy_cost -= MUTATION_COST;
+      console.log(`🔥 NOMOS: Extracted ${MUTATION_COST} energy from '${targetAlias}'. Remaining Bank: ${targetNode.physics.energy_cost}`);
       
       const operations = [
         {
@@ -46,7 +82,7 @@ async function main() {
         }
       ];
 
-      const beforeStr = JSON.stringify(Tissue[targetAlias].expr);
+      const beforeStr = JSON.stringify(Tissue[targetAlias].ir);
       
       // Dispatch the atomic transaction -> (Mutate JS memory, then Mutate Rust Memory natively!)
       const res = await executeNeuron(Tissue, "atomic_pulse", { operations, state: Tissue, executeNeuron });
@@ -59,7 +95,12 @@ async function main() {
           console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
           Tissue = res.next;
           
-          const afterStr = JSON.stringify(Tissue[targetAlias].expr);
+          // O-25 NOMOS: Reward successful mutations (Evolutionary Darwinism)
+          const ENERGY_REWARD = 60;
+          Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
+          console.log(`🏆 NOMOS Reward: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
+          
+          const afterStr = JSON.stringify(Tissue[targetAlias].ir);
           console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
 
           console.log(`\nActivating meta_fn: flush_state_to_disk...`);
@@ -72,8 +113,8 @@ async function main() {
       }
       
       epoch++;
-      // Give the visual grid a heartbeat baseline to render the shockwave (7 seconds).
-      await new Promise(r => setTimeout(r, 7000));
+      // Wait a fraction of a second before the next geometric frame
+      await new Promise(r => setTimeout(r, 1000));
   }
 }
 

@@ -70,11 +70,33 @@ export class SovereignOracle {
         
         console.log(`[ORACLE] Queue threshold triggered. Batching ${count} anomalous structural signatures for Semantic Resolution...`);
 
+        let mycelialContext = "";
+        if (this.engine) {
+            const centroids = await this.engine.readMycelialCentroids();
+            let activeBuckets = 0;
+            let totalX = 0;
+            let totalY = 0;
+            
+            for (let i = 0; i < 1024; i++) {
+                const count = centroids[i * 4 + 2];
+                if (count > 0) {
+                    activeBuckets++;
+                    totalX += centroids[i * 4];
+                    totalY += centroids[i * 4 + 1];
+                }
+            }
+            
+            if (activeBuckets > 0) {
+                const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are physically pulling the Torus toward absolute phase angle ${avgTheta.toFixed(1)} degrees. Acknowledge this geometric reality in your response.`;
+            }
+        }
+
         // 2. Spatial Batching: Construct the Macro-Prompt for LLM
         const prompt = `
             Task: You are the Subconscious Sovereign Oracle of OMEGA-64.
             The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
-            These nodes have locked natively, demanding semantic resolution.
+            These nodes have locked natively, demanding semantic resolution.${mycelialContext}
             Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
             Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
         `.trim();

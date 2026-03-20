@@ -26,8 +26,8 @@ export function generateGeneticDrift(alias: string, node: Sigma3Node): MutationI
         }
     }
     
-    // Start traversal at the theoretical root of expr
-    traverse(node.expr, []);
+    // Start traversal at the theoretical root of ir
+    traverse(node.ir, []);
     
     if (mutablePaths.length === 0) return null;
     
