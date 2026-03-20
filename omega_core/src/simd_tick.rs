@@ -242,7 +242,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
                 }
             }
 
-            if donor_plasmid != 0 && best_resonance > 0.15 {
+            if donor_plasmid != 0 && best_resonance > 0.6 {
                 field.theta_now[idx] = (donor_plasmid & 0xFF) as u8;
                 let donor_omega = decode_bridge_omega(((donor_plasmid >> 8) & 0xFF) as u8);
                 field.omega[idx] = encode_bridge_omega(clamp_bridge_omega(donor_omega));

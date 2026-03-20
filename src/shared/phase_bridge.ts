@@ -9,6 +9,7 @@ const BRIDGE_DELTAS = [1, 2, 3, 4] as const;
 const BRIDGE_MAX_OMEGA = 32;
 const BRIDGE_PHASE_SCALE = Math.fround(Math.fround(Math.PI * 2) / 256);
 const BRIDGE_ACTIVE_RADIAL_BINS = CANONICAL_PHASE_SHAPE.radialBins;
+const BRIDGE_ADOPTION_RESONANCE_THRESHOLD = 0.6;
 
 export interface BridgeField {
     width: number;
@@ -234,7 +235,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 }
             }
 
-            if (donorPlasmid !== 0n && bestResonance > 0.15) {
+            if (donorPlasmid !== 0n && bestResonance > BRIDGE_ADOPTION_RESONANCE_THRESHOLD) {
                 next.thetaNow[index] = Number(donorPlasmid & 0xffn);
                 const donorOmega = decodeBridgeOmega(Number((donorPlasmid >> 8n) & 0xffn));
                 next.omega[index] = encodeBridgeOmega(clampBridgeOmega(donorOmega));
