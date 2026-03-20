@@ -14,6 +14,8 @@ export function buildCanonicalPhaseSeed(shape: PhaseFieldShape = CANONICAL_PHASE
         amplitude: clamp(sector * 13 + rho * 17 + harmonic * 29, 0, 255),
         lock: (sector * 5 + rho * 11 + harmonic * 3) % 64,
         entanglement: 0,
+        cellStatus: 0,
+        plasmids: 0n,
     }));
 }
 
@@ -73,6 +75,8 @@ function collapseCanonicalBridgeCell(
         amplitude: clamp(Math.round(sumAmplitude / harmonicCount), 0, 255),
         lock: clamp(Math.round(sumLock / harmonicCount), 0, 255),
         entanglement: maxEntanglement,
+        cellStatus: 0,
+        plasmids: 0n,
     };
 }
 

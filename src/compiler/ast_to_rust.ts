@@ -47,6 +47,7 @@ export function compileIRFunctionToRust(name: string, fn: IRFunction): string {
     
     return `
 #[wasm_bindgen]
+#[allow(unused_parens)]
 pub fn ${name}(${argsStr}) -> ${fn.ret} {
     ${bodyStr}
 }

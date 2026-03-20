@@ -15,6 +15,44 @@ async function main() {
   }
 
   let epoch = 1;
+  
+  // O-31: Biological Hyperparameter Injection
+  if (!Tissue["tissue_constants"]) {
+      console.log("🧩 Injecting generic `tissue_constants` hyperparameter matrix into Organism Core...");
+      Tissue["tissue_constants"] = {
+          identity: {
+              structural_hash: "0000000000000000000000000000000000000000000000000000000000000000",
+              version: 1,
+              parents: []
+          },
+          essence: { field: "core", type: "module", substrate: "ts", id: "tissue_constants" },
+          io: { in: {}, out: {} },
+          physics: {
+              temporal: { frequency: 10, phase: 0 },
+              energy_cost: 10,
+              spatial_lock: { x: 0, y: 0, coherence: 1.0 }
+          },
+          mutation_log: ["Genesis parameter mapping"],
+          ir: {
+              body: {
+                  MUTATION_COST: 50,
+                  FATIGUE_THRESHOLD: 80,
+                  ENERGY_REWARD: 200,
+                  PHOTOSYNTHESIS_RATE: 5,
+                  SECTORS: 64,
+                  RADIAL_BINS: 10,
+                  HARMONICS: 3
+              }
+          }
+      };
+      
+      const calculatedHash = await executeNeuron(Tissue, "calculate_structural_hash", { node: Tissue["tissue_constants"] });
+      if (calculatedHash && typeof calculatedHash === 'string') {
+          Tissue["tissue_constants"].identity.structural_hash = calculatedHash;
+          Tissue["tissue_constants"].identity.parents = [calculatedHash];
+      }
+  }
+
   while (true) {
       console.log(`\n\n--- [ EPOCH ${epoch} : MATURATION ] ---`);
       
@@ -50,12 +88,19 @@ async function main() {
       console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
       
       // O-25: NOMOS Energy Tax
-      // Nodes must surrender mathematical volume (Torus Energy) to power compiling routines.
-      const MUTATION_COST = 50;
+      // O-31: Dynamic Generic Parameter Harvesting
+      let MUTATION_COST = 50;
+      let PHOTOSYNTHESIS_RATE = 5;
+      try {
+          const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
+          if (body.MUTATION_COST !== undefined) MUTATION_COST = body.MUTATION_COST;
+          if (body.PHOTOSYNTHESIS_RATE !== undefined) PHOTOSYNTHESIS_RATE = body.PHOTOSYNTHESIS_RATE;
+      } catch(_e) {}
+
       if (targetNode.physics.energy_cost < MUTATION_COST) {
           console.log(`\n💀 METABOLIC STARVATION: Node '${targetAlias}' lacks the geometric energy (${targetNode.physics.energy_cost}/${MUTATION_COST}) to invoke atomic_pulse. Skipping pulse...`);
           // Recover energy marginally representing photosynthesis/rest
-          targetNode.physics.energy_cost += 5; 
+          targetNode.physics.energy_cost += PHOTOSYNTHESIS_RATE; 
           epoch++;
           await new Promise(r => setTimeout(r, 1000));
           continue;
@@ -109,34 +154,50 @@ async function main() {
               console.log(`🧬 HYBRID JIT REJECTED (Kinematic Collapse): TS emulation mathematically destabilized. Discarding mutation.`);
               Tissue = snapshot;
           } else {
-              console.log(`🛡️ Soft Matter Stable! OSSIFYING -> Initiating Native Rust Compiler Bridge...`);
+              console.log(`🛡️ Soft Matter Stable! Gene injected securely into Abstract JS Topology.`);
+              
+              // O-30 Phase 1: Self-Hosting Compiler (Autonomous JIT Fatigue)
+              // O-31: Harvesting Universal Parameters mathematically
+              let FATIGUE_THRESHOLD = 80;
+              let ENERGY_REWARD = 200;
               try {
-                  const bridgeRes = await executeNeuron(Tissue, "rust_compiler_bridge", { nodeAlias: targetAlias, state: Tissue });
-                  Tissue = bridgeRes.next;
+                  const body = typeof Tissue["tissue_constants"].ir.body === "string" ? JSON.parse(Tissue["tissue_constants"].ir.body) : Tissue["tissue_constants"].ir.body;
+                  if (body.FATIGUE_THRESHOLD !== undefined) FATIGUE_THRESHOLD = body.FATIGUE_THRESHOLD;
+                  if (body.ENERGY_REWARD !== undefined) ENERGY_REWARD = body.ENERGY_REWARD;
+              } catch(_e) {}
 
-                  console.log(`\n🟩 MUTATION SURVIVED. ORGANISM EVOLVED SUCCESSFULLY.`);
-                  
-                  // O-25 NOMOS: Reward successful mutations (Evolutionary Darwinism)
-                  const ENERGY_REWARD = 60;
-                  Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
-                  console.log(`🏆 NOMOS Reward: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
-                  
-                  const afterStr = JSON.stringify(Tissue[targetAlias].ir);
-                  console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
+              if (Tissue[targetAlias].physics.energy_cost < FATIGUE_THRESHOLD) {
+                  console.log(`🦴 CORE FATIGUE DETECTED! Energy (${Tissue[targetAlias].physics.energy_cost}) fell below limits (${FATIGUE_THRESHOLD}). Initiating Autonomous Rust OSSIFICATION (Self-Hosting Compiler)...`);
+                  try {
+                      const bridgeRes = await executeNeuron(Tissue, "rust_compiler_bridge", { nodeAlias: targetAlias, state: Tissue });
+                      Tissue = bridgeRes.next;
 
-                  console.log(`\nActivating meta_fn: flush_state_to_disk...`);
-                  // Dump the surviving tissue to Binary RAM 
-                  await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
-                  // Dump it to Human Readable Read-Only MD
-                  await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
-                  
-                  console.log(`✨ Organism successfully rewritten and hardened into seed.bin!`);
-              } catch (bridgeErr: any) {
-                  console.log(`\n🟥 FATAL RUST COMPILATION REJECTION IN EPOCH ${epoch}`);
-                  console.log(`Reason: ${bridgeErr.message}`);
-                  console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
-                  Tissue = snapshot;
+                      console.log(`\n🟩 MUTATION OSSIFIED. ORGANISM RUST LAYER EVOLVED SUCCESSFULLY.`);
+                      
+                      // O-25 NOMOS: Reward successful FULL hardware architecture molting
+                      Tissue[targetAlias].physics.energy_cost += ENERGY_REWARD;
+                      console.log(`🏆 NOMOS Architecture Matured: Granted ${ENERGY_REWARD} energy. Bank: ${Tissue[targetAlias].physics.energy_cost}`);
+                  } catch (bridgeErr: any) {
+                      console.log(`\n🟥 FATAL RUST COMPILATION REJECTION IN EPOCH ${epoch}`);
+                      console.log(`Reason: ${bridgeErr.message}`);
+                      console.log(`⏪ System rolled back to last stable phylogenetic snapshot.`);
+                      Tissue = snapshot;
+                      continue; // Skip the disk dump if we reverted
+                  }
+              } else {
+                  console.log(`💭 [DEFERRED OSSIFICATION] Native Torus physics is still viable. Floating mutation in Soft-Matter only. Energy Bank: ${Tissue[targetAlias].physics.energy_cost}`);
               }
+
+              const afterStr = JSON.stringify(Tissue[targetAlias].ir);
+              console.log(`\nEvolution Log:\nBefore: ${beforeStr}\nAfter: ${afterStr}`);
+
+              console.log(`\nActivating meta_fn: flush_state_to_disk...`);
+              // Dump the surviving tissue to Binary RAM 
+              await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./seed.bin" });
+              // Dump it to Human Readable Read-Only MD
+              await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
+              
+              console.log(`✨ Organism successfully rewritten and hardened!`);
           }
       }
       

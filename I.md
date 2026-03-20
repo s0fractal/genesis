@@ -61,6 +61,10 @@ in:
   node: Sigma3Node
 out: string
 
+#### Physics
+energy_cost: 0
+stability: 1.0
+
 #### IR
 ```json
 sha256(JSON.stringify({essence, io, expr, parents}))
@@ -118,7 +122,13 @@ const next = structuredClone(state);
         for (let i = 0; i < path.length - 1; i++) {
             current = current[path[i]];
         }
-        current[path[path.length - 1]] = newValue;
+        
+        const targetKey = path[path.length - 1];
+        if (current[targetKey] === newValue) {
+            // O-34 Phase 3: Mathematical Bypass (Zero Distance)
+            return { next, diff };
+        }
+        current[targetKey] = newValue;
         
         // Execute the hash neuron to calculate the new hash
         const newHash = await executeNeuron(next, "calculate_structural_hash", { node: targetNode });
@@ -138,6 +148,123 @@ const next = structuredClone(state);
 
 ---
 
+### serialize_tissue
+#### Identity
+hash: 58a9e4b7c84ccf0e21334f59c23b2b4198c6aa2471eb67c9cfaa70dc0d4a9dc3
+version: 1
+
+#### IO
+in:
+  tissue: State
+out: string
+
+#### Physics
+energy_cost: 0
+stability: 1.0
+
+#### IR
+```json
+{
+  "args": [{"name": "tissue", "type": "State"}],
+  "ret": "string",
+  "body": "Serialize Tissue to OMEGA TOON Markdown"
+}
+```
+
+#### Implementation
+```ts
+  const { encode } = await import("npm:@toon-format/toon");
+  const nodesArr = [];
+  const entries = Object.entries(tissue);
+  let markdownBody = "";
+
+  const categories = {};
+  for (const [id, node] of entries) {
+     const field = node.identity.context_hash || "Misc";
+     if (!categories[field]) categories[field] = [];
+     categories[field].push([id, node]);
+  }
+
+  for (const [field, nodes] of Object.entries(categories)) {
+     markdownBody += `## ${field}\n\n`;
+     for (const [id, node] of nodes) {
+        let nodeBlock = `### ${id}\n`;
+        nodeBlock += `#### Identity\n`;
+        nodeBlock += `hash: ${node.identity.structural_hash}\n`;
+        nodeBlock += `version: ${node.identity.version}\n`;
+        if (node.identity.parents && node.identity.parents.length > 0) {
+            nodeBlock += `parents: ${JSON.stringify(node.identity.parents)}\n`;
+        }
+        nodeBlock += `\n#### IO\n`;
+        const serializeIO = (ioObj, indent = "") => {
+           let res = "";
+           for (const [k, v] of Object.entries(ioObj)) {
+               if (typeof v === 'object' && v !== null) {
+                   res += `${indent}${k}:\n${serializeIO(v, indent + "  ")}`;
+               } else {
+                   res += `${indent}${k}: ${v}\n`;
+               }
+           }
+           return res;
+        };
+        nodeBlock += serializeIO(node.io) + `\n`;
+
+        if (node.ir && node.ir.body !== undefined) {
+           nodeBlock += `#### IR\n`;
+           if (typeof node.ir.body === "string" || Array.isArray(node.ir.body)) {
+              let bodyStr = typeof node.ir.body === "string" ? node.ir.body : JSON.stringify(node.ir.body);
+              if (bodyStr.startsWith('"') && bodyStr.endsWith('"')) {
+                 bodyStr = JSON.parse(bodyStr); 
+              }
+              nodeBlock += `\`\`\`json\n${bodyStr}\n\`\`\`\n\n`;
+           } else {
+              nodeBlock += `\`\`\`json\n${JSON.stringify(node.ir.body, null, 2)}\n\`\`\`\n\n`;
+           }
+        }
+        
+        if (node.implementation && Object.keys(node.implementation).length > 0) {
+           nodeBlock += `#### Implementation\n`;
+           for (const [lang, code] of Object.entries(node.implementation)) {
+               nodeBlock += `\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
+           }
+        }
+
+        markdownBody += nodeBlock + "---\n\n";
+
+        nodesArr.push({
+           id,
+           field,
+           type: node.essence.type,
+           substrate: node.essence.substrate,
+           energy: node.physics ? node.physics.energy_cost : 0,
+           stability: node.physics ? node.physics.stability : 1.0,
+           link: `#${id}`
+        });
+     }
+  }
+
+  let headerTOON = "---\n# TISSUE METADATA (TOON FORMAT)\n# The Universal Registry of the System Runtime\n\n";
+  headerTOON += encode(nodesArr).replace(/\]:/, "]{id,field,type,substrate,energy,stability,link,line}:"); 
+  headerTOON += `\n---\n\n# 🧬 THE TISSUE (ACTIVE CANON)\n\n`;
+  
+  const lines = (headerTOON + markdownBody).split("\n");
+  for (let i = 0; i < lines.length; i++) {
+     if (lines[i].startsWith("### ")) {
+        const nodeId = lines[i].substring(4).trim();
+        const searchStr = `${nodeId},`;
+        for (let j = 0; j < Math.min(100, lines.length); j++) {
+           if (lines[j].includes(searchStr) && !lines[j].includes("[nodes]")) {
+               lines[j] = lines[j] + `, ${i + 1}`;
+               break;
+           }
+        }
+     }
+  }
+  return lines.join("\n") + "\n";
+```
+
+---
+
 ### flush_state_to_disk
 #### Identity
 hash: 84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3
@@ -149,6 +276,10 @@ in:
   targetFile: string
 out: void
 
+#### Physics
+energy_cost: 0
+stability: 1.0
+
 #### IR
 ```json
 write(nextState) to Disk
@@ -156,11 +287,11 @@ write(nextState) to Disk
 
 #### Implementation
 ```ts
-const { packTissueToBinary, serializeTissueToMarkdown } = await import("./quine.ts");
+const { packTissueToBinary, executeNeuron } = await import("./quine.ts");
 if (targetFile.endsWith(".bin")) {
   await Deno.writeFile(targetFile, packTissueToBinary(nextState));
 } else {
-  const markdownStr = serializeTissueToMarkdown(nextState);
+  const markdownStr = await executeNeuron(nextState, "serialize_tissue", { tissue: nextState });
   await Deno.writeTextFile(targetFile, markdownStr);
 }
 ```
@@ -212,8 +343,15 @@ let tempState = structuredClone(state);
           for (const op of operations) {
             const target = tempState[op.alias];
             if (target && target.physics && target.physics.energy_cost !== undefined) {
-               if (target.physics.energy_cost < 50) throw new Error(`NOMOS Metabolic Rejection: ${op.alias} lacks sufficient energy.`);
-               target.physics.energy_cost -= 50;
+               let cost = 50;
+               try {
+                  const constantsIr = tempState["tissue_constants"].ir;
+                  const constantsBody = typeof constantsIr.body === "string" ? JSON.parse(constantsIr.body) : constantsIr.body;
+                  if (constantsBody.MUTATION_COST !== undefined) cost = constantsBody.MUTATION_COST;
+               } catch(e) {}
+
+               if (target.physics.energy_cost < cost) throw new Error(`NOMOS Metabolic Rejection: ${op.alias} lacks sufficient energy (${target.physics.energy_cost} < ${cost}).`);
+               target.physics.energy_cost -= cost;
             }
             const currentArgs = { ...op.args, state: tempState, executeNeuron };
             const result = await executeNeuron(tempState, op.alias, currentArgs);
@@ -241,30 +379,31 @@ let tempState = structuredClone(state);
            const historyNode = tempState["tissue_history"];
            const oldHash = historyNode.identity.structural_hash;
            
-           const epochRecord = {
-             timestamp: Date.now(),
-             operations: epochLog
+           historyNode.identity = {
+             ...historyNode.identity,
+             parents: [oldHash],
+             version: historyNode.identity.version + 1
            };
            
-           // Offload the heavy payload to an external append-only log file
+           const epochHash = await executeNeuron(tempState, "calculate_structural_hash", { node: historyNode });
+           historyNode.identity.structural_hash = epochHash;
+           
+           const epochRecord = {
+             t: Date.now(),
+             prev: oldHash,
+             epoch: epochHash
+           };
+           
+           // Offload the ZK blockchain payload to an external append-only log file
            let logFile = "./history.jsonl";
            try {
-             const pointer = typeof historyNode.expr.body === "string" ? JSON.parse(historyNode.expr.body) : historyNode.expr.body;
+             const pointer = typeof historyNode.ir.body === "string" ? JSON.parse(historyNode.ir.body) : historyNode.ir.body;
              if (pointer && pointer.log_file) logFile = pointer.log_file;
            } catch(e) {}
            
            await Deno.writeTextFile(logFile, JSON.stringify(epochRecord) + "\\n", { append: true });
            
-           const newHash = await executeNeuron(tempState, "calculate_structural_hash", { node: historyNode });
-           
-           historyNode.identity = {
-             ...historyNode.identity,
-             structural_hash: newHash,
-             parents: [oldHash],
-             version: historyNode.identity.version + 1
-           };
-           
-           historyNode.mutation_log.push(`Appended epoch with ${epochLog.length} operations to ${logFile}`);
+           historyNode.mutation_log.push(`Appended ZK-Ledger Epoch [${oldHash.substring(0,8)} -> ${epochHash.substring(0,8)}] to ${logFile}`);
         }
         
         return { success: true, next: tempState, log: epochLog };

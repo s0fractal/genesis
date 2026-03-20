@@ -4,6 +4,7 @@ import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 
 interface PendingInjection {
     idx: number;
+    bucket?: number;
     hashLow: number;
     hashHigh: number;
     amp: number;
@@ -198,7 +199,7 @@ export class PhaseComputeEngine {
         viewU32[14] = activeInj ? activeInj.amp : 0;
         viewU32[15] = activeInj ? activeInj.phase : 0;
         viewU32[16] = activeInj ? activeInj.ent : 0;
-        viewU32[17] = 0;
+        viewU32[17] = activeInj && activeInj.bucket !== undefined ? activeInj.bucket : 0xFFFFFFFF;
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
         
@@ -243,6 +244,15 @@ export class PhaseComputeEngine {
         inj.hashLow = Number(hash & 0xFFFFFFFFn);
         inj.hashHigh = Number(hash >> 32n);
         this.injections.set(index, inj);
+    }
+
+    injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
+        if (!this.device) return;
+        const injId = -100 - bucketId;
+        const inj = this.injections.get(injId) || { idx: 0xFFFFFFFF, bucket: bucketId, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
+        inj.hashLow = Number(hash & 0xFFFFFFFFn);
+        inj.hashHigh = Number(hash >> 32n);
+        this.injections.set(injId, inj);
     }
 
     injectEnergy(index: number, phaseShift: number) {

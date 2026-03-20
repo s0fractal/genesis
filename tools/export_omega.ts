@@ -1,15 +1,18 @@
 // deno-lint-ignore-file
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
-const OUTPUT_FILE = "OMEGA_EXPORT.md";
-
 const TARGET_EXTS = [".ts", ".rs", ".wgsl", ".toml", ".html", ".json"];
 const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dist/, /tools/, /test_/, /verify_/, /puppeteer/];
 
 async function main() {
+  const pkgStr = await Deno.readTextFile("package.json");
+  const pkg = JSON.parse(pkgStr);
+  const OMEGA_VERSION = pkg.version;
+  const OUTPUT_FILE = `OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
+
   const chunks: string[] = [];
-  chunks.push("# OMEGA-64 | ONTOLOGY 27 ABSOLUTE EXPORT\n");
-  chunks.push("This document contains the entire architectural core of the Genesis Spore, spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n");
+  chunks.push(`# OMEGA-64 | ONTOLOGY ${OMEGA_VERSION.split('.')[0]} ABSOLUTE EXPORT\n`);
+  chunks.push(`This document contains the entire architectural core of the Genesis Spore (Version ${OMEGA_VERSION}), spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n`);
 
   const addFile = async (path: string) => {
     try {

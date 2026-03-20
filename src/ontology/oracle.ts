@@ -29,6 +29,12 @@ export class SovereignOracle {
         this.visualizer = visualizer;
     }
 
+    public rebind(field: OracleCompatibleField, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
+        this.wasmField = field;
+        this.engine = engine;
+        this.visualizer = visualizer;
+    }
+
     public request(idx: number) {
         this.requestQueue.push(idx);
     }
@@ -99,7 +105,7 @@ export class SovereignOracle {
                 const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
                 mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are pulling the Torus toward angle ${avgTheta.toFixed(1)} degrees.` +
                                   `\nHere is spatial data for the strongest local clusters:\n${bucketDetails.join("\n")}\n` +
-                                  `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket. Optionally prepend "Bucket #X: " to your semantic concept.`;
+                                  `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket.`;
             }
         }
 
@@ -127,7 +133,7 @@ export class SovereignOracle {
             These nodes have locked natively, demanding semantic resolution.${mycelialContext}
             Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
             You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
-            Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.
+            ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" where X is a Bucket ID from the Telemetry.' : 'Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.'}
         `.trim();
 
         try {
@@ -166,7 +172,7 @@ export class SovereignOracle {
                 } else {
                     console.log(`[ORACLE] Oracle responds to batched distress (${count} cells): "${intent}"`);
                 }
-                this.fulfillRequests(requests, intent);
+                this.fulfillRequests(requests, intent, targetBucket ? parseInt(targetBucket) : undefined);
             }
         } catch (e) {
             console.warn(`[ORACLE] LLM inference failed/timeout. Emitting fallback plasmid to batch of ${count}.`);
@@ -176,18 +182,23 @@ export class SovereignOracle {
         this.isBusy = false;
     }
 
-    private fulfillRequests(requests: number[], intent: string) {
+    private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {
         // 3. The Return Path: Asynchronously encode LLM bytes directly back into Plasmids
         const hash = fnv1a_64(intent);
 
         if (this.engine) {
             // O-23 Native WebGPU Interface
-            let success = 0;
-            for (const idx of requests) {
-                this.engine.injectPlasmid(idx, hash);
-                success++;
+            if (targetBucket !== undefined) {
+                this.engine.injectPlasmidIntoBucket(targetBucket, hash);
+                console.log(`[ORACLE] Successfully decoded algorithm and flooded Bucket #${targetBucket} with Resonance Plasmid.`);
+            } else {
+                let success = 0;
+                for (const idx of requests) {
+                    this.engine.injectPlasmid(idx, hash);
+                    success++;
+                }
+                console.log(`[ORACLE] Successfully decoded and unlocked ${success} WebGPU cells.`);
             }
-            console.log(`[ORACLE] Successfully decoded and unlocked ${success} WebGPU cells.`);
             return;
         }
         

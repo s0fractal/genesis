@@ -162,15 +162,15 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   setInputMode("semantic");
 
   const canvas = configureCanvas();
-  const phaseField = new PhaseLatticeField(64, 10, 3);
+  let phaseField = new PhaseLatticeField(64, 10, 3);
   // Ontology 23: Native Metal compute instantiation
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter!.requestDevice();
 
-  const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+  let computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
   await computeEngine.init();
 
-  const observer = new PhaseWebGPUObserver(
+  let observer = new PhaseWebGPUObserver(
     canvas,
     phaseField,
     computeEngine,
@@ -199,7 +199,60 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const coupler = new SemanticCoupler(injector);
   wireSemanticInput(coupler, "Inject phase attractor...");
 
-  const loop = () => {
+  let lastShedCheck = performance.now();
+
+  const loop = async () => {
+    // O-32: Morphological Hot-Reloading Polling (Shedding Event)
+    const nowLocal = performance.now();
+    if (nowLocal - lastShedCheck > 1000) {
+        lastShedCheck = nowLocal;
+        try {
+            const res = await fetch("/I.md", { cache: "no-store" });
+            if (res.ok) {
+                const text = await res.text();
+                const nodeIdx = text.indexOf("### tissue_constants");
+                if (nodeIdx !== -1) {
+                    const irIdx = text.indexOf("#### IR", nodeIdx);
+                    if (irIdx !== -1) {
+                        const codeStart = text.indexOf("```json\n", irIdx) + 8;
+                        const codeEnd = text.indexOf("\n```", codeStart);
+                        if (codeStart > 8 && codeEnd > codeStart) {
+                            const body = JSON.parse(text.substring(codeStart, codeEnd));
+                            let tSectors = phaseField.sectors;
+                            let tRadial = phaseField.radial_bins;
+                            let tHarm = phaseField.harmonics;
+                
+                if (body.SECTORS !== undefined) tSectors = body.SECTORS;
+                if (body.RADIAL_BINS !== undefined) tRadial = body.RADIAL_BINS;
+                if (body.HARMONICS !== undefined) tHarm = body.HARMONICS;
+
+                if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
+                    console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
+                    console.log(`🧨 Terminating active WASM Tensors & VRAM Pipelines...`);
+                    
+                    phaseField.free();
+                    phaseField = new PhaseLatticeField(tSectors, tRadial, tHarm);
+                    
+                    computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+                    await computeEngine.init();
+
+                    observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
+                    await observer.init();
+
+                    // Rebind global daemon observers identically
+                    oracle.rebind(phaseField, computeEngine, observer);
+                    injector.rebind(phaseField, computeEngine);
+                    
+                    setHudStat("a", "SECTORS", `${tSectors}x${tRadial}x${tHarm}`);
+                    console.log(`✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`);
+                }
+                        }
+                    }
+                }
+            }
+        } catch(_e) {}
+    }
+
     computeEngine.tick();
     oracle.sync();
 

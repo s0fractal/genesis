@@ -22,6 +22,7 @@ export class PhaseLensObserver {
     private field: PhaseLatticeField;
     private memory: WebAssembly.Memory;
     private context!: CanvasRenderingContext2D;
+    private plasmidGroups = new Map<bigint, { count: number, sumX: number, sumY: number }>();
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, memory: WebAssembly.Memory) {
         this.canvas = canvas;
@@ -55,6 +56,7 @@ export class PhaseLensObserver {
         const amplitude = new Uint8Array(this.memory.buffer, this.field.ptr_amplitude(), cellCount);
         const lock = new Uint8Array(this.memory.buffer, this.field.ptr_lock(), cellCount);
         const entanglement = new Uint8Array(this.memory.buffer, this.field.ptr_entanglement(), cellCount);
+        const plasmids = new BigUint64Array(this.memory.buffer, this.field.ptr_plasmids(), cellCount);
 
         ctx.clearRect(0, 0, width, height);
 
@@ -109,6 +111,67 @@ export class PhaseLensObserver {
             }
             ctx.restore();
         }
+
+        // O-29: Transdimensional Visual Parity (Plasmid Threads)
+        this.plasmidGroups.clear();
+        for (let harmonic = 0; harmonic < this.field.harmonics; harmonic++) {
+            for (let rho = 0; rho < this.field.radial_bins; rho++) {
+                for (let sector = 0; sector < this.field.sectors; sector++) {
+                    const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
+                    const p = plasmids[idx];
+                    if (p !== 0n) {
+                        const angle = sector / this.field.sectors * Math.PI * 2;
+                        const ringRadius = maxRadius * ((rho + 1) / (this.field.radial_bins + 1));
+                        const harmonicOffset = (harmonic - (this.field.harmonics - 1) / 2) * 3;
+                        const x = Math.cos(angle) * (ringRadius + harmonicOffset);
+                        const y = Math.sin(angle) * (ringRadius + harmonicOffset);
+                        
+                        let group = this.plasmidGroups.get(p);
+                        if (!group) {
+                            group = { count: 0, sumX: 0, sumY: 0 };
+                            this.plasmidGroups.set(p, group);
+                        }
+                        group.count++;
+                        group.sumX += x;
+                        group.sumY += y;
+                    }
+                }
+            }
+        }
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        for (let harmonic = 0; harmonic < this.field.harmonics; harmonic++) {
+            for (let rho = 0; rho < this.field.radial_bins; rho++) {
+                for (let sector = 0; sector < this.field.sectors; sector++) {
+                    const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
+                    const p = plasmids[idx];
+                    if (p !== 0n) {
+                        const group = this.plasmidGroups.get(p);
+                        if (group && group.count > 1) {
+                            const angle = sector / this.field.sectors * Math.PI * 2;
+                            const ringRadius = maxRadius * ((rho + 1) / (this.field.radial_bins + 1));
+                            const harmonicOffset = (harmonic - (this.field.harmonics - 1) / 2) * 3;
+                            const x = Math.cos(angle) * (ringRadius + harmonicOffset);
+                            const y = Math.sin(angle) * (ringRadius + harmonicOffset);
+                            
+                            const cX = group.sumX / group.count;
+                            const cY = group.sumY / group.count;
+
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            ctx.lineTo(cX, cY);
+                            // Hash the plasmid into a deterministic hue degree
+                            const hashColor = Number(p % 360n);
+                            ctx.strokeStyle = `hsla(${hashColor}, 90%, 65%, 0.12)`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+        }
+        ctx.restore();
 
         for (let harmonic = 0; harmonic < this.field.harmonics; harmonic++) {
             for (let rho = 0; rho < this.field.radial_bins; rho++) {

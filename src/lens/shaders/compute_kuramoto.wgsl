@@ -18,7 +18,7 @@ struct Params {
   inj_amp: u32,
   inj_phase: u32,
   inj_ent: u32,
-  pad1: u32,
+  inj_bucket: u32,
 };
 
 @group(0) @binding(0) var<storage, read> field_in: array<u32>;
@@ -195,30 +195,50 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let next_omega = clamp(omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
 
-    let amp_delta = i32(round(coherence * 6.0)) - (lock / 64);
+    var amp_delta = i32(round(coherence * 6.0)) - (lock / 64);
+    
+    // O-33: Resonance Economics Subsidy
+    // If the von Neumann neighborhood is nearly mathematically identical (R > 0.93)
+    if (coherence > 4.2) {
+        amp_delta += 2; // Inject metabolic heat back into the biological grid
+    }
+
     let lock_delta = select(-4, 8, coherence >= 3.0);
 
     var next_amp = clamp(amplitude + amp_delta, 0, 255);
     var next_lock = clamp(lock + lock_delta, 0, 255);
     var target_ent = u32(clamp(next_ent, 0, 255));
     
-    // Evaluate O-22 Explicit Intent Injection via Uniform Params
+    // Evaluate O-22/O-29 Explicit Intent Injection via Uniform Params
+    var receives_injection = false;
     if (params.inj_idx == idx && params.inj_amp > 0u) {
+        receives_injection = true;
+    } else if (params.inj_bucket != 0xFFFFFFFFu && params.inj_amp > 0u) {
+        if (plasmid_low != 0u || plasmid_high != 0u) {
+            let hash = (plasmid_low ^ plasmid_high);
+            if ((hash & 1023u) == params.inj_bucket) {
+                receives_injection = true;
+            }
+        }
+    }
+
+    if (receives_injection) {
         next_amp = i32(params.inj_amp);
         next_theta = params.inj_phase;
         target_ent = params.inj_ent;
         next_lock = 0; // Break kinematic lock to enforce adoption
         
-        let p_u32_idx = params.off_plasmids + (idx * 2u);
-        atomicAnd(&field_out[p_u32_idx], 0u);
-        atomicOr(&field_out[p_u32_idx], params.inj_hash_low);
-        atomicAnd(&field_out[p_u32_idx + 1u], 0u);
-        atomicOr(&field_out[p_u32_idx + 1u], params.inj_hash_high);
+        // Since p_u32_idx is defined in the Mycelial Block, let's redeclare locally to avoid scope errors
+        let target_p_idx = params.off_plasmids + (idx * 2u);
+        atomicAnd(&field_out[target_p_idx], 0u);
+        atomicOr(&field_out[target_p_idx], params.inj_hash_low);
+        atomicAnd(&field_out[target_p_idx + 1u], 0u);
+        atomicOr(&field_out[target_p_idx + 1u], params.inj_hash_high);
     } else {
         // Carry over existing plasmids if no injection overrides them
-        let p_u32_idx = params.off_plasmids + (idx * 2u);
-        atomicOr(&field_out[p_u32_idx], field_in[p_u32_idx]);
-        atomicOr(&field_out[p_u32_idx + 1u], field_in[p_u32_idx + 1u]);
+        let target_p_idx = params.off_plasmids + (idx * 2u);
+        atomicOr(&field_out[target_p_idx], field_in[target_p_idx]);
+        atomicOr(&field_out[target_p_idx + 1u], field_in[target_p_idx + 1u]);
     }
 
     set_byte(params.off_theta, idx, next_theta);

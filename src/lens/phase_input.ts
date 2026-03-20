@@ -1,6 +1,6 @@
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
-import { PhaseComputeEngine } from "./phase_compute.js";
-import { SovereignOracle } from "../ontology/oracle.js";
+import { PhaseComputeEngine } from "./phase_compute.ts";
+import { SovereignOracle } from "../ontology/oracle.ts";
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
@@ -19,6 +19,11 @@ export class PhasePerturbationInjector {
         this.memory = memory;
         this.engine = engine;
         this.oracle = oracle;
+    }
+
+    public rebind(field: PhaseLatticeField, engine?: PhaseComputeEngine) {
+        this.field = field;
+        this.engine = engine;
     }
 
     public attach() {
