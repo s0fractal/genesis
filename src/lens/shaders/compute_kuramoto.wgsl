@@ -191,7 +191,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     // Kinematic Updates
-    let omega_delta = i32(round(kuramoto));
+    var omega_delta = i32(round(kuramoto));
+    omega_delta = fast_abs(omega_delta); // O-62: Evaluated by Autopoietic Transpiler Bridge
     let next_omega = clamp(omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
 
