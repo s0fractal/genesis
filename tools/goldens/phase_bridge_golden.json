@@ -10,7 +10,8 @@
       "totalEnergy": 54912,
       "totalLocks": 7967,
       "totalPlasmids": 0,
-      "omegaSpan": "-1..1"
+      "omegaSpan": "-1..1",
+      "runLength": 1
     },
     {
       "tick": 1,
@@ -18,7 +19,8 @@
       "totalEnergy": 57719,
       "totalLocks": 10207,
       "totalPlasmids": 196,
-      "omegaSpan": "-2..2"
+      "omegaSpan": "-2..2",
+      "runLength": 1
     },
     {
       "tick": 2,
@@ -26,7 +28,8 @@
       "totalEnergy": 59128,
       "totalLocks": 12167,
       "totalPlasmids": 204,
-      "omegaSpan": "-3..3"
+      "omegaSpan": "-3..3",
+      "runLength": 1
     },
     {
       "tick": 3,
@@ -34,7 +37,8 @@
       "totalEnergy": 60084,
       "totalLocks": 14004,
       "totalPlasmids": 212,
-      "omegaSpan": "-4..3"
+      "omegaSpan": "-4..3",
+      "runLength": 1
     },
     {
       "tick": 4,
@@ -42,7 +46,8 @@
       "totalEnergy": 60750,
       "totalLocks": 15745,
       "totalPlasmids": 223,
-      "omegaSpan": "-3..4"
+      "omegaSpan": "-3..4",
+      "runLength": 1
     },
     {
       "tick": 5,
@@ -50,7 +55,8 @@
       "totalEnergy": 61164,
       "totalLocks": 17383,
       "totalPlasmids": 227,
-      "omegaSpan": "-4..5"
+      "omegaSpan": "-4..5",
+      "runLength": 1
     },
     {
       "tick": 6,
@@ -58,7 +64,8 @@
       "totalEnergy": 61419,
       "totalLocks": 18990,
       "totalPlasmids": 228,
-      "omegaSpan": "-5..5"
+      "omegaSpan": "-5..5",
+      "runLength": 1
     },
     {
       "tick": 7,
@@ -66,7 +73,8 @@
       "totalEnergy": 61618,
       "totalLocks": 20636,
       "totalPlasmids": 228,
-      "omegaSpan": "-6..5"
+      "omegaSpan": "-6..5",
+      "runLength": 1
     },
     {
       "tick": 8,
@@ -74,7 +82,8 @@
       "totalEnergy": 61739,
       "totalLocks": 22282,
       "totalPlasmids": 228,
-      "omegaSpan": "-6..5"
+      "omegaSpan": "-6..5",
+      "runLength": 1
     },
     {
       "tick": 9,
@@ -82,7 +91,8 @@
       "totalEnergy": 61819,
       "totalLocks": 23928,
       "totalPlasmids": 228,
-      "omegaSpan": "-7..5"
+      "omegaSpan": "-7..5",
+      "runLength": 1
     },
     {
       "tick": 10,
@@ -90,7 +100,8 @@
       "totalEnergy": 61833,
       "totalLocks": 25574,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..7"
+      "omegaSpan": "-8..7",
+      "runLength": 1
     },
     {
       "tick": 11,
@@ -98,7 +109,8 @@
       "totalEnergy": 61833,
       "totalLocks": 27220,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..8"
+      "omegaSpan": "-8..8",
+      "runLength": 1
     },
     {
       "tick": 12,
@@ -106,7 +118,8 @@
       "totalEnergy": 61833,
       "totalLocks": 28866,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..9"
+      "omegaSpan": "-8..9",
+      "runLength": 1
     }
   ],
   "wasmTrace": [
@@ -116,7 +129,8 @@
       "totalEnergy": 54912,
       "totalLocks": 7967,
       "totalPlasmids": 0,
-      "omegaSpan": "-1..1"
+      "omegaSpan": "-1..1",
+      "runLength": 1
     },
     {
       "tick": 1,
@@ -124,7 +138,8 @@
       "totalEnergy": 57719,
       "totalLocks": 10207,
       "totalPlasmids": 196,
-      "omegaSpan": "-2..2"
+      "omegaSpan": "-2..2",
+      "runLength": 1
     },
     {
       "tick": 2,
@@ -132,7 +147,8 @@
       "totalEnergy": 59128,
       "totalLocks": 12167,
       "totalPlasmids": 204,
-      "omegaSpan": "-3..3"
+      "omegaSpan": "-3..3",
+      "runLength": 1
     },
     {
       "tick": 3,
@@ -140,7 +156,8 @@
       "totalEnergy": 60084,
       "totalLocks": 14004,
       "totalPlasmids": 212,
-      "omegaSpan": "-4..3"
+      "omegaSpan": "-4..3",
+      "runLength": 1
     },
     {
       "tick": 4,
@@ -148,7 +165,8 @@
       "totalEnergy": 60750,
       "totalLocks": 15745,
       "totalPlasmids": 223,
-      "omegaSpan": "-3..4"
+      "omegaSpan": "-3..4",
+      "runLength": 1
     },
     {
       "tick": 5,
@@ -156,7 +174,8 @@
       "totalEnergy": 61164,
       "totalLocks": 17383,
       "totalPlasmids": 227,
-      "omegaSpan": "-4..5"
+      "omegaSpan": "-4..5",
+      "runLength": 1
     },
     {
       "tick": 6,
@@ -164,7 +183,8 @@
       "totalEnergy": 61419,
       "totalLocks": 18990,
       "totalPlasmids": 228,
-      "omegaSpan": "-5..5"
+      "omegaSpan": "-5..5",
+      "runLength": 1
     },
     {
       "tick": 7,
@@ -172,7 +192,8 @@
       "totalEnergy": 61618,
       "totalLocks": 20636,
       "totalPlasmids": 228,
-      "omegaSpan": "-6..5"
+      "omegaSpan": "-6..5",
+      "runLength": 1
     },
     {
       "tick": 8,
@@ -180,7 +201,8 @@
       "totalEnergy": 61739,
       "totalLocks": 22282,
       "totalPlasmids": 228,
-      "omegaSpan": "-6..5"
+      "omegaSpan": "-6..5",
+      "runLength": 1
     },
     {
       "tick": 9,
@@ -188,7 +210,8 @@
       "totalEnergy": 61819,
       "totalLocks": 23928,
       "totalPlasmids": 228,
-      "omegaSpan": "-7..5"
+      "omegaSpan": "-7..5",
+      "runLength": 1
     },
     {
       "tick": 10,
@@ -196,7 +219,8 @@
       "totalEnergy": 61833,
       "totalLocks": 25574,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..7"
+      "omegaSpan": "-8..7",
+      "runLength": 1
     },
     {
       "tick": 11,
@@ -204,7 +228,8 @@
       "totalEnergy": 61833,
       "totalLocks": 27220,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..8"
+      "omegaSpan": "-8..8",
+      "runLength": 1
     },
     {
       "tick": 12,
@@ -212,7 +237,8 @@
       "totalEnergy": 61833,
       "totalLocks": 28866,
       "totalPlasmids": 228,
-      "omegaSpan": "-8..9"
+      "omegaSpan": "-8..9",
+      "runLength": 1
     }
   ],
   "invariants": {

@@ -23,6 +23,7 @@ export interface HybridReplayTraceEntry {
     totalLocks: number;
     totalPlasmids: number;
     omegaSpan: string;
+    runLength?: number;
 }
 
 export interface HybridReplayGolden {
@@ -58,12 +59,27 @@ export async function loadHybridReplayDataset(wasm: WebAssembly.Exports): Promis
 
     const snapshots: PhaseField[] = [];
     snapshots.push(snapshotHybridField(field, wasm));
-    validateHybridSnapshot(field, golden.wasmTrace[0]);
+    
+    let currentTraceIdx = 0;
+    let ticksInCurrentRun = 0;
+    
+    validateHybridSnapshot(field, golden.wasmTrace[currentTraceIdx], 0);
+    ticksInCurrentRun++;
 
     for (let tick = 1; tick <= golden.ticks; tick++) {
         execute_phase_bridge_tick(field, 0);
         snapshots.push(snapshotHybridField(field, wasm));
-        validateHybridSnapshot(field, golden.wasmTrace[tick]);
+        
+        const currentEntry = golden.wasmTrace[currentTraceIdx];
+        const runLength = currentEntry.runLength ?? 1;
+        
+        if (ticksInCurrentRun >= runLength) {
+            currentTraceIdx++;
+            ticksInCurrentRun = 0;
+        }
+        
+        validateHybridSnapshot(field, golden.wasmTrace[currentTraceIdx], tick);
+        ticksInCurrentRun++;
     }
 
     return {
@@ -92,6 +108,8 @@ export function cropPhaseField(field: PhaseField, radialBins: number): PhaseFiel
                 amplitude: cell.amplitude,
                 lock: cell.lock,
                 entanglement: cell.entanglement,
+                cellStatus: cell.cellStatus,
+                plasmids: cell.plasmids,
             };
         },
     );
@@ -135,6 +153,8 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
                 amplitude: clamp(Math.round(sumAmplitude / harmonicCount), 0, 255),
                 lock: clamp(Math.round(sumLock / harmonicCount), 0, 255),
                 entanglement: maxEntanglement,
+                cellStatus: 0,
+                plasmids: 0n,
             };
         },
     );
@@ -172,6 +192,8 @@ export function snapshotHybridField(field: Field, wasm: WebAssembly.Exports): Ph
                 lock: locks[index],
                 // Bridge mode has no direct antipodal field, so plasmid presence becomes a view-only proxy.
                 entanglement: plasmids[index] === 0n ? 0 : clamp(96 + locks[index], 0, 255),
+                cellStatus: 0,
+                plasmids: plasmids[index],
             };
         },
     );
@@ -204,26 +226,28 @@ export function snapshotHybridComparableField(field: Field, wasm: WebAssembly.Ex
                 lock: locks[index],
                 // Cross-mode admission should compare only registers that actually exist in bridge mode.
                 entanglement: 0,
+                cellStatus: 0,
+                plasmids: 0n,
             };
         },
     );
 }
 
-function validateHybridSnapshot(field: Field, trace: HybridReplayTraceEntry): void {
+function validateHybridSnapshot(field: Field, trace: HybridReplayTraceEntry, actualTick: number): void {
     const signature = field_signature(field);
     if (signature !== trace.signature) {
         throw new Error(
-            `Hybrid replay signature mismatch at tick=${trace.tick}: expected=${trace.signature} actual=${signature}`,
+            `Hybrid replay signature mismatch at tick=${actualTick} (RLE chunk=${trace.tick}): expected=${trace.signature} actual=${signature}`,
         );
     }
     if (field_total_energy(field) !== trace.totalEnergy) {
-        throw new Error(`Hybrid replay energy mismatch at tick=${trace.tick}`);
+        throw new Error(`Hybrid replay energy mismatch at tick=${actualTick} (RLE chunk=${trace.tick})`);
     }
     if (field_total_locks(field) !== trace.totalLocks) {
-        throw new Error(`Hybrid replay lock mismatch at tick=${trace.tick}`);
+        throw new Error(`Hybrid replay lock mismatch at tick=${actualTick} (RLE chunk=${trace.tick})`);
     }
     if (field_total_plasmids(field) !== trace.totalPlasmids) {
-        throw new Error(`Hybrid replay plasmid mismatch at tick=${trace.tick}`);
+        throw new Error(`Hybrid replay plasmid mismatch at tick=${actualTick} (RLE chunk=${trace.tick})`);
     }
 }
 
@@ -247,7 +271,5 @@ function assertValidGolden(value: unknown): asserts value is HybridReplayGolden 
     if (typeof golden.width !== "number" || typeof golden.height !== "number" || typeof golden.ticks !== "number") {
         throw new Error("Hybrid replay golden is missing dimensions");
     }
-    if (golden.wasmTrace.length !== golden.ticks + 1) {
-        throw new Error("Hybrid replay golden trace length does not match ticks");
-    }
+    // RLE compression prevents strict len == ticks check.
 }

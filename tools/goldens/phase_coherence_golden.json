@@ -12,91 +12,104 @@
       "legacySignature": "d119e9f7b5059374",
       "structuralSignature": "5a999eb2b3e727b0",
       "totalAmplitude": 120926,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 1,
       "legacySignature": "7342307980a5f348",
       "structuralSignature": "3460be00e2f10673",
       "totalAmplitude": 127018,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 2,
       "legacySignature": "e13eb7b75f1e2f8b",
       "structuralSignature": "64e49fda9d349244",
       "totalAmplitude": 132240,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 3,
       "legacySignature": "54741c5fa2ea6ad2",
       "structuralSignature": "c751ea06dd3402ff",
       "totalAmplitude": 136586,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 4,
       "legacySignature": "b7c359ca09ddd679",
       "structuralSignature": "90c65e091ddf9147",
       "totalAmplitude": 140076,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 5,
       "legacySignature": "b18b965423c16ca4",
       "structuralSignature": "6018ebf568189dd2",
       "totalAmplitude": 142749,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 6,
       "legacySignature": "a1e0266d6b11b6f1",
       "structuralSignature": "dff11c4c72c10de4",
       "totalAmplitude": 144689,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 7,
       "legacySignature": "f29013735e6b332b",
       "structuralSignature": "0b33f6bbfa623e3c",
       "totalAmplitude": 145887,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 8,
       "legacySignature": "2214d1133fa40e98",
       "structuralSignature": "1e8c9fcc660cd027",
       "totalAmplitude": 146489,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 9,
       "legacySignature": "a6b3cdd265c740b4",
       "structuralSignature": "a8e1d9a36b7d3431",
       "totalAmplitude": 146759,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 10,
       "legacySignature": "45714103df6ab443",
       "structuralSignature": "2fb620ce9775aae9",
       "totalAmplitude": 146856,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 11,
       "legacySignature": "63933c6f9f67542c",
       "structuralSignature": "25feef810fa0bf98",
       "totalAmplitude": 146880,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     },
     {
       "tick": 12,
       "legacySignature": "3322e0ba8f65d52f",
       "structuralSignature": "378e26b26232cb25",
       "totalAmplitude": 146880,
-      "totalEntanglement": 0
+      "totalEntanglement": 0,
+      "runLength": 1
     }
   ],
   "wasmTrace": [
@@ -106,7 +119,8 @@
       "structuralSignature": "5a999eb2b3e727b0",
       "totalAmplitude": 120926,
       "totalEntanglement": 0,
-      "omegaSpan": "-2..2"
+      "omegaSpan": "-2..2",
+      "runLength": 1
     },
     {
       "tick": 1,
@@ -114,7 +128,8 @@
       "structuralSignature": "3460be00e2f10673",
       "totalAmplitude": 127018,
       "totalEntanglement": 0,
-      "omegaSpan": "-3..3"
+      "omegaSpan": "-3..3",
+      "runLength": 1
     },
     {
       "tick": 2,
@@ -122,7 +137,8 @@
       "structuralSignature": "64e49fda9d349244",
       "totalAmplitude": 132240,
       "totalEntanglement": 0,
-      "omegaSpan": "-4..4"
+      "omegaSpan": "-4..4",
+      "runLength": 1
     },
     {
       "tick": 3,
@@ -130,7 +146,8 @@
       "structuralSignature": "c751ea06dd3402ff",
       "totalAmplitude": 136586,
       "totalEntanglement": 0,
-      "omegaSpan": "-5..4"
+      "omegaSpan": "-5..4",
+      "runLength": 1
     },
     {
       "tick": 4,
@@ -138,7 +155,8 @@
       "structuralSignature": "90c65e091ddf9147",
       "totalAmplitude": 140076,
       "totalEntanglement": 0,
-      "omegaSpan": "-5..5"
+      "omegaSpan": "-5..5",
+      "runLength": 1
     },
     {
       "tick": 5,
@@ -146,7 +164,8 @@
       "structuralSignature": "6018ebf568189dd2",
       "totalAmplitude": 142749,
       "totalEntanglement": 0,
-      "omegaSpan": "-6..5"
+      "omegaSpan": "-6..5",
+      "runLength": 1
     },
     {
       "tick": 6,
@@ -154,7 +173,8 @@
       "structuralSignature": "dff11c4c72c10de4",
       "totalAmplitude": 144689,
       "totalEntanglement": 0,
-      "omegaSpan": "-7..6"
+      "omegaSpan": "-7..6",
+      "runLength": 1
     },
     {
       "tick": 7,
@@ -162,7 +182,8 @@
       "structuralSignature": "0b33f6bbfa623e3c",
       "totalAmplitude": 145887,
       "totalEntanglement": 0,
-      "omegaSpan": "-8..7"
+      "omegaSpan": "-8..7",
+      "runLength": 1
     },
     {
       "tick": 8,
@@ -170,7 +191,8 @@
       "structuralSignature": "1e8c9fcc660cd027",
       "totalAmplitude": 146489,
       "totalEntanglement": 0,
-      "omegaSpan": "-9..7"
+      "omegaSpan": "-9..7",
+      "runLength": 1
     },
     {
       "tick": 9,
@@ -178,7 +200,8 @@
       "structuralSignature": "a8e1d9a36b7d3431",
       "totalAmplitude": 146759,
       "totalEntanglement": 0,
-      "omegaSpan": "-9..8"
+      "omegaSpan": "-9..8",
+      "runLength": 1
     },
     {
       "tick": 10,
@@ -186,7 +209,8 @@
       "structuralSignature": "2fb620ce9775aae9",
       "totalAmplitude": 146856,
       "totalEntanglement": 0,
-      "omegaSpan": "-9..8"
+      "omegaSpan": "-9..8",
+      "runLength": 1
     },
     {
       "tick": 11,
@@ -194,7 +218,8 @@
       "structuralSignature": "25feef810fa0bf98",
       "totalAmplitude": 146880,
       "totalEntanglement": 0,
-      "omegaSpan": "-10..8"
+      "omegaSpan": "-10..8",
+      "runLength": 1
     },
     {
       "tick": 12,
@@ -202,7 +227,8 @@
       "structuralSignature": "378e26b26232cb25",
       "totalAmplitude": 146880,
       "totalEntanglement": 0,
-      "omegaSpan": "-10..8"
+      "omegaSpan": "-10..8",
+      "runLength": 1
     }
   ],
   "invariants": {

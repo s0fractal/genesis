@@ -20,7 +20,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 0,
       "phaseSignature": "3ac176b3de047431",
-      "hybridSignature": "3ac176b3de047431"
+      "hybridSignature": "3ac176b3de047431",
+      "runLength": 1
     },
     {
       "tick": 1,
@@ -30,7 +31,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 5,
       "phaseSignature": "2ff9e472cdd84470",
-      "hybridSignature": "67765fca3596684d"
+      "hybridSignature": "67765fca3596684d",
+      "runLength": 1
     },
     {
       "tick": 2,
@@ -40,7 +42,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
       "phaseSignature": "92b93bfd3280cbad",
-      "hybridSignature": "e31d48bcb3caa490"
+      "hybridSignature": "e31d48bcb3caa490",
+      "runLength": 1
     },
     {
       "tick": 3,
@@ -50,7 +53,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 20,
       "phaseSignature": "daefc75e1c90f223",
-      "hybridSignature": "d428ed92f81926f6"
+      "hybridSignature": "d428ed92f81926f6",
+      "runLength": 1
     },
     {
       "tick": 4,
@@ -60,7 +64,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
       "phaseSignature": "e434703289b2886b",
-      "hybridSignature": "974e61471ac88f8e"
+      "hybridSignature": "974e61471ac88f8e",
+      "runLength": 1
     },
     {
       "tick": 5,
@@ -70,7 +75,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 29,
       "phaseSignature": "fecf89566a3f77c2",
-      "hybridSignature": "8c9f9800bf8d1a4e"
+      "hybridSignature": "8c9f9800bf8d1a4e",
+      "runLength": 1
     },
     {
       "tick": 6,
@@ -80,7 +86,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 32,
       "phaseSignature": "38367e943bcc8cbe",
-      "hybridSignature": "0bb0e1bf704c8de0"
+      "hybridSignature": "0bb0e1bf704c8de0",
+      "runLength": 1
     },
     {
       "tick": 7,
@@ -90,7 +97,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 34,
       "phaseSignature": "c432a6276a610c69",
-      "hybridSignature": "ca5d155bef7cfe16"
+      "hybridSignature": "ca5d155bef7cfe16",
+      "runLength": 1
     },
     {
       "tick": 8,
@@ -100,7 +108,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
       "phaseSignature": "d331647226bf25db",
-      "hybridSignature": "c4e56cc0084989a8"
+      "hybridSignature": "c4e56cc0084989a8",
+      "runLength": 1
     },
     {
       "tick": 9,
@@ -110,7 +119,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 31,
       "phaseSignature": "87cab79fd00fe6a2",
-      "hybridSignature": "9dd67fdff468b423"
+      "hybridSignature": "9dd67fdff468b423",
+      "runLength": 1
     },
     {
       "tick": 10,
@@ -120,7 +130,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 27,
       "phaseSignature": "f4ed375543b76d5f",
-      "hybridSignature": "97761b1ca758d857"
+      "hybridSignature": "97761b1ca758d857",
+      "runLength": 1
     },
     {
       "tick": 11,
@@ -130,7 +141,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 30,
       "phaseSignature": "f1313a22b54a45ee",
-      "hybridSignature": "776a9ce2d0adfb5f"
+      "hybridSignature": "776a9ce2d0adfb5f",
+      "runLength": 1
     },
     {
       "tick": 12,
@@ -140,7 +152,8 @@
       "totalEntanglementDelta": 0,
       "maxPhaseDistance": 35,
       "phaseSignature": "1bd5f63129dedbca",
-      "hybridSignature": "eae4b30e2c7ca541"
+      "hybridSignature": "eae4b30e2c7ca541",
+      "runLength": 1
     }
   ],
   "invariants": {

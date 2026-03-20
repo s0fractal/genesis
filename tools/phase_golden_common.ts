@@ -54,6 +54,7 @@ export interface PhaseTraceEntry {
     structuralSignature: string;
     totalAmplitude: number;
     totalEntanglement: number;
+    runLength?: number;
 }
 
 export interface PhaseWasmTraceEntry extends PhaseTraceEntry {
@@ -67,6 +68,7 @@ export interface BridgeTraceEntry {
     totalLocks: number;
     totalPlasmids: number;
     omegaSpan: string;
+    runLength?: number;
 }
 
 export interface PhaseCoherenceGolden {
@@ -106,6 +108,7 @@ export interface PhaseCrossTraceEntry {
     maxPhaseDistance: number;
     phaseSignature: string;
     hybridSignature: string;
+    runLength?: number;
 }
 
 export interface PhaseCrossGolden {
@@ -138,24 +141,30 @@ export const buildReferenceSeed = buildCanonicalPhaseSeed;
 export function captureReferenceTrace(shape: PhaseFieldShape, ticks: number): PhaseTraceEntry[] {
     const trace: PhaseTraceEntry[] = [];
     let field = buildReferenceSeed(shape);
+    let lastEntry: PhaseTraceEntry | null = null;
 
-    trace.push({
-        tick: 0,
-        legacySignature: fieldSignature(field),
-        structuralSignature: structuralSignature(field),
-        totalAmplitude: sumAmplitude(field),
-        totalEntanglement: sumEntanglement(field),
-    });
-
-    for (let tick = 1; tick <= ticks; tick++) {
-        field = stepPhaseField(field);
-        trace.push({
+    for (let tick = 0; tick <= ticks; tick++) {
+        if (tick > 0) field = stepPhaseField(field);
+        
+        const current: PhaseTraceEntry = {
             tick,
             legacySignature: fieldSignature(field),
             structuralSignature: structuralSignature(field),
             totalAmplitude: sumAmplitude(field),
             totalEntanglement: sumEntanglement(field),
-        });
+        };
+        
+        if (lastEntry &&
+            lastEntry.legacySignature === current.legacySignature &&
+            lastEntry.structuralSignature === current.structuralSignature &&
+            lastEntry.totalAmplitude === current.totalAmplitude &&
+            lastEntry.totalEntanglement === current.totalEntanglement) {
+            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
+        } else {
+            current.runLength = 1;
+            trace.push(current);
+            lastEntry = current;
+        }
     }
 
     return trace;
@@ -169,26 +178,32 @@ export async function initOmegaWasm(): Promise<WebAssembly.Exports> {
 export function capturePhaseWasmTrace(sectors: number, radialBins: number, harmonics: number, ticks: number): PhaseWasmTraceEntry[] {
     const field = new PhaseLatticeField(sectors, radialBins, harmonics);
     const trace: PhaseWasmTraceEntry[] = [];
+    let lastEntry: PhaseWasmTraceEntry | null = null;
 
-    trace.push({
-        tick: 0,
-        legacySignature: phase_lattice_signature(field),
-        structuralSignature: phase_lattice_signature(field),
-        totalAmplitude: phase_lattice_total_amplitude(field),
-        totalEntanglement: phase_lattice_total_entanglement(field),
-        omegaSpan: phase_lattice_omega_span(field),
-    });
-
-    for (let tick = 1; tick <= ticks; tick++) {
-        execute_phase_lattice_tick(field);
-        trace.push({
+    for (let tick = 0; tick <= ticks; tick++) {
+        if (tick > 0) execute_phase_lattice_tick(field);
+        
+        const current: PhaseWasmTraceEntry = {
             tick,
             legacySignature: phase_lattice_signature(field),
             structuralSignature: phase_lattice_signature(field),
             totalAmplitude: phase_lattice_total_amplitude(field),
             totalEntanglement: phase_lattice_total_entanglement(field),
             omegaSpan: phase_lattice_omega_span(field),
-        });
+        };
+        
+        if (lastEntry &&
+            lastEntry.legacySignature === current.legacySignature &&
+            lastEntry.structuralSignature === current.structuralSignature &&
+            lastEntry.totalAmplitude === current.totalAmplitude &&
+            lastEntry.totalEntanglement === current.totalEntanglement &&
+            lastEntry.omegaSpan === current.omegaSpan) {
+            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
+        } else {
+            current.runLength = 1;
+            trace.push(current);
+            lastEntry = current;
+        }
     }
 
     return trace;
@@ -199,25 +214,32 @@ export function captureBridgeWasmTrace(width: number, height: number, ticks: num
     seed_phase_bridge_pattern(field);
 
     const trace: BridgeTraceEntry[] = [];
-    trace.push({
-        tick: 0,
-        signature: field_signature(field),
-        totalEnergy: field_total_energy(field),
-        totalLocks: field_total_locks(field),
-        totalPlasmids: field_total_plasmids(field),
-        omegaSpan: field_omega_span(field),
-    });
-
-    for (let tick = 1; tick <= ticks; tick++) {
-        execute_phase_bridge_tick(field, 0);
-        trace.push({
+    let lastEntry: BridgeTraceEntry | null = null;
+    
+    for (let tick = 0; tick <= ticks; tick++) {
+        if (tick > 0) execute_phase_bridge_tick(field, 0);
+        
+        const current: BridgeTraceEntry = {
             tick,
             signature: field_signature(field),
             totalEnergy: field_total_energy(field),
             totalLocks: field_total_locks(field),
             totalPlasmids: field_total_plasmids(field),
             omegaSpan: field_omega_span(field),
-        });
+        };
+        
+        if (lastEntry &&
+            lastEntry.signature === current.signature &&
+            lastEntry.totalEnergy === current.totalEnergy &&
+            lastEntry.totalLocks === current.totalLocks &&
+            lastEntry.totalPlasmids === current.totalPlasmids &&
+            lastEntry.omegaSpan === current.omegaSpan) {
+            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
+        } else {
+            current.runLength = 1;
+            trace.push(current);
+            lastEntry = current;
+        }
     }
 
     return trace;
@@ -226,26 +248,32 @@ export function captureBridgeWasmTrace(width: number, height: number, ticks: num
 export function captureBridgeReferenceTrace(width: number, height: number, ticks: number): BridgeTraceEntry[] {
     const trace: BridgeTraceEntry[] = [];
     let field = buildBridgeSeed(width, height);
+    let lastEntry: BridgeTraceEntry | null = null;
 
-    trace.push({
-        tick: 0,
-        signature: bridgeFieldSignature(field),
-        totalEnergy: bridgeTotalEnergy(field),
-        totalLocks: bridgeTotalLocks(field),
-        totalPlasmids: bridgeTotalPlasmids(field),
-        omegaSpan: bridgeOmegaSpan(field),
-    });
-
-    for (let tick = 1; tick <= ticks; tick++) {
-        field = stepBridgeField(field);
-        trace.push({
+    for (let tick = 0; tick <= ticks; tick++) {
+        if (tick > 0) field = stepBridgeField(field);
+        
+        const current: BridgeTraceEntry = {
             tick,
             signature: bridgeFieldSignature(field),
             totalEnergy: bridgeTotalEnergy(field),
             totalLocks: bridgeTotalLocks(field),
             totalPlasmids: bridgeTotalPlasmids(field),
             omegaSpan: bridgeOmegaSpan(field),
-        });
+        };
+        
+        if (lastEntry &&
+            lastEntry.signature === current.signature &&
+            lastEntry.totalEnergy === current.totalEnergy &&
+            lastEntry.totalLocks === current.totalLocks &&
+            lastEntry.totalPlasmids === current.totalPlasmids &&
+            lastEntry.omegaSpan === current.omegaSpan) {
+            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
+        } else {
+            current.runLength = 1;
+            trace.push(current);
+            lastEntry = current;
+        }
     }
 
     return trace;
@@ -333,11 +361,27 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     seed_phase_bridge_pattern(hybridField);
 
     const trace: PhaseCrossTraceEntry[] = [];
+    let lastEntry: PhaseCrossTraceEntry | null = null;
+
     for (let tick = 0; tick <= ticks; tick++) {
         const phaseCollapsed = collapsePhaseField(phaseField, collapsedRadialBins);
         const hybridCropped = cropPhaseField(snapshotHybridComparableField(hybridField, wasm), collapsedRadialBins);
         const summary = buildCrossTraceEntry(tick, phaseCollapsed, hybridCropped);
-        trace.push(summary);
+        
+        if (lastEntry &&
+            lastEntry.changedCells === summary.changedCells &&
+            lastEntry.totalAmplitudeDelta === summary.totalAmplitudeDelta &&
+            lastEntry.totalLockDelta === summary.totalLockDelta &&
+            lastEntry.totalEntanglementDelta === summary.totalEntanglementDelta &&
+            lastEntry.maxPhaseDistance === summary.maxPhaseDistance &&
+            lastEntry.phaseSignature === summary.phaseSignature &&
+            lastEntry.hybridSignature === summary.hybridSignature) {
+            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
+        } else {
+            summary.runLength = 1;
+            trace.push(summary);
+            lastEntry = summary;
+        }
 
         if (tick < ticks) {
             phaseField = stepPhaseField(phaseField);
