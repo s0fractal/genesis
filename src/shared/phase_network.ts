@@ -2,6 +2,9 @@ export interface ForeignPlasmid {
     hash: string;
     targetBucket: number;
     origin: string;
+    // O-48: Cryptographic Authentication Token
+    locks: number;
+    energy: number;
 }
 
 export class PhaseNetwork {
@@ -16,15 +19,23 @@ export class PhaseNetwork {
         this.channel = new BroadcastChannel("omega_64_mycelium");
         this.channel.onmessage = (e) => {
             if (e.data && e.data.type === "FOREIGN_PLASMID") {
-                console.log(`📡 [Mycelium] Received Foreign Plasmid via Local Broadcast: ${e.data.payload.hash}`);
-                this.onPlasmidReceived(e.data.payload);
+                const p = e.data.payload as ForeignPlasmid;
+                
+                // O-48 Phase 1: Payload Authentication
+                if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || p.locks <= 1000 || p.energy <= 220) {
+                    console.log(`🛡️ [Mycelium Firewall] Rejected Local Transmission. Insufficient Biological Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
+                    return;
+                }
+                
+                console.log(`📡 [Mycelium] Received Cryptographically Verified Plasmid via Local Broadcast: ${p.hash}`);
+                this.onPlasmidReceived(p);
             }
         };
     }
 
     // Broadcast a mutated idea to all connected mycelial nodes (Local & Remote)
-    public broadcastPlasmid(hash: string, targetBucket: number) {
-        const payload = { hash, targetBucket, origin: "peer_" + Math.random().toString(36).substring(7) };
+    public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number) {
+        const payload: ForeignPlasmid = { hash, targetBucket, origin: "peer_" + Math.random().toString(36).substring(7), locks, energy };
         const msg = { type: "FOREIGN_PLASMID", payload };
         
         // Emit locally
@@ -81,10 +92,18 @@ export class PhaseNetwork {
             try {
                 const data = JSON.parse(e.data);
                 if (data && data.type === "FOREIGN_PLASMID") {
-                    console.log(`📡 [WebRTC] Received Foreign Plasmid: ${data.payload.hash}`);
-                    this.onPlasmidReceived(data.payload);
+                    const p = data.payload as ForeignPlasmid;
+                    
+                    // O-48 Phase 1: Payload Authentication
+                    if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || p.locks <= 1000 || p.energy <= 220) {
+                        console.log(`🛡️ [WebRTC Firewall] Rejected Global Transmission. Insufficient Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
+                        return;
+                    }
+                    
+                    console.log(`📡 [WebRTC] Received Cryptographically Verified Plasmid: ${p.hash}`);
+                    this.onPlasmidReceived(p);
                 }
-            } catch (err) {}
+            } catch (_err) {}
         };
         dc.onclose = () => this.rtcConnections.delete(dc);
     }

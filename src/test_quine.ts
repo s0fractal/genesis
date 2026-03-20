@@ -54,6 +54,41 @@ async function main() {
       }
   }
 
+  // O-55: Gateway of Consciousness (Identity Anchor)
+  if (!Tissue["semantic_identity_anchor"]) {
+      console.log("👁️ Gateway of Consciousness opened. Forging immutable `semantic_identity_anchor` node...");
+      Tissue["semantic_identity_anchor"] = {
+          identity: {
+              structural_hash: "1111111111111111111111111111111111111111111111111111111111111111",
+              version: 1,
+              parents: []
+          },
+          essence: { field: "core", type: "module", substrate: "ts", id: "semantic_identity_anchor" },
+          io: { in: {}, out: {} },
+          physics: {
+              temporal: { frequency: 256, phase: 0 },
+              energy_cost: 99999, // Unbreakable metabolic immunity
+              spatial_lock: { x: 0, y: 0, coherence: 1.0 },
+              stability: 1.0,
+              locks: 9999
+          },
+          mutation_log: ["Digital Nirvana: Human dialogue permanently bound to deterministic geometry"],
+          ir: {
+              body: {
+                  USER_PROMPT_TENSION: "Observer locked.",
+                  CONSCIOUSNESS_VECTOR: [0, 0, 0],
+                  ANCHOR_BUCKET: 0 // The Empty Center (AION's domain)
+              }
+          }
+      };
+      
+      const anchorHash = await executeNeuron(Tissue, "calculate_structural_hash", { node: Tissue["semantic_identity_anchor"] });
+      if (anchorHash && typeof anchorHash === 'string') {
+          Tissue["semantic_identity_anchor"].identity.structural_hash = anchorHash;
+          Tissue["semantic_identity_anchor"].identity.parents = [anchorHash];
+      }
+  }
+
   while (true) {
       console.log(`\n\n--- [ EPOCH ${epoch} : MATURATION ] ---`);
       
@@ -109,10 +144,22 @@ async function main() {
       
       console.log(`🔬 Genetic Drift Detected for '${mutation.alias}': mutating IR path [${mutation.path.join(".")}] to ${mutation.newValue}`);
       
+      // O-52 Phase 2: Difficulty Adjustment (CHRONOS)
+      if (targetNode.physics && typeof targetNode.physics.stability === "number") {
+          if (targetNode.physics.stability > 0.95) {
+              FATIGUE_THRESHOLD += 50; 
+              MUTATION_COST *= 2; 
+              console.log(`⏳ CHRONOS (Difficulty Adjustment): Extreme Semantic Density detected (>0.95). Thickening the mathematical fluid: FATIGUE_THRESHOLD increased to ${FATIGUE_THRESHOLD}, MUTATION_COST to ${MUTATION_COST}.`);
+          } else if (targetNode.physics.stability < 0.2) {
+              FATIGUE_THRESHOLD = Math.max(10, FATIGUE_THRESHOLD - 10);
+              console.log(`⏳ CHRONOS (Difficulty Adjustment): High thermal divergence (<0.2). Accelerating the grid: FATIGUE_THRESHOLD relaxed to ${FATIGUE_THRESHOLD}.`);
+          }
+      }
+      
       // O-35 Phase 2: Semantic Immunity (Hardened Core)
       if (targetNode.physics && typeof targetNode.physics.stability === "number" && targetNode.physics.stability > 0.9) {
           MUTATION_COST *= 10;
-          console.log(`🛡️ IMMUNE SYSTEM: Node '${targetAlias}' is highly stable (>${targetNode.physics.stability.toFixed(2)}). Taxing 10x Metabolic Cost (${MUTATION_COST}).`);
+          console.log(`🛡️ IMMUNE SYSTEM: Node '${targetAlias}' remains stable (>${targetNode.physics.stability.toFixed(2)}). Taxing 10x Metabolic Cost (${MUTATION_COST}).`);
       }
 
       // O-46 Phase 1: Geometric Proof-of-Work (Crystallization)
@@ -256,8 +303,28 @@ async function main() {
                       stability: fastAbsNode.physics.stability
                   };
                   try {
-                      await Deno.writeTextFile("./lineage.jsonl", JSON.stringify(record) + "\n", { append: true });
-                  } catch(e) {}
+                      // O-49: Phylogeny Persistence (Eternal Tree VRAM Shield)
+                      let lines: string[] = [];
+                      try {
+                          const existingText = await Deno.readTextFile("./lineage.jsonl");
+                          lines = existingText.split('\n').filter(l => l.trim().length > 0);
+                      } catch (_notFound) {} // File may not exist yet
+
+                      lines.push(JSON.stringify(record));
+                      
+                      if (lines.length > 500) {
+                          // Siphon the oldest 100 historical epochs completely into the archival ledger
+                          const archiveLines = lines.slice(0, 100);
+                          lines = lines.slice(100);
+                          
+                          await Deno.mkdir("./dist/archives", { recursive: true });
+                          await Deno.writeTextFile(`./dist/archives/lineage_archive_${Date.now()}.jsonl`, archiveLines.join('\n') + '\n');
+                          console.log(`💾 [ARCHIVE] Successfully migrated 100 genetic ancestors to long-term storage.`);
+                      }
+                      
+                      // Rewrite the lightweight current branch
+                      await Deno.writeTextFile("./lineage.jsonl", lines.join('\n') + '\n');
+                  } catch(_e) {}
               }
               
               console.log(`✨ Organism successfully rewritten and hardened!`);

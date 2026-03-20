@@ -18,6 +18,7 @@ All core documentation, historical epochs, and technical whitepapers have been i
 - **Ontology 12**: [Sovereign LLM Oracle](./docs/ontology_12_specification.md)
 - **Ontology 23**: [Pure Metal WebGPU Transition](./docs/O23_ARCHITECTURE.md)
 - **Ontology 25**: [NOMOS Energy Rules](./docs/O25_ARCHITECTURE.md)
+- **Era 128-129**: [Proof of Meaning & Dialogic Interface](./docs/ERA_128_129_ARCHITECTURE.md)
 
 ---
 

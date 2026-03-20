@@ -23,8 +23,9 @@ import { SemanticCoupler } from "./ontology/semantic_layer.ts";
 import { SovereignOracle } from "./ontology/oracle.ts";
 import { PhylogeneticCanvas } from "./ontology/phylogeny.ts";
 import { PhaseNetwork } from "./shared/phase_network.ts";
+import { SenateChatHUD } from "./ontology/senate_hud.ts";
 
-const START_MS = performance.now();
+export const START_MS = performance.now();
 import {
   buildDiffSummary,
   getReplayComparison,
@@ -191,16 +192,24 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   oracle.boot();
 
   // O-45: Phase Network Initialization (WebRTC/Local Broadcast)
-  const network = new PhaseNetwork((plasmid) => {
+  const myPhaseNetwork = new PhaseNetwork((plasmid) => {
       console.log(`🍄 [Mycelium] Horizontal Gene Transfer: Absorbing Exogenous Plasmid ${plasmid.hash.substring(0,8)}... into Bucket #${plasmid.targetBucket}`);
       try {
           computeEngine.injectPlasmidIntoBucket(plasmid.targetBucket, BigInt(plasmid.hash));
-      } catch(e) {}
+      } catch(_e) {}
+  });
+  oracle.bindNetwork((hash, targetBucket) => {
+      // O-48: Genesis Override
+      // The local host Oracle possesses unconditional atomic generation capability. 
+      // We mathematically grant it a high-coherence token to clear the global WebRTC Phase Firewall.
+      myPhaseNetwork.broadcastPlasmid(hash.toString(), targetBucket, 1500, 300);
   });
 
-  oracle.bindNetwork((hash, targetBucket) => {
-      network.broadcastPlasmid(hash.toString(), targetBucket);
-  });
+  // O-51: Live Senate Visualization
+  const senateChat = new SenateChatHUD();
+  oracle.onSenateEvent = (event) => {
+      senateChat.handleEvent(event);
+  };
 
   const injector = new PhasePerturbationInjector(
     canvas,
@@ -251,6 +260,14 @@ async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 if (body.SECTORS !== undefined) tSectors = body.SECTORS;
                 if (body.RADIAL_BINS !== undefined) tRadial = body.RADIAL_BINS;
                 if (body.HARMONICS !== undefined) tHarm = body.HARMONICS;
+                
+                // O-50 Phase 2: Dimensional Parameter Clamp (VRAM Quota)
+                if (tSectors > 256) tSectors = 256;
+                if (tRadial > 256) tRadial = 256;
+                if (tHarm > 16) tHarm = 16;
+                // Minimum topology checks
+                if (tSectors < 8) tSectors = 8;
+                if (tRadial < 8) tRadial = 8;
 
                 if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
                     console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);

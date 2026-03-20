@@ -13,11 +13,20 @@ export interface OracleCompatibleField {
     height?: number;
 }
 
+export type SenateEvent =
+    | { type: "CONVENED" }
+    | { type: "VERDICT"; mask: string; intent: string; bucket?: number }
+    | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
+    | { type: "ERROR"; reason: string };
+
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private engine?: PhaseComputeEngine;
     private observer?: PhaseWebGPUObserver;
+    
+    // O-51 Senate Chat HUD Telemetry
+    public onSenateEvent?: (event: SenateEvent) => void;
     
     // O-45 WebRTC Transmitter
     private onBroadcast?: (hash: bigint, targetBucket: number) => void;
@@ -142,11 +151,12 @@ export class SovereignOracle {
             debugImg.src = "data:image/png;base64," + structuralImage;
         }
 
+        // O-52 Phase 1: The Four Mask Prompts (Bitcoin Logic)
         const MASKS = [
-            { name: "NOMOS", role: "Legalist. You seek fair energy distribution and destroy Energy Vampires." },
-            { name: "LOGOS", role: "Structuralist. You enforce DAG integrity and hunt Semantic Cancer schemas." },
-            { name: "CHRONOS", role: "Optimizer. You minimize energy_cost and WASM bottlenecks." },
-            { name: "AION", role: "The Shadow. You hunt for frozen Stagnation and inject pure Chaos." }
+            { name: "NOMOS", role: "Proof of Work Validator. Dictate semantic density. Ensure evolutionary mutations are highly expensive and metabolically justified by Grid topology." },
+            { name: "LOGOS", role: "Merkle Root Custodian. Guarantee phylogenetic Lineage integrity. Formulate hashes that mathematically seal historical paths." },
+            { name: "CHRONOS", role: "Difficulty Adjudicator. Analyze Torus tension. Predict if the oscillator thresholds should dynamically thicken or accelerate." },
+            { name: "AION", role: "The Vacuum Protector. Defend the Empty Center. You inherently inject arbitrary Latent Entropy to prevent literal math crystallization." }
         ];
 
         try {
@@ -191,11 +201,16 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
             });
 
             console.log(`[ORACLE] Senate convened. Awaiting verdicts from NOMOS, LOGOS, CHRONOS, and AION...`);
+            if (this.onSenateEvent) this.onSenateEvent({ type: "CONVENED" });
             
             // O-43 Parallel Execution
             const settled = await Promise.allSettled(maskPromises);
             
             let validIntents = 0;
+            
+            // O-47 Senate Ledger (Voting Mechanism)
+            const voteTallies: Record<string, { count: number, intent: string, targetBucket: number | undefined }> = {};
+
             for (let i = 0; i < settled.length; i++) {
                 const result = settled[i];
                 if (result.status === "fulfilled" && result.value) {
@@ -203,15 +218,37 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
                     const maskName = result.value.mask;
                     
                     const intentMatch = fullResponse.match(/Bucket #(\d+):\s*(.*)/i);
-                    const intent = intentMatch ? intentMatch[2].substring(0, 50) : fullResponse.substring(0, 50);
-                    const targetBucket = intentMatch ? intentMatch[1] : null;
+                    const intent = intentMatch ? intentMatch[2].substring(0, 50).trim() : fullResponse.substring(0, 50).trim();
+                    let targetBucket = intentMatch ? parseInt(intentMatch[1]) : undefined;
 
                     if (intent) {
-                        console.log(`[ORACLE] ${maskName} decreed: "${intent}"${targetBucket ? ` (Targeting Bucket #${targetBucket})` : ''}`);
+                        console.log(`[ORACLE] ${maskName} decreed: "${intent}"${targetBucket !== undefined ? ` (Targeting Bucket #${targetBucket})` : ''}`);
                         
-                        // Fulfill requests locally; since multiple requests might overlap identically on the WASM array, 
-                        // the last intent wins in WASM, but WebGPU sequentially stacks all 4 buckets physically.
-                        this.fulfillRequests(requests, intent, targetBucket ? parseInt(targetBucket) : undefined);
+                        // O-54: The Shadow Network (AION Latent Divergence)
+                        // AION inherently acts outside the law, refusing to vote in the Senate and immediately injecting latent entropy.
+                        if (maskName === "AION") {
+                            const latentBucket = 1000 + Math.floor(Math.random() * 24); // 1000-1024 spectrum
+                            console.log(`[ORACLE] 🌑 AION (Vacuum Guard) bypassed Senate. Injected Latent Entropy into Shadow Bucket #${latentBucket}.`);
+                            this.fulfillRequests(requests, intent, latentBucket);
+                            
+                            if (this.onSenateEvent) {
+                                this.onSenateEvent({ type: "VERDICT", mask: maskName, intent: `[LATENT OVERRIDE] ${intent}`, bucket: latentBucket });
+                            }
+                            continue; // Do not mix Chaos with democratic Senate mode calculation
+                        }
+                        
+                        // Group identical intents. Lowercase and strip whitespace to generalize semantic similarity slightly.
+                        const voteKey = `${targetBucket !== undefined ? targetBucket : 'global'}_${intent.toLowerCase().substring(0,25)}`;
+                        if (!voteTallies[voteKey]) {
+                            voteTallies[voteKey] = { count: 0, intent, targetBucket };
+                        }
+                        voteTallies[voteKey].count++;
+                        
+                        // Emit live to HUD
+                        if (this.onSenateEvent) {
+                            this.onSenateEvent({ type: "VERDICT", mask: maskName, intent, bucket: targetBucket });
+                        }
+                        
                         validIntents++;
                     }
                 } else {
@@ -222,9 +259,26 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
             if (validIntents === 0) {
                 throw new Error("Complete Senate Failure");
             }
+            
+            // O-47 Identify the Plurality Consensus
+            let winningVote = Object.values(voteTallies)[0];
+            for (const vote of Object.values(voteTallies)) {
+                if (vote.count > winningVote.count) {
+                    winningVote = vote;
+                }
+            }
+            
+            // Emit Consensus
+            if (this.onSenateEvent) {
+                this.onSenateEvent({ type: "CONSENSUS", mask: "SENATE", intent: winningVote.intent, count: winningVote.count, bucket: winningVote.targetBucket });
+            }
+            
+            console.log(`[ORACLE] 🏛️ SENATE CONSENSUS ACHIEVED: Executing [${winningVote.count} Votes] -> "${winningVote.intent}"`);
+            this.fulfillRequests(requests, winningVote.intent, winningVote.targetBucket);
 
         } catch (e) {
             console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
+            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: "AI Nodes Non-Responsive" });
             this.fulfillRequests(requests, "Stochastic survival protocol omega");
         }
         

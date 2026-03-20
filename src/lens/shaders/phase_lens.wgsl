@@ -22,6 +22,7 @@ struct VertexOutput {
   @location(0) uv: vec2<f32>,
   @location(1) color: vec3<f32>,
   @location(2) glow: f32,
+  @location(3) is_latent: f32,
 };
 
 fn extract_byte(u32_val: u32, byte_idx: u32) -> f32 {
@@ -128,6 +129,14 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   var out: VertexOutput;
   out.position = view_proj * vec4<f32>(quad_pos, 1.0);
   out.uv = quad[vi];
+  
+  // O-54: Ontological Camouflage (The Shadow Network)
+  let bucket = (harmonic % 8u) * 128u + (rho % 16u) * 8u + (sector % 8u);
+  if (bucket >= 1000u) {
+      out.is_latent = 1.0;
+  } else {
+      out.is_latent = 0.0;
+  }
 
   let hue = fract(theta + 0.5);
   let sat = 0.6 + entanglement;
@@ -161,6 +170,11 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+  // O-54: Exclude AION's Shadow Network mathematically from the Visual observer
+  if (in.is_latent > 0.5) {
+      discard;
+  }
+
   // Circular particle
   let dist = length(in.uv);
   if (dist > 1.0) {
