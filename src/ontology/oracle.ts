@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -158,21 +158,25 @@ export class SovereignOracle {
                 }
             }
 
-            // O-138 Vector G.2: The Parasite Penalty (Semantic Fitness Evaluation)
-            // Stochastic 5% population sampling to prevent freezing the JS thread
+            // O-141 Vector J.1: Energy-Bound Execution (Environmental Diversity)
+            // Stochastic 5% population sampling. A node's energy strictly dictates its computational allowance.
             if (node.energy !== Infinity && Math.random() < 0.05) {
                 try {
                     const testTerm = apply(parseLambda(node.ast), variable("target"));
-                    const { timeout } = evaluateFitness(testTerm, 128); // Force 128 step timeout boundary
+                    const computationalLimit = Math.max(10, Math.floor(node.energy)); // Minimum 10 steps to prove survival
+                    const { timeout } = evaluateFitness(testTerm, computationalLimit);
+                    
                     if (timeout) {
                         node.energy -= 2000; // PARASITE_PENALTY
-                        node.fitness -= 2.0;
+                        node.fitness = Math.max(0, node.fitness - 2.0); // Never sub-zero fitness
                     } else {
-                        node.fitness += 0.5; // Legitimate processing structure
+                        // O-141 Vector J.3: Decoupling Evolution from Execution
+                        // Nodes earn fitness purely by surviving execution, unlocking the ability to breed
+                        node.fitness += 0.5; 
                     }
                 } catch (_e) {
                     node.energy -= 2000; // Unparseable / Mathematically Divergent
-                    node.fitness -= 2.0;
+                    node.fitness = Math.max(0, node.fitness - 2.0);
                 }
             }
             
@@ -290,7 +294,22 @@ export class SovereignOracle {
                  try {
                      const hostTerm = parseLambda(hostTermStr);
                      const foreignTerm = parseLambda(foreignTermStr);
-                     const childTerm = apply(hostTerm, foreignTerm);
+                     
+                     // O-141 Vector J.2: Discrete Topological Mutations
+                     // 50% Apply (Growth), 25% Swap (Inversion), 25% Prune (Simplification)
+                     let childTerm: Term;
+                     const mutationRoll = Math.random();
+                     
+                     if (mutationRoll < 0.50) {
+                         childTerm = apply(hostTerm, foreignTerm); // Apply (Growth)
+                     } else if (mutationRoll < 0.75) {
+                         childTerm = apply(foreignTerm, hostTerm); // Swap (Directional Inversion)
+                     } else {
+                         // Prune: Reject the foreign logic entirely to simplify the overall structure.
+                         // This acts as a topological counterweight to infinite AST ballooning.
+                         childTerm = hostTerm;
+                     }
+                     
                      const childStr = formatTerm(childTerm);
                      const childHash = fnv1a_64(childStr);
                      
@@ -307,19 +326,9 @@ export class SovereignOracle {
                              continue;
                          }
                          
-                         // O-138 Vector G.3: Goal Emergence (The Church-Turing Niche)
-                         let fitnessSpike = 0;
-                         if (rho === 1) { // The inner computational ring demands 'Identity' (\x -> x)
-                             try {
-                                 const testTerm = apply(childTerm, variable("target"));
-                                 const { result, timeout } = evaluateFitness(testTerm, 64);
-                                 if (!timeout && result.type === "Variable" && result.name === "target") {
-                                     fitnessSpike = 5000;
-                                     console.log(`[ORACLE] 🎯 NICHE GOAL: [${childHash}] solved Identity at rho=1! Rewarded 5000 Energy.`);
-                                 }
-                             } catch (_e) { }
-                         }
-                         
+                         // O-141 Vector J.3: Decoupling Evolution from Execution
+                         // We no longer reward "Goal Emergence" (rho === 1) at genesis.
+                         // A child is simply born into the graph with minimal seed energy and 0 fitness.
                          PlasmidRegistry.set(childHash, {
                              ast: childStr,
                              l1_cost: metrics.cost,
@@ -327,8 +336,8 @@ export class SovereignOracle {
                              nodes: metrics.nodes,
                              attention: 1,
                              age: 0,
-                             energy: 1000 + fitnessSpike, // Initial battery + Goal Emergence
-                             fitness: fitnessSpike > 0 ? 5.0 : 0,
+                             energy: 50, // Baseline biological seed
+                             fitness: 0, // Must survive tickSomaticEconomy to earn fitness
                              mutualists: new Set([host_plasmid, foreign_plasmid]) // Vector I.1: Edge Binding
                          });
                          
