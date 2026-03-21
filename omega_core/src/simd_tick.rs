@@ -205,12 +205,31 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let kuramoto =
+        let mut kuramoto =
             phase_sin(theta_prev[idx], theta_prev[left_idx]) +
             phase_sin(theta_prev[idx], theta_prev[right_idx]) +
             phase_sin(theta_prev[idx], theta_prev[inner_idx]) +
             phase_sin(theta_prev[idx], theta_prev[outer_idx]) +
             phase_sin(theta_prev[idx], synthetic_peer_theta) * 0.5;
+
+        // O-63: Differential Tissue (Resonance Proof-of-Stake)
+        let cell_plasmid = plasmids_prev[idx];
+        let mut staking_energy_bonus = 0i16;
+        if cell_plasmid != 0 {
+            let neighbor_indices = [left_idx, right_idx, inner_idx, outer_idx];
+            for &n_idx in &neighbor_indices {
+                if plasmids_prev[n_idx] == cell_plasmid {
+                    let n_energy = energy_prev[n_idx] as i16;
+                    let c_energy = energy_prev[idx] as i16;
+                    if n_energy > c_energy {
+                        // Staking Reward: Diffuse thermal boundary
+                        staking_energy_bonus += (n_energy - c_energy) / 4;
+                        // Higher Kuramoto weighting
+                        kuramoto += phase_sin(theta_prev[idx], theta_prev[n_idx]) * 3.0; // Multiplier K=3
+                    }
+                }
+            }
+        }
 
         let coherence =
             phase_cos(theta_prev[idx], theta_prev[left_idx]) +
@@ -231,6 +250,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             best_energy +
             (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 +
             sustained_coherence_bonus +
+            staking_energy_bonus +
             boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
             (locks_prev[idx] as i16 / BRIDGE_LOCK_PENALTY_DIVISOR)
         ).clamp(0, 255);
@@ -478,13 +498,13 @@ fn collapse_canonical_bridge_seed_cell(
 ) -> BridgeSeedCell {
     const CANONICAL_SECTORS: usize = 32;
     const CANONICAL_RADIAL_BINS: usize = 6;
-    const CANONICAL_HARMONICS: usize = 3;
+    const CANONICAL_HARMONICS: usize = 16;
 
     let source_sector = project_bridge_sector(sector, bridge_width, CANONICAL_SECTORS);
     let source_rho = project_bridge_rho(rho, bridge_height, CANONICAL_RADIAL_BINS);
 
-    let mut sum_x = 0.0f32;
-    let mut sum_y = 0.0f32;
+    let mut sum_x = 0.0f64;
+    let mut sum_y = 0.0f64;
     let mut sum_amplitude = 0i16;
     let mut sum_lock = 0i16;
     let mut sum_omega = 0i16;
@@ -495,8 +515,8 @@ fn collapse_canonical_bridge_seed_cell(
         let omega = canonical_omega(source_sector, source_rho, harmonic);
         let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i16;
         let lock = canonical_lock(source_sector, source_rho, harmonic) as i16;
-        let weight = amplitude.max(1) as f32;
-        let radians = theta as f32 * std::f32::consts::TAU / 256.0;
+        let weight = amplitude.max(1) as f64;
+        let radians = (theta as f64 / 256.0) * std::f64::consts::TAU;
 
         sum_x += radians.cos() * weight;
         sum_y += radians.sin() * weight;
@@ -507,21 +527,21 @@ fn collapse_canonical_bridge_seed_cell(
     }
 
     let mean_angle = if sum_x == 0.0 && sum_y == 0.0 {
-        fallback_theta as f32 * std::f32::consts::TAU / 256.0
+        (fallback_theta as f64 / 256.0) * std::f64::consts::TAU
     } else {
         sum_y.atan2(sum_x)
     };
     let normalized_angle = if mean_angle < 0.0 {
-        mean_angle + std::f32::consts::TAU
+        mean_angle + std::f64::consts::TAU
     } else {
         mean_angle
     };
 
     BridgeSeedCell {
-        theta: wrap_phase((normalized_angle / std::f32::consts::TAU * 256.0).round() as i16),
-        omega: clamp_bridge_omega((sum_omega as f32 / CANONICAL_HARMONICS as f32).round() as i16),
-        amplitude: clamp_byte((sum_amplitude as f32 / CANONICAL_HARMONICS as f32).round() as i16),
-        lock: clamp_byte((sum_lock as f32 / CANONICAL_HARMONICS as f32).round() as i16),
+        theta: wrap_phase(((normalized_angle / std::f64::consts::TAU) * 256.0).round() as i16),
+        omega: clamp_bridge_omega((sum_omega as f64 / CANONICAL_HARMONICS as f64).round() as i16),
+        amplitude: clamp_byte((sum_amplitude as f64 / CANONICAL_HARMONICS as f64).round() as i16),
+        lock: clamp_byte((sum_lock as f64 / CANONICAL_HARMONICS as f64).round() as i16),
     }
 }
 

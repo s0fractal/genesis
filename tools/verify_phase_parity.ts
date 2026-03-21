@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import initWasm, {
     PhaseLatticeField,
     execute_phase_lattice_tick,
+    execute_phase_lattice_fossilization,
     phase_lattice_signature,
 } from "../omega_core/pkg/omega_core.js";
 import {
@@ -10,6 +11,7 @@ import {
 } from "./phase_golden_common.ts";
 import {
     runPhaseField,
+    fossilizePhaseField,
     structuralSignature,
 } from "../src/shared/phase_lattice.ts";
 import type { PhaseFieldShape } from "../src/shared/phase_lattice.ts";
@@ -67,6 +69,12 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
 
         reference = runPhaseField(reference, 1);
         execute_phase_lattice_tick(phaseField);
+        
+        const currentTick = tick + 1;
+        if (currentTick % 24 === 0) {
+            reference = fossilizePhaseField(reference);
+            execute_phase_lattice_fossilization(phaseField);
+        }
     }
 }
 

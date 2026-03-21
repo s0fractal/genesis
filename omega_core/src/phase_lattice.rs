@@ -170,6 +170,23 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
     let harmonics = field.harmonics as usize;
 
     for harmonic in 0..harmonics {
+        if harmonic > 0 {
+            // O-64: Fossilized memory layers are explicitly frozen but must bounce correctly across Ping-Pong
+            for rho in 0..radial_bins {
+                for sector in 0..sectors {
+                    let idx = field.idx(sector, rho, harmonic);
+                    field.next_theta[idx] = field.theta[idx];
+                    field.next_omega[idx] = field.omega[idx];
+                    field.next_amplitude[idx] = field.amplitude[idx];
+                    field.next_lock[idx] = field.lock[idx];
+                    field.next_entanglement[idx] = field.entanglement[idx];
+                    field.next_cell_status[idx] = field.cell_status[idx];
+                    field.next_plasmids[idx] = field.plasmids[idx];
+                }
+            }
+            continue;
+        }
+
         for rho in 0..radial_bins {
             for sector in 0..sectors {
                 let idx = field.idx(sector, rho, harmonic);
@@ -297,6 +314,36 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
     std::mem::swap(&mut field.entanglement, &mut field.next_entanglement);
     std::mem::swap(&mut field.cell_status, &mut field.next_cell_status);
     std::mem::swap(&mut field.plasmids, &mut field.next_plasmids);
+}
+
+// O-64: The Stratum (Fossilization Layer)
+#[wasm_bindgen]
+pub fn execute_phase_lattice_fossilization(field: &mut PhaseLatticeField) {
+    let sectors = field.sectors as usize;
+    let radial_bins = field.radial_bins as usize;
+    let harmonics = field.harmonics as usize;
+    
+    if harmonics <= 1 { return; }
+    
+    let cells_per_harm = sectors * radial_bins;
+    let copy_count = cells_per_harm * (harmonics - 1);
+    
+    field.theta.copy_within(0..copy_count, cells_per_harm);
+    field.omega.copy_within(0..copy_count, cells_per_harm);
+    field.amplitude.copy_within(0..copy_count, cells_per_harm);
+    field.lock.copy_within(0..copy_count, cells_per_harm);
+    field.entanglement.copy_within(0..copy_count, cells_per_harm);
+    field.plasmids.copy_within(0..copy_count, cells_per_harm);
+    field.cell_status.copy_within(0..copy_count, cells_per_harm);
+    
+    // Maintain internal next state parity dynamically
+    field.next_theta.copy_within(0..copy_count, cells_per_harm);
+    field.next_omega.copy_within(0..copy_count, cells_per_harm);
+    field.next_amplitude.copy_within(0..copy_count, cells_per_harm);
+    field.next_lock.copy_within(0..copy_count, cells_per_harm);
+    field.next_entanglement.copy_within(0..copy_count, cells_per_harm);
+    field.next_plasmids.copy_within(0..copy_count, cells_per_harm);
+    field.next_cell_status.copy_within(0..copy_count, cells_per_harm);
 }
 
 #[wasm_bindgen]

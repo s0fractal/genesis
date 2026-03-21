@@ -105,6 +105,20 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let rho = tmp % params.radial_bins;
     let harmonic = tmp / params.radial_bins;
 
+    if (harmonic > 0u) {
+        // O-64 Execution Barrier: Fossilized Layers strictly bypass Ping-Pong thermodynamics
+        set_byte(params.off_theta, idx, get_byte(params.off_theta, idx));
+        set_i16(params.off_omega, idx, get_i16(params.off_omega, idx));
+        set_byte(params.off_amplitude, idx, get_byte(params.off_amplitude, idx));
+        set_byte(params.off_lock, idx, get_byte(params.off_lock, idx));
+        set_byte(params.off_entanglement, idx, get_byte(params.off_entanglement, idx));
+        
+        let p_u32_idx = params.off_plasmids + (idx * 2u);
+        atomicOr(&field_out[p_u32_idx], field_in[p_u32_idx]);
+        atomicOr(&field_out[p_u32_idx + 1u], field_in[p_u32_idx + 1u]);
+        return;
+    }
+
     // Load Cell State from field_in
     let theta = get_byte(params.off_theta, idx);
     let omega = get_i16(params.off_omega, idx);
@@ -190,13 +204,42 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
+    // O-63: Differential Tissue (Resonance Proof-of-Stake)
+    var staking_energy_bonus = 0;
+    if (plasmid_low != 0u || plasmid_high != 0u) {
+        // Read neighbor energies and plasmids natively 
+        let n_indices = array<u32, 4>(
+            get_idx(left_sec, rho, harmonic),
+            get_idx(right_sec, rho, harmonic),
+            get_idx(sector, inner_rho, harmonic),
+            get_idx(sector, outer_rho, harmonic)
+        );
+
+        for (var i = 0u; i < 4u; i = i + 1u) {
+            let n_idx = n_indices[i];
+            let n_p_idx = params.off_plasmids + (n_idx * 2u);
+            let n_plasmid_low = field_in[n_p_idx];
+            let n_plasmid_high = field_in[n_p_idx + 1u];
+
+            if (n_plasmid_low == plasmid_low && n_plasmid_high == plasmid_high) {
+                let n_energy = i32(get_byte(params.off_amplitude, n_idx));
+                if (n_energy > amplitude) {
+                    staking_energy_bonus += (n_energy - amplitude) / 4;
+                    
+                    let n_theta = get_byte(params.off_theta, n_idx);
+                    kuramoto += phase_sin_sum(theta, n_theta, 3.0); // K=3 multiplier
+                }
+            }
+        }
+    }
+
     // Kinematic Updates
     var omega_delta = i32(round(kuramoto));
     omega_delta = fast_abs(omega_delta); // O-62: Evaluated by Autopoietic Transpiler Bridge
     let next_omega = clamp(omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
 
-    var amp_delta = i32(round(coherence * 6.0)) - (lock / 64);
+    var amp_delta = i32(round(coherence * 6.0)) - (lock / 64) + staking_energy_bonus;
     
     // O-33: Resonance Economics Subsidy
     // If the von Neumann neighborhood is nearly mathematically identical (R > 0.93)

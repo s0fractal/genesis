@@ -110,6 +110,8 @@ export function rotateAngularAddress(field: PhaseField, deltaSector: number): Ph
 export function stepPhaseField(field: PhaseField): PhaseField {
     const next = clonePhaseField(field);
     for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+        if (harmonic > 0) continue; // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics entirely
+
         for (let rho = 0; rho < field.shape.radialBins; rho++) {
             for (let sector = 0; sector < field.shape.sectors; sector++) {
                 const current = getCell(field, sector, rho, harmonic);
@@ -310,6 +312,31 @@ export function assertFieldBounds(field: PhaseField): void {
             throw new Error(`entanglement out of bounds at sector=${cell.sector}, rho=${cell.rho}, harmonic=${cell.harmonic}`);
         }
     }
+}
+
+export function fossilizePhaseField(field: PhaseField): PhaseField {
+    if (field.shape.harmonics <= 1) return field;
+    
+    const next = clonePhaseField(field);
+    
+    for (let harmonic = field.shape.harmonics - 1; harmonic > 0; harmonic--) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                const source = getCell(field, sector, rho, harmonic - 1);
+                const target = getCell(next, sector, rho, harmonic);
+                
+                target.theta = source.theta;
+                target.omega = source.omega;
+                target.amplitude = source.amplitude;
+                target.lock = source.lock;
+                target.entanglement = source.entanglement;
+                target.plasmids = source.plasmids;
+                target.cellStatus = source.cellStatus;
+            }
+        }
+    }
+    
+    return next;
 }
 
 export function projectCellToCartesian(

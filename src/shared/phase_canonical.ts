@@ -5,7 +5,7 @@ import type { PhaseField, PhaseFieldShape } from "./phase_lattice.ts";
 export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
     sectors: 32,
     radialBins: 6,
-    harmonics: 3,
+    harmonics: 16,
 };
 
 export function buildCanonicalPhaseSeed(shape: PhaseFieldShape = CANONICAL_PHASE_SHAPE): PhaseField {

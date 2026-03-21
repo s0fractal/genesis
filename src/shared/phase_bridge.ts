@@ -203,6 +203,23 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[outerIndex]));
         kuramoto = f32(kuramoto + f32(phaseSin(thetaPrev[index], syntheticPeerTheta) * 0.5));
 
+        // O-63: Differential Tissue (Resonance Proof-of-Stake)
+        const cellPlasmid = plasmidsPrev[index];
+        let stakingEnergyBonus = 0;
+        if (cellPlasmid !== 0n) {
+            const neighborIndices = [leftIndex, rightIndex, innerIndex, outerIndex];
+            for (const nIdx of neighborIndices) {
+                if (plasmidsPrev[nIdx] === cellPlasmid) {
+                    const nEnergy = energyPrev[nIdx];
+                    const cEnergy = energyPrev[index];
+                    if (nEnergy > cEnergy) {
+                        stakingEnergyBonus += Math.trunc((nEnergy - cEnergy) / 4);
+                        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[nIdx]) * 3);
+                    }
+                }
+            }
+        }
+
         let coherence = f32(0);
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[leftIndex]));
         coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[rightIndex]));
@@ -222,7 +239,8 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 bestEnergy +
                 roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) +
                 sustainedCoherenceBonus +
-                boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
+                boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS +
+                stakingEnergyBonus -
                 Math.trunc(locksPrev[index] / BRIDGE_LOCK_PENALTY_DIVISOR),
             );
 

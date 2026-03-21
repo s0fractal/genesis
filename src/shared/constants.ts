@@ -15,6 +15,7 @@ export const PHASE_CONSTANTS = {
     MIN_OMEGA: -16,
     MAX_OMEGA: 16,
     MAX_OMEGA_BRIDGE: 32, // for Bridge extensions
+    FOSSILIZATION_PULSE_TICKS: 24, // The temporal depth rate for Z-axis strata embedding
 } as const;
 
 // Resonance and Phase Synchronization Weights

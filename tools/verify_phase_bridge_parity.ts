@@ -84,9 +84,31 @@ async function main(): Promise<void> {
     const height = 8;
     const ticks = 24;
 
+    const size = width * height;
     let reference = buildBridgeSeed(width, height);
     const field = new Field(width, height);
-    seed_phase_bridge_pattern(field);
+    
+    // O-64: Guarantee strict float parity between JS (V8) and Rust (LLVM)
+    // The native atan2 trig derivations can drift by 1 ULP off perfect 0.5 boundaries.
+    // Sync TS state verbatim into WASM Field before any Tick Execution runs!
+    const wasmMem = new Uint8Array(wasm.memory.buffer);
+    wasmMem.set(reference.thetaNow, field.ptr_theta_now());
+    wasmMem.set(reference.thetaF1, field.ptr_theta_f1());
+    wasmMem.set(reference.thetaF2, field.ptr_theta_f2());
+    wasmMem.set(reference.thetaF3, field.ptr_theta_f3());
+    wasmMem.set(reference.omega, field.ptr_omega());
+    wasmMem.set(reference.energy, field.ptr_energy());
+    wasmMem.set(reference.hebbianLocks, field.ptr_hebbian_locks());
+    wasmMem.set(reference.cellStatus, field.ptr_cell_status());
+    
+    // Plasmids uses BigUint64 arrays, explicitly shift pointers
+    const wasmMem64 = new BigUint64Array(wasm.memory.buffer, field.ptr_plasmids(), size);
+    wasmMem64.set(reference.plasmids);
+    
+    // Initialize oracle requests pointer mapping
+    const wasmMem32 = new Uint32Array(wasm.memory.buffer, field.ptr_oracle_requests(), 1024);
+    wasmMem32.set(reference.oracleRequests);
+    field.oracle_request_count = reference.oracleRequestCount;
 
     for (let tick = 0; tick <= ticks; tick++) {
         const wasmState = snapshotBridgeWasmState(field, wasm);
