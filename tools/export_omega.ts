@@ -8,11 +8,12 @@ async function main() {
   const pkgStr = await Deno.readTextFile("package.json");
   const pkg = JSON.parse(pkgStr);
   const OMEGA_VERSION = pkg.version;
+  const ERA = pkg.era || "Unknown";
   const OUTPUT_FILE = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
 
   const chunks: string[] = [];
-  chunks.push(`# OMEGA-64 | ONTOLOGY ${OMEGA_VERSION.split('.')[0]} ABSOLUTE EXPORT\n`);
-  chunks.push(`This document contains the entire architectural core of the Genesis Spore (Version ${OMEGA_VERSION}), spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n`);
+  chunks.push(`# OMEGA-64 | ONTOLOGY ${OMEGA_VERSION.split('.')[0]} ABSOLUTE EXPORT | ERA: ${ERA}\n`);
+  chunks.push(`This document contains the entire architectural core of the Genesis Spore (Version ${OMEGA_VERSION}, Era: ${ERA}), spanning the WebGPU hardware isolation loops, TS genetic transpiler, and Rust WASM SIMD execution threads.\n\n---\n`);
 
   const addFile = async (path: string) => {
     try {
