@@ -9,11 +9,11 @@ export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
 };
 
 export function buildCanonicalPhaseSeed(shape: PhaseFieldShape = CANONICAL_PHASE_SHAPE): PhaseField {
-    return createPhaseField(shape, ({ sector, rho, harmonic }) => ({
-        theta: sector * 7 + rho * 19 + harmonic * 23,
-        omega: ((sector + rho + harmonic) % 5) - 2,
-        amplitude: clamp(sector * 13 + rho * 17 + harmonic * 29, 0, 255),
-        lock: (sector * 5 + rho * 11 + harmonic * 3) % 64,
+    return createPhaseField(shape, ({ tau, sector, rho, harmonic }) => ({
+        theta: tau * 3 + sector * 7 + rho * 19 + harmonic * 23,
+        omega: ((tau + sector + rho + harmonic) % 5) - 2,
+        amplitude: clamp(tau * 11 + sector * 13 + rho * 17 + harmonic * 29, 0, 255),
+        lock: (tau * 7 + sector * 5 + rho * 11 + harmonic * 3) % 64,
         entanglement: 0,
         cellStatus: 0,
         plasmids: 0n,

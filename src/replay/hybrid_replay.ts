@@ -96,12 +96,13 @@ export function cropPhaseField(field: PhaseField, radialBins: number): PhaseFiel
 
     return createPhaseField(
         {
+            tauDepth: 1,
             sectors: field.shape.sectors,
             radialBins: boundedBins,
             harmonics: field.shape.harmonics,
         },
         ({ sector, rho, harmonic }) => {
-            const cell = getCell(field, sector, rho, harmonic);
+            const cell = getCell(field, field.currentTau, sector, rho, harmonic);
             return {
                 theta: cell.theta,
                 omega: cell.omega,
@@ -119,6 +120,7 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
     const boundedBins = Math.max(1, Math.min(radialBins, field.shape.radialBins));
     return createPhaseField(
         {
+            tauDepth: 1,
             sectors: field.shape.sectors,
             radialBins: boundedBins,
             harmonics: 1,
@@ -132,7 +134,7 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
             let maxEntanglement = 0;
 
             for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
-                const cell = getCell(field, sector, rho, harmonic);
+                const cell = getCell(field, field.currentTau, sector, rho, harmonic);
                 const weight = Math.max(1, cell.amplitude);
                 const radians = (cell.theta / 256) * Math.PI * 2;
                 sumX += Math.cos(radians) * weight;
@@ -179,6 +181,7 @@ export function snapshotHybridField(field: Field, wasm: WebAssembly.Exports): Ph
 
     return createPhaseField(
         {
+            tauDepth: 1,
             sectors: field.width,
             radialBins: field.height,
             harmonics: 1,
@@ -213,6 +216,7 @@ export function snapshotHybridComparableField(field: Field, wasm: WebAssembly.Ex
 
     return createPhaseField(
         {
+            tauDepth: 1,
             sectors: field.width,
             radialBins: field.height,
             harmonics: 1,

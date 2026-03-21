@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import initWasm, {
+import {
     PhaseLatticeField,
     execute_phase_lattice_tick,
     execute_phase_lattice_fossilization,
@@ -29,7 +28,7 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
 
     for (let tick = 0; tick <= ticks; tick++) {
         const wasmState = snapshotPhaseWasmState(phaseField, wasm);
-        const referenceState = reference.cells;
+        const referenceState = reference.cells.filter(c => c.tau === reference.currentTau);
 
         assert(referenceState.length === wasmState.length, `cell count mismatch at tick=${tick}`);
 
@@ -83,6 +82,7 @@ async function main(): Promise<void> {
     const wasm = await initOmegaWasm();
 
     const shape: PhaseFieldShape = {
+        tauDepth: 4,
         sectors: 32,
         radialBins: 6,
         harmonics: 3,

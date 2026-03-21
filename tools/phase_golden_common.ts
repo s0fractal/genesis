@@ -284,6 +284,7 @@ export function captureBridgeReferenceTrace(width: number, height: number, ticks
 
 export function buildPhaseCoherenceGolden(): PhaseCoherenceGolden {
     const shape: PhaseFieldShape = {
+        tauDepth: 4,
         sectors: 32,
         radialBins: 6,
         harmonics: 3,
@@ -348,6 +349,7 @@ export function buildPhaseBridgeGolden(): PhaseBridgeGolden {
 
 export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGolden {
     const phaseShape: PhaseFieldShape = {
+        tauDepth: 4,
         sectors: 32,
         radialBins: 6,
         harmonics: 3,
@@ -435,13 +437,15 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
         throw new Error("WASM memory export is unavailable");
     }
 
-    const theta = new Uint8Array(memory.buffer, field.ptr_theta(), count);
-    const omega = new Int16Array(memory.buffer, field.ptr_omega(), count);
-    const amplitude = new Uint8Array(memory.buffer, field.ptr_amplitude(), count);
-    const lock = new Uint8Array(memory.buffer, field.ptr_lock(), count);
-    const entanglement = new Uint8Array(memory.buffer, field.ptr_entanglement(), count);
-    const cellStatus = new Uint8Array(memory.buffer, field.ptr_cell_status(), count);
-    const plasmids = new BigUint64Array(memory.buffer, field.ptr_plasmids(), count);
+    const offsetElements = field.get_current_tau() * count;
+
+    const theta = new Uint8Array(memory.buffer, field.ptr_theta() + offsetElements * 1, count);
+    const omega = new Int16Array(memory.buffer, field.ptr_omega() + offsetElements * 2, count);
+    const amplitude = new Uint8Array(memory.buffer, field.ptr_amplitude() + offsetElements * 1, count);
+    const lock = new Uint8Array(memory.buffer, field.ptr_lock() + offsetElements * 1, count);
+    const entanglement = new Uint8Array(memory.buffer, field.ptr_entanglement() + offsetElements * 1, count);
+    const cellStatus = new Uint8Array(memory.buffer, field.ptr_cell_status() + offsetElements * 1, count);
+    const plasmids = new BigUint64Array(memory.buffer, field.ptr_plasmids() + offsetElements * 8, count);
 
     return Array.from({ length: count }, (_, index) => ({
         theta: theta[index],

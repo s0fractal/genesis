@@ -292,40 +292,16 @@ async function main() {
               // Dump it to Human Readable Read-Only MD
               await executeNeuron(Tissue, "flush_state_to_disk", { nextState: Tissue, targetFile: "./I.md" });
               
-              // O-44: Real-time Genealogy Extract
-              const fastAbsNode = Tissue[targetAlias];
-              if (fastAbsNode && fastAbsNode.identity && fastAbsNode.physics) {
-                  const record = {
-                      t: Date.now(),
-                      alias: targetAlias,
-                      hash: fastAbsNode.identity.structural_hash,
-                      parents: fastAbsNode.identity.parents || [],
-                      energy: fastAbsNode.physics.energy_cost,
-                      stability: fastAbsNode.physics.stability
-                  };
-                  try {
-                      // O-49: Phylogeny Persistence (Eternal Tree VRAM Shield)
-                      let lines: string[] = [];
-                      try {
-                          const existingText = await Deno.readTextFile("./lineage.jsonl");
-                          lines = existingText.split('\n').filter(l => l.trim().length > 0);
-                      } catch (_notFound) {} // File may not exist yet
-
-                      lines.push(JSON.stringify(record));
-                      
-                      if (lines.length > 500) {
-                          // Siphon the oldest 100 historical epochs completely into the archival ledger
-                          const archiveLines = lines.slice(0, 100);
-                          lines = lines.slice(100);
-                          
-                          await Deno.mkdir("./dist/archives", { recursive: true });
-                          await Deno.writeTextFile(`./dist/archives/lineage_archive_${Date.now()}.jsonl`, archiveLines.join('\n') + '\n');
-                          console.log(`💾 [ARCHIVE] Successfully migrated 100 genetic ancestors to long-term storage.`);
-                      }
-                      
-                      // Rewrite the lightweight current branch
-                      await Deno.writeTextFile("./lineage.jsonl", lines.join('\n') + '\n');
-                  } catch(_e) {}
+              // O-131 Phase 3: Git-Oriented State Versioning
+              console.log(`\nActivating OS Versioning: Siphoning genetic mutation to local Git tree...`);
+              try {
+                  const commitMsg = `🧬 EVOLUTION (Epoch ${epoch}): Mutated ${targetAlias} at [${mutation.path.join(".")}] to ${JSON.stringify(mutation.newValue)}`;
+                  const gitCmd = new Deno.Command("git", { args: ["commit", "-am", commitMsg] });
+                  const { success: gitSuccess } = await gitCmd.output();
+                  if (gitSuccess) console.log(`💾 [GIT] Phylogeny securely committed to the Repository Hash Tree.`);
+                  else console.log(`⚠️ [GIT] Git status was unchanged or commit failed.`);
+              } catch(e) {
+                  console.log(`⚠️ [GIT] Commit exception: ${e.message}`);
               }
               
               console.log(`✨ Organism successfully rewritten and hardened!`);

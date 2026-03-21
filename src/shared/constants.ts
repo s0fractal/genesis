@@ -7,6 +7,7 @@
 
 // Core Lattice and Phase Mathematics
 export const PHASE_CONSTANTS = {
+    TAU_DEPTH: 4,
     LUT_SIZE: 256,
     MAX_AMPLITUDE: 255, // u8 max
     MAX_LOCK: 255,

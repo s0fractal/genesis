@@ -2,7 +2,7 @@
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
 const TARGET_EXTS = [".ts", ".rs", ".wgsl", ".toml", ".html", ".json"];
-const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dist/, /tools/, /test_/, /verify_/, /puppeteer/];
+const EXCLUDE_DIRS = [/node_modules/, /target/, /pkg/, /\.git/, /\.gemini/, /dist/, /tools/, /test_/, /verify_/, /puppeteer/, /archive/];
 
 async function main() {
   const pkgStr = await Deno.readTextFile("package.json");

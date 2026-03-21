@@ -1,6 +1,8 @@
 // deno-lint-ignore-file
 import { encode } from "npm:@toon-format/toon";
 import { encode as packMsgPack, decode as unpackMsgPack } from "npm:@msgpack/msgpack";
+import { parseSigmaGlyph, serializeSigmaGlyph } from "./compiler/sigma_glyph.ts";
+import { evaluateLambda, formatTerm, parseLambda } from "./compiler/pure_lambda.ts";
 
 // --- TYPES (PHYSICS) ---
 
@@ -25,7 +27,7 @@ export interface Identity {
 export interface Essence {
   type: "pure_fn" | "meta_fn" | "module" | "ontology_compiler";
   level: number;
-  substrate: "ts" | "wasm" | "rust";
+  substrate: "ts" | "wasm" | "rust" | "lambda";
 }
 
 export interface Physics {
@@ -146,6 +148,13 @@ export async function executeNeuron(
     
     // Otherwise route the AST to the Dispatcher (pure interpretation)
     return Dispatcher.executeInTs(neuron, args);
+  } else if (essence.substrate === "lambda") {
+    if (typeof neuron.ir.body !== "string") {
+       throw new Error(`Substrate Dispatcher: Lambda execution for ${alias} requires a string body representation of the combinators.`);
+    }
+    const term = parseLambda(neuron.ir.body);
+    const evaluated = evaluateLambda(term);
+    return formatTerm(evaluated);
   } else if (essence.substrate === "wasm") {
     throw new Error(`Substrate Dispatcher: WASM execution for ${alias} not yet supported.`);
   } else if (essence.substrate === "rust") {
@@ -198,13 +207,24 @@ export function serializeTissueToMarkdown(tissue: State): string {
 
         if (node.ir && node.ir.body !== undefined) {
            nodeBlock += `#### IR\n`;
-           if (typeof node.ir.body === "string" || Array.isArray(node.ir.body)) {
-              let bodyStr = typeof node.ir.body === "string" ? node.ir.body : JSON.stringify(node.ir.body);
+           if (typeof node.ir.body === "string") {
+              let bodyStr = node.ir.body;
               if (bodyStr.startsWith('"') && bodyStr.endsWith('"')) {
                  bodyStr = JSON.parse(bodyStr); // unescape string safely
               }
-              nodeBlock += `\`\`\`json\n${bodyStr}\n\`\`\`\n\n`;
+              // If it's pure lambda glyph, serialize cleanly
+              if (bodyStr.startsWith("(")) {
+                  nodeBlock += `\`\`\`glyph\n${bodyStr}\n\`\`\`\n\n`;
+              } else {
+                  nodeBlock += `\`\`\`json\n${bodyStr}\n\`\`\`\n\n`;
+              }
+           } else if (Array.isArray(node.ir.body)) {
+               nodeBlock += `\`\`\`json\n${JSON.stringify(node.ir.body)}\n\`\`\`\n\n`;
+           } else if (typeof node.ir.body === "object" && (node.ir.body as any).kind !== undefined) {
+              // Sigma-GLYPH Compilation ONLY for IRNode logic ASTs
+              nodeBlock += `\`\`\`glyph\n${serializeSigmaGlyph(node.ir.body as unknown as IRNode)}\n\`\`\`\n\n`;
            } else {
+              // Fallback for static JSON parameter objects like 'tissue_constants'
               nodeBlock += `\`\`\`json\n${JSON.stringify(node.ir.body, null, 2)}\n\`\`\`\n\n`;
            }
         }
@@ -403,10 +423,19 @@ export async function parseTissueFromMarkdown(path: string): Promise<State> {
              node.ir.ret = typeof node.io.out === "string" ? node.io.out.split("@")[0] : "void";
           } else if (currentSection === "IR") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();
-             try {
-                 node.ir.body = JSON.parse(codeBody);
-             } catch(e) {
-                 node.ir.body = codeBody;
+             if (codeBody.startsWith("(")) {
+                 try {
+                     node.ir.body = parseSigmaGlyph(codeBody);
+                 } catch(e) {
+                     console.error(`Σ-GLYPH Decoding Error in node [${id}]:`, e);
+                     node.ir.body = codeBody;
+                 }
+             } else {
+                 try {
+                     node.ir.body = JSON.parse(codeBody);
+                 } catch(e) {
+                     node.ir.body = codeBody;
+                 }
              }
           } else if (currentSection === "Implementation") {
              const codeBody = sectionLines.join("\n").replace(/^```\w+\n/, "").replace(/\s*```$/, "").trim();

@@ -1,14 +1,16 @@
 import { fnv1a_64 } from "./hash.ts";
-import { wrapIndex, clamp, signedPhaseDelta, phaseDistance, phaseSine, phaseCosine as resonance } from "./topology_core.ts";
+import { wrapIndex, clamp, phaseSine, phaseCosine as resonance } from "./topology_core.ts";
 import { PHASE_CONSTANTS, KURAMOTO_COEFFICIENTS } from "./constants.ts";
 
 export interface PhaseFieldShape {
+    tauDepth: number;
     sectors: number;
     radialBins: number;
     harmonics: number;
 }
 
 export interface PhaseCellAddress {
+    tau: number;
     sector: number;
     rho: number;
     harmonic: number;
@@ -26,6 +28,7 @@ export interface PhaseCell extends PhaseCellAddress {
 
 export interface PhaseField {
     shape: PhaseFieldShape;
+    currentTau: number;
     cells: PhaseCell[];
 }
 
@@ -37,13 +40,15 @@ export function wrapTheta(theta: number): number {
     return wrapIndex(theta, PHASE_CONSTANTS.LUT_SIZE);
 }
 
-export function fieldIndex(shape: PhaseFieldShape, sector: number, rho: number, harmonic: number): number {
-    return harmonic * shape.radialBins * shape.sectors + rho * shape.sectors + sector;
+export function fieldIndex(shape: PhaseFieldShape, tau: number, sector: number, rho: number, harmonic: number): number {
+    const elementsPerLayer = shape.harmonics * shape.radialBins * shape.sectors;
+    return tau * elementsPerLayer + harmonic * shape.radialBins * shape.sectors + rho * shape.sectors + sector;
 }
 
-export function getCell(field: PhaseField, sector: number, rho: number, harmonic: number): PhaseCell {
+export function getCell(field: PhaseField, tau: number, sector: number, rho: number, harmonic: number): PhaseCell {
     return field.cells[fieldIndex(
         field.shape,
+        wrapIndex(tau, field.shape.tauDepth),
         wrapIndex(sector, field.shape.sectors),
         clamp(rho, 0, field.shape.radialBins - 1),
         wrapIndex(harmonic, field.shape.harmonics),
@@ -55,30 +60,33 @@ export function createPhaseField(
     initializer: (address: PhaseCellAddress) => Omit<PhaseCell, keyof PhaseCellAddress>,
 ): PhaseField {
     const cells: PhaseCell[] = [];
-    for (let harmonic = 0; harmonic < shape.harmonics; harmonic++) {
-        for (let rho = 0; rho < shape.radialBins; rho++) {
-            for (let sector = 0; sector < shape.sectors; sector++) {
-                const address = { sector, rho, harmonic };
-                const state = initializer(address);
-                cells.push({
-                    ...address,
-                    theta: wrapTheta(state.theta),
-                    omega: clamp(Math.trunc(state.omega), PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA),
-                    amplitude: clamp(Math.trunc(state.amplitude), 0, PHASE_CONSTANTS.MAX_AMPLITUDE),
-                    lock: clamp(Math.trunc(state.lock), 0, PHASE_CONSTANTS.MAX_LOCK),
-                    entanglement: clamp(Math.trunc(state.entanglement), 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT),
-                    cellStatus: state.cellStatus !== undefined ? state.cellStatus : 0,
-                    plasmids: state.plasmids !== undefined ? state.plasmids : 0n,
-                });
+    for (let tau = 0; tau < shape.tauDepth; tau++) {
+        for (let harmonic = 0; harmonic < shape.harmonics; harmonic++) {
+            for (let rho = 0; rho < shape.radialBins; rho++) {
+                for (let sector = 0; sector < shape.sectors; sector++) {
+                    const address = { tau, sector, rho, harmonic };
+                    const state = initializer(address);
+                    cells.push({
+                        ...address,
+                        theta: wrapTheta(state.theta),
+                        omega: clamp(Math.trunc(state.omega), PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA),
+                        amplitude: clamp(Math.trunc(state.amplitude), 0, PHASE_CONSTANTS.MAX_AMPLITUDE),
+                        lock: clamp(Math.trunc(state.lock), 0, PHASE_CONSTANTS.MAX_LOCK),
+                        entanglement: clamp(Math.trunc(state.entanglement), 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT),
+                        cellStatus: state.cellStatus !== undefined ? state.cellStatus : 0,
+                        plasmids: state.plasmids !== undefined ? state.plasmids : 0n,
+                    });
+                }
             }
         }
     }
-    return { shape, cells };
+    return { shape, currentTau: 0, cells };
 }
 
 export function clonePhaseField(field: PhaseField): PhaseField {
     return {
         shape: { ...field.shape },
+        currentTau: field.currentTau,
         cells: field.cells.map((cell) => ({ ...cell })),
     };
 }
@@ -86,40 +94,66 @@ export function clonePhaseField(field: PhaseField): PhaseField {
 export function rotateGlobalPhase(field: PhaseField, deltaTheta: number): PhaseField {
     const rotated = clonePhaseField(field);
     for (const cell of rotated.cells) {
-        cell.theta = wrapTheta(cell.theta + deltaTheta);
+        if (cell.tau === rotated.currentTau) {
+            cell.theta = wrapTheta(cell.theta + deltaTheta);
+        }
     }
     return rotated;
 }
 
 export function rotateAngularAddress(field: PhaseField, deltaSector: number): PhaseField {
-    const rotatedCells = new Array<PhaseCell>(field.cells.length);
-    for (const cell of field.cells) {
-        const nextSector = wrapIndex(cell.sector + deltaSector, field.shape.sectors);
-        const nextIndex = fieldIndex(field.shape, nextSector, cell.rho, cell.harmonic);
-        rotatedCells[nextIndex] = {
-            ...cell,
-            sector: nextSector,
-        };
+    const rotatedCells = [...field.cells]; // Shallow copy array
+    const nextTau = wrapIndex(field.currentTau + 1, field.shape.tauDepth);
+    
+    for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                const currentCell = getCell(field, field.currentTau, sector, rho, harmonic);
+                const nextSector = wrapIndex(sector + deltaSector, field.shape.sectors);
+                const nextIndex = fieldIndex(field.shape, nextTau, nextSector, rho, harmonic);
+                
+                rotatedCells[nextIndex] = {
+                    ...currentCell,
+                    tau: nextTau,
+                    sector: nextSector,
+                };
+            }
+        }
     }
     return {
         shape: { ...field.shape },
+        currentTau: nextTau,
         cells: rotatedCells,
     };
 }
 
 export function stepPhaseField(field: PhaseField): PhaseField {
     const next = clonePhaseField(field);
+    const pastTau = field.currentTau;
+    const nextTau = wrapIndex(field.currentTau + 1, field.shape.tauDepth);
+    next.currentTau = nextTau;
+
     for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
-        if (harmonic > 0) continue; // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics entirely
+        if (harmonic > 0) {
+            // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics entirely
+            for (let rho = 0; rho < field.shape.radialBins; rho++) {
+                for (let sector = 0; sector < field.shape.sectors; sector++) {
+                    const pastCell = getCell(field, pastTau, sector, rho, harmonic);
+                    const nextIndex = fieldIndex(field.shape, nextTau, sector, rho, harmonic);
+                    next.cells[nextIndex] = { ...pastCell, tau: nextTau };
+                }
+            }
+            continue;
+        }
 
         for (let rho = 0; rho < field.shape.radialBins; rho++) {
             for (let sector = 0; sector < field.shape.sectors; sector++) {
-                const current = getCell(field, sector, rho, harmonic);
-                const left = getCell(field, sector - 1, rho, harmonic);
-                const right = getCell(field, sector + 1, rho, harmonic);
-                const inner = getCell(field, sector, rho - 1, harmonic);
-                const outer = getCell(field, sector, rho + 1, harmonic);
-                const harmonicPeer = getCell(field, sector, rho, harmonic + 1);
+                const current = getCell(field, pastTau, sector, rho, harmonic);
+                const left = getCell(field, pastTau, sector - 1, rho, harmonic);
+                const right = getCell(field, pastTau, sector + 1, rho, harmonic);
+                const inner = getCell(field, pastTau, sector, rho - 1, harmonic);
+                const outer = getCell(field, pastTau, sector, rho + 1, harmonic);
+                const harmonicPeer = getCell(field, pastTau, sector, rho, harmonic + 1);
 
                 let kuramoto =
                     phaseSine(current.theta, left.theta) +
@@ -136,7 +170,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     resonance(current.theta, harmonicPeer.theta) * 0.5;
 
                 if (field.shape.sectors % 2 === 0) {
-                    const antipode = getCell(field, sector + field.shape.sectors / 2, rho, harmonic);
+                    const antipode = getCell(field, pastTau, sector + field.shape.sectors / 2, rho, harmonic);
                     const antipodeWeight = (current.entanglement / 255) * 0.35;
                     kuramoto += phaseSine(current.theta, antipode.theta) * antipodeWeight;
                     coherence += resonance(current.theta, antipode.theta) * antipodeWeight;
@@ -153,9 +187,8 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const amplitudeDelta = Math.round(coherence * 6) - Math.floor(current.lock / 64);
                 const lockDelta = coherence >= 3 ? 8 : -4;
 
-                const nextCell = getCell(next, sector, rho, harmonic);
-                let nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, PHASE_CONSTANTS.MAX_AMPLITUDE);
-                let nextLock = clamp(current.lock + lockDelta, 0, PHASE_CONSTANTS.MAX_LOCK);
+                const nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, PHASE_CONSTANTS.MAX_AMPLITUDE);
+                const nextLock = clamp(current.lock + lockDelta, 0, PHASE_CONSTANTS.MAX_LOCK);
                 let nextTheta = wrapTheta(current.theta + current.omega + omegaDelta);
                 let nextOmega = clamp(current.omega + omegaDelta, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
                 let adopted = false;
@@ -190,35 +223,35 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     }
                 }
 
+                let nextCellStatus = current.cellStatus;
                 if (!adopted && nextAmplitude < 20 && nextLock < 10) {
                     // Cannot easily track oracleRequestCount in TS, but logically it just freezes the cell.
                     // We will not implement the queue array in TS, just the status freeze.
-                    nextCell.cellStatus = 1;
+                    nextCellStatus = 1;
                 }
 
-                nextCell.plasmids = nextPlasmid;
-
-                if (!adopted) {
-                    nextCell.theta = nextTheta;
-                    nextCell.omega = nextOmega;
-                } else {
-                    nextCell.theta = nextTheta;
-                    nextCell.omega = nextOmega;
-                }
-                
-                nextCell.amplitude = nextAmplitude;
-                nextCell.lock = nextLock;
-
+                let nextEntanglement = current.entanglement;
                 if (field.shape.sectors % 2 === 0) {
-                    const antipode = getCell(field, sector + field.shape.sectors / 2, rho, harmonic);
+                    const antipode = getCell(field, pastTau, sector + field.shape.sectors / 2, rho, harmonic);
                     const antipodeAlignment = resonance(current.theta, antipode.theta);
-                    nextCell.entanglement =
+                    nextEntanglement =
                         antipodeAlignment > 0.92 && current.amplitude > 96
                             ? clamp(current.entanglement + 8, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT)
                             : clamp(current.entanglement - 3, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT);
-                } else {
-                    nextCell.entanglement = current.entanglement;
                 }
+
+                const nextIndex = fieldIndex(field.shape, nextTau, sector, rho, harmonic);
+                next.cells[nextIndex] = {
+                    ...current,
+                    tau: nextTau,
+                    theta: nextTheta,
+                    omega: nextOmega,
+                    amplitude: nextAmplitude,
+                    lock: nextLock,
+                    entanglement: nextEntanglement,
+                    cellStatus: nextCellStatus,
+                    plasmids: nextPlasmid
+                };
             }
         }
     }
@@ -252,17 +285,22 @@ export function fieldSignature(field: PhaseField): string {
 export function structuralSignature(field: PhaseField): string {
     let hash = FNV64_OFFSET_BASIS;
 
-    for (const cell of field.cells) {
-        mixU64(hashValue(cell.sector));
-        mixU64(hashValue(cell.rho));
-        mixU64(hashValue(cell.harmonic));
-        mixU64(hashValue(cell.theta));
-        mixU64(hashSignedValue(cell.omega));
-        mixU64(hashValue(cell.amplitude));
-        mixU64(hashValue(cell.lock));
-        mixU64(hashValue(cell.entanglement));
-        mixU64(hashValue(cell.cellStatus));
-        mixU64(cell.plasmids);
+    for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                const cell = getCell(field, field.currentTau, sector, rho, harmonic);
+                mixU64(hashValue(cell.sector));
+                mixU64(hashValue(cell.rho));
+                mixU64(hashValue(cell.harmonic));
+                mixU64(hashValue(cell.theta));
+                mixU64(hashSignedValue(cell.omega));
+                mixU64(hashValue(cell.amplitude));
+                mixU64(hashValue(cell.lock));
+                mixU64(hashValue(cell.entanglement));
+                mixU64(hashValue(cell.cellStatus));
+                mixU64(cell.plasmids);
+            }
+        }
     }
 
     return hash.toString(16).padStart(16, "0");
@@ -283,22 +321,27 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
         return false;
     }
 
-    for (let i = 0; i < a.cells.length; i++) {
-        const left = a.cells[i];
-        const right = b.cells[i];
-        if (
-            left.sector !== right.sector ||
-            left.rho !== right.rho ||
-            left.harmonic !== right.harmonic ||
-            left.theta !== right.theta ||
-            left.omega !== right.omega ||
-            left.amplitude !== right.amplitude ||
-            left.lock !== right.lock ||
-            left.entanglement !== right.entanglement ||
-            left.cellStatus !== right.cellStatus ||
-            left.plasmids !== right.plasmids
-        ) {
-            return false;
+    for (let harmonic = 0; harmonic < a.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < a.shape.radialBins; rho++) {
+            for (let sector = 0; sector < a.shape.sectors; sector++) {
+                const left = getCell(a, a.currentTau, sector, rho, harmonic);
+                const right = getCell(b, b.currentTau, sector, rho, harmonic);
+                
+                if (
+                    left.sector !== right.sector ||
+                    left.rho !== right.rho ||
+                    left.harmonic !== right.harmonic ||
+                    left.theta !== right.theta ||
+                    left.omega !== right.omega ||
+                    left.amplitude !== right.amplitude ||
+                    left.lock !== right.lock ||
+                    left.entanglement !== right.entanglement ||
+                    left.cellStatus !== right.cellStatus ||
+                    left.plasmids !== right.plasmids
+                ) {
+                    return false;
+                }
+            }
         }
     }
 
@@ -333,8 +376,9 @@ export function fossilizePhaseField(field: PhaseField): PhaseField {
     for (let harmonic = field.shape.harmonics - 1; harmonic > 0; harmonic--) {
         for (let rho = 0; rho < field.shape.radialBins; rho++) {
             for (let sector = 0; sector < field.shape.sectors; sector++) {
-                const source = getCell(field, sector, rho, harmonic - 1);
-                const target = getCell(next, sector, rho, harmonic);
+                const source = getCell(field, field.currentTau, sector, rho, harmonic - 1);
+                const nextIndex = fieldIndex(field.shape, field.currentTau, sector, rho, harmonic);
+                const target = next.cells[nextIndex];
                 
                 target.theta = source.theta;
                 target.omega = source.omega;
@@ -364,11 +408,27 @@ export function projectCellToCartesian(
 }
 
 export function sumAmplitude(field: PhaseField): number {
-    return field.cells.reduce((acc, cell) => acc + cell.amplitude, 0);
+    let sum = 0;
+    for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                sum += getCell(field, field.currentTau, sector, rho, harmonic).amplitude;
+            }
+        }
+    }
+    return sum;
 }
 
 export function sumEntanglement(field: PhaseField): number {
-    return field.cells.reduce((acc, cell) => acc + cell.entanglement, 0);
+    let sum = 0;
+    for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                sum += getCell(field, field.currentTau, sector, rho, harmonic).entanglement;
+            }
+        }
+    }
+    return sum;
 }
 
 function hashValue(value: number): bigint {

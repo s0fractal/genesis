@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "ticks": 12,
   "phaseShape": {
+    "tauDepth": 4,
     "sectors": 32,
     "radialBins": 6,
     "harmonics": 3

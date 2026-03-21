@@ -59,7 +59,8 @@ async function main(): Promise<void> {
         const hybridComparable = cropPhaseField(
             {
                 shape: {
-                    sectors: 32,
+                    tauDepth: 4,
+        sectors: 32,
                     radialBins: 8,
                     harmonics: 1,
                 },

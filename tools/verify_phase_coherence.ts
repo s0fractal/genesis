@@ -66,6 +66,7 @@ function verifyBoundedDrift(seed: PhaseField, ticks: number): void {
 
 function main(): void {
     const shape: PhaseFieldShape = {
+        tauDepth: 4,
         sectors: 32,
         radialBins: 6,
         harmonics: 3,

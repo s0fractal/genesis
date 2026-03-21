@@ -4,12 +4,12 @@
 
 [7]{id,field,type,substrate,energy,stability,link}:
   fast_abs,init,pure_fn,ts,3,1,#fast_abs, 19
-  calculate_structural_hash,core,meta_fn,ts,10,1,#calculate_structural_hash, 54
-  mutate_ir,core,meta_fn,ts,10,1,#mutate_ir, 85
-  flush_state_to_disk,core,meta_fn,ts,10,1,#flush_state_to_disk, 141
-  tissue_history,core,module,ts,10,1,#tissue_history, 170
-  atomic_pulse,core,meta_fn,ts,10,1,#atomic_pulse, 189
-  rust_compiler_bridge,sys,meta_fn,ts,100,1,#rust_compiler_bridge, 270
+  calculate_structural_hash,core,meta_fn,ts,10,1,#calculate_structural_hash, 39
+  mutate_ir,core,meta_fn,ts,10,1,#mutate_ir, 70
+  flush_state_to_disk,core,meta_fn,ts,10,1,#flush_state_to_disk, 142
+  tissue_history,core,module,ts,10,1,#tissue_history, 167
+  atomic_pulse,core,meta_fn,ts,10,1,#atomic_pulse, 186
+  rust_compiler_bridge,sys,meta_fn,ts,100,1,#rust_compiler_bridge, 288
 ---
 
 # 🧬 THE TISSUE (ACTIVE CANON)
@@ -28,23 +28,8 @@ in:
 out: i32@field:math
 
 #### IR
-```json
-{
-  "kind": "op",
-  "op": "mul",
-  "args": [
-    {
-      "kind": "var",
-      "name": "v",
-      "type": "i32"
-    },
-    {
-      "kind": "const",
-      "value": 13,
-      "bits": 32
-    }
-  ]
-}
+```glyph
+(* v 13)
 ```
 
 ---
@@ -60,10 +45,6 @@ version: 1
 in:
   node: Sigma3Node
 out: string
-
-#### Physics
-energy_cost: 0
-stability: 1.0
 
 #### IR
 ```json
@@ -150,127 +131,9 @@ const next = structuredClone(state);
           version: targetNode.identity.version + 1
         };
         
-        targetNode.mutation_log.push(`Mutated IR at [${path.join(".")}] to: ${JSON.stringify(newValue)} -> [${newHash}]`);
         diff.updated.push(targetAlias);
 
         return { next, diff };
-```
-
----
-
-### serialize_tissue
-#### Identity
-hash: 58a9e4b7c84ccf0e21334f59c23b2b4198c6aa2471eb67c9cfaa70dc0d4a9dc3
-version: 1
-
-#### IO
-in:
-  tissue: State
-out: string
-
-#### Physics
-energy_cost: 0
-stability: 1.0
-
-#### IR
-```json
-{
-  "args": [{"name": "tissue", "type": "State"}],
-  "ret": "string",
-  "body": "Serialize Tissue to OMEGA TOON Markdown"
-}
-```
-
-#### Implementation
-```ts
-  const { encode } = await import("npm:@toon-format/toon");
-  const nodesArr = [];
-  const entries = Object.entries(tissue);
-  let markdownBody = "";
-
-  const categories = {};
-  for (const [id, node] of entries) {
-     const field = node.identity.context_hash || "Misc";
-     if (!categories[field]) categories[field] = [];
-     categories[field].push([id, node]);
-  }
-
-  for (const [field, nodes] of Object.entries(categories)) {
-     markdownBody += `## ${field}\n\n`;
-     for (const [id, node] of nodes) {
-        let nodeBlock = `### ${id}\n`;
-        nodeBlock += `#### Identity\n`;
-        nodeBlock += `hash: ${node.identity.structural_hash}\n`;
-        nodeBlock += `version: ${node.identity.version}\n`;
-        if (node.identity.parents && node.identity.parents.length > 0) {
-            nodeBlock += `parents: ${JSON.stringify(node.identity.parents)}\n`;
-        }
-        nodeBlock += `\n#### IO\n`;
-        const serializeIO = (ioObj, indent = "") => {
-           let res = "";
-           for (const [k, v] of Object.entries(ioObj)) {
-               if (typeof v === 'object' && v !== null) {
-                   res += `${indent}${k}:\n${serializeIO(v, indent + "  ")}`;
-               } else {
-                   res += `${indent}${k}: ${v}\n`;
-               }
-           }
-           return res;
-        };
-        nodeBlock += serializeIO(node.io) + `\n`;
-
-        if (node.ir && node.ir.body !== undefined) {
-           nodeBlock += `#### IR\n`;
-           if (typeof node.ir.body === "string" || Array.isArray(node.ir.body)) {
-              let bodyStr = typeof node.ir.body === "string" ? node.ir.body : JSON.stringify(node.ir.body);
-              if (bodyStr.startsWith('"') && bodyStr.endsWith('"')) {
-                 bodyStr = JSON.parse(bodyStr); 
-              }
-              nodeBlock += `\`\`\`json\n${bodyStr}\n\`\`\`\n\n`;
-           } else {
-              nodeBlock += `\`\`\`json\n${JSON.stringify(node.ir.body, null, 2)}\n\`\`\`\n\n`;
-           }
-        }
-        
-        if (node.implementation && Object.keys(node.implementation).length > 0) {
-           nodeBlock += `#### Implementation\n`;
-           for (const [lang, code] of Object.entries(node.implementation)) {
-               nodeBlock += `\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
-           }
-        }
-
-        markdownBody += nodeBlock + "---\n\n";
-
-        nodesArr.push({
-           id,
-           field,
-           type: node.essence.type,
-           substrate: node.essence.substrate,
-           energy: node.physics ? node.physics.energy_cost : 0,
-           stability: node.physics ? node.physics.stability : 1.0,
-           link: `#${id}`
-        });
-     }
-  }
-
-  let headerTOON = "---\n# TISSUE METADATA (TOON FORMAT)\n# The Universal Registry of the System Runtime\n\n";
-  headerTOON += encode(nodesArr).replace(/\]:/, "]{id,field,type,substrate,energy,stability,link,line}:"); 
-  headerTOON += `\n---\n\n# 🧬 THE TISSUE (ACTIVE CANON)\n\n`;
-  
-  const lines = (headerTOON + markdownBody).split("\n");
-  for (let i = 0; i < lines.length; i++) {
-     if (lines[i].startsWith("### ")) {
-        const nodeId = lines[i].substring(4).trim();
-        const searchStr = `${nodeId},`;
-        for (let j = 0; j < Math.min(100, lines.length); j++) {
-           if (lines[j].includes(searchStr) && !lines[j].includes("[nodes]")) {
-               lines[j] = lines[j] + `, ${i + 1}`;
-               break;
-           }
-        }
-     }
-  }
-  return lines.join("\n") + "\n";
 ```
 
 ---
@@ -286,10 +149,6 @@ in:
   targetFile: string
 out: void
 
-#### Physics
-energy_cost: 0
-stability: 1.0
-
 #### IR
 ```json
 write(nextState) to Disk
@@ -300,34 +159,6 @@ write(nextState) to Disk
 const { executeNeuron } = await import("./quine.ts");
 const markdownStr = await executeNeuron(nextState, "serialize_tissue", { tissue: nextState });
 await Deno.writeTextFile(targetFile, markdownStr);
-```
-
----
-
-### flush_binary_to_disk
-#### Identity
-hash: pending
-version: 1
-
-#### IO
-in:
-  nextState: State
-  targetFile: string
-out: void
-
-#### Physics
-energy_cost: 0
-stability: 1.0
-
-#### IR
-```json
-{ "action": "msgpack_encode_to_vram", "target": "seed.bin" }
-```
-
-#### Implementation
-```ts
-const { encode } = await import("npm:@msgpack/msgpack");
-await Deno.writeFile(targetFile, encode(nextState));
 ```
 
 ---
@@ -451,80 +282,6 @@ let tempState = structuredClone(state);
 
 ---
 
-### metabolic_governor
-#### Identity
-hash: pending
-version: 1
-
-#### IO
-in:
-  state: State
-out: TransformResult<State>
-
-#### Physics
-energy_cost: 0
-stability: 1.0
-
-#### IR
-```json
-{ "action": "recalculate_thermodynamics" }
-```
-
-#### Implementation
-```ts
-const next = structuredClone(state);
-let totalEnergy = 0;
-let nodeCount = 0;
-
-for (const key in next) {
-    const node = next[key];
-    if (node.physics && typeof node.physics.energy_cost === "number") {
-        totalEnergy += node.physics.energy_cost;
-        nodeCount++;
-    }
-}
-
-const meanEnergy = nodeCount > 0 ? totalEnergy / nodeCount : 0;
-const constantsNode = next["tissue_constants"];
-
-if (constantsNode && constantsNode.ir) {
-    try {
-        const body = typeof constantsNode.ir.body === "string" ? JSON.parse(constantsNode.ir.body) : constantsNode.ir.body;
-        
-        let targetCost = body.MUTATION_COST;
-        const maxSustainableTax = Math.floor(meanEnergy * 0.5);
-        
-        // Prevent Universal Heat Death
-        if (targetCost > maxSustainableTax) {
-            targetCost = maxSustainableTax;
-        }
-        
-        // Ontology 39 Phase 1: Apriori Limits
-        if (targetCost < 5) targetCost = 5;
-        if (targetCost > 500) targetCost = 500;
-        
-        // Ontology 39 Phase 2: Variable Half-Life (Inertial Smoothing)
-        const oldCost = body.MUTATION_COST;
-        const smoothedCost = Math.floor((oldCost * 0.9) + (targetCost * 0.1));
-        
-        if (smoothedCost !== oldCost) {
-            body.MUTATION_COST = smoothedCost;
-            constantsNode.ir.body = JSON.stringify(body, null, 2);
-            constantsNode.mutation_log.push(`Governor Intervention (O-39): Smoothed MUTATION_COST to ${smoothedCost} (Target was ${targetCost}) ensuring dimensional economic safety.`);
-            
-            const newHash = await executeNeuron(next, "calculate_structural_hash", { node: constantsNode });
-            constantsNode.identity.parents = [constantsNode.identity.structural_hash];
-            constantsNode.identity.structural_hash = newHash;
-            constantsNode.identity.version++;
-        }
-    } catch (e) {}
-}
-
-return { next, diff: { added: [], updated: ["tissue_constants"], removed: [] } };
-```
-
----
-
 ## sys
 
 ### rust_compiler_bridge
@@ -539,12 +296,8 @@ in:
 out: void
 
 #### IR
-```json
-{
-  "kind": "const",
-  "value": 0,
-  "bits": 32
-}
+```glyph
+0
 ```
 
 #### Implementation
