@@ -11,16 +11,20 @@ const replayStack = new URLSearchParams(globalThis.location.search).get("stack")
 
 console.log("[O-64] Bootstrapping Genesis Ontology 10 Environment...");
 
-try {
-    if (mode === "replay") {
-        await bootstrapReplay(replayStack);
-    } else if (mode === "phase") {
-        const wasm = await initWasm();
-        initUnifiedPhaseLut(wasm.memory as WebAssembly.Memory, get_phase_lut_ptr());
-        await bootstrapPhase(wasm.memory as WebAssembly.Memory);
-    } else {
-        await bootstrapClassic(mode);
+async function boot() {
+    try {
+        if (mode === "replay") {
+            await bootstrapReplay(replayStack);
+        } else if (mode === "phase") {
+            const wasm = await initWasm();
+            initUnifiedPhaseLut(wasm.memory as WebAssembly.Memory, get_phase_lut_ptr());
+            await bootstrapPhase(wasm.memory as WebAssembly.Memory);
+        } else {
+            await bootstrapClassic(mode);
+        }
+    } catch (e) {
+        console.error("[Genesis] Master routing collapse:", e);
     }
-} catch (e) {
-    console.error("[Genesis] Master routing collapse:", e);
 }
+
+boot();

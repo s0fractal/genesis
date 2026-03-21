@@ -22,6 +22,7 @@ import {
   tickFps,
   wireSemanticInput,
 } from "./dom.ts";
+import { TISSUE_CONSTANTS } from "../shared/constants.ts";
 
 export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   console.log("[Genesis] Bootstrapping experimental phase lattice mode...");
@@ -100,8 +101,13 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const phylogenyHUD = new PhylogeneticCanvas();
   let lastPhylogenyCheck = performance.now();
   let isShedding = false; // O-57
+  
+  // O-65 Invariant Guards
+  let initialWrapSectors = true; 
+  let ticksSinceLastShedding = 0;
 
   const loop = async () => {
+    ticksSinceLastShedding++;
     // O-32: Morphological Hot-Reloading Polling (Shedding Event)
     const nowLocal = performance.now();
     if (nowLocal - lastShedCheck > 1000 && !isShedding) {
@@ -134,7 +140,36 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 if (tSectors < 8) tSectors = 8;
                 if (tRadial < 8) tRadial = 8;
 
+                // O-65: Prevent Genus Tear
+                if (body.WRAP_SECTORS !== undefined && body.WRAP_SECTORS !== initialWrapSectors) {
+                     console.warn(`[O-65] Topological Invariant Violation. Cannot alter Genus geometry mid-simulation.`);
+                }
+                
+                // O-65: Morphological Hysteresis & Delta
+                const isMorphing = tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics;
+                if (isMorphing) {
+                    if (ticksSinceLastShedding < TISSUE_CONSTANTS.MORPHOLOGICAL_HYSTERESIS) {
+                        console.warn(`[O-65] Morphological Hysteresis active (${ticksSinceLastShedding}/${TISSUE_CONSTANTS.MORPHOLOGICAL_HYSTERESIS}). Rejecting mutation.`);
+                        tSectors = phaseField.sectors;
+                        tRadial = phaseField.radial_bins;
+                        tHarm = phaseField.harmonics;
+                    } else {
+                        const oldVolume = phaseField.sectors * phaseField.radial_bins * phaseField.harmonics;
+                        const newVolume = tSectors * tRadial * tHarm;
+                        const delta = Math.abs(newVolume - oldVolume) / oldVolume;
+                        if (delta < TISSUE_CONSTANTS.MORPHOLOGICAL_DELTA_MIN) {
+                            console.warn(`[O-65] Morphological Delta ${delta.toFixed(2)} < ${TISSUE_CONSTANTS.MORPHOLOGICAL_DELTA_MIN}. Rejecting.`);
+                            tSectors = phaseField.sectors;
+                            tRadial = phaseField.radial_bins;
+                            tHarm = phaseField.harmonics;
+                        }
+                    }
+                }
+
                     if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
+                        ticksSinceLastShedding = 0;
+                        initialWrapSectors = body.WRAP_SECTORS ?? initialWrapSectors;
+                        
                         console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
                         console.log(`🧨 Securing VRAM Pointers for Asynchronous Morphological Migration...`);
                         
