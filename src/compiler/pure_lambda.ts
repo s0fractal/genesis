@@ -50,6 +50,46 @@ export function measureIR(term: Term): { cost: number; depth: number; nodes: num
     return { cost, depth, nodes };
 }
 
+/**
+ * O-146 Vector O.1: Epigenetic Phenotype Measurement
+ * Scans the structural geometry of the Plasmid to deterministically assign its 
+ * visual Hue mapping. Chaos (S) is Red, Pruning (K) is Green, Identity (I) is Blue.
+ */
+export function phenotypeHue(term: Term): number {
+    let sCount = 0;
+    let kCount = 0;
+    let iCount = 0;
+    
+    function walk(t: Term) {
+        if (t.type === "Combinator") {
+            if (t.name === "S") sCount++;
+            else if (t.name === "K") kCount++;
+            else if (t.name === "I" || t.name === "Y") iCount++;
+        } else if (t.type === "Application") {
+            walk(t.left);
+            walk(t.right);
+        }
+    }
+    
+    walk(term);
+    
+    const total = sCount + kCount + iCount;
+    if (total === 0) return 42; // Variables default to slightly yellow (60 degrees approx)
+    
+    // Calculate color vectors: S=0 deg(Red), K=120 deg(Green), I/Y=240 deg(Blue)
+    const sRatio = sCount / total;
+    const kRatio = kCount / total;
+    const iRatio = iCount / total;
+    
+    const x = sRatio * Math.cos(0) + kRatio * Math.cos(2 * Math.PI / 3) + iRatio * Math.cos(4 * Math.PI / 3);
+    const y = sRatio * Math.sin(0) + kRatio * Math.sin(2 * Math.PI / 3) + iRatio * Math.sin(4 * Math.PI / 3);
+    
+    let hue = Math.atan2(y, x) * (180 / Math.PI);
+    if (hue < 0) hue += 360;
+    
+    return Math.floor((hue / 360) * 255);
+}
+
 export function variable(name: string): Term {
     return { type: "Variable", name };
 }

@@ -70,12 +70,13 @@ fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
   let value = pow(e_val, 0.7);
   var base_color = hsv2rgb(hue, 1.0, value);
 
-  // --- Ontology 13 WebGPU Semantic Coloring ---
-  // If a Plasmid Attractor exists (High 32-bits for Oracle Intent, Low 32-bits for Organic)
+  // --- Ontology 14 WebGPU Epigenetic Coloring ---
+  // The lowest 8 bits of plasmid_low mathematically dictate the topological phenotype.
   if (plasmid_low != 0u || plasmid_high != 0u) {
+      let p_hue = f32(plasmid_low & 0xFFu) / 255.0; // Era 146 Biological Map
+      
       let signature = plasmid_low ^ plasmid_high;
-      let p_hue = f32(signature & 0xFFu) / 255.0;
-      let p_sat = 0.6 + (f32((signature >> 8u) & 0xFFu) / 637.5);
+      let p_sat = 0.8 + (f32((signature >> 8u) & 0xFFu) / 1275.0); // Retain high vividness
       let p_val = 0.8 + (f32((signature >> 16u) & 0xFFu) / 1275.0);
       
       let p_color = hsv2rgb(p_hue, p_sat, p_val);

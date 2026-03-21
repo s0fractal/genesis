@@ -169,11 +169,13 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
       base_color = hsv2rgb(t_hue, 1.0, min(1.0, t_val));
   }
 
-  // Semantic Plasmid Overlay
+  // Era 146: Epigenetic Plasmid Overlay
   if (plasmid_low != 0u || plasmid_high != 0u) {
+      // The Biological Hue is strictly encoded inside the terminal byte
+      let p_hue = f32(plasmid_low & 0xFFu) / 255.0;
+      
       let signature = plasmid_low ^ plasmid_high;
-      let p_hue = f32(signature & 0xFFu) / 255.0;
-      let p_sat = 0.6 + (f32((signature >> 8u) & 0xFFu) / 637.5);
+      let p_sat = 0.8 + (f32((signature >> 8u) & 0xFFu) / 1275.0);
       let p_color = hsv2rgb(p_hue, min(1.0, p_sat), 1.0);
       base_color = mix(base_color, p_color, 0.85);
   }

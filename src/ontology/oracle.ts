@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -74,7 +74,7 @@ export class SovereignOracle {
         return this.engine ? this.requestQueue.length : this.wasmField.get_oracle_request_count();
     }
 
-    public async boot() {
+    public boot() {
         this.isRunning = true;
         
         // G.1 Core Immortality
@@ -94,7 +94,12 @@ export class SovereignOracle {
             { term: Y, string: "Y" }
         ];
         for (const meta of immortals) {
-            const childHash = fnv1a_64(meta.string);
+            let childHash = fnv1a_64(meta.string);
+            
+            // O-146 Vector O.2: Epigenetic Integration
+            const hue = phenotypeHue(meta.term);
+            childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
+            
             if (!PlasmidRegistry.has(childHash)) {
                 PlasmidRegistry.set(childHash, {
                     ast: meta.term,
@@ -314,7 +319,11 @@ export class SovereignOracle {
                      }
                      
                      const childStr = formatTerm(childTerm);
-                     const childHash = fnv1a_64(childStr);
+                     let childHash = fnv1a_64(childStr);
+                     
+                     // O-146 Vector O.2: Epigenetic Integration
+                     const hue = phenotypeHue(childTerm);
+                     childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
                      
                      if (!PlasmidRegistry.has(childHash)) {
                          const metrics = measureIR(childTerm);
@@ -576,6 +585,10 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             const astTerm = parseLambda(intent);
             const astStr = formatTerm(astTerm); // Normalize spacing and validation
             hash = fnv1a_64(astStr);
+            
+            // O-146 Vector O.2: Epigenetic Integration
+            const hue = phenotypeHue(astTerm);
+            hash = (hash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
             
             if (!PlasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
