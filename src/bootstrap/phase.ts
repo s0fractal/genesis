@@ -21,6 +21,7 @@ import {
   setHudStat,
   setInputMode,
   tickFps,
+  updateHomeostasisHUD,
   wireSemanticInput,
 } from "./dom.ts";
 import { TISSUE_CONSTANTS } from "../shared/constants.ts";
@@ -279,6 +280,11 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
         `ENT ${phase_lattice_shannon_entropy(phaseField).toFixed(2)} | Ω ${
           phase_lattice_omega_span(phaseField)
         } | Q ${oracle.getQueueSize()}`,
+      );
+      
+      updateHomeostasisHUD(
+        phase_lattice_shannon_entropy(phaseField),
+        oracle.getGlobalEnergy()
       );
     }
 

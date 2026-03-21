@@ -18,16 +18,22 @@ export const DOM = {
     replayTickSlider: document.getElementById("replay-tick") as HTMLInputElement | null,
     replayTickValue: document.getElementById("replay-tick-value") as HTMLSpanElement | null,
     replayCompareSelect: document.getElementById("replay-compare") as HTMLSelectElement | null,
+    
+    // O-58 Homeostasis Guard
+    hMarkerEntropy: document.getElementById("h-marker-entropy") as HTMLDivElement | null,
+    hMarkerEnergy: document.getElementById("h-marker-energy") as HTMLDivElement | null,
+    hEntropyVal: document.getElementById("h-entropy-val") as HTMLSpanElement | null,
+    hEnergyVal: document.getElementById("h-energy-val") as HTMLSpanElement | null,
 };
 
 export function configureCanvas(): HTMLCanvasElement {
   const canvas = document.getElementById("lens-canvas") as HTMLCanvasElement;
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = globalThis.innerWidth;
+  canvas.height = globalThis.innerHeight;
 
-  window.addEventListener("resize", () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  globalThis.addEventListener("resize", () => {
+    canvas.width = globalThis.innerWidth;
+    canvas.height = globalThis.innerHeight;
   });
 
   return canvas;
@@ -80,4 +86,23 @@ export function setHudStat(slot: "a" | "b" | "c", label: string, value: string) 
 export function setInputMode(target: "semantic" | "replay") {
   DOM.semanticInputGroup?.toggleAttribute("hidden", target !== "semantic");
   DOM.replayControls?.toggleAttribute("hidden", target !== "replay");
+}
+
+export function updateHomeostasisHUD(entropy: number, energy: number) {
+    if (DOM.hMarkerEntropy && DOM.hEntropyVal) {
+        // Entropy scale: 0 to 6.0
+        let ePct = (entropy / 6.0) * 100;
+        if (ePct < 0) ePct = 0;
+        if (ePct > 100) ePct = 100;
+        DOM.hMarkerEntropy.style.setProperty("--h-pos", `${ePct}%`);
+        DOM.hEntropyVal.replaceChildren(entropy.toFixed(2));
+    }
+    if (DOM.hMarkerEnergy && DOM.hEnergyVal) {
+        // Energy scale: 0 to 100000
+        let enPct = (energy / 100000) * 100;
+        if (enPct < 0) enPct = 0;
+        if (enPct > 100) enPct = 100;
+        DOM.hMarkerEnergy.style.setProperty("--h-pos", `${enPct}%`);
+        DOM.hEnergyVal.replaceChildren(Math.floor(energy).toString());
+    }
 }

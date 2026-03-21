@@ -129,6 +129,10 @@ export class SovereignOracle {
      * O-136 Biological Evolution Economy
      * Garbage collects mathematically stagnant plasmids and penalizes massive AST payloads.
      */
+    public getGlobalEnergy(): number {
+        return this.globalEnergyPool;
+    }
+
     public tickSomaticEconomy(activity: number = 0) {
         if (PlasmidRegistry.size === 0) return;
         
