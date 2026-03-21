@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -76,10 +76,34 @@ export class SovereignOracle {
 
     public async boot() {
         this.isRunning = true;
+        
+        // G.1 Core Immortality
+        this.injectImmortals();
+        
         console.log("[ORACLE] Asynchronous Batched AOMQ (Ontology 20) initialized.");
         if (this.engine) {
             this.engine.init();
         }
+    }
+    
+    private injectImmortals() {
+        const immortals = ["S", "K", "I", "Y"];
+        for (const astStr of immortals) {
+            const childHash = fnv1a_64(astStr);
+            if (!PlasmidRegistry.has(childHash)) {
+                PlasmidRegistry.set(childHash, {
+                    ast: astStr,
+                    l1_cost: 0,
+                    depth: 1,
+                    nodes: 1,
+                    attention: 99999, // Absolute gravity in the biological matrix
+                    age: 0,
+                    energy: Infinity, // The laws of physics do not starve
+                    fitness: 1.0
+                });
+            }
+        }
+        console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y) with Immortal Energy.`);
     }
 
     /**
@@ -116,6 +140,24 @@ export class SovereignOracle {
             
             // Plasticity & Attention half-life (attenuation)
             node.attention = Math.floor(node.attention * 0.9);
+            
+            // O-138 Vector G.2: The Parasite Penalty (Semantic Fitness Evaluation)
+            // Stochastic 5% population sampling to prevent freezing the JS thread
+            if (node.energy !== Infinity && Math.random() < 0.05) {
+                try {
+                    const testTerm = apply(parseLambda(node.ast), variable("target"));
+                    const { timeout } = evaluateFitness(testTerm, 128); // Force 128 step timeout boundary
+                    if (timeout) {
+                        node.energy -= 2000; // PARASITE_PENALTY
+                        node.fitness -= 2.0;
+                    } else {
+                        node.fitness += 0.5; // Legitimate processing structure
+                    }
+                } catch (_e) {
+                    node.energy -= 2000; // Unparseable / Mathematically Divergent
+                    node.fitness -= 2.0;
+                }
+            }
             
             // Extinction threshold
             if (node.energy <= 0) {
@@ -232,6 +274,19 @@ export class SovereignOracle {
                              continue;
                          }
                          
+                         // O-138 Vector G.3: Goal Emergence (The Church-Turing Niche)
+                         let fitnessSpike = 0;
+                         if (rho === 1) { // The inner computational ring demands 'Identity' (\x -> x)
+                             try {
+                                 const testTerm = apply(childTerm, variable("target"));
+                                 const { result, timeout } = evaluateFitness(testTerm, 64);
+                                 if (!timeout && result.type === "Variable" && result.name === "target") {
+                                     fitnessSpike = 5000;
+                                     console.log(`[ORACLE] 🎯 NICHE GOAL: [${childHash}] solved Identity at rho=1! Rewarded 5000 Energy.`);
+                                 }
+                             } catch (_e) { }
+                         }
+                         
                          PlasmidRegistry.set(childHash, {
                              ast: childStr,
                              l1_cost: metrics.cost,
@@ -239,8 +294,8 @@ export class SovereignOracle {
                              nodes: metrics.nodes,
                              attention: 1,
                              age: 0,
-                             energy: 1000, // Initial battery
-                             fitness: 0
+                             energy: 1000 + fitnessSpike, // Initial battery + Goal Emergence
+                             fitness: fitnessSpike > 0 ? 5.0 : 0
                          });
                      } else {
                          const existing = PlasmidRegistry.get(childHash)!;

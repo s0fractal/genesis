@@ -115,17 +115,25 @@ export function reduceStep(term: Term): Term | null {
  * to prevent infinite loops (e.g. diverging `Omega` combinators).
  */
 export function evaluateLambda(term: Term, maxSteps = 1024): Term {
+    return evaluateFitness(term, maxSteps).result;
+}
+
+/**
+ * Validates computational efficiency. Returns a timeout flag if the combinator 
+ * falls into an infinite morphological loop.
+ */
+export function evaluateFitness(term: Term, maxSteps = 128): { result: Term; steps: number; timeout: boolean } {
     let current = term;
     let steps = 0;
     while (steps < maxSteps) {
         const next = reduceStep(current);
         if (next === null) {
-            break;
+            return { result: current, steps, timeout: false };
         }
         current = next;
         steps++;
     }
-    return current;
+    return { result: current, steps, timeout: true };
 }
 
 /**
