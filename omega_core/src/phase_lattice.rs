@@ -234,18 +234,24 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let inner = field.idx(past_tau, sector, rho.saturating_sub(1), harmonic);
                 let outer = field.idx(past_tau, sector, usize::min(rho + 1, radial_bins - 1), harmonic);
                 let harmonic_peer = field.idx(past_tau, sector, rho, (harmonic + 1) % harmonics);
+                
+                // Vector B.1: Chronotopology Kuramoto Temporal Interference
+                let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
+                let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
                 let mut kuramoto = phase_sin_sum(theta, field.theta[left], 1.0)
                     + phase_sin_sum(theta, field.theta[right], 1.0)
                     + phase_sin_sum(theta, field.theta[inner], 1.0)
                     + phase_sin_sum(theta, field.theta[outer], 1.0)
-                    + phase_sin_sum(theta, field.theta[harmonic_peer], 0.5);
+                    + phase_sin_sum(theta, field.theta[harmonic_peer], 0.5)
+                    + phase_sin_sum(theta, field.theta[historical_peer], 0.3); // Temporal Z-axis weight
 
                 let mut coherence = phase_cos_sum(theta, field.theta[left], 1.0)
                     + phase_cos_sum(theta, field.theta[right], 1.0)
                     + phase_cos_sum(theta, field.theta[inner], 1.0)
                     + phase_cos_sum(theta, field.theta[outer], 1.0)
-                    + phase_cos_sum(theta, field.theta[harmonic_peer], 0.5);
+                    + phase_cos_sum(theta, field.theta[harmonic_peer], 0.5)
+                    + phase_cos_sum(theta, field.theta[historical_peer], 0.3);
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.plasmids[past_idx] != 0 {

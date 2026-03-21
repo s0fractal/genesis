@@ -532,10 +532,9 @@ fn collapse_canonical_bridge_seed_cell(
         let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i16;
         let lock = canonical_lock(source_sector, source_rho, harmonic) as i16;
         let weight = amplitude.max(1) as f64;
-        let radians = (theta as f64 / 256.0) * std::f64::consts::TAU;
-
-        sum_x += radians.cos() * weight;
-        sum_y += radians.sin() * weight;
+        
+        sum_x += crate::lut::SINE_LUT[theta.wrapping_add(64) as usize] as f64 * weight;
+        sum_y += crate::lut::SINE_LUT[theta as usize] as f64 * weight;
         sum_amplitude += amplitude;
         sum_lock += lock;
         sum_omega += omega;
