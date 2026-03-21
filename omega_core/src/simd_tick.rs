@@ -96,18 +96,30 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                     
                     if neighbor_idx < size {
                         let foreign_plasmid = field.plasmids[neighbor_idx];
+                        let host_plasmid = field.plasmids[idx];
+                        
                         if foreign_plasmid != 0 {
-                            // Incorporate plasmid: Overwrite host structural genetic parameters
-                            field.theta_now[idx] = (foreign_plasmid & 0xFF) as u8;
-                            field.omega[idx] = ((foreign_plasmid >> 8) & 0xFF) as u8;
-                            // Officially adopt the plasmid footprint so the Idea's color spreads!
-                            field.plasmids[idx] = foreign_plasmid;
-                            adopted = true;
+                            if host_plasmid != 0 && host_plasmid != foreign_plasmid {
+                                // O-133 Phase 2: Topological Lambda Application (HGT)
+                                // Collision! Two diverse logic forms occupy adjacent bounds.
+                                if field.oracle_request_count < 1024 && field.cell_status[idx] == 0 {
+                                    field.oracle_requests[field.oracle_request_count] = (idx as u32) | 0x80000000;
+                                    field.oracle_request_count += 1;
+                                    field.cell_status[idx] = 120; // HGT Cooldown
+                                    adopted = true; // Block subsequent oracle prompt overwriting
+                                }
+                            } else if host_plasmid == 0 {
+                                // Standard adoption from empty state
+                                field.theta_now[idx] = (foreign_plasmid & 0xFF) as u8;
+                                field.omega[idx] = ((foreign_plasmid >> 8) & 0xFF) as u8;
+                                field.plasmids[idx] = foreign_plasmid;
+                                adopted = true;
+                            }
                         }
                     }
                     
                     // --- Ontology 27: Async TTL Proxy ---
-                    // Request an intent ONLY if not actively cooling down.
+                    // Request an LLM intent ONLY if not actively infected or breeding.
                     if !adopted && best_score > 160 && field.oracle_request_count < 1024 {
                         if field.cell_status[idx] == 0 {
                             field.oracle_requests[field.oracle_request_count] = idx as u32;

@@ -2,6 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -88,10 +89,84 @@ export class SovereignOracle {
             if (count > 0) {
                 const requestPtr = this.wasmField.ptr_oracle_requests();
                 const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
-                requests = Array.from(requestArray);
+                const rawRequests = Array.from(requestArray);
                 this.wasmField.clear_oracle_requests();
-                this.processQueue(count, requests);
+                
+                // O-133 Phase 2: Intercept Topological Collisions (HGT)
+                const llmRequests: number[] = [];
+                const hgtRequests: number[] = [];
+                for (const req of rawRequests) {
+                    if ((req & 0x80000000) !== 0) {
+                        hgtRequests.push(req & 0x7FFFFFFF); // Extract physical index
+                    } else {
+                        llmRequests.push(req);
+                    }
+                }
+                
+                if (hgtRequests.length > 0) {
+                    this.processHorizontalGeneTransfers(hgtRequests);
+                }
+                
+                if (llmRequests.length > 0) {
+                    this.processQueue(llmRequests.length, llmRequests);
+                }
             }
+        }
+    }
+    
+    // O-133 Phase 2: Topological Lambda Application
+    private processHorizontalGeneTransfers(hgtRequests: number[]) {
+        let size = 0;
+        if (this.wasmField.cell_count) {
+            size = this.wasmField.cell_count();
+        } else if (this.wasmField.width && this.wasmField.height) {
+            size = this.wasmField.width * this.wasmField.height;
+        }
+        const width = this.wasmField.width || 0;
+        
+        const plasmidPtr = this.wasmField.ptr_plasmids();
+        const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
+        const statusPtr = this.wasmField.ptr_cell_status();
+        const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
+
+        for (const idx of hgtRequests) {
+             const host_plasmid = plasmids[idx];
+             if (host_plasmid === 0n) continue;
+             
+             const neighbors = [
+                 idx >= width ? idx - width : idx + width,
+                 idx + width < size ? idx + width : idx - width,
+                 idx % width !== 0 ? idx - 1 : idx + width - 1,
+                 (idx + 1) % width !== 0 ? idx + 1 : idx - width + 1,
+             ];
+             
+             let foreign_plasmid = 0n;
+             for (const n of neighbors) {
+                 if (n < size && plasmids[n] !== 0n && plasmids[n] !== host_plasmid) {
+                     foreign_plasmid = plasmids[n];
+                     break; 
+                 }
+             }
+             
+             if (foreign_plasmid !== 0n) {
+                 const hostTermStr = PlasmidRegistry.get(host_plasmid) || "(I host)";
+                 const foreignTermStr = PlasmidRegistry.get(foreign_plasmid) || "(I foreign)";
+                 
+                 // Mathematically bind the two logic boundaries as a combinator application (Host Foreign)
+                 try {
+                     const hostTerm = parseLambda(hostTermStr);
+                     const foreignTerm = parseLambda(foreignTermStr);
+                     const childTerm = apply(hostTerm, foreignTerm);
+                     const childStr = formatTerm(childTerm);
+                     const childHash = fnv1a_64(childStr);
+                     
+                     PlasmidRegistry.set(childHash, childStr);
+                     plasmids[idx] = childHash;
+                     console.log(`🧬 HGT COLLISION: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
+                 } catch(e) { /* Divergence block */ }
+             }
+             
+             status[idx] = 0; // Release cell back into physics evaluation
         }
     }
 
@@ -290,6 +365,9 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
     private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {
         // 3. The Return Path: Asynchronously encode LLM bytes directly back into Plasmids
         const hash = fnv1a_64(intent);
+        
+        // Formally bind the LLM Natural Language syntax strictly into the Mathematics registry
+        PlasmidRegistry.set(hash, intent.replace(/[()]/g, ""));
 
         if (this.engine) {
             // O-23 Native WebGPU Interface

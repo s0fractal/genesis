@@ -236,6 +236,32 @@ let tempState = structuredClone(state);
                 node.identity.structural_hash = calculatedHash;
                 mutated = true;
             }
+            
+            // O-133 Phase 1: Pure Lambda Substrate Execution Cycles
+            if (node.essence.substrate === "lambda") {
+                if (node.physics && typeof node.physics.energy_cost === 'number' && node.physics.energy_cost >= 1) {
+                    const energyAvailable = node.physics.energy_cost;
+                    const maxSteps = Math.min(10, Math.floor(energyAvailable)); // Execution rate limits
+                    try {
+                        const { parseLambda, evaluateLambda, formatTerm } = await import("./compiler/pure_lambda.ts");
+                        const term = parseLambda(node.ir.body as string);
+                        
+                        // Execute the pure mathematics computationally bounded by metabolic taxation
+                        const reducedTerm = evaluateLambda(term, maxSteps);
+                        const reducedString = formatTerm(reducedTerm);
+                        
+                        node.physics.energy_cost -= maxSteps; // Syntactic thermodynamics 
+                        
+                        if (reducedString !== node.ir.body) {
+                            node.ir.body = reducedString;
+                            node.mutation_log.push(`Λ-Reduction: Executed ${maxSteps} topological reductions.`);
+                            mutated = true;
+                        }
+                    } catch (e) {
+                         // Syntax errors stall reproduction but don't crash ecosystem
+                    }
+                }
+            }
           }
         } catch (e) {
           return { success: false, next: state, log: [], error: e.message };

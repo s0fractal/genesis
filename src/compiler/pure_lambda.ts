@@ -12,6 +12,12 @@ export function apply(left: Term, right: Term): Term {
     return { type: "Application", left, right };
 }
 
+/**
+ * Universal mappings preserving the bidirectional bridge between 
+ * mathematical 64-bit grid bounds in WASM and pure SKI syntactical strings.
+ */
+export const PlasmidRegistry = new Map<bigint, string>();
+
 export function variable(name: string): Term {
     return { type: "Variable", name };
 }
