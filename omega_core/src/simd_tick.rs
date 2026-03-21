@@ -594,23 +594,14 @@ fn canonical_lock(sector: usize, rho: usize, harmonic: usize) -> u8 {
     ((sector * 5 + rho * 11 + harmonic * 3) % 64) as u8
 }
 
-fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {
-    let raw = (to_theta as i16 - from_theta as i16).rem_euclid(256);
-    if raw > 128 {
-        raw - 256
-    } else {
-        raw
-    }
-}
-
 fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
     let index = to_theta.wrapping_sub(from_theta) as usize;
-    unsafe { crate::GLOBAL_PHASE_LUT[index] }
+    crate::lut::SINE_LUT[index]
 }
 
 fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
     let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
-    unsafe { crate::GLOBAL_PHASE_LUT[index] }
+    crate::lut::SINE_LUT[index]
 }
 
 fn local_target(lut: &[i16], theta_prev: &[u8], neighborhood: [usize; 4], antipode_idx: usize, include_antipode: bool) -> i16 {

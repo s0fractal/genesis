@@ -12,11 +12,42 @@ export function apply(left: Term, right: Term): Term {
     return { type: "Application", left, right };
 }
 
+export interface SomaticNode {
+    ast: string;
+    l1_cost: number;
+    depth: number;
+    nodes: number;
+    attention: number;
+    age: number;
+    energy: number;
+    fitness: number;
+}
+
 /**
  * Universal mappings preserving the bidirectional bridge between 
  * mathematical 64-bit grid bounds in WASM and pure SKI syntactical strings.
+ * Upgraded to a biological Somatic Engine tracking L1 Complexity and Age Decay.
  */
-export const PlasmidRegistry = new Map<bigint, string>();
+export const PlasmidRegistry = new Map<bigint, SomaticNode>();
+
+/**
+ * Traverses a Compiled AST Node, measuring its Topological constraints.
+ * Structural bulk is penalized by L1 Complexity Regulators.
+ */
+export function measureIR(term: Term): { cost: number; depth: number; nodes: number } {
+    if (term.type === "Combinator" || term.type === "Variable") {
+        return { cost: 1, depth: 1, nodes: 1 };
+    }
+    
+    const leftMetrics = measureIR(term.left);
+    const rightMetrics = measureIR(term.right);
+    const nodes = 1 + leftMetrics.nodes + rightMetrics.nodes;
+    const depth = 1 + Math.max(leftMetrics.depth, rightMetrics.depth);
+    
+    // Core L1 Formulation: Bulk Depth * 2 + Node Volume
+    const cost = nodes + (depth * 2);
+    return { cost, depth, nodes };
+}
 
 export function variable(name: string): Term {
     return { type: "Variable", name };

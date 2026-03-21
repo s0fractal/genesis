@@ -1,3 +1,4 @@
+import {
   phase_lattice_omega_span,
   phase_lattice_shannon_entropy,
   phase_lattice_signature,
@@ -255,7 +256,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
            // Inject Latent Entropy (Shadow Buckets 1000-1024)
            const shadowBucket = 1000 + Math.floor(Math.random() * 24);
            console.log(`[O-130] 🌑 AION ALARM: Thermodynamic Crystallization (Entropy ${entropy.toFixed(2)}). Injecting Latent Entropy into Bucket #${shadowBucket}`);
-           injector.injectSemanticPhase(shadowBucket, Math.floor(Math.random() * 256), 255);
+           computeEngine.injectEnergy(shadowBucket, Math.floor(Math.random() * 256));
         }
 
         observer.render(computeEngine.getActiveBuffer());

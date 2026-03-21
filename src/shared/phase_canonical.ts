@@ -3,6 +3,7 @@ import { clamp, wrapIndex } from "./topology_core.ts";
 import type { PhaseField, PhaseFieldShape } from "./phase_lattice.ts";
 
 export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
+    tauDepth: 4,
     sectors: 32,
     radialBins: 6,
     harmonics: 16,
@@ -28,6 +29,7 @@ export function buildProjectedBridgeSeed(
     const canonical = buildCanonicalPhaseSeed(shape);
     return createPhaseField(
         {
+            tauDepth: 4,
             sectors: bridgeWidth,
             radialBins: bridgeHeight,
             harmonics: 1,
@@ -54,7 +56,7 @@ function collapseCanonicalBridgeCell(
     let fallbackTheta = 0;
 
     for (let harmonic = 0; harmonic < canonical.shape.harmonics; harmonic++) {
-        const cell = getCell(canonical, sourceSector, sourceRho, harmonic);
+        const cell = getCell(canonical, 0, sourceSector, sourceRho, harmonic);
         const weight = Math.max(1, cell.amplitude);
         const radians = (cell.theta / 256) * Math.PI * 2;
         sumX += Math.cos(radians) * weight;

@@ -94,35 +94,33 @@ export function clonePhaseField(field: PhaseField): PhaseField {
 export function rotateGlobalPhase(field: PhaseField, deltaTheta: number): PhaseField {
     const rotated = clonePhaseField(field);
     for (const cell of rotated.cells) {
-        if (cell.tau === rotated.currentTau) {
-            cell.theta = wrapTheta(cell.theta + deltaTheta);
-        }
+        cell.theta = wrapTheta(cell.theta + deltaTheta);
     }
     return rotated;
 }
 
 export function rotateAngularAddress(field: PhaseField, deltaSector: number): PhaseField {
-    const rotatedCells = [...field.cells]; // Shallow copy array
-    const nextTau = wrapIndex(field.currentTau + 1, field.shape.tauDepth);
+    const rotatedCells = [...field.cells]; 
     
-    for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
-        for (let rho = 0; rho < field.shape.radialBins; rho++) {
-            for (let sector = 0; sector < field.shape.sectors; sector++) {
-                const currentCell = getCell(field, field.currentTau, sector, rho, harmonic);
-                const nextSector = wrapIndex(sector + deltaSector, field.shape.sectors);
-                const nextIndex = fieldIndex(field.shape, nextTau, nextSector, rho, harmonic);
-                
-                rotatedCells[nextIndex] = {
-                    ...currentCell,
-                    tau: nextTau,
-                    sector: nextSector,
-                };
+    for (let tau = 0; tau < field.shape.tauDepth; tau++) {
+        for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
+            for (let rho = 0; rho < field.shape.radialBins; rho++) {
+                for (let sector = 0; sector < field.shape.sectors; sector++) {
+                    const currentCell = getCell(field, tau, sector, rho, harmonic);
+                    const nextSector = wrapIndex(sector + deltaSector, field.shape.sectors);
+                    const nextIndex = fieldIndex(field.shape, tau, nextSector, rho, harmonic);
+                    
+                    rotatedCells[nextIndex] = {
+                        ...currentCell,
+                        sector: nextSector,
+                    };
+                }
             }
         }
     }
     return {
         shape: { ...field.shape },
-        currentTau: nextTau,
+        currentTau: field.currentTau,
         cells: rotatedCells,
     };
 }
@@ -155,19 +153,24 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const outer = getCell(field, pastTau, sector, rho + 1, harmonic);
                 const harmonicPeer = getCell(field, pastTau, sector, rho, harmonic + 1);
 
+                const historicalTau = (pastTau + field.shape.tauDepth - 1) % field.shape.tauDepth;
+                const historicalPeer = getCell(field, historicalTau, sector, rho, harmonic);
+
                 let kuramoto =
                     phaseSine(current.theta, left.theta) +
                     phaseSine(current.theta, right.theta) +
                     phaseSine(current.theta, inner.theta) +
                     phaseSine(current.theta, outer.theta) +
-                    phaseSine(current.theta, harmonicPeer.theta) * 0.5;
+                    phaseSine(current.theta, harmonicPeer.theta) * 0.5 +
+                    phaseSine(current.theta, historicalPeer.theta) * 0.3;
 
                 let coherence =
                     resonance(current.theta, left.theta) +
                     resonance(current.theta, right.theta) +
                     resonance(current.theta, inner.theta) +
                     resonance(current.theta, outer.theta) +
-                    resonance(current.theta, harmonicPeer.theta) * 0.5;
+                    resonance(current.theta, harmonicPeer.theta) * 0.5 +
+                    resonance(current.theta, historicalPeer.theta) * 0.3;
 
                 if (field.shape.sectors % 2 === 0) {
                     const antipode = getCell(field, pastTau, sector + field.shape.sectors / 2, rho, harmonic);

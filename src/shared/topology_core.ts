@@ -31,10 +31,6 @@ for (let i = 0; i < 256; i++) {
     PHASE_SINE_LUT[i] = Math.sin((delta / 256) * Math.PI * 2);
 }
 
-export function initUnifiedPhaseLut(wasmMemory: WebAssembly.Memory, ptr: number) {
-    const wasmF32 = new Float32Array(wasmMemory.buffer, ptr, 256);
-    wasmF32.set(PHASE_SINE_LUT);
-}
 
 export function phaseSine(a: number, b: number): number {
     return PHASE_SINE_LUT[wrapIndex(b - a, 256)];

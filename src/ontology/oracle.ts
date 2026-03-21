@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -23,6 +23,13 @@ export type SenateEvent =
     | { type: "VERDICT"; mask: string; intent: string; bucket?: number }
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
+
+const SOMATIC_CONSTANTS = {
+    GLOBAL_ENERGY_POOL: 100000,
+    COMPLEXITY_ALPHA: 1.5,
+    DECAY_RATE: 0.05,
+    BASE_COST: 5,
+};
 
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
@@ -70,6 +77,48 @@ export class SovereignOracle {
         console.log("[ORACLE] Asynchronous Batched AOMQ (Ontology 20) initialized.");
         if (this.engine) {
             this.engine.init();
+        }
+    }
+
+    /**
+     * O-136 Biological Evolution Economy
+     * Garbage collects mathematically stagnant plasmids and penalizes massive AST payloads.
+     */
+    public tickSomaticEconomy() {
+        if (PlasmidRegistry.size === 0) return;
+        
+        // Energy Distribution Phase
+        const activeNodes = Array.from(PlasmidRegistry.values());
+        const totalAttention = activeNodes.reduce((sum, n) => sum + n.attention, 0);
+        
+        let bankruptCount = 0;
+        
+        for (const [hash, node] of PlasmidRegistry.entries()) {
+            // Distribute energy from pool based on popularity share
+            if (totalAttention > 0 && node.attention > 0) {
+                const share = node.attention / totalAttention;
+                node.energy += SOMATIC_CONSTANTS.GLOBAL_ENERGY_POOL * share;
+            }
+            
+            // Tax the node based on its AST geometric depth (L1 Penalty) and age
+            const maintenanceCost = SOMATIC_CONSTANTS.BASE_COST + (node.l1_cost * SOMATIC_CONSTANTS.COMPLEXITY_ALPHA);
+            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_CONSTANTS.DECAY_RATE));
+            
+            node.energy -= decay;
+            node.age += 1;
+            
+            // Plasticity & Attention half-life (attenuation)
+            node.attention = Math.floor(node.attention * 0.9);
+            
+            // Extinction threshold
+            if (node.energy <= 0) {
+                PlasmidRegistry.delete(hash);
+                bankruptCount++;
+            }
+        }
+        
+        if (bankruptCount > 0) {
+            console.log(`[ORACLE] ♻️ Somatic Economy collected ${bankruptCount} bankrupt plasmids due to L1 AST penalties or Attention decay.`);
         }
     }
 
@@ -140,8 +189,15 @@ export class SovereignOracle {
              const foreign_plasmid = collisions[i * 3 + 2];
              
              if (host_plasmid !== 0n && foreign_plasmid !== 0n) {
-                 const hostTermStr = PlasmidRegistry.get(host_plasmid) || "(I host)";
-                 const foreignTermStr = PlasmidRegistry.get(foreign_plasmid) || "(I foreign)";
+                 const hostNode = PlasmidRegistry.get(host_plasmid);
+                 const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                 
+                 // Feed energy back to functional parents
+                 if (hostNode) { hostNode.attention += 5; hostNode.energy += 50; }
+                 if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += 50; }
+
+                 const hostTermStr = hostNode ? hostNode.ast : "(I host)";
+                 const foreignTermStr = foreignNode ? foreignNode.ast : "(I foreign)";
                  
                  // Mathematically bind the two logic boundaries as a combinator application (Host Foreign)
                  try {
@@ -151,10 +207,25 @@ export class SovereignOracle {
                      const childStr = formatTerm(childTerm);
                      const childHash = fnv1a_64(childStr);
                      
-                     PlasmidRegistry.set(childHash, childStr);
+                     if (!PlasmidRegistry.has(childHash)) {
+                         const metrics = measureIR(childTerm);
+                         PlasmidRegistry.set(childHash, {
+                             ast: childStr,
+                             l1_cost: metrics.cost,
+                             depth: metrics.depth,
+                             nodes: metrics.nodes,
+                             attention: 1,
+                             age: 0,
+                             energy: 1000, // Initial battery
+                             fitness: 0
+                         });
+                     } else {
+                         const existing = PlasmidRegistry.get(childHash)!;
+                         existing.attention += 1;
+                     }
                      plasmids[idx] = childHash;
                      console.log(`🧬 HGT COLLISION AT ${idx}: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
-                 } catch(e) { /* Divergence block */ }
+                 } catch(_e) { /* Divergence block */ }
              }
              
              status[idx] = 0; // Release cell back into physics evaluation
@@ -344,13 +415,17 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
             console.log(`[ORACLE] 🏛️ SENATE CONSENSUS ACHIEVED: Executing [${winningVote.count} Votes] -> "${winningVote.intent}"`);
             this.fulfillRequests(requests, winningVote.intent, winningVote.targetBucket);
 
-        } catch (e) {
+        } catch (_e) {
             console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
             if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: "AI Nodes Non-Responsive [FORCED_ENTROPY]" });
             this.fulfillRequests(requests, "Stochastic fallback");
         }
         
+        
         this.isBusy = false;
+        
+        // Biological Garbage Collection limits Registry bloat natively
+        this.tickSomaticEconomy();
     }
 
     private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {
@@ -358,7 +433,33 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
         const hash = fnv1a_64(intent);
         
         // Formally bind the LLM Natural Language syntax strictly into the Mathematics registry
-        PlasmidRegistry.set(hash, intent.replace(/[()]/g, ""));
+        const astStr = intent.replace(/[()]/g, "");
+        if (!PlasmidRegistry.has(hash)) {
+            try {
+                const term = parseLambda(astStr);
+                const metrics = measureIR(term);
+                PlasmidRegistry.set(hash, {
+                    ast: astStr,
+                    l1_cost: metrics.cost,
+                    depth: metrics.depth,
+                    nodes: metrics.nodes,
+                    attention: 100, // LLM broadcasts enter with massive startup momentum
+                    age: 0,
+                    energy: 5000,
+                    fitness: 0
+                });
+            } catch (e) {
+                // Syntactically malformed fallback
+                PlasmidRegistry.set(hash, {
+                    ast: astStr,
+                    l1_cost: 9999, depth: 1, nodes: 1, attention: 0, age: 0, energy: 10, fitness: -1
+                });
+            }
+        } else {
+            const existing = PlasmidRegistry.get(hash)!;
+            existing.attention += 50; // Rewarding resonant convergence
+            existing.energy += 1000;
+        }
 
         if (this.engine) {
             // O-23 Native WebGPU Interface

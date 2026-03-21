@@ -1,7 +1,6 @@
 use wasm_bindgen::prelude::*;
 
 const PHASE_LUT_SIZE: i16 = 256;
-const HALF_PHASE: i16 = PHASE_LUT_SIZE / 2;
 const MIN_OMEGA: i16 = -16;
 const MAX_OMEGA: i16 = 16;
 const MAX_BYTE: i16 = 255;
@@ -159,25 +158,33 @@ impl PhaseLatticeField {
     }
 
     pub fn rotate_angular_address(&mut self, delta_sector: i32) {
-        let next_tau = (self.current_tau + 1) % self.tau_depth;
-        for harmonic in 0..self.harmonics as usize {
-            for rho in 0..self.radial_bins as usize {
-                for sector in 0..self.sectors as usize {
-                    let source = self.idx(self.current_tau as usize, sector, rho, harmonic);
-                    let target_sector = wrap_index(sector as i32 + delta_sector, self.sectors as usize);
-                    let target = self.idx(next_tau as usize, target_sector, rho, harmonic);
-                    
-                    self.theta[target] = self.theta[source];
-                    self.omega[target] = self.omega[source];
-                    self.amplitude[target] = self.amplitude[source];
-                    self.lock[target] = self.lock[source];
-                    self.entanglement[target] = self.entanglement[source];
-                    self.cell_status[target] = self.cell_status[source];
-                    self.plasmids[target] = self.plasmids[source];
+        let theta_clone = self.theta.clone();
+        let omega_clone = self.omega.clone();
+        let amp_clone = self.amplitude.clone();
+        let lock_clone = self.lock.clone();
+        let ent_clone = self.entanglement.clone();
+        let status_clone = self.cell_status.clone();
+        let plas_clone = self.plasmids.clone();
+
+        for tau in 0..self.tau_depth as usize {
+            for harmonic in 0..self.harmonics as usize {
+                for rho in 0..self.radial_bins as usize {
+                    for sector in 0..self.sectors as usize {
+                        let source = self.idx(tau, sector, rho, harmonic);
+                        let target_sector = wrap_index(sector as i32 + delta_sector, self.sectors as usize);
+                        let target = self.idx(tau, target_sector, rho, harmonic);
+                        
+                        self.theta[target] = theta_clone[source];
+                        self.omega[target] = omega_clone[source];
+                        self.amplitude[target] = amp_clone[source];
+                        self.lock[target] = lock_clone[source];
+                        self.entanglement[target] = ent_clone[source];
+                        self.cell_status[target] = status_clone[source];
+                        self.plasmids[target] = plas_clone[source];
+                    }
                 }
             }
         }
-        self.current_tau = next_tau;
     }
 }
 
@@ -489,23 +496,14 @@ fn clamp_byte(value: i16) -> u8 {
     value.clamp(0, MAX_BYTE) as u8
 }
 
-fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {
-    let raw = (to_theta as i16 - from_theta as i16).rem_euclid(PHASE_LUT_SIZE);
-    if raw > HALF_PHASE {
-        raw - PHASE_LUT_SIZE
-    } else {
-        raw
-    }
-}
-
 fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
     let index = to_theta.wrapping_sub(from_theta) as usize;
-    unsafe { crate::GLOBAL_PHASE_LUT[index] }
+    crate::lut::SINE_LUT[index]
 }
 
 fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
     let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
-    unsafe { crate::GLOBAL_PHASE_LUT[index] }
+    crate::lut::SINE_LUT[index]
 }
 
 fn phase_sin_sum(from_theta: u8, to_theta: u8, weight: f32) -> f32 {

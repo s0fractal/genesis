@@ -1,8 +1,7 @@
 import { bootstrapPhase } from "./bootstrap/phase.ts";
 import { bootstrapReplay } from "./bootstrap/replay.ts";
 import { bootstrapClassic } from "./bootstrap/classic.ts";
-import initWasm, { get_phase_lut_ptr } from "../omega_core/pkg/omega_core.js";
-import { initUnifiedPhaseLut } from "./shared/topology_core.ts";
+import initWasm from "../omega_core/pkg/omega_core.js";
 
 export const START_MS = performance.now();
 
@@ -17,7 +16,6 @@ async function boot() {
             await bootstrapReplay(replayStack);
         } else if (mode === "phase") {
             const wasm = await initWasm();
-            initUnifiedPhaseLut(wasm.memory as WebAssembly.Memory, get_phase_lut_ptr());
             await bootstrapPhase(wasm.memory as WebAssembly.Memory);
         } else {
             await bootstrapClassic(mode);
