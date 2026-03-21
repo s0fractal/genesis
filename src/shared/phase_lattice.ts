@@ -156,39 +156,39 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 const historicalTau = (pastTau + field.shape.tauDepth - 1) % field.shape.tauDepth;
                 const historicalPeer = getCell(field, historicalTau, sector, rho, harmonic);
 
-                let kuramoto =
-                    phaseSine(current.theta, left.theta) +
-                    phaseSine(current.theta, right.theta) +
-                    phaseSine(current.theta, inner.theta) +
-                    phaseSine(current.theta, outer.theta) +
-                    phaseSine(current.theta, harmonicPeer.theta) * 0.5 +
-                    phaseSine(current.theta, historicalPeer.theta) * 0.3;
+                let kuramoto = 0;
+                kuramoto += phaseSine(current.theta, left.theta);
+                kuramoto += phaseSine(current.theta, right.theta);
+                kuramoto += phaseSine(current.theta, inner.theta);
+                kuramoto += phaseSine(current.theta, outer.theta);
+                kuramoto += Math.trunc(phaseSine(current.theta, harmonicPeer.theta) / 2);
+                kuramoto += Math.trunc((phaseSine(current.theta, historicalPeer.theta) * 3) / 10);
 
-                let coherence =
-                    resonance(current.theta, left.theta) +
-                    resonance(current.theta, right.theta) +
-                    resonance(current.theta, inner.theta) +
-                    resonance(current.theta, outer.theta) +
-                    resonance(current.theta, harmonicPeer.theta) * 0.5 +
-                    resonance(current.theta, historicalPeer.theta) * 0.3;
+                let coherence = 0;
+                coherence += resonance(current.theta, left.theta);
+                coherence += resonance(current.theta, right.theta);
+                coherence += resonance(current.theta, inner.theta);
+                coherence += resonance(current.theta, outer.theta);
+                coherence += Math.trunc(resonance(current.theta, harmonicPeer.theta) / 2);
+                coherence += Math.trunc((resonance(current.theta, historicalPeer.theta) * 3) / 10);
 
                 if (field.shape.sectors % 2 === 0) {
                     const antipode = getCell(field, pastTau, sector + field.shape.sectors / 2, rho, harmonic);
-                    const antipodeWeight = (current.entanglement / 255) * 0.35;
-                    kuramoto += phaseSine(current.theta, antipode.theta) * antipodeWeight;
-                    coherence += resonance(current.theta, antipode.theta) * antipodeWeight;
+                    kuramoto += Math.trunc((phaseSine(current.theta, antipode.theta) * current.entanglement * 35) / 25500);
+                    coherence += Math.trunc((resonance(current.theta, antipode.theta) * current.entanglement * 35) / 25500);
                 }
 
                 // O-130: Plasmid-Field Bridge
                 if (current.plasmids !== 0n) {
                     const targetTheta = Number(current.plasmids & 255n);
-                    kuramoto += phaseSine(current.theta, targetTheta) * KURAMOTO_COEFFICIENTS.COUPLING_PLASMID;
-                    coherence += resonance(current.theta, targetTheta) * KURAMOTO_COEFFICIENTS.COUPLING_PLASMID;
+                    const couplingPlasmid1024 = Math.trunc(KURAMOTO_COEFFICIENTS.COUPLING_PLASMID * 1024);
+                    kuramoto += Math.trunc((phaseSine(current.theta, targetTheta) * couplingPlasmid1024) / 1024);
+                    coherence += Math.trunc((resonance(current.theta, targetTheta) * couplingPlasmid1024) / 1024);
                 }
 
-                const omegaDelta = Math.round(kuramoto);
-                const amplitudeDelta = Math.round(coherence * 6) - Math.floor(current.lock / 64);
-                const lockDelta = coherence >= 3 ? 8 : -4;
+                const omegaDelta = Math.trunc(kuramoto / 1024);
+                const amplitudeDelta = Math.trunc((coherence * 6) / 1024) - Math.floor(current.lock / 64);
+                const lockDelta = coherence >= 3072 ? 8 : -4;
 
                 const nextAmplitude = clamp(current.amplitude + amplitudeDelta, 0, PHASE_CONSTANTS.MAX_AMPLITUDE);
                 const nextLock = clamp(current.lock + lockDelta, 0, PHASE_CONSTANTS.MAX_LOCK);
@@ -204,7 +204,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
 
                 if (nextAmplitude < 140) {
                     const neighbors = [left, right, inner, outer, harmonicPeer];
-                    let bestResonance = -2.0;
+                    let bestResonance = -2048;
                     let donorPlasmid = 0n;
 
                     for (const neighbor of neighbors) {
@@ -217,7 +217,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                         }
                     }
 
-                    if (donorPlasmid !== 0n && bestResonance > 0.6) {
+                    if (donorPlasmid !== 0n && bestResonance > 614) { // 0.6 * 1024
                         nextTheta = Number(donorPlasmid & 255n);
                         const donorOmega = Number((donorPlasmid >> 8n) & 255n) - 128;
                         nextOmega = clamp(donorOmega, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
@@ -238,7 +238,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     const antipode = getCell(field, pastTau, sector + field.shape.sectors / 2, rho, harmonic);
                     const antipodeAlignment = resonance(current.theta, antipode.theta);
                     nextEntanglement =
-                        antipodeAlignment > 0.92 && current.amplitude > 96
+                        antipodeAlignment > 942 && current.amplitude > 96 // 0.92 * 1024
                             ? clamp(current.entanglement + 8, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT)
                             : clamp(current.entanglement - 3, 0, PHASE_CONSTANTS.MAX_ENTANGLEMENT);
                 }

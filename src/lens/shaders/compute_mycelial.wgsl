@@ -30,7 +30,6 @@ struct Params {
     pad1: u32,
 }
 
-const SCALE: f32 = 1000.0;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -57,11 +56,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let t_word = buffer_a[t_idx];
         let t_shift = (idx % 4u) * 8u;
         let theta_u8 = (t_word >> t_shift) & 0xFFu;
-        let theta = f32(theta_u8) / 255.0 * 6.283185307;
-
-        // Convert to Cartesian X/Y scaled to i32 for atomic adds
-        let x_scaled = i32(cos(theta) * SCALE);
-        let y_scaled = i32(sin(theta) * SCALE);
+        
+        // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
+        let x_scaled = phase_cos_i32(0u, u32(theta_u8));
+        let y_scaled = phase_sin_i32(0u, u32(theta_u8));
 
         // Atomically accumulate to the global bucket
         atomicAdd(&mycelial_centroids[bucket_idx].x_sum, x_scaled);

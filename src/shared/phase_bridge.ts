@@ -17,7 +17,8 @@ const BRIDGE_LOCK_DECAY = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS = 2;
-const BRIDGE_DEPTH2_LOCK_THRESHOLD = Math.fround(2.5);
+const BRIDGE_DEPTH2_LOCK_THRESHOLD = 4096;
+const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 = 3072;
 
 
 export interface BridgeField {
@@ -196,12 +197,12 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        let kuramoto = f32(0);
-        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[leftIndex]));
-        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[rightIndex]));
-        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[innerIndex]));
-        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[outerIndex]));
-        kuramoto = f32(kuramoto + f32(phaseSin(thetaPrev[index], syntheticPeerTheta) * 0.5));
+        let kuramoto = 0;
+        kuramoto += phaseSin(thetaPrev[index], thetaPrev[leftIndex]);
+        kuramoto += phaseSin(thetaPrev[index], thetaPrev[rightIndex]);
+        kuramoto += phaseSin(thetaPrev[index], thetaPrev[innerIndex]);
+        kuramoto += phaseSin(thetaPrev[index], thetaPrev[outerIndex]);
+        kuramoto += Math.trunc(phaseSin(thetaPrev[index], syntheticPeerTheta) / 2);
 
         // O-63: Differential Tissue (Resonance Proof-of-Stake)
         const cellPlasmid = plasmidsPrev[index];
@@ -214,30 +215,30 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                     const cEnergy = energyPrev[index];
                     if (nEnergy > cEnergy) {
                         stakingEnergyBonus += Math.trunc((nEnergy - cEnergy) / 4);
-                        kuramoto = f32(kuramoto + phaseSin(thetaPrev[index], thetaPrev[nIdx]) * 3);
+                        kuramoto += phaseSin(thetaPrev[index], thetaPrev[nIdx]) * 3;
                     }
                 }
             }
         }
 
-        let coherence = f32(0);
-        coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[leftIndex]));
-        coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[rightIndex]));
-        coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[innerIndex]));
-        coherence = f32(coherence + phaseCos(thetaPrev[index], thetaPrev[outerIndex]));
-        coherence = f32(coherence + f32(phaseCos(thetaPrev[index], syntheticPeerTheta) * 0.5));
+        let coherence = 0;
+        coherence += phaseCos(thetaPrev[index], thetaPrev[leftIndex]);
+        coherence += phaseCos(thetaPrev[index], thetaPrev[rightIndex]);
+        coherence += phaseCos(thetaPrev[index], thetaPrev[innerIndex]);
+        coherence += phaseCos(thetaPrev[index], thetaPrev[outerIndex]);
+        coherence += Math.trunc(phaseCos(thetaPrev[index], syntheticPeerTheta) / 2);
 
         const sustainedCoherenceBonus =
-            boundaryDepth === 1 && plasmidsPrev[index] === 0n && locksPrev[index] >= 64 && coherence >= 3
+            boundaryDepth === 1 && plasmidsPrev[index] === 0n && locksPrev[index] >= 64 && coherence >= BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10
                 ? BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
                 : 0;
 
-        const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + roundTiesAwayFromZero(kuramoto));
+        const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + Math.trunc(kuramoto / 1024));
         const nextTheta = wrapIndex(thetaPrev[index] + nextOmega, PHASE_CONSTANTS.LUT_SIZE);
         const coupledEnergy =
             clampByte(
                 bestEnergy +
-                roundTiesAwayFromZero(f32(coherence * BRIDGE_COHERENCE_ENERGY_GAIN)) +
+                Math.trunc((coherence * BRIDGE_COHERENCE_ENERGY_GAIN) / 1024) +
                 sustainedCoherenceBonus +
                 boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS +
                 stakingEnergyBonus -
@@ -251,7 +252,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         next.thetaF2[index] = thetaPrev[rightIndex];
         next.thetaF3[index] = thetaPrev[index];
 
-        if (coherence >= 3 && coupledEnergy > 200) {
+        if (coherence >= BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 && coupledEnergy > 200) {
             next.plasmids[index] =
                 BigInt(next.thetaNow[index]) |
                 (BigInt(next.omega[index]) << 8n) |
@@ -262,7 +263,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
         if (bestScore > 100 && coupledEnergy < 240) {
             const neighbors = [leftIndex, rightIndex, innerIndex, outerIndex, antipodeIndex];
             let adopted = false;
-            let bestResonance = f32(-2);
+            let bestResonance = -2048;
             let donorPlasmid = 0n;
 
             for (const neighborIndex of neighbors) {
@@ -277,7 +278,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 }
             }
 
-            if (donorPlasmid !== 0n && bestResonance > BRIDGE_ADOPTION_RESONANCE_THRESHOLD) {
+            if (donorPlasmid !== 0n && bestResonance > Math.trunc(BRIDGE_ADOPTION_RESONANCE_THRESHOLD * 1024)) {
                 next.thetaNow[index] = Number(donorPlasmid & 0xffn);
                 const donorOmega = decodeBridgeOmega(Number((donorPlasmid >> 8n) & 0xffn));
                 next.omega[index] = encodeBridgeOmega(clampBridgeOmega(donorOmega));
@@ -294,7 +295,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
             }
         }
 
-        const lockThreshold = boundaryDepth === 2 ? BRIDGE_DEPTH2_LOCK_THRESHOLD : f32(3.0);
+        const lockThreshold = boundaryDepth === 2 ? BRIDGE_DEPTH2_LOCK_THRESHOLD : BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10;
         next.hebbianLocks[index] =
             coherence >= lockThreshold
                 ? saturatingAddByte(locksPrev[index], BRIDGE_LOCK_GAIN + boundaryBonus * BRIDGE_BOUNDARY_LOCK_BONUS)
@@ -464,12 +465,4 @@ function localTarget(
     }
 
     return count === 0 ? 0 : Math.trunc(total / count);
-}
-
-function roundTiesAwayFromZero(value: number): number {
-    return value < 0 ? -Math.round(-value) : Math.round(value);
-}
-
-function f32(value: number): number {
-    return Math.fround(value);
 }

@@ -290,10 +290,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     };
                 }
 
-                let omega_delta = q10_round(kuramoto) as i16;
+                let omega_delta = (kuramoto / 1024) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, MIN_OMEGA, MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (q10_round_i64(coherence as i64 * 6)) as i16 - (lock as i16 / 64);
+                let amplitude_delta = (((coherence as i64 * 6) / 1024) as i16) - (lock as i16 / 64);
                 let lock_delta = if coherence >= COHERENCE_SUSTAIN_THRESHOLD_Q10 { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);

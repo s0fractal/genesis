@@ -28,7 +28,7 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
 
     for (let tick = 0; tick <= ticks; tick++) {
         const wasmState = snapshotPhaseWasmState(phaseField, wasm);
-        const referenceState = reference.cells.filter(c => c.tau === reference.currentTau);
+        const referenceState = reference.cells.filter((c) => c.tau === reference.currentTau);
 
         assert(referenceState.length === wasmState.length, `cell count mismatch at tick=${tick}`);
 

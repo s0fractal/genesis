@@ -74,9 +74,9 @@ function collapseCanonicalBridgeCell(
 
     return {
         theta: wrapTheta(Math.round((normalizedAngle / (Math.PI * 2)) * 256)),
-        omega: Math.round(sumOmega / harmonicCount),
-        amplitude: clamp(Math.round(sumAmplitude / harmonicCount), 0, 255),
-        lock: clamp(Math.round(sumLock / harmonicCount), 0, 255),
+        omega: Math.trunc(sumOmega / harmonicCount),
+        amplitude: clamp(Math.trunc(sumAmplitude / harmonicCount), 0, 255),
+        lock: clamp(Math.trunc(sumLock / harmonicCount), 0, 255),
         entanglement: maxEntanglement,
         cellStatus: 0,
         plasmids: 0n,

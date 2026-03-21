@@ -261,12 +261,12 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             0
         };
 
-        // Q10 Normalization: Exact Signed Float Emulation
-        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + q10_round(kuramoto) as i16);
+        // Q10 Normalization: Floor Mapped Trajectory
+        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + (kuramoto / 1024) as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
         let coupled_energy = (
             best_energy +
-            q10_round_i64((coherence as i64) * BRIDGE_COHERENCE_ENERGY_GAIN_MUL) as i16 +
+            (((coherence as i64) * BRIDGE_COHERENCE_ENERGY_GAIN_MUL) / 1024) as i16 +
             sustained_coherence_bonus +
             staking_energy_bonus +
             boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
@@ -328,7 +328,12 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
 
         // O-137 Vector F.2: Boundary Phase Shielding Layer 2
         let lock_threshold = if boundary_depth == 2 { BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10 } else { BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 }; 
-        let lock_delta = if coherence >= lock_threshold { BRIDGE_LOCK_GAIN as i8 } else { -(BRIDGE_LOCK_DECAY as i8) };
+        let lock_delta = if coherence >= lock_threshold {
+            let bonus = if boundary_depth <= 1 { BRIDGE_BOUNDARY_LOCK_BONUS } else { 0 };
+            (BRIDGE_LOCK_GAIN + bonus) as i8
+        } else {
+            -(BRIDGE_LOCK_DECAY as i8)
+        };
         field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add_signed(lock_delta);
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {
