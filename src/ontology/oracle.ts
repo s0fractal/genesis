@@ -25,7 +25,6 @@ export type SenateEvent =
     | { type: "ERROR"; reason: string };
 
 const SOMATIC_CONSTANTS = {
-    GLOBAL_ENERGY_POOL: 100000,
     COMPLEXITY_ALPHA: 1.5,
     DECAY_RATE: 0.05,
     BASE_COST: 5,
@@ -50,6 +49,9 @@ export class SovereignOracle {
     private isRunning: boolean = false;
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
+    
+    // O-137 Vector F.3: Elastic Global Energy Pool
+    private globalEnergyPool: number = 50000;
 
     constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
@@ -84,21 +86,26 @@ export class SovereignOracle {
      * O-136 Biological Evolution Economy
      * Garbage collects mathematically stagnant plasmids and penalizes massive AST payloads.
      */
-    public tickSomaticEconomy() {
+    public tickSomaticEconomy(activity: number = 0) {
         if (PlasmidRegistry.size === 0) return;
+        
+        // F.3 Elastic Energy Capacity
+        // Momentum expands the pool dynamically. Stagnation crushes it.
+        this.globalEnergyPool = Math.max(20000, activity * 500);
         
         // Energy Distribution Phase
         const activeNodes = Array.from(PlasmidRegistry.values());
         const totalAttention = activeNodes.reduce((sum, n) => sum + n.attention, 0);
+        const totalNovelty = activeNodes.reduce((sum, n) => sum + (1.0 / (1.0 + n.attention)), 0) || 1.0;
         
         let bankruptCount = 0;
         
         for (const [hash, node] of PlasmidRegistry.entries()) {
-            // Distribute energy from pool based on popularity share
-            if (totalAttention > 0 && node.attention > 0) {
-                const share = node.attention / totalAttention;
-                node.energy += SOMATIC_CONSTANTS.GLOBAL_ENERGY_POOL * share;
-            }
+            // F.1 Vector Novelty Selection & Clone Rot Preventative Shield
+            const popularityShare = (totalAttention > 0 && node.attention > 0) ? (node.attention / totalAttention) : 0;
+            const noveltyShare = (1.0 / (1.0 + node.attention)) / totalNovelty; // Weirdest/Newest get priority
+            
+            node.energy += this.globalEnergyPool * (popularityShare * 0.4 + noveltyShare * 0.6);
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
             const maintenanceCost = SOMATIC_CONSTANTS.BASE_COST + (node.l1_cost * SOMATIC_CONSTANTS.COMPLEXITY_ALPHA);
@@ -172,6 +179,9 @@ export class SovereignOracle {
     // O-134 Vector C: Topological Lambda Application via Fast Tuples
     private processHorizontalGeneTransfers(count: number, collisions: BigUint64Array) {
         let size = 0;
+        const sectorCount = this.wasmField.width || 32;
+        const radialCount = this.wasmField.height || 6;
+        
         if (this.wasmField.cell_count) {
             size = this.wasmField.cell_count();
         } else if (this.wasmField.width && this.wasmField.height) {
@@ -185,6 +195,8 @@ export class SovereignOracle {
 
         for (let i = 0; i < count; i++) {
              const idx = Number(collisions[i * 3]);
+             const rho = Math.floor((idx % (radialCount * sectorCount)) / sectorCount);
+             
              const host_plasmid = collisions[i * 3 + 1];
              const foreign_plasmid = collisions[i * 3 + 2];
              
@@ -209,6 +221,17 @@ export class SovereignOracle {
                      
                      if (!PlasmidRegistry.has(childHash)) {
                          const metrics = measureIR(childTerm);
+                         
+                         // O-137 Vector F.2: Topological Niches (Core vs Membrane)
+                         if (rho <= 1 && metrics.cost > 15) {
+                             status[idx] = 0; // The Singularity crushes structural overhead
+                             continue;
+                         }
+                         if (rho >= radialCount - 2 && metrics.cost < 10) {
+                             status[idx] = 0; // The Membrane starves mathematical simplicity
+                             continue;
+                         }
+                         
                          PlasmidRegistry.set(childHash, {
                              ast: childStr,
                              l1_cost: metrics.cost,
@@ -425,7 +448,8 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
         this.isBusy = false;
         
         // Biological Garbage Collection limits Registry bloat natively
-        this.tickSomaticEconomy();
+        // Vector F.3: Activity drives Global Energy capacity elasticity
+        this.tickSomaticEconomy(count);
     }
 
     private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {
