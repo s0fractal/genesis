@@ -15,7 +15,9 @@ import initWasm, {
     phase_lattice_total_entanglement,
     rotate_field_sectors,
     seed_phase_bridge_pattern,
+    get_phase_lut_ptr,
 } from "../omega_core/pkg/omega_core.js";
+import { initUnifiedPhaseLut } from "../src/shared/topology_core.ts";
 import {
     collapsePhaseField,
     cropPhaseField,
@@ -171,7 +173,9 @@ export function captureReferenceTrace(shape: PhaseFieldShape, ticks: number): Ph
 
 export async function initOmegaWasm(): Promise<WebAssembly.Exports> {
     const wasmBytes = await readFile(new URL("../omega_core/pkg/omega_core_bg.wasm", import.meta.url));
-    return await initWasm({ module_or_path: wasmBytes });
+    const wasm = await initWasm({ module_or_path: wasmBytes });
+    initUnifiedPhaseLut(wasm.memory as WebAssembly.Memory, get_phase_lut_ptr());
+    return wasm;
 }
 
 export function capturePhaseWasmTrace(sectors: number, radialBins: number, harmonics: number, ticks: number): PhaseWasmTraceEntry[] {

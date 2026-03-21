@@ -280,8 +280,8 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
 
         } catch (e) {
             console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
-            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: "AI Nodes Non-Responsive" });
-            this.fulfillRequests(requests, "Stochastic survival protocol omega");
+            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: "AI Nodes Non-Responsive [FORCED_ENTROPY]" });
+            this.fulfillRequests(requests, "Stochastic fallback");
         }
         
         this.isBusy = false;

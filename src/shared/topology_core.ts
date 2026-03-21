@@ -25,12 +25,23 @@ export function phaseDistance(a: number, b: number): number {
     return Math.abs(signedPhaseDelta(a, b));
 }
 
+export const PHASE_SINE_LUT = new Float32Array(256);
+for (let i = 0; i < 256; i++) {
+    const delta = i > 128 ? i - 256 : i;
+    PHASE_SINE_LUT[i] = Math.sin((delta / 256) * Math.PI * 2);
+}
+
+export function initUnifiedPhaseLut(wasmMemory: WebAssembly.Memory, ptr: number) {
+    const wasmF32 = new Float32Array(wasmMemory.buffer, ptr, 256);
+    wasmF32.set(PHASE_SINE_LUT);
+}
+
 export function phaseSine(a: number, b: number): number {
-    return Math.sin((signedPhaseDelta(a, b) / PHASE_CONSTANTS.LUT_SIZE) * Math.PI * 2);
+    return PHASE_SINE_LUT[wrapIndex(b - a, 256)];
 }
 
 export function phaseCosine(a: number, b: number): number {
-    return Math.cos((signedPhaseDelta(a, b) / PHASE_CONSTANTS.LUT_SIZE) * Math.PI * 2);
+    return PHASE_SINE_LUT[wrapIndex(b - a + 64, 256)];
 }
 
 export function createTopology(config: LatticeConfig) {

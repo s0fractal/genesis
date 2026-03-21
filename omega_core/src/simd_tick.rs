@@ -588,16 +588,14 @@ fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {
     }
 }
 
-fn phase_radians(from_theta: u8, to_theta: u8) -> f32 {
-    signed_phase_delta(from_theta, to_theta) as f32 * std::f32::consts::TAU / 256.0
-}
-
 fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
-    phase_radians(from_theta, to_theta).sin()
+    let index = to_theta.wrapping_sub(from_theta) as usize;
+    unsafe { crate::GLOBAL_PHASE_LUT[index] }
 }
 
 fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
-    phase_radians(from_theta, to_theta).cos()
+    let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
+    unsafe { crate::GLOBAL_PHASE_LUT[index] }
 }
 
 fn local_target(lut: &[i16], theta_prev: &[u8], neighborhood: [usize; 4], antipode_idx: usize, include_antipode: bool) -> i16 {

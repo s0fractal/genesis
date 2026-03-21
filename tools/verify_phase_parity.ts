@@ -8,6 +8,7 @@ import initWasm, {
 import {
     buildReferenceSeed,
     snapshotPhaseWasmState,
+    initOmegaWasm,
 } from "./phase_golden_common.ts";
 import {
     runPhaseField,
@@ -47,17 +48,17 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
                     [
                         `Phase parity mismatch at tick=${tick} index=${index}`,
                         `address=sector:${ref.sector} rho:${ref.rho} harmonic:${ref.harmonic}`,
-                        `reference=${JSON.stringify({
-                            theta: ref.theta,
-                            omega: ref.omega,
-                            amplitude: ref.amplitude,
-                            lock: ref.lock,
-                            entanglement: ref.entanglement,
-                        })}`,
-                        `wasm=${JSON.stringify(actual)}`,
-                    ].join("\n"),
-                );
-            }
+                    `reference=${JSON.stringify({
+                        theta: ref.theta,
+                        omega: ref.omega,
+                        amplitude: ref.amplitude,
+                        lock: ref.lock,
+                        entanglement: ref.entanglement,
+                    })}`,
+                    `wasm=${JSON.stringify(actual, (_, v) => typeof v === 'bigint' ? v.toString() : v)}`,
+                ].join("\n"),
+            );
+        }
         }
 
         const referenceStructuralSignature = structuralSignature(reference);
@@ -79,8 +80,7 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
 }
 
 async function main(): Promise<void> {
-    const wasmBytes = await readFile(new URL("../omega_core/pkg/omega_core_bg.wasm", import.meta.url));
-    const wasm = await initWasm({ module_or_path: wasmBytes });
+    const wasm = await initOmegaWasm();
 
     const shape: PhaseFieldShape = {
         sectors: 32,

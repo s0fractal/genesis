@@ -14,14 +14,19 @@ pub struct PhaseLatticeField {
     pub radial_bins: u32,
     pub harmonics: u32,
     pub(crate) theta: Vec<u8>,
+    pub(crate) canary_1: u32,
     pub(crate) omega: Vec<i16>,
+    pub(crate) canary_2: u32,
     pub(crate) amplitude: Vec<u8>,
     pub(crate) lock: Vec<u8>,
+    pub(crate) canary_3: u32,
     pub(crate) entanglement: Vec<u8>,
     pub(crate) oracle_requests: Vec<u32>,
     pub(crate) oracle_request_count: u32,
+    pub(crate) canary_4: u32,
     pub(crate) cell_status: Vec<u8>,
     pub(crate) plasmids: Vec<u64>,
+    pub(crate) canary_end: u32,
 
     #[wasm_bindgen(skip)]
     pub(crate) next_theta: Vec<u8>,
@@ -49,14 +54,19 @@ impl PhaseLatticeField {
             radial_bins,
             harmonics,
             theta: vec![0; size],
+            canary_1: 0xDEADBEEF,
             omega: vec![0; size],
+            canary_2: 0xDEADBEEF,
             amplitude: vec![0; size],
             lock: vec![0; size],
+            canary_3: 0xDEADBEEF,
             entanglement: vec![0; size],
             oracle_requests: vec![0; 1024],
             oracle_request_count: 0,
+            canary_4: 0xDEADBEEF,
             cell_status: vec![0; size],
             plasmids: vec![0; size],
+            canary_end: 0xDEADBEEF,
             
             next_theta: vec![0; size],
             next_omega: vec![0; size],
@@ -423,16 +433,14 @@ fn signed_phase_delta(from_theta: u8, to_theta: u8) -> i16 {
     }
 }
 
-fn phase_radians(from_theta: u8, to_theta: u8) -> f32 {
-    signed_phase_delta(from_theta, to_theta) as f32 * std::f32::consts::TAU / PHASE_LUT_SIZE as f32
-}
-
 fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
-    phase_radians(from_theta, to_theta).sin()
+    let index = to_theta.wrapping_sub(from_theta) as usize;
+    unsafe { crate::GLOBAL_PHASE_LUT[index] }
 }
 
 fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
-    phase_radians(from_theta, to_theta).cos()
+    let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
+    unsafe { crate::GLOBAL_PHASE_LUT[index] }
 }
 
 fn phase_sin_sum(from_theta: u8, to_theta: u8, weight: f32) -> f32 {

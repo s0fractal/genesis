@@ -7,6 +7,7 @@ import initWasm, {
 } from "../omega_core/pkg/omega_core.js";
 import {
     snapshotBridgeWasmState,
+    initOmegaWasm,
 } from "./phase_golden_common.ts";
 import {
     bridgeFieldSignature,
@@ -77,8 +78,7 @@ function compareValue(
 }
 
 async function main(): Promise<void> {
-    const wasmBytes = await readFile(new URL("../omega_core/pkg/omega_core_bg.wasm", import.meta.url));
-    const wasm = await initWasm({ module_or_path: wasmBytes });
+    const wasm = await initOmegaWasm();
 
     const width = 32;
     const height = 8;

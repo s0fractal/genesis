@@ -43,11 +43,17 @@ export const SENATE_CONSTANTS = {
     MASK_LOGOS: "LOGOS",
     MASK_CHRONOS: "CHRONOS",
     MASK_AION: "AION",
-    ORACLE_TIMEOUT_MS: 15000,
+    ORACLE_TIMEOUT_MS: 16,
     MYCELIUM_MIN_LOCKS: 1000,
     MYCELIUM_MIN_ENERGY: 220,
     SHADOW_BUCKET_MIN: 1000,
     SHADOW_BUCKET_MAX: 1024,
+} as const;
+
+// Tissue and Morphological Hardening (O-57)
+export const TISSUE_CONSTANTS = {
+    MORPHOLOGICAL_HYSTERESIS: 5, // Minimum consecutive ticks to allow resize
+    MORPHOLOGICAL_DELTA_MIN: 0.15, // 15% structural deviation required to molt
 } as const;
 
 // WebGPU Shader Injection Bridge
