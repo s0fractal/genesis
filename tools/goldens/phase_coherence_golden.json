@@ -10,7 +10,7 @@
   "referenceTrace": [
     {
       "tick": 0,
-      "legacySignature": "8e6fd8f4669e9fbe",
+      "legacySignature": "ec604d13e052ac16",
       "structuralSignature": "5a999eb2b3e727b0",
       "totalAmplitude": 120926,
       "totalEntanglement": 0,
@@ -18,7 +18,7 @@
     },
     {
       "tick": 1,
-      "legacySignature": "61431e8dd25a4c45",
+      "legacySignature": "442ccd758c356039",
       "structuralSignature": "364ee21a4a27ceef",
       "totalAmplitude": 123416,
       "totalEntanglement": 0,
@@ -26,7 +26,7 @@
     },
     {
       "tick": 2,
-      "legacySignature": "4d97c162fef8f22f",
+      "legacySignature": "51827a43eb720eec",
       "structuralSignature": "74a22602c99fd3d4",
       "totalAmplitude": 125587,
       "totalEntanglement": 0,
@@ -34,7 +34,7 @@
     },
     {
       "tick": 3,
-      "legacySignature": "ddb509d55eaeb38f",
+      "legacySignature": "93740f8f02ba64b4",
       "structuralSignature": "0bee20a43e57eebe",
       "totalAmplitude": 127431,
       "totalEntanglement": 0,
@@ -42,7 +42,7 @@
     },
     {
       "tick": 4,
-      "legacySignature": "1c1fe86c5362d1b8",
+      "legacySignature": "8f4d4354e7d11e0c",
       "structuralSignature": "08aab9f63e12fe38",
       "totalAmplitude": 128943,
       "totalEntanglement": 0,
@@ -50,7 +50,7 @@
     },
     {
       "tick": 5,
-      "legacySignature": "cfbf3fc4c6eeaa35",
+      "legacySignature": "0e2de94f3f704fb8",
       "structuralSignature": "6574ddef5586472b",
       "totalAmplitude": 130130,
       "totalEntanglement": 0,
@@ -58,7 +58,7 @@
     },
     {
       "tick": 6,
-      "legacySignature": "6d05ab3e8ddaada5",
+      "legacySignature": "f07090e2ab9ec8ce",
       "structuralSignature": "f67704879dff8bbe",
       "totalAmplitude": 131009,
       "totalEntanglement": 0,
@@ -66,7 +66,7 @@
     },
     {
       "tick": 7,
-      "legacySignature": "d08e29825133c9a7",
+      "legacySignature": "d5400bcb1b86e36d",
       "structuralSignature": "cb981dacb6a9f81d",
       "totalAmplitude": 131629,
       "totalEntanglement": 0,
@@ -74,7 +74,7 @@
     },
     {
       "tick": 8,
-      "legacySignature": "63936f9d5e4f4045",
+      "legacySignature": "9eab15f1b341314c",
       "structuralSignature": "168b7922f860c619",
       "totalAmplitude": 131940,
       "totalEntanglement": 0,
@@ -82,7 +82,7 @@
     },
     {
       "tick": 9,
-      "legacySignature": "658c56051f19ef99",
+      "legacySignature": "2645caf32605f01d",
       "structuralSignature": "2cd491ab4b2f7286",
       "totalAmplitude": 132108,
       "totalEntanglement": 0,
@@ -90,7 +90,7 @@
     },
     {
       "tick": 10,
-      "legacySignature": "6359421d813f58cd",
+      "legacySignature": "40b4dddd78575444",
       "structuralSignature": "a7b07786a460f903",
       "totalAmplitude": 132173,
       "totalEntanglement": 0,
@@ -98,7 +98,7 @@
     },
     {
       "tick": 11,
-      "legacySignature": "f7c145cdfb2b06a6",
+      "legacySignature": "069c55fc8e881f3c",
       "structuralSignature": "84f8af50bbcabe05",
       "totalAmplitude": 132185,
       "totalEntanglement": 0,
@@ -106,7 +106,7 @@
     },
     {
       "tick": 12,
-      "legacySignature": "7ba552c7f735e60a",
+      "legacySignature": "a4ae278e9834f767",
       "structuralSignature": "a676d7dc727dfeb6",
       "totalAmplitude": 132185,
       "totalEntanglement": 0,
@@ -233,7 +233,7 @@
     }
   ],
   "invariants": {
-    "referenceSeedLegacySignature": "8e6fd8f4669e9fbe",
+    "referenceSeedLegacySignature": "ec604d13e052ac16",
     "referenceSeedStructuralSignature": "5a999eb2b3e727b0",
     "wasmSeedStructuralSignature": "5a999eb2b3e727b0",
     "rotatedPhaseStructuralSignature": "aeab30b3c6c3cb02",

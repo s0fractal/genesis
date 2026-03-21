@@ -9,7 +9,7 @@ import {
 } from "../../omega_core/pkg/omega_core.js";
 import {
     createPhaseField,
-    getCell,
+    getCellIndex,
     structuralSignature,
 } from "../shared/phase_lattice.ts";
 import { clamp, wrapIndex } from "../shared/topology_core.ts";
@@ -101,16 +101,16 @@ export function cropPhaseField(field: PhaseField, radialBins: number): PhaseFiel
             radialBins: boundedBins,
             harmonics: field.shape.harmonics,
         },
-        ({ sector, rho, harmonic }) => {
-            const cell = getCell(field, field.currentTau, sector, rho, harmonic);
+        (_tau, sector, rho, harmonic) => {
+            const idx = getCellIndex(field.shape, field.currentTau, sector, rho, harmonic);
             return {
-                theta: cell.theta,
-                omega: cell.omega,
-                amplitude: cell.amplitude,
-                lock: cell.lock,
-                entanglement: cell.entanglement,
-                cellStatus: cell.cellStatus,
-                plasmids: cell.plasmids,
+                theta: field.theta[idx],
+                omega: field.omega[idx],
+                amplitude: field.amplitude[idx],
+                lock: field.lock[idx],
+                entanglement: field.entanglement[idx],
+                cellStatus: field.cellStatus[idx],
+                plasmids: field.plasmids[idx],
             };
         },
     );
@@ -125,7 +125,7 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
             radialBins: boundedBins,
             harmonics: 1,
         },
-        ({ sector, rho }) => {
+        (_tau, sector, rho, _harmonic) => {
             let sumX = 0;
             let sumY = 0;
             let sumAmplitude = 0;
@@ -133,16 +133,19 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
             let sumOmega = 0;
             let maxEntanglement = 0;
 
-            for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
-                const cell = getCell(field, field.currentTau, sector, rho, harmonic);
-                const weight = Math.max(1, cell.amplitude);
-                const radians = (cell.theta / 256) * Math.PI * 2;
+            for (let h = 0; h < field.shape.harmonics; h++) {
+                const idx = getCellIndex(field.shape, field.currentTau, sector, rho, h);
+                const amplitude = field.amplitude[idx];
+                const theta = field.theta[idx];
+                
+                const weight = Math.max(1, amplitude);
+                const radians = (theta / 256) * Math.PI * 2;
                 sumX += Math.cos(radians) * weight;
                 sumY += Math.sin(radians) * weight;
-                sumAmplitude += cell.amplitude;
-                sumLock += cell.lock;
-                sumOmega += cell.omega;
-                maxEntanglement = Math.max(maxEntanglement, cell.entanglement);
+                sumAmplitude += amplitude;
+                sumLock += field.lock[idx];
+                sumOmega += field.omega[idx];
+                maxEntanglement = Math.max(maxEntanglement, field.entanglement[idx]);
             }
 
             const meanAngle = Math.atan2(sumY, sumX);
@@ -186,7 +189,7 @@ export function snapshotHybridField(field: Field, wasm: WebAssembly.Exports): Ph
             radialBins: field.height,
             harmonics: 1,
         },
-        ({ sector, rho }) => {
+        (_tau, sector, rho, _harmonic) => {
             const index = rho * field.width + sector;
             return {
                 theta: theta[index],
@@ -221,7 +224,7 @@ export function snapshotHybridComparableField(field: Field, wasm: WebAssembly.Ex
             radialBins: field.height,
             harmonics: 1,
         },
-        ({ sector, rho }) => {
+        (_tau, sector, rho, _harmonic) => {
             const index = rho * field.width + sector;
             return {
                 theta: theta[index],

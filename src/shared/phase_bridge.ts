@@ -1,4 +1,5 @@
 import { buildProjectedBridgeSeed, CANONICAL_PHASE_SHAPE } from "./phase_canonical.ts";
+import { getCellIndex } from "./phase_lattice.ts";
 import { wrapIndex, phaseSine as phaseSin, phaseCosine as phaseCos } from "./topology_core.ts";
 import { PHASE_CONSTANTS } from "./constants.ts";
 
@@ -51,13 +52,16 @@ export function buildBridgeSeed(width: number, height: number): BridgeField {
     const oracleRequests = new Uint32Array(1024);
     const cellStatus = new Uint8Array(size);
 
-    for (const cell of projected.cells) {
-        const index = bridgeIndex(width, cell.sector, cell.rho);
-        thetaNow[index] = cell.theta;
-        omega[index] = encodeBridgeOmega(cell.omega);
-        energy[index] = clampByte(cell.amplitude);
-        hebbianLocks[index] = clampByte(cell.lock);
-        cellStatus[index] = 0;
+    for (let rho = 0; rho < height; rho++) {
+        for (let sector = 0; sector < width; sector++) {
+            const index = bridgeIndex(width, sector, rho);
+            const projIdx = getCellIndex(projected.shape, projected.currentTau, sector, rho, 0);
+            thetaNow[index] = projected.theta[projIdx];
+            omega[index] = encodeBridgeOmega(projected.omega[projIdx]);
+            energy[index] = clampByte(projected.amplitude[projIdx]);
+            hebbianLocks[index] = clampByte(projected.lock[projIdx]);
+            cellStatus[index] = 0;
+        }
     }
 
     for (let rho = 0; rho < height; rho++) {

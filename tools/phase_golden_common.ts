@@ -492,20 +492,29 @@ function buildCrossTraceEntry(
     let totalEntanglementDelta = 0;
     let maxPhaseDistance = 0;
 
-    for (let index = 0; index < phaseField.cells.length; index++) {
-        const phaseCell = phaseField.cells[index];
-        const hybridCell = hybridField.cells[index];
-        const amplitudeDelta = phaseCell.amplitude - hybridCell.amplitude;
-        const lockDelta = phaseCell.lock - hybridCell.lock;
-        const entanglementDelta = phaseCell.entanglement - hybridCell.entanglement;
-        const thetaDelta = phaseDistance(phaseCell.theta, hybridCell.theta);
+    for (let index = 0; index < phaseField.theta.length; index++) {
+        const pAmplitude = phaseField.amplitude[index];
+        const hAmplitude = hybridField.amplitude[index];
+        const pLock = phaseField.lock[index];
+        const hLock = hybridField.lock[index];
+        const pEntanglement = phaseField.entanglement[index];
+        const hEntanglement = hybridField.entanglement[index];
+        const pTheta = phaseField.theta[index];
+        const hTheta = hybridField.theta[index];
+        const pOmega = phaseField.omega[index];
+        const hOmega = hybridField.omega[index];
+
+        const amplitudeDelta = pAmplitude - hAmplitude;
+        const lockDelta = pLock - hLock;
+        const entanglementDelta = pEntanglement - hEntanglement;
+        const thetaDelta = phaseDistance(pTheta, hTheta);
 
         if (
             amplitudeDelta !== 0 ||
             lockDelta !== 0 ||
             entanglementDelta !== 0 ||
             thetaDelta !== 0 ||
-            phaseCell.omega !== hybridCell.omega
+            pOmega !== hOmega
         ) {
             changedCells++;
         }

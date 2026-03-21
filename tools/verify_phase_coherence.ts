@@ -48,9 +48,9 @@ function verifyWraparound(seed: PhaseField): void {
 }
 
 function verifyProjection(seed: PhaseField): void {
-    const inner = projectCellToCartesian(seed.cells[0], seed.shape, 2);
-    const outerIndex = seed.shape.sectors * Math.min(1, seed.shape.radialBins - 1);
-    const outer = projectCellToCartesian(seed.cells[outerIndex], seed.shape, 2);
+    const inner = projectCellToCartesian(0, 0, seed.shape, 2);
+    const outerRho = Math.min(1, seed.shape.radialBins - 1);
+    const outer = projectCellToCartesian(0, outerRho, seed.shape, 2);
     const innerRadius = Math.hypot(inner.x, inner.y);
     const outerRadius = Math.hypot(outer.x, outer.y);
 

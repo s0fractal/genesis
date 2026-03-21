@@ -1,4 +1,4 @@
-import { createPhaseField, getCell, wrapTheta } from "./phase_lattice.ts";
+import { createPhaseField, getCellIndex, wrapTheta } from "./phase_lattice.ts";
 import { clamp, wrapIndex } from "./topology_core.ts";
 import type { PhaseField, PhaseFieldShape } from "./phase_lattice.ts";
 
@@ -10,7 +10,7 @@ export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
 };
 
 export function buildCanonicalPhaseSeed(shape: PhaseFieldShape = CANONICAL_PHASE_SHAPE): PhaseField {
-    return createPhaseField(shape, ({ tau, sector, rho, harmonic }) => ({
+    return createPhaseField(shape, (tau, sector, rho, harmonic) => ({
         theta: tau * 3 + sector * 7 + rho * 19 + harmonic * 23,
         omega: ((tau + sector + rho + harmonic) % 5) - 2,
         amplitude: clamp(tau * 11 + sector * 13 + rho * 17 + harmonic * 29, 0, 255),
@@ -34,7 +34,7 @@ export function buildProjectedBridgeSeed(
             radialBins: bridgeHeight,
             harmonics: 1,
         },
-        ({ sector, rho }) => collapseCanonicalBridgeCell(canonical, bridgeWidth, bridgeHeight, sector, rho),
+        (_tau, sector, rho, _harmonic) => collapseCanonicalBridgeCell(canonical, bridgeWidth, bridgeHeight, sector, rho),
     );
 }
 
@@ -56,16 +56,22 @@ function collapseCanonicalBridgeCell(
     let fallbackTheta = 0;
 
     for (let harmonic = 0; harmonic < canonical.shape.harmonics; harmonic++) {
-        const cell = getCell(canonical, 0, sourceSector, sourceRho, harmonic);
-        const weight = Math.max(1, cell.amplitude);
-        const radians = (cell.theta / 256) * Math.PI * 2;
+        const idx = getCellIndex(canonical.shape, 0, sourceSector, sourceRho, harmonic);
+        const theta = canonical.theta[idx];
+        const amplitude = canonical.amplitude[idx];
+        const lock = canonical.lock[idx];
+        const omega = canonical.omega[idx];
+        const entanglement = canonical.entanglement[idx];
+
+        const weight = Math.max(1, amplitude);
+        const radians = (theta / 256) * Math.PI * 2;
         sumX += Math.cos(radians) * weight;
         sumY += Math.sin(radians) * weight;
-        sumAmplitude += cell.amplitude;
-        sumLock += cell.lock;
-        sumOmega += cell.omega;
-        maxEntanglement = Math.max(maxEntanglement, cell.entanglement);
-        fallbackTheta = cell.theta;
+        sumAmplitude += amplitude;
+        sumLock += lock;
+        sumOmega += omega;
+        maxEntanglement = Math.max(maxEntanglement, entanglement);
+        fallbackTheta = theta;
     }
 
     const harmonicCount = canonical.shape.harmonics;

@@ -28,31 +28,35 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
 
     for (let tick = 0; tick <= ticks; tick++) {
         const wasmState = snapshotPhaseWasmState(phaseField, wasm);
-        const referenceState = reference.cells.filter((c) => c.tau === reference.currentTau);
+        const count = shape.sectors * shape.radialBins * shape.harmonics;
+        assert(count === wasmState.length, `cell count mismatch at tick=${tick}`);
+        const offset = reference.currentTau * count;
 
-        assert(referenceState.length === wasmState.length, `cell count mismatch at tick=${tick}`);
-
-        for (let index = 0; index < referenceState.length; index++) {
-            const ref = referenceState[index];
+        for (let index = 0; index < count; index++) {
+            const refIdx = offset + index;
             const actual = wasmState[index];
 
             if (
-                ref.theta !== actual.theta ||
-                ref.omega !== actual.omega ||
-                ref.amplitude !== actual.amplitude ||
-                ref.lock !== actual.lock ||
-                ref.entanglement !== actual.entanglement
+                reference.theta[refIdx] !== actual.theta ||
+                reference.omega[refIdx] !== actual.omega ||
+                reference.amplitude[refIdx] !== actual.amplitude ||
+                reference.lock[refIdx] !== actual.lock ||
+                reference.entanglement[refIdx] !== actual.entanglement
             ) {
+                const harmonic = Math.floor(index / (shape.radialBins * shape.sectors));
+                const rho = Math.floor((index % (shape.radialBins * shape.sectors)) / shape.sectors);
+                const sector = index % shape.sectors;
+
                 throw new Error(
                     [
                         `Phase parity mismatch at tick=${tick} index=${index}`,
-                        `address=sector:${ref.sector} rho:${ref.rho} harmonic:${ref.harmonic}`,
+                        `address=sector:${sector} rho:${rho} harmonic:${harmonic}`,
                     `reference=${JSON.stringify({
-                        theta: ref.theta,
-                        omega: ref.omega,
-                        amplitude: ref.amplitude,
-                        lock: ref.lock,
-                        entanglement: ref.entanglement,
+                        theta: reference.theta[refIdx],
+                        omega: reference.omega[refIdx],
+                        amplitude: reference.amplitude[refIdx],
+                        lock: reference.lock[refIdx],
+                        entanglement: reference.entanglement[refIdx],
                     })}`,
                     `wasm=${JSON.stringify(actual, (_, v) => typeof v === 'bigint' ? v.toString() : v)}`,
                 ].join("\n"),
