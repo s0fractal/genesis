@@ -99,7 +99,8 @@ export class SovereignOracle {
                     attention: 99999, // Absolute gravity in the biological matrix
                     age: 0,
                     energy: Infinity, // The laws of physics do not starve
-                    fitness: 1.0
+                    fitness: 1.0,
+                    mutualists: new Set()
                 });
             }
         }
@@ -141,6 +142,22 @@ export class SovereignOracle {
             // Plasticity & Attention half-life (attenuation)
             node.attention = Math.floor(node.attention * 0.9);
             
+            // O-140 Vector I.2: Transdimensional Symbiosis (Energy Bleeding)
+            // Apex Plasmids (highly successful math) form life-support dependencies for their primitives
+            if (node.energy > 5000 && node.mutualists.size > 0 && node.energy !== Infinity) {
+                const siphon = Math.floor(node.energy * 0.1); // Bleed 10%
+                node.energy -= siphon;
+                
+                const slice = Math.floor(siphon / node.mutualists.size);
+                for (const mHash of node.mutualists) {
+                    const relative = PlasmidRegistry.get(mHash);
+                    if (relative && relative.energy !== Infinity) {
+                        relative.energy += slice;
+                        relative.attention += 1;
+                    }
+                }
+            }
+
             // O-138 Vector G.2: The Parasite Penalty (Semantic Fitness Evaluation)
             // Stochastic 5% population sampling to prevent freezing the JS thread
             if (node.energy !== Infinity && Math.random() < 0.05) {
@@ -161,6 +178,13 @@ export class SovereignOracle {
             
             // Extinction threshold
             if (node.energy <= 0) {
+                // O-140 Vector I.3: AION Structural Necrosis (Topological Garbage Collection)
+                // We cannot sever the node without warning the network natively
+                for (const mHash of node.mutualists) {
+                    const relative = PlasmidRegistry.get(mHash);
+                    if (relative) relative.mutualists.delete(hash);
+                }
+                
                 PlasmidRegistry.delete(hash);
                 bankruptCount++;
             }
@@ -304,11 +328,26 @@ export class SovereignOracle {
                              attention: 1,
                              age: 0,
                              energy: 1000 + fitnessSpike, // Initial battery + Goal Emergence
-                             fitness: fitnessSpike > 0 ? 5.0 : 0
+                             fitness: fitnessSpike > 0 ? 5.0 : 0,
+                             mutualists: new Set([host_plasmid, foreign_plasmid]) // Vector I.1: Edge Binding
                          });
+                         
+                         // The parents also bind to the child, forming a bi-directional symbiotic edge
+                         const hostNode = PlasmidRegistry.get(host_plasmid);
+                         if (hostNode) hostNode.mutualists.add(childHash);
+                         const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                         if (foreignNode) foreignNode.mutualists.add(childHash);
                      } else {
                          const existing = PlasmidRegistry.get(childHash)!;
                          existing.attention += 1;
+                         
+                         // Refresh mutualist binding upon parallel discovery
+                         existing.mutualists.add(host_plasmid);
+                         existing.mutualists.add(foreign_plasmid);
+                         const hostNode = PlasmidRegistry.get(host_plasmid);
+                         if (hostNode) hostNode.mutualists.add(childHash);
+                         const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                         if (foreignNode) foreignNode.mutualists.add(childHash);
                      }
                      plasmids[idx] = childHash;
                      console.log(`🧬 HGT COLLISION AT ${idx}: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
@@ -534,7 +573,8 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     attention: 50, // Massive protective shield for LLM synthesis
                     age: 0,
                     energy: 10000, // Seed funding
-                    fitness: 0
+                    fitness: 0,
+                    mutualists: new Set()
                 });
                 console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
             } else {

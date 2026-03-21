@@ -21,6 +21,7 @@ export interface SomaticNode {
     age: number;
     energy: number;
     fitness: number;
+    mutualists: Set<bigint>; // O-140 Vector I.1: The Mycelial Graph (Σ² Topology)
 }
 
 /**
