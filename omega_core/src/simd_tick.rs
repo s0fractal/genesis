@@ -100,11 +100,15 @@ pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
                         
                         if foreign_plasmid != 0 {
                             if host_plasmid != 0 && host_plasmid != foreign_plasmid {
-                                // O-133 Phase 2: Topological Lambda Application (HGT)
-                                // Collision! Two diverse logic forms occupy adjacent bounds.
-                                if field.oracle_request_count < 1024 && field.cell_status[idx] == 0 {
-                                    field.oracle_requests[field.oracle_request_count] = (idx as u32) | 0x80000000;
-                                    field.oracle_request_count += 1;
+                                // Era 134 Vector C: The Molecular Interface (Rust ↔ TS)
+                                // Write absolute tuple mathematically preventing O(N) lookup.
+                                if field.collision_count < 1024 && field.cell_status[idx] == 0 {
+                                    let c_idx = (field.collision_count * 3) as usize;
+                                    field.plasmid_collisions[c_idx] = idx as u64;
+                                    field.plasmid_collisions[c_idx + 1] = host_plasmid;
+                                    field.plasmid_collisions[c_idx + 2] = foreign_plasmid;
+                                    field.collision_count += 1;
+                                    
                                     field.cell_status[idx] = 120; // HGT Cooldown
                                     adopted = true; // Block subsequent oracle prompt overwriting
                                 }

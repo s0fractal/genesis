@@ -28,6 +28,8 @@ pub struct PhaseLatticeField {
     pub(crate) canary_4: u32,
     pub(crate) cell_status: Vec<u8>,
     pub(crate) plasmids: Vec<u64>,
+    pub(crate) plasmid_collisions: Vec<u64>,
+    pub(crate) collision_count: u32,
     pub(crate) canary_end: u32,
 }
 
@@ -55,6 +57,8 @@ impl PhaseLatticeField {
             canary_4: 0xDEADBEEF,
             cell_status: vec![0; size],
             plasmids: vec![0; size],
+            plasmid_collisions: vec![0; 1024 * 3],
+            collision_count: 0,
             canary_end: 0xDEADBEEF,
         };
         field.seed_deterministic();
@@ -109,6 +113,18 @@ impl PhaseLatticeField {
 
     pub fn clear_oracle_requests(&mut self) {
         self.oracle_request_count = 0;
+    }
+
+    pub fn ptr_plasmid_collisions(&self) -> *const u64 {
+        self.plasmid_collisions.as_ptr()
+    }
+
+    pub fn get_collision_count(&self) -> u32 {
+        self.collision_count
+    }
+
+    pub fn clear_collisions(&mut self) {
+        self.collision_count = 0;
     }
 
     pub fn ptr_cell_status(&self) -> *const u8 {

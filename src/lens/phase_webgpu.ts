@@ -45,9 +45,9 @@ export class PhaseWebGPUObserver {
             alphaMode: 'opaque'
         });
 
-        // 112 bytes total structurally
+        // 64 bytes total structurally (16 x 4-byte fields)
         this.paramsBuffer = this.device.createBuffer({
-            size: 112,
+            size: 64,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
         
@@ -110,22 +110,26 @@ export class PhaseWebGPUObserver {
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
 
-        const uniformBuffer = new ArrayBuffer(48);
+        const uniformBuffer = new ArrayBuffer(64);
         const viewU32 = new Uint32Array(uniformBuffer);
         const viewF32 = new Float32Array(uniformBuffer);
 
         viewU32[0] = this.field.sectors;
         viewU32[1] = this.field.radial_bins;
         viewU32[2] = this.field.harmonics;
-        viewF32[3] = time;
-        viewU32[4] = Math.floor(this.engine.offsets[0] / 4);
-        viewU32[5] = Math.floor(this.engine.offsets[1] / 4);
-        viewU32[6] = Math.floor(this.engine.offsets[2] / 4);
-        viewU32[7] = Math.floor(this.engine.offsets[3] / 4);
-        viewU32[8] = Math.floor(this.engine.offsets[4] / 4);
-        viewU32[9] = Math.floor(this.engine.offsets[5] / 4);
-        viewF32[10] = aspect;
-        viewU32[11] = this.heatmapEnabled ? 1 : 0;
+        viewU32[3] = this.field.tau_depth;
+        viewU32[4] = this.field.get_current_tau();
+        
+        viewF32[5] = time;
+        viewF32[6] = aspect;
+        viewU32[7] = this.heatmapEnabled ? 1 : 0;
+        
+        viewU32[8] = Math.floor(this.engine.offsets[0] / 4);
+        viewU32[9] = Math.floor(this.engine.offsets[1] / 4);
+        viewU32[10] = Math.floor(this.engine.offsets[2] / 4);
+        viewU32[11] = Math.floor(this.engine.offsets[3] / 4);
+        viewU32[12] = Math.floor(this.engine.offsets[4] / 4);
+        viewU32[13] = Math.floor(this.engine.offsets[5] / 4);
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
 

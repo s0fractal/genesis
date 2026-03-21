@@ -22,6 +22,8 @@ pub struct Field {
     pub(crate) canary_4: u32,
     pub(crate) oracle_requests: Vec<u32>,
     pub oracle_request_count: usize,
+    pub(crate) plasmid_collisions: Vec<u64>,
+    pub collision_count: usize,
     pub(crate) cell_status: Vec<u8>,
     pub(crate) canary_end: u32,
 }
@@ -50,6 +52,8 @@ impl Field {
             canary_4: 0xDEADBEEF,
             oracle_requests: vec![0; 1024],
             oracle_request_count: 0,
+            plasmid_collisions: vec![0; 1024 * 3],
+            collision_count: 0,
             cell_status: vec![0; size],
             canary_end: 0xDEADBEEF,
         };
@@ -81,6 +85,10 @@ impl Field {
     pub fn get_oracle_request_count(&self) -> usize { self.oracle_request_count }
     pub fn clear_oracle_requests(&mut self) { self.oracle_request_count = 0; }
     pub fn ptr_cell_status(&mut self) -> *mut u8 { self.cell_status.as_mut_ptr() }
+    
+    pub fn ptr_plasmid_collisions(&self) -> *const u64 { self.plasmid_collisions.as_ptr() }
+    pub fn get_collision_count(&self) -> usize { self.collision_count }
+    pub fn clear_collisions(&mut self) { self.collision_count = 0; }
     
     // Status Enums
     pub fn status_idle() -> u8 { 0 }

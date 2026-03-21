@@ -2,15 +2,18 @@ struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
+  tau_depth: u32,
+  current_tau: u32,
   time: f32,
+  aspect_ratio: f32,
+  heatmap_toggle: u32,
   off_theta: u32,
   off_omega: u32,
   off_amplitude: u32,
   off_lock: u32,
   off_entanglement: u32,
   off_plasmids: u32,
-  aspect_ratio: f32,
-  heatmap_toggle: u32,
+  pad1: u32,
   pad2: u32,
 };
 
@@ -76,8 +79,12 @@ fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> mat4x4<f32> {
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) -> VertexOutput {
-  let harmonic = idx / (params.radial_bins * params.sectors);
-  let rem = idx % (params.radial_bins * params.sectors);
+  let layer_size = params.harmonics * params.radial_bins * params.sectors;
+  let tau = idx / layer_size;
+  let rem_tau = idx % layer_size;
+
+  let harmonic = rem_tau / (params.radial_bins * params.sectors);
+  let rem = rem_tau % (params.radial_bins * params.sectors);
   let rho = rem / params.sectors;
   let sector = rem % params.sectors;
 
@@ -99,9 +106,14 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let major_radius = 2.8 * radius_t;
   let z = (f32(harmonic) - f32(params.harmonics - 1u) * 0.5) * 0.6;
 
+  // Era 134 Vector B: Chrono-Torus Memory Visualization
+  let time_dist = f32((params.current_tau + params.tau_depth - tau) % params.tau_depth);
+  let history_fade = exp(-time_dist * 1.5); // Exponential timeline decay
+  let chrono_z = z - (time_dist * 0.45); // Chronological depth offsets historical states geometrically
+  
   // Slight wobble based on time and entanglement to simulate wave medium
   let wobble_z = sin(params.time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * entanglement;
-  let base_pos = vec3<f32>(cos(angle) * major_radius, sin(angle) * major_radius, z + wobble_z);
+  let base_pos = vec3<f32>(cos(angle) * major_radius, sin(angle) * major_radius, chrono_z + wobble_z);
 
   // Quad Billboard
   let quad = array<vec2<f32>, 4>(
@@ -123,7 +135,10 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let right = vec3<f32>(view[0][0], view[1][0], view[2][0]);
   let up = vec3<f32>(view[0][1], view[1][1], view[2][1]);
   
-  let particle_size = 0.04 + amplitude * 0.12 + entanglement * 0.22;
+  let base_size = 0.04 + amplitude * 0.12 + entanglement * 0.22;
+  let chronological_compression = max(0.2, 1.0 - (time_dist * 0.25)); // compress geometry into the past
+  let particle_size = base_size * chronological_compression;
+  
   let quad_pos = base_pos + (right * quad[vi].x + up * quad[vi].y) * particle_size;
 
   var out: VertexOutput;
@@ -164,7 +179,7 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   }
 
   out.color = base_color;
-  out.glow = 0.25 + min(0.75, lock * 0.5 + amplitude * 0.5);
+  out.glow = (0.25 + min(0.75, lock * 0.5 + amplitude * 0.5)) * history_fade;
   return out;
 }
 

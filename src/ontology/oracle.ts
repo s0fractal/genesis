@@ -10,6 +10,9 @@ export interface OracleCompatibleField {
     clear_oracle_requests(): void;
     ptr_plasmids(): number;
     ptr_cell_status(): number;
+    ptr_plasmid_collisions?(): number;
+    get_collision_count?(): number;
+    clear_collisions?(): void;
     cell_count?(): number;
     width?: number;
     height?: number;
@@ -92,19 +95,22 @@ export class SovereignOracle {
                 const rawRequests = Array.from(requestArray);
                 this.wasmField.clear_oracle_requests();
                 
-                // O-133 Phase 2: Intercept Topological Collisions (HGT)
+                // O-133 Phase 2 / Era 134 Vector C: The Molecular Interface
                 const llmRequests: number[] = [];
-                const hgtRequests: number[] = [];
                 for (const req of rawRequests) {
-                    if ((req & 0x80000000) !== 0) {
-                        hgtRequests.push(req & 0x7FFFFFFF); // Extract physical index
-                    } else {
+                    // Legacy HGT masking is deprecated. We only process LLM Oracles here.
+                    if ((req & 0x80000000) === 0) {
                         llmRequests.push(req);
                     }
                 }
                 
-                if (hgtRequests.length > 0) {
-                    this.processHorizontalGeneTransfers(hgtRequests);
+                const collisionCount = this.wasmField.get_collision_count ? this.wasmField.get_collision_count() : 0;
+                if (collisionCount > 0 && this.wasmField.ptr_plasmid_collisions && this.wasmField.clear_collisions) {
+                    const ptr = this.wasmField.ptr_plasmid_collisions();
+                    const collisionsTupleArray = new BigUint64Array(this.wasmMemory.buffer, ptr, collisionCount * 3).slice();
+                    this.wasmField.clear_collisions();
+                    
+                    this.processHorizontalGeneTransfers(collisionCount, collisionsTupleArray);
                 }
                 
                 if (llmRequests.length > 0) {
@@ -114,41 +120,26 @@ export class SovereignOracle {
         }
     }
     
-    // O-133 Phase 2: Topological Lambda Application
-    private processHorizontalGeneTransfers(hgtRequests: number[]) {
+    // O-134 Vector C: Topological Lambda Application via Fast Tuples
+    private processHorizontalGeneTransfers(count: number, collisions: BigUint64Array) {
         let size = 0;
         if (this.wasmField.cell_count) {
             size = this.wasmField.cell_count();
         } else if (this.wasmField.width && this.wasmField.height) {
             size = this.wasmField.width * this.wasmField.height;
         }
-        const width = this.wasmField.width || 0;
         
         const plasmidPtr = this.wasmField.ptr_plasmids();
         const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
         const statusPtr = this.wasmField.ptr_cell_status();
         const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
 
-        for (const idx of hgtRequests) {
-             const host_plasmid = plasmids[idx];
-             if (host_plasmid === 0n) continue;
+        for (let i = 0; i < count; i++) {
+             const idx = Number(collisions[i * 3]);
+             const host_plasmid = collisions[i * 3 + 1];
+             const foreign_plasmid = collisions[i * 3 + 2];
              
-             const neighbors = [
-                 idx >= width ? idx - width : idx + width,
-                 idx + width < size ? idx + width : idx - width,
-                 idx % width !== 0 ? idx - 1 : idx + width - 1,
-                 (idx + 1) % width !== 0 ? idx + 1 : idx - width + 1,
-             ];
-             
-             let foreign_plasmid = 0n;
-             for (const n of neighbors) {
-                 if (n < size && plasmids[n] !== 0n && plasmids[n] !== host_plasmid) {
-                     foreign_plasmid = plasmids[n];
-                     break; 
-                 }
-             }
-             
-             if (foreign_plasmid !== 0n) {
+             if (host_plasmid !== 0n && foreign_plasmid !== 0n) {
                  const hostTermStr = PlasmidRegistry.get(host_plasmid) || "(I host)";
                  const foreignTermStr = PlasmidRegistry.get(foreign_plasmid) || "(I foreign)";
                  
@@ -162,7 +153,7 @@ export class SovereignOracle {
                      
                      PlasmidRegistry.set(childHash, childStr);
                      plasmids[idx] = childHash;
-                     console.log(`🧬 HGT COLLISION: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
+                     console.log(`🧬 HGT COLLISION AT ${idx}: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
                  } catch(e) { /* Divergence block */ }
              }
              
