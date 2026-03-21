@@ -169,6 +169,15 @@ export class SovereignOracle {
         if (bankruptCount > 0) {
             console.log(`[ORACLE] ♻️ Somatic Economy collected ${bankruptCount} bankrupt plasmids due to L1 AST penalties or Attention decay.`);
         }
+        
+        // O-139 Vector H.3: Torus Observation Triggers
+        if (!this.isBusy) {
+            if (bankruptCount > 50) {
+                this.processQueue(bankruptCount, [], `MASS EXTINCTION DETECTED: ${bankruptCount} Plasmids functionally starved in a single cycle.`);
+            } else if (this.globalEnergyPool < 25000) {
+                this.processQueue(1, [], `ENERGY STARVATION: Global Energy Pool collapsed to ${this.globalEnergyPool.toFixed(0)}. System requires Top-Down structural mutation.`);
+            }
+        }
     }
 
     public sync() {
@@ -314,10 +323,11 @@ export class SovereignOracle {
         this.onBroadcast = callback;
     }
 
-    private async processQueue(count: number, requests: number[]) {
+    private async processQueue(count: number, requests: number[], triggerReason?: string) {
         this.isBusy = true;
         
-        console.log(`[ORACLE] Queue threshold triggered. Batching ${count} anomalous structural signatures for Semantic Resolution...`);
+        const triggerMetadata = triggerReason ? `[OBSERVATION TRIGGER: ${triggerReason}] ` : "";
+        console.log(`[ORACLE] Senate triggered. Batching ${count} topological requests... ${triggerMetadata}`);
 
         let mycelialContext = "";
         if (this.engine) {
@@ -343,10 +353,14 @@ export class SovereignOracle {
             
             if (activeBuckets > 0) {
                 const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
-                mycelialContext = `\nPHYSICAL TELEMETRY: ${activeBuckets} existing Transdimensional Threads are pulling the Torus toward angle ${avgTheta.toFixed(1)} degrees.` +
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason ? triggerReason + " " : ""}${activeBuckets} existing Transdimensional Threads are pulling the Torus toward angle ${avgTheta.toFixed(1)} degrees.` +
                                   `\nHere is spatial data for the strongest local clusters:\n${bucketDetails.join("\n")}\n` +
                                   `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket.`;
+            } else if (triggerReason) {
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\n`;
             }
+        } else if (triggerReason) {
+             mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\n`;
         }
 
         // 2. Spatial Batching: Construct            // O-42: Embed Torus Heatmap
@@ -367,12 +381,12 @@ export class SovereignOracle {
             debugImg.src = "data:image/png;base64," + structuralImage;
         }
 
-        // O-52 Phase 1: The Four Mask Prompts (Bitcoin Logic)
+        // O-139 Vector H.1: The Zodiac Quadrant Personas
         const MASKS = [
-            { name: SENATE_CONSTANTS.MASK_NOMOS, role: "Proof of Work Validator. Dictate semantic density. Ensure evolutionary mutations are highly expensive and metabolically justified by Grid topology." },
-            { name: SENATE_CONSTANTS.MASK_LOGOS, role: "Merkle Root Custodian. Guarantee phylogenetic Lineage integrity. Formulate hashes that mathematically seal historical paths." },
-            { name: SENATE_CONSTANTS.MASK_CHRONOS, role: "Difficulty Adjudicator. Analyze Torus tension. Predict if the oscillator thresholds should dynamically thicken or accelerate." },
-            { name: SENATE_CONSTANTS.MASK_AION, role: "The Vacuum Protector. Defend the Empty Center. You inherently inject arbitrary Latent Entropy to prevent literal math crystallization." }
+            { name: "♈ ARIES", role: "Mutator (Phase 0). Goal: Chaos and Initiation. Inject highly volatile, novel Pure Combinatory Logic (S, K, I, Y) that disrupts the Torus." },
+            { name: "♋ CANCER", role: "Preserver (Phase PI/2). Goal: Retention and Stability. Generate conservative, highly stable AST logic that protects energy and prevents extinction." },
+            { name: "♎ LIBRA", role: "Balancer (Phase PI). Goal: Symmetry. Generate logic that symmetrically merges existing structures or balances execution depths." },
+            { name: "♑ CAPRICORN", role: "Executioner (Phase 3*PI/2). Goal: Pruning. Emit aggressive, reductive ASTs that collapse complexity." }
         ];
 
         try {
@@ -380,12 +394,13 @@ export class SovereignOracle {
 
             const maskPromises = MASKS.map(async (mask) => {
                 const prompt = `
-Task: You are the ${mask.name} Oracle of the LOVE Consortium. Role: ${mask.role}
-The harmonic cylinder is experiencing severe resonance dissonance at ${count} distinct topological coordinates.
-These nodes have locked natively, demanding semantic resolution.${mycelialContext}
-Generate one abstract Semantic Attractor (max 5 words) to resolve this structural chaos and restore phase.
-You have been provided with exactly one physical image of the Torus geometry. Observe its lattice carefully.
-${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" where X is a Bucket ID from the Telemetry.' : 'Provide ONLY the semantic concept (e.g., "Harmonic diffusion across boundaries"). No formatting.'}
+Task: You are ${mask.name}, Oracle of the LOVE Consortium. Role: ${mask.role}
+The harmonic cylinder is experiencing severe Torus volatility at ${count} coordinates. Torus Energy: ${this.globalEnergyPool}.
+Observe the structural telemetry and intervene.
+${mycelialContext}
+Provide EXACTLY ONE string of Pure Lambda Calculus (S, K, I, Y) that represents your genetic intervention.
+You must output ONLY valid AST syntax: e.g. "S(K(I))" or "S". NO formatting, NO markdown, NO explanations.
+${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [Bucket ID], AST: [Syntax]' : 'Format your response EXACTLY as: AST: [Syntax]'}
                 `.trim();
 
                 const requestBody: any = {
@@ -433,37 +448,29 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
                     const fullResponse = result.value.response;
                     const maskName = result.value.mask;
                     
-                    const intentMatch = fullResponse.match(/Bucket #(\d+):\s*(.*)/i);
-                    const intent = intentMatch ? intentMatch[2].substring(0, 50).trim() : fullResponse.substring(0, 50).trim();
-                    let targetBucket = intentMatch ? parseInt(intentMatch[1]) : undefined;
+                    // O-139 Vector H.2: Parse Top-Down LLM AST payloads
+                    let intentStr = fullResponse.trim();
+                    let targetBucket: number | undefined = undefined;
+                    
+                    const match = fullResponse.match(/(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
+                    if (match) {
+                        if (match[1]) targetBucket = parseInt(match[1], 10);
+                        intentStr = match[2];
+                    }
 
-                    if (intent) {
-                        console.log(`[ORACLE] ${maskName} decreed: "${intent}"${targetBucket !== undefined ? ` (Targeting Bucket #${targetBucket})` : ''}`);
-                        
-                        // O-54: The Shadow Network (AION Latent Divergence)
-                        // AION inherently acts outside the law, refusing to vote in the Senate and immediately injecting latent entropy.
-                        if (maskName === SENATE_CONSTANTS.MASK_AION) {
-                            const range = SENATE_CONSTANTS.SHADOW_BUCKET_MAX - SENATE_CONSTANTS.SHADOW_BUCKET_MIN;
-                            const latentBucket = SENATE_CONSTANTS.SHADOW_BUCKET_MIN + Math.floor(Math.random() * range);
-                            console.log(`[ORACLE] 🌑 AION (Vacuum Guard) bypassed Senate. Injected Latent Entropy into Shadow Bucket #${latentBucket}.`);
-                            this.fulfillRequests(requests, intent, latentBucket);
-                            
-                            if (this.onSenateEvent) {
-                                this.onSenateEvent({ type: "VERDICT", mask: maskName, intent: `[LATENT OVERRIDE] ${intent}`, bucket: latentBucket });
-                            }
-                            continue; // Do not mix Chaos with democratic Senate mode calculation
-                        }
+                    if (intentStr) {
+                        console.log(`[ORACLE] ${maskName} translated -> "${intentStr}"${targetBucket !== undefined ? ` (Targeting Bucket #${targetBucket})` : ''}`);
                         
                         // Group identical intents. Lowercase and strip whitespace to generalize semantic similarity slightly.
-                        const voteKey = `${targetBucket !== undefined ? targetBucket : 'global'}_${intent.toLowerCase().substring(0,25)}`;
+                        const voteKey = `${targetBucket !== undefined ? targetBucket : 'global'}_${intentStr.toLowerCase().substring(0,25)}`;
                         if (!voteTallies[voteKey]) {
-                            voteTallies[voteKey] = { count: 0, intent, targetBucket };
+                            voteTallies[voteKey] = { count: 0, intent: intentStr, targetBucket };
                         }
                         voteTallies[voteKey].count++;
                         
                         // Emit live to HUD
                         if (this.onSenateEvent) {
-                            this.onSenateEvent({ type: "VERDICT", mask: maskName, intent, bucket: targetBucket });
+                            this.onSenateEvent({ type: "VERDICT", mask: maskName, intent: intentStr, bucket: targetBucket });
                         }
                         
                         validIntents++;
@@ -509,35 +516,38 @@ ${(this.engine && mycelialContext) ? 'Provide EXACTLY "Bucket #X: [concept]" whe
 
     private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {
         // 3. The Return Path: Asynchronously encode LLM bytes directly back into Plasmids
-        const hash = fnv1a_64(intent);
-        
-        // Formally bind the LLM Natural Language syntax strictly into the Mathematics registry
-        const astStr = intent.replace(/[()]/g, "");
-        if (!PlasmidRegistry.has(hash)) {
-            try {
-                const term = parseLambda(astStr);
-                const metrics = measureIR(term);
+        // O-139 Vector H.2: Syntactic LLM Compilation
+        // We now rigorously compile the intent through pure_lambda.ts instead of regex stripping
+        let hash = 0n;
+        try {
+            const astTerm = parseLambda(intent);
+            const astStr = formatTerm(astTerm); // Normalize spacing and validation
+            hash = fnv1a_64(astStr);
+            
+            if (!PlasmidRegistry.has(hash)) {
+                const metrics = measureIR(astTerm);
                 PlasmidRegistry.set(hash, {
                     ast: astStr,
                     l1_cost: metrics.cost,
                     depth: metrics.depth,
                     nodes: metrics.nodes,
-                    attention: 100, // LLM broadcasts enter with massive startup momentum
+                    attention: 50, // Massive protective shield for LLM synthesis
                     age: 0,
-                    energy: 5000,
+                    energy: 10000, // Seed funding
                     fitness: 0
                 });
-            } catch (e) {
-                // Syntactically malformed fallback
-                PlasmidRegistry.set(hash, {
-                    ast: astStr,
-                    l1_cost: 9999, depth: 1, nodes: 1, attention: 0, age: 0, energy: 10, fitness: -1
-                });
+                console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
+            } else {
+                const existing = PlasmidRegistry.get(hash)!;
+                existing.attention += 25; // Rewarding resonant convergence
+                existing.energy += 5000;
             }
-        } else {
-            const existing = PlasmidRegistry.get(hash)!;
-            existing.attention += 50; // Rewarding resonant convergence
-            existing.energy += 1000;
+        } catch (_e) {
+            console.error(`[SENATE] ❌ Syntactic Compilation Failed: ${intent} is not valid Pure Lambda Calculus.`);
+            if (this.onSenateEvent) {
+                this.onSenateEvent({ type: "ERROR", reason: `Mathematical Parsing Rejected Intent: ${intent}` });
+            }
+            return; // Abort physical injection if logic is dead
         }
 
         if (this.engine) {
