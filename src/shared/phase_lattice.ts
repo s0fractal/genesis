@@ -102,60 +102,62 @@ export function clonePhaseField(field: PhaseField): PhaseField {
     };
 }
 
-export function rotateGlobalPhase(field: PhaseField, deltaTheta: number): PhaseField {
-    const rotated = clonePhaseField(field);
-    for (let i = 0; i < rotated.theta.length; i++) {
-        rotated.theta[i] = wrapTheta(rotated.theta[i] + deltaTheta);
+
+export function rotateGlobalPhase(field: PhaseField, deltaTheta: number): void {
+    for (let i = 0; i < field.theta.length; i++) {
+        field.theta[i] = wrapTheta(field.theta[i] + deltaTheta);
     }
-    return rotated;
 }
 
-export function rotateAngularAddress(field: PhaseField, deltaSector: number): PhaseField {
-    const rotated = clonePhaseField(field); 
-    
+export function rotateAngularAddress(field: PhaseField, deltaSector: number): void {
+    const thetaClone = new Uint8Array(field.theta);
+    const omegaClone = new Int16Array(field.omega);
+    const amplitudeClone = new Uint8Array(field.amplitude);
+    const lockClone = new Uint8Array(field.lock);
+    const entanglementClone = new Uint8Array(field.entanglement);
+    const cellStatusClone = new Uint8Array(field.cellStatus);
+    const plasmidsClone = new BigUint64Array(field.plasmids);
+
     for (let tau = 0; tau < field.shape.tauDepth; tau++) {
         for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
             for (let rho = 0; rho < field.shape.radialBins; rho++) {
                 for (let sector = 0; sector < field.shape.sectors; sector++) {
-                    const currentIndex = getCellIndex(field.shape, tau, sector, rho, harmonic);
-                    const nextSector = wrapIndex(sector + deltaSector, field.shape.sectors);
-                    const nextIndex = fieldIndex(field.shape, tau, nextSector, rho, harmonic);
-                    
-                    rotated.theta[nextIndex] = field.theta[currentIndex];
-                    rotated.omega[nextIndex] = field.omega[currentIndex];
-                    rotated.amplitude[nextIndex] = field.amplitude[currentIndex];
-                    rotated.lock[nextIndex] = field.lock[currentIndex];
-                    rotated.entanglement[nextIndex] = field.entanglement[currentIndex];
-                    rotated.cellStatus[nextIndex] = field.cellStatus[currentIndex];
-                    rotated.plasmids[nextIndex] = field.plasmids[currentIndex];
+                    const source = getCellIndex(field.shape, tau, sector, rho, harmonic);
+                    const targetSector = wrapIndex(sector + deltaSector, field.shape.sectors);
+                    const target = getCellIndex(field.shape, tau, targetSector, rho, harmonic);
+
+                    field.theta[target] = thetaClone[source];
+                    field.omega[target] = omegaClone[source];
+                    field.amplitude[target] = amplitudeClone[source];
+                    field.lock[target] = lockClone[source];
+                    field.entanglement[target] = entanglementClone[source];
+                    field.cellStatus[target] = cellStatusClone[source];
+                    field.plasmids[target] = plasmidsClone[source];
                 }
             }
         }
     }
-    return rotated;
 }
 
-export function stepPhaseField(field: PhaseField): PhaseField {
-    const next = clonePhaseField(field);
+export function stepPhaseField(field: PhaseField): void {
     const pastTau = field.currentTau;
     const nextTau = wrapIndex(field.currentTau + 1, field.shape.tauDepth);
-    next.currentTau = nextTau;
+    field.currentTau = nextTau;
 
     for (let harmonic = 0; harmonic < field.shape.harmonics; harmonic++) {
         if (harmonic > 0) {
-            // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics entirely
             for (let rho = 0; rho < field.shape.radialBins; rho++) {
                 for (let sector = 0; sector < field.shape.sectors; sector++) {
                     const pastIndex = getCellIndex(field.shape, pastTau, sector, rho, harmonic);
-                    const nextIndex = fieldIndex(field.shape, nextTau, sector, rho, harmonic);
+                    const nextIndex = getCellIndex(field.shape, nextTau, sector, rho, harmonic);
                     
-                    next.theta[nextIndex] = field.theta[pastIndex];
-                    next.omega[nextIndex] = field.omega[pastIndex];
-                    next.amplitude[nextIndex] = field.amplitude[pastIndex];
-                    next.lock[nextIndex] = field.lock[pastIndex];
-                    next.entanglement[nextIndex] = field.entanglement[pastIndex];
-                    next.cellStatus[nextIndex] = field.cellStatus[pastIndex];
-                    next.plasmids[nextIndex] = field.plasmids[pastIndex];
+                    field.theta[nextIndex] = field.theta[pastIndex];
+                    field.omega[nextIndex] = field.omega[pastIndex];
+                    field.amplitude[nextIndex] = field.amplitude[pastIndex];
+                    field.lock[nextIndex] = field.lock[pastIndex];
+                    field.entanglement[nextIndex] = field.entanglement[pastIndex];
+                    field.cellStatus[nextIndex] = field.cellStatus[pastIndex];
+                    field.plasmids[nextIndex] = field.plasmids[pastIndex];
                 }
             }
             continue;
@@ -227,9 +229,10 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     nextPlasmid = 0n;
                 }
 
+                let bestResonance = -2048;
+                
                 if (nextAmplitude < 140) {
                     const neighborsIdx = [leftIdx, rightIdx, innerIdx, outerIdx, harmonicPeerIdx];
-                    let bestResonance = -2048;
                     let donorPlasmid = 0n;
 
                     for (const neighborIdx of neighborsIdx) {
@@ -251,9 +254,17 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     }
                 }
 
-                let nextCellStatus = cCellStatus;
-                if (!adopted && nextAmplitude < 20 && nextLock < 10) {
-                    nextCellStatus = 1;
+                let nextCellStatus = cCellStatus > 0 ? cCellStatus - 1 : 0;
+                if (!adopted && cCellStatus === 0 && kuramoto < 100 && bestResonance > 500) {
+                    // field.oracleRequests[field.oracleRequestCount] = pastIndex; // This line is commented out in the original, but was in the snippet. Assuming it's not meant to be added.
+                    // field.oracleRequestCount++; // Same as above.
+                    nextCellStatus = 240;
+                }
+
+                if (nextAmplitude < 15 && nextPlasmid !== 0n) {
+                    if (nextTheta % 4 === 0) {
+                        nextPlasmid = 0n;
+                    }
                 }
 
                 let nextEntanglement = cEntanglement;
@@ -268,23 +279,23 @@ export function stepPhaseField(field: PhaseField): PhaseField {
 
                 const nextIndex = fieldIndex(field.shape, nextTau, sector, rho, harmonic);
                 
-                next.theta[nextIndex] = nextTheta;
-                next.omega[nextIndex] = nextOmega;
-                next.amplitude[nextIndex] = nextAmplitude;
-                next.lock[nextIndex] = nextLock;
-                next.entanglement[nextIndex] = nextEntanglement;
-                next.cellStatus[nextIndex] = nextCellStatus;
-                next.plasmids[nextIndex] = nextPlasmid;
+                field.theta[nextIndex] = nextTheta;
+                field.omega[nextIndex] = nextOmega;
+                field.amplitude[nextIndex] = nextAmplitude;
+                field.lock[nextIndex] = nextLock;
+                field.entanglement[nextIndex] = nextEntanglement;
+                field.cellStatus[nextIndex] = nextCellStatus;
+                field.plasmids[nextIndex] = nextPlasmid;
             }
         }
     }
-    return next;
 }
 
 export function runPhaseField(field: PhaseField, ticks: number): PhaseField {
-    let current = clonePhaseField(field);
+    const current = clonePhaseField(field);
+
     for (let i = 0; i < ticks; i++) {
-        current = stepPhaseField(current);
+        stepPhaseField(current);
     }
     return current;
 }
@@ -403,43 +414,17 @@ export function assertFieldBounds(field: PhaseField): void {
     }
 }
 
-export function fossilizePhaseField(field: PhaseField): PhaseField {
-    if (field.shape.harmonics <= 1) return field;
-    
-    const next = clonePhaseField(field);
-    
-    for (let harmonic = field.shape.harmonics - 1; harmonic > 0; harmonic--) {
-        for (let rho = 0; rho < field.shape.radialBins; rho++) {
-            for (let sector = 0; sector < field.shape.sectors; sector++) {
-                const sourceIdx = getCellIndex(field.shape, field.currentTau, sector, rho, harmonic - 1);
-                const nextIdx = fieldIndex(field.shape, field.currentTau, sector, rho, harmonic);
-                
-                next.theta[nextIdx] = field.theta[sourceIdx];
-                next.omega[nextIdx] = field.omega[sourceIdx];
-                next.amplitude[nextIdx] = field.amplitude[sourceIdx];
-                next.lock[nextIdx] = field.lock[sourceIdx];
-                next.entanglement[nextIdx] = field.entanglement[sourceIdx];
-                next.plasmids[nextIdx] = field.plasmids[sourceIdx];
-                next.cellStatus[nextIdx] = field.cellStatus[sourceIdx];
-            }
-        }
-    }
-    
-    return next;
-}
-
 export function projectCellToCartesian(
     sector: number,
     rho: number,
     shape: PhaseFieldShape,
-    radialScale = 1,
-): { x: number; y: number } {
+    radialScale: number,
+    out: Float32Array
+): void {
     const radius = (rho + 1) * radialScale;
     const radians = (sector / shape.sectors) * Math.PI * 2;
-    return {
-        x: radius * Math.cos(radians),
-        y: radius * Math.sin(radians),
-    };
+    out[0] = radius * Math.cos(radians);
+    out[1] = radius * Math.sin(radians);
 }
 
 export function sumAmplitude(field: PhaseField): number {
@@ -474,4 +459,25 @@ function hashValue(value: number): bigint {
 
 function hashSignedValue(value: number): bigint {
     return BigInt(value >>> 0);
+}
+
+export function fossilizePhaseField(field: PhaseField): void {
+    if (field.shape.harmonics <= 1) return;
+    
+    for (let harmonic = field.shape.harmonics - 1; harmonic > 0; harmonic--) {
+        for (let rho = 0; rho < field.shape.radialBins; rho++) {
+            for (let sector = 0; sector < field.shape.sectors; sector++) {
+                const sourceIdx = getCellIndex(field.shape, field.currentTau, sector, rho, harmonic - 1);
+                const nextIdx = fieldIndex(field.shape, field.currentTau, sector, rho, harmonic);
+                
+                field.theta[nextIdx] = field.theta[sourceIdx];
+                field.omega[nextIdx] = field.omega[sourceIdx];
+                field.amplitude[nextIdx] = field.amplitude[sourceIdx];
+                field.lock[nextIdx] = field.lock[sourceIdx];
+                field.entanglement[nextIdx] = field.entanglement[sourceIdx];
+                field.plasmids[nextIdx] = field.plasmids[sourceIdx];
+                field.cellStatus[nextIdx] = field.cellStatus[sourceIdx];
+            }
+        }
+    }
 }

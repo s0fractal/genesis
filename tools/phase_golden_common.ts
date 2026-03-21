@@ -23,6 +23,7 @@ import {
     snapshotHybridField,
 } from "../src/replay/hybrid_replay.ts";
 import {
+    clonePhaseField,
     fieldSignature,
     stepPhaseField,
     structuralSignature,
@@ -140,10 +141,16 @@ export const buildReferenceSeed = buildCanonicalPhaseSeed;
 export function captureReferenceTrace(shape: PhaseFieldShape, ticks: number): PhaseTraceEntry[] {
     const trace: PhaseTraceEntry[] = [];
     let field = buildReferenceSeed(shape);
+    let nextField = clonePhaseField(field);
     let lastEntry: PhaseTraceEntry | null = null;
 
     for (let tick = 0; tick <= ticks; tick++) {
-        if (tick > 0) field = stepPhaseField(field);
+        if (tick > 0) {
+            stepPhaseField(field, nextField);
+            const temp = field;
+            field = nextField;
+            nextField = temp;
+        }
         
         const current: PhaseTraceEntry = {
             tick,
@@ -359,6 +366,7 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     const ticks = 12;
 
     let phaseField = buildReferenceSeed(phaseShape);
+    let nextPhaseField = clonePhaseField(phaseField);
     const hybridField = new Field(hybridShape.width, hybridShape.height);
     seed_phase_bridge_pattern(hybridField);
 
@@ -386,7 +394,11 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         }
 
         if (tick < ticks) {
-            phaseField = stepPhaseField(phaseField);
+            stepPhaseField(phaseField, nextPhaseField);
+            const temp = phaseField;
+            phaseField = nextPhaseField;
+            nextPhaseField = temp;
+            
             execute_phase_bridge_tick(hybridField, 0);
         }
     }

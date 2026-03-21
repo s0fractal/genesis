@@ -10,7 +10,8 @@ import {
     initOmegaWasm,
 } from "./phase_golden_common.ts";
 import {
-    runPhaseField,
+    stepPhaseField,
+    clonePhaseField,
     fossilizePhaseField,
     structuralSignature,
 } from "../src/shared/phase_lattice.ts";
@@ -71,12 +72,12 @@ function compareTick(shape: PhaseFieldShape, ticks: number, wasm: WebAssembly.Ex
             `Structural signature mismatch at tick=${tick}: reference=${referenceStructuralSignature} wasm=${wasmStructuralSignature}`,
         );
 
-        reference = runPhaseField(reference, 1);
+        stepPhaseField(reference);
         execute_phase_lattice_tick(phaseField);
         
         const currentTick = tick + 1;
         if (currentTick % 24 === 0) {
-            reference = fossilizePhaseField(reference);
+            fossilizePhaseField(reference);
             execute_phase_lattice_fossilization(phaseField);
         }
     }

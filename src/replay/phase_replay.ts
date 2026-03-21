@@ -76,7 +76,8 @@ export async function loadPhaseReplayDataset(): Promise<PhaseReplayDataset> {
     validateReferenceSnapshot(current, golden.referenceTrace[0]);
 
     for (let tick = 1; tick <= golden.ticks; tick++) {
-        current = stepPhaseField(current);
+        stepPhaseField(current);
+
         snapshots.push(clonePhaseField(current));
         validateReferenceSnapshot(current, golden.referenceTrace[tick]);
     }
@@ -143,28 +144,32 @@ export function buildDiffSummary(
     let maxPhaseDistance = 0;
 
     if (compare) {
-        for (let index = 0; index < current.cells.length; index++) {
-            const nextCell = current.cells[index];
-            const prevCell = compare.cells[index];
-            const amplitudeDelta = nextCell.amplitude - prevCell.amplitude;
-            const lockDelta = nextCell.lock - prevCell.lock;
-            const entanglementDelta = nextCell.entanglement - prevCell.entanglement;
-            const thetaDelta = phaseDistance(nextCell.theta, prevCell.theta);
-
-            if (
-                amplitudeDelta !== 0 ||
-                lockDelta !== 0 ||
-                entanglementDelta !== 0 ||
-                thetaDelta !== 0 ||
-                nextCell.omega !== prevCell.omega
-            ) {
-                changedCells++;
+        for (let harmonic = 0; harmonic < current.shape.harmonics; harmonic++) {
+            for (let rho = 0; rho < current.shape.radialBins; rho++) {
+                for (let sector = 0; sector < current.shape.sectors; sector++) {
+                    const index = harmonic * current.shape.radialBins * current.shape.sectors + rho * current.shape.sectors + sector;
+                    
+                    const amplitudeDelta = current.amplitude[index] - compare.amplitude[index];
+                    const lockDelta = current.lock[index] - compare.lock[index];
+                    const entanglementDelta = current.entanglement[index] - compare.entanglement[index];
+                    const thetaDelta = phaseDistance(current.theta[index], compare.theta[index]);
+        
+                    if (
+                        amplitudeDelta !== 0 ||
+                        lockDelta !== 0 ||
+                        entanglementDelta !== 0 ||
+                        thetaDelta !== 0 ||
+                        current.omega[index] !== compare.omega[index]
+                    ) {
+                        changedCells++;
+                    }
+        
+                    totalAmplitudeDelta += amplitudeDelta;
+                    totalLockDelta += lockDelta;
+                    totalEntanglementDelta += entanglementDelta;
+                    maxPhaseDistance = Math.max(maxPhaseDistance, thetaDelta);
+                }
             }
-
-            totalAmplitudeDelta += amplitudeDelta;
-            totalLockDelta += lockDelta;
-            totalEntanglementDelta += entanglementDelta;
-            maxPhaseDistance = Math.max(maxPhaseDistance, thetaDelta);
         }
     }
 

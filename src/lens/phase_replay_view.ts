@@ -68,10 +68,11 @@ export class PhaseReplayObserver {
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, width, height);
 
+        const scratchpad = new Float32Array(2);
         drawRings(ctx, cx, cy, maxRadius, current.shape.radialBins);
-        drawDiffField(ctx, current, compare, cx, cy, maxRadius);
+        drawDiffField(ctx, current, compare, cx, cy, maxRadius, scratchpad);
         drawEntanglement(ctx, current, cx, cy, maxRadius);
-        drawField(ctx, current, compare, cx, cy, maxRadius);
+        drawField(ctx, current, compare, cx, cy, maxRadius, scratchpad);
         drawLegend(ctx, meta, width, height);
     }
 }
@@ -113,8 +114,8 @@ function drawEntanglement(
         for (let rho = 0; rho < field.shape.radialBins; rho++) {
             for (let sector = 0; sector < field.shape.sectors / 2; sector++) {
                 const index = harmonic * field.shape.radialBins * field.shape.sectors + rho * field.shape.sectors + sector;
-                const cell = field.cells[index];
-                if (cell.entanglement < 120) {
+                const cellEntanglement = field.entanglement[index];
+                if (cellEntanglement < 120) {
                     continue;
                 }
 
@@ -126,8 +127,8 @@ function drawEntanglement(
                 ctx.beginPath();
                 ctx.moveTo(Math.cos(baseAngle) * radius, Math.sin(baseAngle) * radius);
                 ctx.lineTo(Math.cos(antiAngle) * radius, Math.sin(antiAngle) * radius);
-                ctx.strokeStyle = `rgba(90, 243, 229, ${0.04 + cell.entanglement / 900})`;
-                ctx.lineWidth = 0.8 + cell.entanglement / 180;
+                ctx.strokeStyle = `rgba(90, 243, 229, ${0.04 + cellEntanglement / 900})`;
+                ctx.lineWidth = 0.8 + cellEntanglement / 180;
                 ctx.stroke();
             }
         }
@@ -142,34 +143,39 @@ function drawDiffField(
     cx: number,
     cy: number,
     maxRadius: number,
+    scratchpad: Float32Array,
 ): void {
     if (!compare) {
         return;
     }
 
-    for (let index = 0; index < current.cells.length; index++) {
-        const cell = current.cells[index];
-        const previous = compare.cells[index];
-        const thetaDelta = phaseDistance(cell.theta, previous.theta) / 128;
-        const amplitudeDelta = Math.abs(cell.amplitude - previous.amplitude) / 255;
-        const lockDelta = Math.abs(cell.lock - previous.lock) / 255;
-        const entanglementDelta = Math.abs(cell.entanglement - previous.entanglement) / 255;
-        const delta = Math.max(thetaDelta, amplitudeDelta, lockDelta, entanglementDelta);
+    for (let harmonic = 0; harmonic < current.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < current.shape.radialBins; rho++) {
+            for (let sector = 0; sector < current.shape.sectors; sector++) {
+                const index = harmonic * current.shape.radialBins * current.shape.sectors + rho * current.shape.sectors + sector;
+                
+                const thetaDelta = phaseDistance(current.theta[index], compare.theta[index]) / 128;
+                const amplitudeDelta = Math.abs(current.amplitude[index] - compare.amplitude[index]) / 255;
+                const lockDelta = Math.abs(current.lock[index] - compare.lock[index]) / 255;
+                const entanglementDelta = Math.abs(current.entanglement[index] - compare.entanglement[index]) / 255;
+                const delta = Math.max(thetaDelta, amplitudeDelta, lockDelta, entanglementDelta);
 
-        if (delta < 0.03) {
-            continue;
+                if (delta < 0.03) {
+                    continue;
+                }
+
+                projectCellToCartesian(sector, rho, current.shape, maxRadius / (current.shape.radialBins + 1), scratchpad);
+                const x = cx + scratchpad[0];
+                const y = cy + scratchpad[1];
+                const radius = 2 + delta * 10;
+
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 148, 64, ${0.12 + delta * 0.55})`;
+                ctx.lineWidth = 0.8 + delta * 2.6;
+                ctx.stroke();
+            }
         }
-
-        const point = projectCellToCartesian(cell, current.shape, maxRadius / (current.shape.radialBins + 1));
-        const x = cx + point.x;
-        const y = cy + point.y;
-        const radius = 2 + delta * 10;
-
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 148, 64, ${0.12 + delta * 0.55})`;
-        ctx.lineWidth = 0.8 + delta * 2.6;
-        ctx.stroke();
     }
 }
 
@@ -180,38 +186,43 @@ function drawField(
     cx: number,
     cy: number,
     maxRadius: number,
+    scratchpad: Float32Array,
 ): void {
-    for (let index = 0; index < current.cells.length; index++) {
-        const cell = current.cells[index];
-        const point = projectCellToCartesian(cell, current.shape, maxRadius / (current.shape.radialBins + 1));
-        const harmonicOffset = (cell.harmonic - (current.shape.harmonics - 1) / 2) * 3;
-        const angle = (cell.sector / current.shape.sectors) * Math.PI * 2;
-        const x = cx + Math.cos(angle) * harmonicOffset + point.x;
-        const y = cy + Math.sin(angle) * harmonicOffset + point.y;
+    for (let harmonic = 0; harmonic < current.shape.harmonics; harmonic++) {
+        for (let rho = 0; rho < current.shape.radialBins; rho++) {
+            for (let sector = 0; sector < current.shape.sectors; sector++) {
+                const index = harmonic * current.shape.radialBins * current.shape.sectors + rho * current.shape.sectors + sector;
+                
+                projectCellToCartesian(sector, rho, current.shape, maxRadius / (current.shape.radialBins + 1), scratchpad);
+                const harmonicOffset = (harmonic - (current.shape.harmonics - 1) / 2) * 3;
+                const angle = (sector / current.shape.sectors) * Math.PI * 2;
+                const x = cx + Math.cos(angle) * harmonicOffset + scratchpad[0];
+                const y = cy + Math.sin(angle) * harmonicOffset + scratchpad[1];
 
-        const hue = cell.theta / 255;
-        const saturation = 0.58 + cell.entanglement / 1024;
-        const value = 0.28 + cell.amplitude / 320;
-        const [r, g, b] = hsv2rgb(hue, Math.min(1, saturation), Math.min(1, value));
-        const alpha = 0.22 + Math.min(0.72, cell.lock / 255 * 0.42 + cell.amplitude / 255 * 0.32);
-        const size = 1.25 + cell.amplitude / 108 + cell.entanglement / 240;
+                const hue = current.theta[index] / 255;
+                const saturation = 0.58 + current.entanglement[index] / 1024;
+                const value = 0.28 + current.amplitude[index] / 320;
+                const [r, g, b] = hsv2rgb(hue, Math.min(1, saturation), Math.min(1, value));
+                const alpha = 0.22 + Math.min(0.72, current.lock[index] / 255 * 0.42 + current.amplitude[index] / 255 * 0.32);
+                const size = 1.25 + current.amplitude[index] / 108 + current.entanglement[index] / 240;
 
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
-        ctx.shadowColor = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0.42)`;
-        ctx.shadowBlur = 8 + cell.entanglement / 18;
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (compare) {
-            const previous = compare.cells[index];
-            const omegaDelta = Math.abs(cell.omega - previous.omega);
-            if (omegaDelta > 0) {
                 ctx.beginPath();
-                ctx.arc(x, y, size + 1.6, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 + Math.min(0.25, omegaDelta / 40)})`;
-                ctx.lineWidth = 0.6;
-                ctx.stroke();
+                ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
+                ctx.shadowColor = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0.42)`;
+                ctx.shadowBlur = 8 + current.entanglement[index] / 18;
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (compare) {
+                    const omegaDelta = Math.abs(current.omega[index] - compare.omega[index]);
+                    if (omegaDelta > 0) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, size + 1.6, 0, Math.PI * 2);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 + Math.min(0.25, omegaDelta / 40)})`;
+                        ctx.lineWidth = 0.6;
+                        ctx.stroke();
+                    }
+                }
             }
         }
     }
