@@ -449,8 +449,10 @@ Task: You are ${mask.name}, Oracle of the LOVE Consortium. Role: ${mask.role}
 The harmonic cylinder is experiencing severe Torus volatility at ${count} coordinates. Torus Energy: ${this.globalEnergyPool}.
 Observe the structural telemetry and intervene.
 ${mycelialContext}
-Provide EXACTLY ONE string of Pure Lambda Calculus (S, K, I, Y) that represents your genetic intervention.
-You must output ONLY valid AST syntax: e.g. "S(K(I))" or "S". NO formatting, NO markdown, NO explanations.
+Provide EXACTLY ONE string of topological logic that represents your genetic intervention.
+You may use pure Combinators (S, K, I, Y) OR Semantic Macros: TRUE, FALSE, AND, OR, NOT, CONS, CAR, CDR.
+Example ASTs: "(AND TRUE FALSE)", "(CONS S K)", "S(K(I))".
+You must output ONLY valid AST syntax with balanced parentheses. NO formatting, NO markdown, NO explanations.
 ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [Bucket ID], AST: [Syntax]' : 'Format your response EXACTLY as: AST: [Syntax]'}
                 `.trim();
 

@@ -36,3 +36,23 @@ Deno.test("Pure Lambda Calculus: Y Combinator reduction block", () => {
     const evaluated = evaluateLambda(term, 10);
     assertEquals(formatTerm(evaluated), "x");
 });
+
+Deno.test("Semantic Macros: Boolean Logic Pipeline", () => {
+    // LLM outputs (AND TRUE FALSE). Parser macro-expands it.
+    // AND TRUE FALSE => FALSE => K I
+    const termStr = parseLambda("((AND TRUE) FALSE)");
+    const evaluated = evaluateLambda(termStr);
+    
+    // FALSE is encoded as (K I)
+    assertEquals(formatTerm(evaluated), "K I");
+});
+
+Deno.test("Semantic Macros: Inversion Pipeline", () => {
+    // LLM outputs (NOT TRUE). Parser macro-expands it.
+    // NOT TRUE => FALSE => K I
+    const termStr = parseLambda("(NOT TRUE)");
+    const evaluated = evaluateLambda(termStr);
+    
+    // FALSE is encoded as (K I)
+    assertEquals(formatTerm(evaluated), "K I");
+});

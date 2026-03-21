@@ -157,9 +157,22 @@ export function formatTerm(term: Term): string {
     }
 }
 
+// O-145 Vector N.1: Church-Encoded Semantic Dictionary
+// Elevates the abstraction level for LLM Senate Generation without altering WASM logic bounds.
+const MACROS: Record<string, string> = {
+    "TRUE": "K",
+    "FALSE": "(K I)",
+    "NOT": "(S (S I (K (K I))) (K K))",
+    "AND": "(S S (K (K I)))",
+    "OR": "(S I (K K))",
+    "CONS": "(S (S I (K (S (K K) I))) (K I))", // Pair Constructor
+    "CAR": "(S I (K K))", // First Element (TRUE selector)
+    "CDR": "(S I (K (K I)))" // Second Element (FALSE selector)
+};
+
 /**
  * Parses a string representation of an SKI term natively.
- * Supports combinators (S, K, I, Y), variables, and (Application block nesting).
+ * Supports combinators (S, K, I, Y), variables, application nesting, and Semantic Macros.
  */
 export function parseLambda(input: string): Term {
     const tokens = input
@@ -199,6 +212,10 @@ export function parseLambda(input: string): Term {
             throw new Error("Lambda Parse Error: Unexpected closing parenthesis ')'.");
         } else if (["S", "K", "I", "Y"].includes(token)) {
             return { type: "Combinator", name: token as "S" | "K" | "I" | "Y" };
+        } else if (MACROS[token]) {
+            // O-145 Vector N.2: Hardware Expansion
+            // Dynamically unwrap the Senate's semantic intent into pure physics nodes
+            return parseLambda(MACROS[token]); 
         } else {
             return variable(token);
         }
