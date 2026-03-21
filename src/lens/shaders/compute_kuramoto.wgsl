@@ -82,16 +82,7 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
     return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
 }
 
-fn phase_radians(from_theta: u32, to_theta: u32) -> f32 {
-    let diff = (i32(to_theta) - i32(from_theta)) % 256;
-    var raw = diff;
-    if (raw < 0) { raw = raw + 256; }
-    if (raw > 128) { raw = raw - 256; }
-    return f32(raw) * 6.2831853 / 256.0;
-}
-
-fn phase_sin_sum(p_from: u32, p_to: u32, weight: f32) -> f32 { return sin(phase_radians(p_from, p_to)) * weight; }
-fn phase_cos_sum(p_from: u32, p_to: u32, weight: f32) -> f32 { return cos(phase_radians(p_from, p_to)) * weight; }
+// O-23 Native Metal Kuramoto Physics Compute Shader (Integer Logic Only)
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -139,29 +130,29 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let t_outer = get_byte(params.off_theta, get_idx(sector, outer_rho, harmonic));
     let t_harm = get_byte(params.off_theta, get_idx(sector, rho, harm_peer));
 
-    // Kuramoto Delta sums
-    var kuramoto = phase_sin_sum(theta, t_left, COUPLING_BASE) +
-                   phase_sin_sum(theta, t_right, COUPLING_BASE) +
-                   phase_sin_sum(theta, t_inner, COUPLING_BASE) +
-                   phase_sin_sum(theta, t_outer, COUPLING_BASE) +
-                   phase_sin_sum(theta, t_harm, COUPLING_HARMONIC_PEER);
+    // Kuramoto Delta sums (SINE_LUT x COUPLING = Q10 x Q10 = Q20 Matrix)
+    var kuramoto = phase_sin_i32(theta, t_left) * COUPLING_BASE +
+                   phase_sin_i32(theta, t_right) * COUPLING_BASE +
+                   phase_sin_i32(theta, t_inner) * COUPLING_BASE +
+                   phase_sin_i32(theta, t_outer) * COUPLING_BASE +
+                   phase_sin_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
 
-    var coherence = phase_cos_sum(theta, t_left, COUPLING_BASE) +
-                    phase_cos_sum(theta, t_right, COUPLING_BASE) +
-                    phase_cos_sum(theta, t_inner, COUPLING_BASE) +
-                    phase_cos_sum(theta, t_outer, COUPLING_BASE) +
-                    phase_cos_sum(theta, t_harm, COUPLING_HARMONIC_PEER);
+    var coherence = phase_cos_i32(theta, t_left) * COUPLING_BASE +
+                    phase_cos_i32(theta, t_right) * COUPLING_BASE +
+                    phase_cos_i32(theta, t_inner) * COUPLING_BASE +
+                    phase_cos_i32(theta, t_outer) * COUPLING_BASE +
+                    phase_cos_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
 
     // Antipode Coupling
     var next_ent = i32(entanglement);
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let t_anti = get_byte(params.off_theta, get_idx(antipode_sec, rho, harmonic));
-        let weight = (f32(entanglement) / MAX_ENTANGLEMENT) * COUPLING_ANTIPODE;
-        kuramoto += phase_sin_sum(theta, t_anti, weight);
-        coherence += phase_cos_sum(theta, t_anti, weight);
+        let weight = (i32(entanglement) * COUPLING_ANTIPODE) / MAX_ENTANGLEMENT; // Q10 Preserved
+        kuramoto += phase_sin_i32(theta, t_anti) * weight;
+        coherence += phase_cos_i32(theta, t_anti) * weight;
 
-        let align = cos(phase_radians(theta, t_anti));
+        let align = phase_cos_i32(theta, t_anti);
         if (align > ANTIPODE_ALIGNMENT_THRESHOLD && amplitude > 96) {
             next_ent += 8;
         } else {
@@ -180,8 +171,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
         // O-130: Plasmid-Field Bridge
         let target_theta = local_plasmid_low & 0xFFu;
-        kuramoto += phase_sin_sum(theta, target_theta, COUPLING_PLASMID);
-        coherence += phase_cos_sum(theta, target_theta, COUPLING_PLASMID);
+        kuramoto += phase_sin_i32(theta, target_theta) * COUPLING_PLASMID;
+        coherence += phase_cos_i32(theta, target_theta) * COUPLING_PLASMID;
         
         // Find bucket from FNV-1a structural hash
         let hash = (local_plasmid_low ^ local_plasmid_high);
@@ -203,9 +194,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
 
             // Apply a Massive K=4.0 structural pull toward the specific Mycelial thought group
-            let mycelial_pull = phase_sin_sum(theta, centroid, 4.0);
+            let mycelial_pull = phase_sin_i32(theta, centroid) * 4096; // 4.0 * 1024
             kuramoto += mycelial_pull;
-            coherence += phase_cos_sum(theta, centroid, 4.0);
+            coherence += phase_cos_i32(theta, centroid) * 4096;
         }
     }
 
@@ -232,27 +223,27 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     staking_energy_bonus += (n_energy - amplitude) / 4;
                     
                     let n_theta = get_byte(params.off_theta, n_idx);
-                    kuramoto += phase_sin_sum(theta, n_theta, 3.0); // K=3 multiplier
+                    kuramoto += phase_sin_i32(theta, n_theta) * 3072; // K=3 multiplier * 1024 (Q10 logic)
                 }
             }
         }
     }
 
-    // Kinematic Updates
-    var omega_delta = i32(round(kuramoto));
+    // Kinematic Updates (Q20 -> Q0 translation)
+    var omega_delta = q20_round(kuramoto); // Strip Q20 safely via manual truncation offset
     omega_delta = fast_abs(omega_delta); // O-62: Evaluated by Autopoietic Transpiler Bridge
     let next_omega = clamp(omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
 
-    var amp_delta = i32(round(coherence * 6.0)) - (lock / 64) + staking_energy_bonus;
+    var amp_delta = q20_round(coherence * 6) - (lock / 64) + staking_energy_bonus;
     
     // O-33: Resonance Economics Subsidy
     // If the von Neumann neighborhood is nearly mathematically identical (R > 0.93)
-    if (coherence > 4.2) {
+    if (coherence > 4404019) { // 4.2 * 1048576
         amp_delta += 2; // Inject metabolic heat back into the biological grid
     }
 
-    let lock_delta = select(-4, 8, coherence >= 3.0);
+    let lock_delta = select(-4, 8, coherence >= 3145728); // 3.0 * 1048576
 
     var next_amp = clamp(amplitude + amp_delta, 0, 255);
     var next_lock = clamp(lock + lock_delta, 0, 255);

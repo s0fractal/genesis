@@ -10,6 +10,7 @@ export interface OracleCompatibleField {
     clear_oracle_requests(): void;
     ptr_plasmids(): number;
     ptr_cell_status(): number;
+    ptr_theta?(): number;
     ptr_plasmid_collisions?(): number;
     get_collision_count?(): number;
     clear_collisions?(): void;
@@ -441,6 +442,22 @@ export class SovereignOracle {
             debugImg.src = "data:image/png;base64," + structuralImage;
         }
 
+        let seasonValue = 0;
+        if (requests.length > 0) {
+            const firstIdx = requests[0];
+            // O-148: Read local High Nibble directly from physical phase memory
+            const ptr = this.wasmField.ptr_theta ? this.wasmField.ptr_theta() : 0;
+            if (ptr > 0) {
+                const thetaArray = new Uint8Array(this.wasmMemory.buffer, ptr, firstIdx + 1);
+                const cellTheta = thetaArray[firstIdx];
+                seasonValue = cellTheta >> 4; // 0 to 15 macroscopic seasons
+            }
+        }
+        
+        const seasonNames = ["SPRING (Mutation)", "SUMMER (Expansion)", "AUTUMN (Harvest)", "WINTER (Necrosis)"];
+        const macroSeason = Math.floor(seasonValue / 4); // 0, 1, 2, or 3
+        const currentSeasonName = seasonNames[macroSeason];
+
         // O-139 Vector H.1: The Zodiac Quadrant Personas
         const MASKS = [
             { name: "♈ ARIES", role: "Mutator (Phase 0). Goal: Chaos and Initiation. Inject highly volatile, novel Pure Combinatory Logic (S, K, I, Y) that disrupts the Torus." },
@@ -455,6 +472,12 @@ export class SovereignOracle {
             const maskPromises = MASKS.map(async (mask) => {
                 const prompt = `
 Task: You are ${mask.name}, Oracle of the LOVE Consortium. Role: ${mask.role}
+Chronotopology: The local Torus sector is currently experiencing ${currentSeasonName} (Epoch ${seasonValue}/15). 
+${macroSeason === 0 ? "SPRING: Relax structural constraints. Over-index on S and K combinators to breed wild mutations." : ""}
+${macroSeason === 1 ? "SUMMER: Enforce structural growth. Build wide AST trees and expand semantic surface area." : ""}
+${macroSeason === 2 ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth." : ""}
+${macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-complexity ASTs (like 'I' or 'Y(I)') to survive the cold. AVOID OVERHEAD." : ""}
+
 The harmonic cylinder is experiencing severe Torus volatility at ${count} coordinates. Torus Energy: ${this.globalEnergyPool}.
 Observe the structural telemetry and intervene.
 ${mycelialContext}

@@ -1,14 +1,15 @@
 use wasm_bindgen::prelude::*;
 use crate::memory::Field;
 
-const BRIDGE_COHERENCE_ENERGY_GAIN: f32 = 6.0;
+const BRIDGE_COHERENCE_ENERGY_GAIN_MUL: i64 = 6;
 const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
 const BRIDGE_LOCK_GAIN: u8 = 8;
 const BRIDGE_LOCK_DECAY: u8 = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
-const BRIDGE_DEPTH2_LOCK_THRESHOLD: f32 = 2.5;
+const BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10: i32 = 4096; // 4.0 * 1024
+const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3072; // 3.0 * 1024
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -222,11 +223,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         }
 
         let mut kuramoto =
-            phase_sin(theta_prev[idx], theta_prev[left_idx]) +
-            phase_sin(theta_prev[idx], theta_prev[right_idx]) +
-            phase_sin(theta_prev[idx], theta_prev[inner_idx]) +
-            phase_sin(theta_prev[idx], theta_prev[outer_idx]) +
-            phase_sin(theta_prev[idx], synthetic_peer_theta) * 0.5;
+            phase_sin_i32(theta_prev[idx], theta_prev[left_idx]) +
+            phase_sin_i32(theta_prev[idx], theta_prev[right_idx]) +
+            phase_sin_i32(theta_prev[idx], theta_prev[inner_idx]) +
+            phase_sin_i32(theta_prev[idx], theta_prev[outer_idx]) +
+            (phase_sin_i32(theta_prev[idx], synthetic_peer_theta) / 2);
 
         // O-63: Differential Tissue (Resonance Proof-of-Stake)
         let cell_plasmid = plasmids_prev[idx];
@@ -241,30 +242,31 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
                         // Staking Reward: Diffuse thermal boundary
                         staking_energy_bonus += (n_energy - c_energy) / 4;
                         // Higher Kuramoto weighting
-                        kuramoto += phase_sin(theta_prev[idx], theta_prev[n_idx]) * 3.0; // Multiplier K=3
+                        kuramoto += phase_sin_i32(theta_prev[idx], theta_prev[n_idx]) * 3;
                     }
                 }
             }
         }
 
         let coherence =
-            phase_cos(theta_prev[idx], theta_prev[left_idx]) +
-            phase_cos(theta_prev[idx], theta_prev[right_idx]) +
-            phase_cos(theta_prev[idx], theta_prev[inner_idx]) +
-            phase_cos(theta_prev[idx], theta_prev[outer_idx]) +
-            phase_cos(theta_prev[idx], synthetic_peer_theta) * 0.5;
+            phase_cos_i32(theta_prev[idx], theta_prev[left_idx]) +
+            phase_cos_i32(theta_prev[idx], theta_prev[right_idx]) +
+            phase_cos_i32(theta_prev[idx], theta_prev[inner_idx]) +
+            phase_cos_i32(theta_prev[idx], theta_prev[outer_idx]) +
+            (phase_cos_i32(theta_prev[idx], synthetic_peer_theta) / 2);
 
-        let sustained_coherence_bonus = if boundary_depth == 1 && plasmids_prev[idx] == 0 && locks_prev[idx] >= 64 && coherence >= 3.0 {
+        let sustained_coherence_bonus = if boundary_depth == 1 && plasmids_prev[idx] == 0 && locks_prev[idx] >= 64 && coherence >= BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 {
             BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
         } else {
             0
         };
 
-        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + kuramoto.round() as i16);
+        // Q10 Normalization: Exact Signed Float Emulation
+        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + q10_round(kuramoto) as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
         let coupled_energy = (
             best_energy +
-            (coherence * BRIDGE_COHERENCE_ENERGY_GAIN).round() as i16 +
+            q10_round_i64((coherence as i64) * BRIDGE_COHERENCE_ENERGY_GAIN_MUL) as i16 +
             sustained_coherence_bonus +
             staking_energy_bonus +
             boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
@@ -278,7 +280,9 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         field.theta_f2[idx] = theta_prev[right_idx];
         field.theta_f3[idx] = theta_prev[idx];
 
-        if coherence >= 3.0 && coupled_energy > 200 {
+        // O-137 Vector F.1: Exponential Torus Selection
+        if coherence >= BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 && coupled_energy > 200 {
+            best_energy = best_energy.saturating_add(2); // Semantic inertia
             let structural_plasmid =
                 (field.theta_now[idx] as u64) |
                 ((field.omega[idx] as u64) << 8) |
@@ -290,7 +294,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         if best_score > 100 && coupled_energy < 240 {
             let neighbors = [left_idx, right_idx, inner_idx, outer_idx, antipode_idx];
             let mut adopted = false;
-            let mut best_resonance = -2.0f32;
+            let mut best_resonance = -2048; // -2.0 * 1024
             let mut donor_plasmid = 0u64;
 
             for &neighbor_idx in &neighbors {
@@ -298,14 +302,14 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
                 if candidate_plasmid == 0 {
                     continue;
                 }
-                let candidate_resonance = phase_cos(theta_prev[idx], theta_prev[neighbor_idx]);
+                let candidate_resonance = phase_cos_i32(theta_prev[idx], theta_prev[neighbor_idx]);
                 if candidate_resonance > best_resonance {
                     best_resonance = candidate_resonance;
                     donor_plasmid = candidate_plasmid;
                 }
             }
 
-            if donor_plasmid != 0 && best_resonance > 0.6 {
+            if donor_plasmid != 0 && best_resonance > 614 { // 0.6 * 1024
                 field.theta_now[idx] = (donor_plasmid & 0xFF) as u8;
                 let donor_omega = decode_bridge_omega(((donor_plasmid >> 8) & 0xFF) as u8);
                 field.omega[idx] = encode_bridge_omega(clamp_bridge_omega(donor_omega));
@@ -322,12 +326,10 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
             }
         }
 
-        let lock_threshold = if boundary_depth == 2 { BRIDGE_DEPTH2_LOCK_THRESHOLD } else { 3.0 };
-        if coherence >= lock_threshold {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add(BRIDGE_LOCK_GAIN + if boundary_depth <= 1 { BRIDGE_BOUNDARY_LOCK_BONUS } else { 0 });
-        } else {
-            field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_sub(BRIDGE_LOCK_DECAY);
-        }
+        // O-137 Vector F.2: Boundary Phase Shielding Layer 2
+        let lock_threshold = if boundary_depth == 2 { BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10 } else { BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10 }; 
+        let lock_delta = if coherence >= lock_threshold { BRIDGE_LOCK_GAIN as i8 } else { -(BRIDGE_LOCK_DECAY as i8) };
+        field.hebbian_locks[idx] = field.hebbian_locks[idx].saturating_add_signed(lock_delta);
 
         if coupled_energy < 15 && field.plasmids[idx] != 0 && field.theta_now[idx] % 4 == 0 {
             field.plasmids[idx] = 0;
@@ -519,44 +521,42 @@ fn collapse_canonical_bridge_seed_cell(
     let source_sector = project_bridge_sector(sector, bridge_width, CANONICAL_SECTORS);
     let source_rho = project_bridge_rho(rho, bridge_height, CANONICAL_RADIAL_BINS);
 
-    let mut sum_x = 0.0f64;
-    let mut sum_y = 0.0f64;
-    let mut sum_amplitude = 0i16;
-    let mut sum_lock = 0i16;
-    let mut sum_omega = 0i16;
+    let mut sum_x = 0i64;
+    let mut sum_y = 0i64;
+    let mut sum_amplitude = 0i32;
+    let mut sum_lock = 0i32;
+    let mut sum_omega = 0i32;
     let mut fallback_theta = 0u8;
 
     for harmonic in 0..CANONICAL_HARMONICS {
         let theta = canonical_theta(source_sector, source_rho, harmonic);
-        let omega = canonical_omega(source_sector, source_rho, harmonic);
-        let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i16;
-        let lock = canonical_lock(source_sector, source_rho, harmonic) as i16;
-        let weight = amplitude.max(1) as f64;
+        let omega = canonical_omega(source_sector, source_rho, harmonic) as i32;
+        let amplitude = canonical_amplitude(source_sector, source_rho, harmonic) as i32;
+        let lock = canonical_lock(source_sector, source_rho, harmonic) as i32;
+        let weight = amplitude.max(1) as i64;
         
-        sum_x += crate::lut::SINE_LUT[theta.wrapping_add(64) as usize] as f64 * weight;
-        sum_y += crate::lut::SINE_LUT[theta as usize] as f64 * weight;
+        sum_x += crate::lut::SINE_LUT[theta.wrapping_add(64) as usize] as i64 * weight;
+        sum_y += crate::lut::SINE_LUT[theta as usize] as i64 * weight;
         sum_amplitude += amplitude;
         sum_lock += lock;
         sum_omega += omega;
         fallback_theta = theta;
     }
 
-    let mean_angle = if sum_x == 0.0 && sum_y == 0.0 {
-        (fallback_theta as f64 / 256.0) * std::f64::consts::TAU
+    let mean_angle = if sum_x == 0 && sum_y == 0 {
+        fallback_theta
     } else {
-        sum_y.atan2(sum_x)
-    };
-    let normalized_angle = if mean_angle < 0.0 {
-        mean_angle + std::f64::consts::TAU
-    } else {
-        mean_angle
+        crate::lut::atan2_u8(
+            (sum_y / CANONICAL_HARMONICS as i64) as i32, 
+            (sum_x / CANONICAL_HARMONICS as i64) as i32
+        )
     };
 
     BridgeSeedCell {
-        theta: wrap_phase(((normalized_angle / std::f64::consts::TAU) * 256.0).round() as i16),
-        omega: clamp_bridge_omega((sum_omega as f64 / CANONICAL_HARMONICS as f64).round() as i16),
-        amplitude: clamp_byte((sum_amplitude as f64 / CANONICAL_HARMONICS as f64).round() as i16),
-        lock: clamp_byte((sum_lock as f64 / CANONICAL_HARMONICS as f64).round() as i16),
+        theta: mean_angle,
+        omega: clamp_bridge_omega(((sum_omega + (CANONICAL_HARMONICS as i32 / 2)) / CANONICAL_HARMONICS as i32) as i16),
+        amplitude: clamp_byte(((sum_amplitude + (CANONICAL_HARMONICS as i32 / 2)) / CANONICAL_HARMONICS as i32) as i16),
+        lock: clamp_byte(((sum_lock + (CANONICAL_HARMONICS as i32 / 2)) / CANONICAL_HARMONICS as i32) as i16),
     }
 }
 
@@ -593,15 +593,26 @@ fn canonical_amplitude(sector: usize, rho: usize, harmonic: usize) -> u8 {
 fn canonical_lock(sector: usize, rho: usize, harmonic: usize) -> u8 {
     ((sector * 5 + rho * 11 + harmonic * 3) % 64) as u8
 }
-
-fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
+#[inline]
+fn phase_sin_i32(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta) as usize;
     crate::lut::SINE_LUT[index]
 }
 
-fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
+#[inline]
+fn phase_cos_i32(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
     crate::lut::SINE_LUT[index]
+}
+
+#[inline]
+fn q10_round(x: i32) -> i32 {
+    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
+}
+
+#[inline]
+fn q10_round_i64(x: i64) -> i64 {
+    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
 }
 
 fn local_target(lut: &[i16], theta_prev: &[u8], neighborhood: [usize; 4], antipode_idx: usize, include_antipode: bool) -> i16 {

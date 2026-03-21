@@ -1,8 +1,11 @@
 use wasm_bindgen::prelude::*;
 
-const PHASE_LUT_SIZE: i16 = 256;
+const PHASE_LUT_SIZE: u32 = 256;
+const SYNC_RATE: i16 = 32;
 const MIN_OMEGA: i16 = -16;
 const MAX_OMEGA: i16 = 16;
+const MAX_ENTANGLEMENT: u8 = 255;
+const COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3072; // 3.0 * 1024
 const MAX_BYTE: i16 = 255;
 
 #[wasm_bindgen]
@@ -246,26 +249,26 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
-                let mut kuramoto = phase_sin_sum(theta, field.theta[left], 1.0)
-                    + phase_sin_sum(theta, field.theta[right], 1.0)
-                    + phase_sin_sum(theta, field.theta[inner], 1.0)
-                    + phase_sin_sum(theta, field.theta[outer], 1.0)
-                    + phase_sin_sum(theta, field.theta[harmonic_peer], 0.5)
-                    + phase_sin_sum(theta, field.theta[historical_peer], 0.3); // Temporal Z-axis weight
+                let mut kuramoto = phase_sin_i32(theta, field.theta[left])
+                    + phase_sin_i32(theta, field.theta[right])
+                    + phase_sin_i32(theta, field.theta[inner])
+                    + phase_sin_i32(theta, field.theta[outer])
+                    + (phase_sin_i32(theta, field.theta[harmonic_peer]) / 2)
+                    + ((phase_sin_i32(theta, field.theta[historical_peer]) * 3) / 10); // Temporal Z-axis weight (0.3)
 
-                let mut coherence = phase_cos_sum(theta, field.theta[left], 1.0)
-                    + phase_cos_sum(theta, field.theta[right], 1.0)
-                    + phase_cos_sum(theta, field.theta[inner], 1.0)
-                    + phase_cos_sum(theta, field.theta[outer], 1.0)
-                    + phase_cos_sum(theta, field.theta[harmonic_peer], 0.5)
-                    + phase_cos_sum(theta, field.theta[historical_peer], 0.3);
+                let mut coherence = phase_cos_i32(theta, field.theta[left])
+                    + phase_cos_i32(theta, field.theta[right])
+                    + phase_cos_i32(theta, field.theta[inner])
+                    + phase_cos_i32(theta, field.theta[outer])
+                    + (phase_cos_i32(theta, field.theta[harmonic_peer]) / 2)
+                    + ((phase_cos_i32(theta, field.theta[historical_peer]) * 3) / 10);
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.plasmids[past_idx] != 0 {
                     let target_theta = (field.plasmids[past_idx] & 0xFF) as u8;
-                    // K_PLASMID = 0.75
-                    kuramoto += phase_sin_sum(theta, target_theta, 0.75);
-                    coherence += phase_cos_sum(theta, target_theta, 0.75);
+                    // K_PLASMID = 0.75 -> 3/4
+                    kuramoto += (phase_sin_i32(theta, target_theta) * 3) / 4;
+                    coherence += (phase_cos_i32(theta, target_theta) * 3) / 4;
                 }
 
                 let mut next_ent_val = entanglement;
@@ -273,23 +276,25 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 if sectors % 2 == 0 {
                     let antipode_sector = (sector + sectors / 2) % sectors;
                     let antipode = field.idx(past_tau, antipode_sector, rho, harmonic);
-                    let antipode_weight = (entanglement as f32 / 255.0) * 0.35;
-                    kuramoto += phase_sin_sum(theta, field.theta[antipode], antipode_weight);
-                    coherence += phase_cos_sum(theta, field.theta[antipode], antipode_weight);
+                    let sin_anti = phase_sin_i32(theta, field.theta[antipode]);
+                    let cos_anti = phase_cos_i32(theta, field.theta[antipode]);
+                    
+                    kuramoto += (sin_anti * entanglement as i32 * 35) / 25500;
+                    coherence += (cos_anti * entanglement as i32 * 35) / 25500;
 
-                    let antipode_alignment = phase_cos(theta, field.theta[antipode]);
-                    next_ent_val = if antipode_alignment > 0.92 && amplitude > 96 {
+                    let antipode_alignment = cos_anti;
+                    next_ent_val = if antipode_alignment > 942 && amplitude > 96 { // 0.92 * 1024
                         entanglement.saturating_add(8)
                     } else {
                         entanglement.saturating_sub(3)
                     };
                 }
 
-                let omega_delta = kuramoto.round() as i16;
+                let omega_delta = q10_round(kuramoto) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, MIN_OMEGA, MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (coherence * 6.0).round() as i16 - (lock / 64);
-                let lock_delta = if coherence >= 3.0 { 8 } else { -4 };
+                let amplitude_delta = (q10_round_i64(coherence as i64 * 6)) as i16 - (lock as i16 / 64);
+                let lock_delta = if coherence >= COHERENCE_SUSTAIN_THRESHOLD_Q10 { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
                 let next_lock_val = clamp_byte(lock + lock_delta);
@@ -306,20 +311,20 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
 
                 if next_amplitude_val < 140 {
                     let neighbors = [left, right, inner, outer, harmonic_peer];
-                    let mut best_resonance = -2.0;
+                    let mut best_resonance = -2048;
                     let mut donor_plasmid = 0u64;
 
                     for &neighbor_idx in &neighbors {
                         let candidate_plasmid = field.plasmids[neighbor_idx];
                         if candidate_plasmid == 0 { continue; }
-                        let candidate_resonance = phase_cos(theta, field.theta[neighbor_idx]);
+                        let candidate_resonance = phase_cos_i32(theta, field.theta[neighbor_idx]);
                         if candidate_resonance > best_resonance {
                             best_resonance = candidate_resonance;
                             donor_plasmid = candidate_plasmid;
                         }
                     }
 
-                    if donor_plasmid != 0 && best_resonance > 0.6 {
+                    if donor_plasmid != 0 && best_resonance > 614 {
                         local_next_theta = (donor_plasmid & 0xFF) as u8;
                         let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
                         local_next_omega = clamp_i16(donor_omega, MIN_OMEGA, MAX_OMEGA);
@@ -453,19 +458,13 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
 
 #[wasm_bindgen]
 pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> f32 {
-    let mut entropy = 0.0;
-    let rho = (field.radial_bins as usize).saturating_sub(1);
-    let tau = field.current_tau as usize;
-    for harmonic in 0..field.harmonics as usize {
-        for sector in 0..field.sectors as usize {
-            let idx = field.idx(tau, sector, rho, harmonic);
-            let p = (field.amplitude[idx] as f32) / 255.0;
-            if p > 0.0 {
-                entropy -= p * p.log2();
-            }
+    let mut sum_q10 = 0i32;
+    for &amp in field.amplitude.iter() {
+        if amp > 0 {
+            sum_q10 += crate::lut::ENTROPY_LUT[amp as usize];
         }
     }
-    entropy
+    (sum_q10 as f32) / 1024.0
 }
 
 impl PhaseLatticeField {
@@ -496,22 +495,26 @@ fn clamp_byte(value: i16) -> u8 {
     value.clamp(0, MAX_BYTE) as u8
 }
 
-fn phase_sin(from_theta: u8, to_theta: u8) -> f32 {
+#[inline]
+fn phase_sin_i32(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta) as usize;
     crate::lut::SINE_LUT[index]
 }
 
-fn phase_cos(from_theta: u8, to_theta: u8) -> f32 {
+#[inline]
+fn phase_cos_i32(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
     crate::lut::SINE_LUT[index]
 }
 
-fn phase_sin_sum(from_theta: u8, to_theta: u8, weight: f32) -> f32 {
-    phase_sin(from_theta, to_theta) * weight
+#[inline]
+fn q10_round(x: i32) -> i32 {
+    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
 }
 
-fn phase_cos_sum(from_theta: u8, to_theta: u8, weight: f32) -> f32 {
-    phase_cos(from_theta, to_theta) * weight
+#[inline]
+fn q10_round_i64(x: i64) -> i64 {
+    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
 }
 
 fn mix_u64(hash: &mut u64, value: u64) {
