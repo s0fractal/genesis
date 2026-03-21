@@ -174,12 +174,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // O-24: Transdimensional Mycelial Lattice Topology
     let p_u32_idx = params.off_plasmids + (idx * 2u);
-    let plasmid_low = field_in[p_u32_idx];
-    let plasmid_high = field_in[p_u32_idx + 1u];
+    var local_plasmid_low = field_in[p_u32_idx];
+    var local_plasmid_high = field_in[p_u32_idx + 1u];
 
-    if (plasmid_low != 0u || plasmid_high != 0u) {
+    if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
+        // O-130: Plasmid-Field Bridge
+        let target_theta = local_plasmid_low & 0xFFu;
+        kuramoto += phase_sin_sum(theta, target_theta, COUPLING_PLASMID);
+        coherence += phase_cos_sum(theta, target_theta, COUPLING_PLASMID);
+        
         // Find bucket from FNV-1a structural hash
-        let hash = (plasmid_low ^ plasmid_high);
+        let hash = (local_plasmid_low ^ local_plasmid_high);
         let bucket_idx = hash & 1023u;
 
         let m_count = atomicLoad(&mycelial_centroids[bucket_idx].count);
@@ -206,7 +211,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // O-63: Differential Tissue (Resonance Proof-of-Stake)
     var staking_energy_bonus = 0;
-    if (plasmid_low != 0u || plasmid_high != 0u) {
+    if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
         // Read neighbor energies and plasmids natively 
         let n_indices = array<u32, 4>(
             get_idx(left_sec, rho, harmonic),
@@ -221,7 +226,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let n_plasmid_low = field_in[n_p_idx];
             let n_plasmid_high = field_in[n_p_idx + 1u];
 
-            if (n_plasmid_low == plasmid_low && n_plasmid_high == plasmid_high) {
+            if (n_plasmid_low == local_plasmid_low && n_plasmid_high == local_plasmid_high) {
                 let n_energy = i32(get_byte(params.off_amplitude, n_idx));
                 if (n_energy > amplitude) {
                     staking_energy_bonus += (n_energy - amplitude) / 4;
@@ -253,13 +258,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var next_lock = clamp(lock + lock_delta, 0, 255);
     var target_ent = u32(clamp(next_ent, 0, 255));
     
+    // O-130: Semantic Diffusion (Plasmid Decay)
+    if (next_amp < 40) {
+        local_plasmid_low = 0u;
+        local_plasmid_high = 0u;
+    }
+    
     // Evaluate O-22/O-29 Explicit Intent Injection via Uniform Params
     var receives_injection = false;
     if (params.inj_idx == idx && params.inj_amp > 0u) {
         receives_injection = true;
     } else if (params.inj_bucket != 0xFFFFFFFFu && params.inj_amp > 0u) {
-        if (plasmid_low != 0u || plasmid_high != 0u) {
-            let hash = (plasmid_low ^ plasmid_high);
+        if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
+            let hash = (local_plasmid_low ^ local_plasmid_high);
             if ((hash & 1023u) == params.inj_bucket) {
                 receives_injection = true;
             }
@@ -281,8 +292,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     } else {
         // Carry over existing plasmids if no injection overrides them
         let target_p_idx = params.off_plasmids + (idx * 2u);
-        atomicOr(&field_out[target_p_idx], field_in[target_p_idx]);
-        atomicOr(&field_out[target_p_idx + 1u], field_in[target_p_idx + 1u]);
+        atomicOr(&field_out[target_p_idx], local_plasmid_low);
+        atomicOr(&field_out[target_p_idx + 1u], local_plasmid_high);
     }
 
     set_byte(params.off_theta, idx, next_theta);

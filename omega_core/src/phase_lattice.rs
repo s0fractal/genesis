@@ -48,7 +48,7 @@ pub struct PhaseLatticeField {
 impl PhaseLatticeField {
     #[wasm_bindgen(constructor)]
     pub fn new(sectors: u32, radial_bins: u32, harmonics: u32) -> PhaseLatticeField {
-        let size = (sectors * radial_bins * harmonics) as usize;
+        let size = 1_048_576_usize; // 256 * 256 * 16 Fixed Pool (O-130 Capsule Architecture)
         let mut field = PhaseLatticeField {
             sectors,
             radial_bins,
@@ -81,7 +81,17 @@ impl PhaseLatticeField {
     }
 
     pub fn cell_count(&self) -> u32 {
-        self.theta.len() as u32
+        self.sectors * self.radial_bins * self.harmonics
+    }
+
+    pub fn pool_capacity(&self) -> u32 {
+        1_048_576
+    }
+
+    pub fn resize_topology(&mut self, sectors: u32, radial_bins: u32, harmonics: u32) {
+        self.sectors = sectors;
+        self.radial_bins = radial_bins;
+        self.harmonics = harmonics;
     }
 
     pub fn ptr_theta(&self) -> *const u8 {
@@ -234,6 +244,14 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     + phase_cos_sum(theta, field.theta[outer], 1.0)
                     + phase_cos_sum(theta, field.theta[harmonic_peer], 0.5);
 
+                // --- O-130: Plasmid-Field Bridge ---
+                if field.plasmids[idx] != 0 {
+                    let target_theta = (field.plasmids[idx] & 0xFF) as u8;
+                    // K_PLASMID = 0.75
+                    kuramoto += phase_sin_sum(theta, target_theta, 0.75);
+                    coherence += phase_cos_sum(theta, target_theta, 0.75);
+                }
+
                 let mut next_ent_val = entanglement;
 
                 if sectors % 2 == 0 {
@@ -264,6 +282,11 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let mut next_plasmid = field.plasmids[idx];
                 let mut local_next_theta = next_theta_val;
                 let mut local_next_omega = next_omega_val;
+
+                // O-130: Semantic Diffusion (Plasmid Decay)
+                if next_amplitude_val < 40 {
+                    next_plasmid = 0;
+                }
 
                 if next_amplitude_val < 140 {
                     let neighbors = [left, right, inner, outer, harmonic_peer];
@@ -381,23 +404,62 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
 
 #[wasm_bindgen]
 pub fn phase_lattice_total_amplitude(field: &PhaseLatticeField) -> u32 {
-    field.amplitude.iter().map(|value| *value as u32).sum()
+    let mut sum = 0;
+    let rho = (field.radial_bins as usize).saturating_sub(1);
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            let idx = field.idx(sector, rho, harmonic);
+            sum += field.amplitude[idx] as u32;
+        }
+    }
+    sum
 }
 
 #[wasm_bindgen]
 pub fn phase_lattice_total_entanglement(field: &PhaseLatticeField) -> u32 {
-    field.entanglement.iter().map(|value| *value as u32).sum()
+    let mut sum = 0;
+    let rho = (field.radial_bins as usize).saturating_sub(1);
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            let idx = field.idx(sector, rho, harmonic);
+            sum += field.entanglement[idx] as u32;
+        }
+    }
+    sum
 }
 
 #[wasm_bindgen]
 pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
     let mut min = i16::MAX;
     let mut max = i16::MIN;
-    for omega in &field.omega {
-        min = min.min(*omega);
-        max = max.max(*omega);
+    let rho = (field.radial_bins as usize).saturating_sub(1);
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            let idx = field.idx(sector, rho, harmonic);
+            min = min.min(field.omega[idx]);
+            max = max.max(field.omega[idx]);
+        }
+    }
+    if min == i16::MAX {
+        return "0..0".to_string(); // Empty case
     }
     format!("{min}..{max}")
+}
+
+#[wasm_bindgen]
+pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> f32 {
+    let mut entropy = 0.0;
+    let rho = (field.radial_bins as usize).saturating_sub(1);
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            let idx = field.idx(sector, rho, harmonic);
+            let p = (field.amplitude[idx] as f32) / 255.0;
+            if p > 0.0 {
+                entropy -= p * p.log2();
+            }
+        }
+    }
+    entropy
 }
 
 impl PhaseLatticeField {

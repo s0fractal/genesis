@@ -1,5 +1,5 @@
-import {
   phase_lattice_omega_span,
+  phase_lattice_shannon_entropy,
   phase_lattice_signature,
   phase_lattice_total_amplitude,
   phase_lattice_total_entanglement,
@@ -105,6 +105,9 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   // O-65 Invariant Guards
   let initialWrapSectors = true; 
   let ticksSinceLastShedding = 0;
+  
+  // O-130 Thermodynamic Safeguards
+  let lastAionIntervention = performance.now();
 
   const loop = async () => {
     ticksSinceLastShedding++;
@@ -198,8 +201,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                         worker.onmessage = async (e) => {
                             const { newTheta, newOmega, newPlasmids } = e.data;
                             
-                            phaseField.free();
-                            phaseField = new PhaseLatticeField(tSectors, tRadial, tHarm);
+                            phaseField.resize_topology(tSectors, tRadial, tHarm);
                             
                             const ptrTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), phaseField.cell_count());
                             const ptrOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), phaseField.cell_count());
@@ -245,6 +247,17 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
     if (!isShedding) {
         computeEngine.tick();
         oracle.sync();
+
+        // O-130: Thermodynamic Wall & Shannon Entropy (AION Vacuum Guard)
+        const entropy = phase_lattice_shannon_entropy(phaseField);
+        if (entropy < 1.5 && nowLocal - lastAionIntervention > 1500) { 
+           lastAionIntervention = nowLocal;
+           // Inject Latent Entropy (Shadow Buckets 1000-1024)
+           const shadowBucket = 1000 + Math.floor(Math.random() * 24);
+           console.log(`[O-130] 🌑 AION ALARM: Thermodynamic Crystallization (Entropy ${entropy.toFixed(2)}). Injecting Latent Entropy into Bucket #${shadowBucket}`);
+           injector.injectSemanticPhase(shadowBucket, Math.floor(Math.random() * 256), 255);
+        }
+
         observer.render(computeEngine.getActiveBuffer());
     }
 
@@ -262,7 +275,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
         phase_lattice_signature(phaseField).slice(0, 12),
       );
       DOM.statusLabel?.replaceChildren(
-        `ENT ${phase_lattice_total_entanglement(phaseField)} | Ω ${
+        `ENT ${phase_lattice_shannon_entropy(phaseField).toFixed(2)} | Ω ${
           phase_lattice_omega_span(phaseField)
         } | Q ${oracle.getQueueSize()}`,
       );

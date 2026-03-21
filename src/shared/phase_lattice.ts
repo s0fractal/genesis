@@ -1,6 +1,6 @@
 import { fnv1a_64 } from "./hash.ts";
 import { wrapIndex, clamp, signedPhaseDelta, phaseDistance, phaseSine, phaseCosine as resonance } from "./topology_core.ts";
-import { PHASE_CONSTANTS } from "./constants.ts";
+import { PHASE_CONSTANTS, KURAMOTO_COEFFICIENTS } from "./constants.ts";
 
 export interface PhaseFieldShape {
     sectors: number;
@@ -142,6 +142,13 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     coherence += resonance(current.theta, antipode.theta) * antipodeWeight;
                 }
 
+                // O-130: Plasmid-Field Bridge
+                if (current.plasmids !== 0n) {
+                    const targetTheta = Number(current.plasmids & 255n);
+                    kuramoto += phaseSine(current.theta, targetTheta) * KURAMOTO_COEFFICIENTS.COUPLING_PLASMID;
+                    coherence += resonance(current.theta, targetTheta) * KURAMOTO_COEFFICIENTS.COUPLING_PLASMID;
+                }
+
                 const omegaDelta = Math.round(kuramoto);
                 const amplitudeDelta = Math.round(coherence * 6) - Math.floor(current.lock / 64);
                 const lockDelta = coherence >= 3 ? 8 : -4;
@@ -152,6 +159,12 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                 let nextTheta = wrapTheta(current.theta + current.omega + omegaDelta);
                 let nextOmega = clamp(current.omega + omegaDelta, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
                 let adopted = false;
+
+                let nextPlasmid = current.plasmids;
+
+                if (nextAmplitude < 40) {
+                    nextPlasmid = 0n;
+                }
 
                 if (nextAmplitude < 140) {
                     const neighbors = [left, right, inner, outer, harmonicPeer];
@@ -172,7 +185,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                         nextTheta = Number(donorPlasmid & 255n);
                         const donorOmega = Number((donorPlasmid >> 8n) & 255n) - 128;
                         nextOmega = clamp(donorOmega, PHASE_CONSTANTS.MIN_OMEGA, PHASE_CONSTANTS.MAX_OMEGA);
-                        nextCell.plasmids = donorPlasmid;
+                        nextPlasmid = donorPlasmid;
                         adopted = true;
                     }
                 }
@@ -183,9 +196,7 @@ export function stepPhaseField(field: PhaseField): PhaseField {
                     nextCell.cellStatus = 1;
                 }
 
-                if (nextAmplitude < 15 && current.plasmids !== 0n && nextTheta % 4 === 0) {
-                    nextCell.plasmids = 0n;
-                }
+                nextCell.plasmids = nextPlasmid;
 
                 if (!adopted) {
                     nextCell.theta = nextTheta;
