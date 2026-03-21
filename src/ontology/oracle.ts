@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y } from "../compiler/pure_lambda.ts";
 
 export interface OracleCompatibleField {
     get_oracle_request_count(): number;
@@ -87,12 +87,17 @@ export class SovereignOracle {
     }
     
     private injectImmortals() {
-        const immortals = ["S", "K", "I", "Y"];
-        for (const astStr of immortals) {
-            const childHash = fnv1a_64(astStr);
+        const immortals = [
+            { term: S, string: "S" },
+            { term: K, string: "K" },
+            { term: I, string: "I" },
+            { term: Y, string: "Y" }
+        ];
+        for (const meta of immortals) {
+            const childHash = fnv1a_64(meta.string);
             if (!PlasmidRegistry.has(childHash)) {
                 PlasmidRegistry.set(childHash, {
-                    ast: astStr,
+                    ast: meta.term,
                     l1_cost: 0,
                     depth: 1,
                     nodes: 1,
@@ -104,7 +109,7 @@ export class SovereignOracle {
                 });
             }
         }
-        console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y) with Immortal Energy.`);
+        console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y) directly into Native Memory.`);
     }
 
     /**
@@ -162,7 +167,7 @@ export class SovereignOracle {
             // Stochastic 5% population sampling. A node's energy strictly dictates its computational allowance.
             if (node.energy !== Infinity && Math.random() < 0.05) {
                 try {
-                    const testTerm = apply(parseLambda(node.ast), variable("target"));
+                    const testTerm = apply(node.ast, variable("target"));
                     const computationalLimit = Math.max(10, Math.floor(node.energy)); // Minimum 10 steps to prove survival
                     const { timeout } = evaluateFitness(testTerm, computationalLimit);
                     
@@ -287,13 +292,11 @@ export class SovereignOracle {
                  if (hostNode) { hostNode.attention += 5; hostNode.energy += 50; }
                  if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += 50; }
 
-                 const hostTermStr = hostNode ? hostNode.ast : "(I host)";
-                 const foreignTermStr = foreignNode ? foreignNode.ast : "(I foreign)";
+                 const hostTerm = hostNode ? hostNode.ast : apply(I, variable("host"));
+                 const foreignTerm = foreignNode ? foreignNode.ast : apply(I, variable("foreign"));
                  
-                 // Mathematically bind the two logic boundaries as a combinator application (Host Foreign)
+                 // Mathematically bind the two logic boundaries
                  try {
-                     const hostTerm = parseLambda(hostTermStr);
-                     const foreignTerm = parseLambda(foreignTermStr);
                      
                      // O-141 Vector J.2: Discrete Topological Mutations
                      // 50% Apply (Growth), 25% Swap (Inversion), 25% Prune (Simplification)
@@ -330,7 +333,7 @@ export class SovereignOracle {
                          // We no longer reward "Goal Emergence" (rho === 1) at genesis.
                          // A child is simply born into the graph with minimal seed energy and 0 fitness.
                          PlasmidRegistry.set(childHash, {
-                             ast: childStr,
+                             ast: childTerm,
                              l1_cost: metrics.cost,
                              depth: metrics.depth,
                              nodes: metrics.nodes,
@@ -359,7 +362,7 @@ export class SovereignOracle {
                          if (foreignNode) foreignNode.mutualists.add(childHash);
                      }
                      plasmids[idx] = childHash;
-                     console.log(`🧬 HGT COLLISION AT ${idx}: ${hostTermStr} * ${foreignTermStr} => Bred topological child [${childHash}]`);
+                     console.log(`🧬 HGT COLLISION AT ${idx}: Bred topological child [${childHash}]`);
                  } catch(_e) { /* Divergence block */ }
              }
              
@@ -451,7 +454,7 @@ You must output ONLY valid AST syntax: e.g. "S(K(I))" or "S". NO formatting, NO 
 ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [Bucket ID], AST: [Syntax]' : 'Format your response EXACTLY as: AST: [Syntax]'}
                 `.trim();
 
-                const requestBody: any = {
+                const requestBody: Record<string, unknown> = {
                     model: structuralImage ? "llama3.2-vision" : "llama3",
                     prompt,
                     stream: false
@@ -575,7 +578,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             if (!PlasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
                 PlasmidRegistry.set(hash, {
-                    ast: astStr,
+                    ast: astTerm,
                     l1_cost: metrics.cost,
                     depth: metrics.depth,
                     nodes: metrics.nodes,

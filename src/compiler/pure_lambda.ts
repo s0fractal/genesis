@@ -13,7 +13,7 @@ export function apply(left: Term, right: Term): Term {
 }
 
 export interface SomaticNode {
-    ast: string;
+    ast: Term;
     l1_cost: number;
     depth: number;
     nodes: number;
