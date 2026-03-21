@@ -290,4 +290,71 @@ export class PhaseComputeEngine {
         
         return f32Data;
     }
+
+    // O-59 Persistent Substrate Serialization Hooks
+    async extractPlasmidsBuffer(): Promise<BigUint64Array> {
+        if (!this.device) return new BigUint64Array(0);
+        
+        const activeBuffer = this.getActiveBuffer();
+        const size = this.field.cell_count() * 8; // 8 bytes per u64
+        const offset = this.offsets[5];
+        
+        const stagingBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(activeBuffer, offset, stagingBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        await stagingBuffer.mapAsync(GPUMapMode.READ);
+        const copyBuffer = stagingBuffer.getMappedRange();
+        const data = new BigUint64Array(copyBuffer.slice(0));
+        
+        stagingBuffer.unmap();
+        stagingBuffer.destroy();
+        
+        return data;
+    }
+
+    injectGridState(grid: Record<number, string>) {
+        if (!this.device) return;
+        
+        const numCells = this.field.cell_count();
+        const mem = this.wasmMemory.buffer;
+        
+        const thetaArray = new Uint8Array(mem, this.field.ptr_theta(), numCells);
+        // @ts-ignore ptr_omega might exist but typescript field map is partial
+        const omegaPtr = this.field.ptr_omega ? this.field.ptr_omega() : this.field.ptr_theta() + numCells;
+        const omegaArray = new Int16Array(mem, omegaPtr, numCells);
+        const ampArray = new Uint8Array(mem, this.field.ptr_amplitude(), numCells);
+        const plasmids = new BigUint64Array(mem, this.field.ptr_plasmids(), numCells);
+        
+        thetaArray.fill(0);
+        omegaArray.fill(0);
+        ampArray.fill(0);
+        plasmids.fill(0n);
+
+        for (const [idxStr, hashStr] of Object.entries(grid)) {
+            const idx = parseInt(idxStr, 10);
+            const hash = BigInt(hashStr);
+            
+            plasmids[idx] = hash;
+            ampArray[idx] = Math.max(20, Number((hash >> 24n) & 0x3Fn)); 
+            thetaArray[idx] = Number((hash >> 8n) & 0xFFn);
+            omegaArray[idx] = Number((hash >> 16n) & 0x07n) - 3;
+        }
+
+        // Parallel hardware pipeline teleportation
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[0], thetaArray);
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[1], omegaArray);
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[2], ampArray);
+        this.device.queue.writeBuffer(this.bufferA, this.offsets[5], plasmids);
+        
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[0], thetaArray);
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[1], omegaArray);
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[2], ampArray);
+        this.device.queue.writeBuffer(this.bufferB, this.offsets[5], plasmids);
+    }
 }

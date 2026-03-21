@@ -1,6 +1,5 @@
 import { encode } from "@msgpack/msgpack";
 import { formatTerm, PlasmidRegistry } from "../compiler/pure_lambda.ts";
-import { ensureDir } from "https://deno.land/std@0.224.0/fs/ensure_dir.ts";
 
 export interface SerializedPlasmid {
     hash: string;
@@ -32,7 +31,14 @@ export async function flushEpochBinary(
     amplitude: number
 ): Promise<string> {
     const timestamp = Date.now();
-    await ensureDir("./mycelium/dumps");
+    
+    if (typeof globalThis.Deno === "undefined") {
+        console.warn(`[WATCHDOG] 🚫 Browser environment detected. Skipping Epoch filesystem dump.`);
+        return `browser_mock_${timestamp}.bin`;
+    }
+
+    // @ts-ignore: Deno is dynamically available in Native mode
+    await Deno.mkdir("./mycelium/dumps", { recursive: true });
     
     // Extract top 100 dominant plasmids by attention/energy to prevent massive dumps
     const population = Array.from(PlasmidRegistry.entries())
@@ -63,6 +69,7 @@ export async function flushEpochBinary(
 
     const binary = encode(dump);
     const filename = `./mycelium/dumps/epoch_${timestamp}.bin`;
+    // @ts-ignore
     await Deno.writeFile(filename, binary);
     
     console.log(`[WATCHDOG] 📦 Wrote Epoch Dump (${binary.byteLength} bytes) to ${filename}`);

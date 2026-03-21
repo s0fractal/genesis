@@ -25,6 +25,7 @@ import {
   wireSemanticInput,
 } from "./dom.ts";
 import { TISSUE_CONSTANTS } from "../shared/constants.ts";
+import { exportGenesisState, parseGenesisState, downloadGenesisFile } from "../ontology/persistence.ts";
 
 export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   console.log("[Genesis] Bootstrapping experimental phase lattice mode...");
@@ -95,6 +96,38 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
           observer.heatmapEnabled = !observer.heatmapEnabled;
           console.log(`[OS] Tension Heatmap explicitly ${observer.heatmapEnabled ? "ENABLED" : "DISABLED"}!`);
       }
+  });
+
+  // O-59 Substrate Persistence Bindings
+  DOM.btnSaveGenesis?.addEventListener("click", async () => {
+      console.log("[GENESIS] Serializing Torus topology and AST registry...");
+      const plasmidsBuffer = await computeEngine.extractPlasmidsBuffer();
+      const binary = exportGenesisState(
+          oracle.getEpochTicks(),
+          oracle.getGlobalEnergy(),
+          plasmidsBuffer,
+          phaseField.cell_count()
+      );
+      downloadGenesisFile(binary, Math.floor(oracle.getEpochTicks() / 1000));
+  });
+
+  DOM.btnLoadGenesis?.addEventListener("click", () => {
+      DOM.fileLoadGenesis?.click();
+  });
+
+  DOM.fileLoadGenesis?.addEventListener("change", async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.files || target.files.length === 0) return;
+      const file = target.files[0];
+      const buffer = await file.arrayBuffer();
+      const payload = parseGenesisState(buffer);
+      
+      console.log(`[GENESIS] 🧬 Injecting Resurrected Substrate (Epoch Tick: ${payload.epochTicks})`);
+      computeEngine.injectGridState(payload.grid);
+      oracle.unpackState(payload.registry, payload.globalEnergy, payload.epochTicks);
+      
+      // Reset input to allow reloading the identical file consecutively
+      target.value = '';
   });
 
   let lastShedCheck = performance.now();

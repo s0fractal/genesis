@@ -1,0 +1,78 @@
+import { encode, decode } from "@msgpack/msgpack";
+import { formatTerm, PlasmidRegistry, parseLambda } from "../compiler/pure_lambda.ts";
+
+export interface SerializedPlasmid {
+    hash: string;
+    ast: string;
+    energy: number;
+    attention: number;
+    l1_cost: number;
+    mutualists: string[];
+    age: number;
+    fitness: number;
+    depth: number;
+    nodes: number;
+}
+
+export interface SubstrateState {
+    globalEnergy: number;
+    epochTicks: number;
+    registry: SerializedPlasmid[];
+    grid: Record<number, string>; // Sparse stringified map: idx -> childHash
+}
+
+export function exportGenesisState(
+    epochTicks: number,
+    globalEnergy: number,
+    plasmidsArray: BigUint64Array,
+    size: number
+): Uint8Array {
+    const population = Array.from(PlasmidRegistry.entries()).map(([hash, node]) => ({
+        hash: hash.toString(),
+        ast: formatTerm(node.ast),
+        energy: node.energy === Infinity ? -1 : node.energy, // msgpack/json inf handling
+        attention: node.attention,
+        l1_cost: node.l1_cost,
+        age: node.age,
+        fitness: node.fitness,
+        depth: node.depth,
+        nodes: node.nodes,
+        mutualists: Array.from(node.mutualists).map(h => h.toString())
+    }));
+
+    const sparseGrid: Record<number, string> = {};
+    for (let i = 0; i < size; i++) {
+        const hash = plasmidsArray[i];
+        if (hash !== 0n) {
+            sparseGrid[i] = hash.toString();
+        }
+    }
+
+    const payload: SubstrateState = {
+        globalEnergy,
+        epochTicks,
+        registry: population,
+        grid: sparseGrid
+    };
+
+    return encode(payload);
+}
+
+export function parseGenesisState(buffer: ArrayBuffer): SubstrateState {
+    return decode(new Uint8Array(buffer)) as SubstrateState;
+}
+
+// Browser specific download hook (no Deno / FS required)
+export function downloadGenesisFile(buffer: Uint8Array, currentEpoch: number) {
+    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `omega_64_${currentEpoch}_${Date.now()}.genesis`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 0);
+}

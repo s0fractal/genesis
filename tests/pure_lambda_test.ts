@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { parseLambda, evaluateLambda, formatTerm } from "./pure_lambda.ts";
+import { parseLambda, evaluateLambda, formatTerm } from "../src/compiler/pure_lambda.ts";
 
 Deno.test("Pure Lambda Calculus: I combinator", () => {
     // I x => x

@@ -24,6 +24,11 @@ export const DOM = {
     hMarkerEnergy: document.getElementById("h-marker-energy") as HTMLDivElement | null,
     hEntropyVal: document.getElementById("h-entropy-val") as HTMLSpanElement | null,
     hEnergyVal: document.getElementById("h-energy-val") as HTMLSpanElement | null,
+
+    // O-59 Persistent State Controls
+    btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
+    btnLoadGenesis: document.getElementById("btn-load-genesis") as HTMLButtonElement | null,
+    fileLoadGenesis: document.getElementById("file-load-genesis") as HTMLInputElement | null,
 };
 
 export function configureCanvas(): HTMLCanvasElement {

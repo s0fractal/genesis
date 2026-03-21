@@ -4,6 +4,7 @@ import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_CONSTANTS } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary } from "./epoch_dumper.ts";
+import { type SerializedPlasmid } from "./persistence.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
 
 export interface OracleCompatibleField {
@@ -131,6 +132,39 @@ export class SovereignOracle {
      */
     public getGlobalEnergy(): number {
         return this.globalEnergyPool;
+    }
+
+    public getEpochTicks(): number {
+        return this.epochTicks;
+    }
+
+    // O-59 Genesis State Reload
+    public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number) {
+        // Halt physics completely during transplant
+        this.isBusy = true;
+        this.globalEnergyPool = newEnergy;
+        this.epochTicks = newEpoch;
+        
+        PlasmidRegistry.clear();
+        
+        for (const node of registryPayload) {
+            const hash = BigInt(node.hash);
+            const astTerm = parseLambda(node.ast);
+            PlasmidRegistry.set(hash, {
+                ast: astTerm,
+                energy: node.energy === -1 ? Infinity : node.energy,
+                attention: node.attention,
+                l1_cost: node.l1_cost,
+                age: node.age || 0,
+                fitness: node.fitness || 0,
+                depth: node.depth || 1,
+                nodes: node.nodes || 1,
+                mutualists: new Set(node.mutualists.map((h: string) => BigInt(h)))
+            });
+        }
+        
+        console.log(`[ORACLE] 🌌 Re-sequenced ${registryPayload.length} Logic Matrices into Torus Reality.`);
+        this.isBusy = false;
     }
 
     public tickSomaticEconomy(activity: number = 0) {

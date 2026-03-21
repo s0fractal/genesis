@@ -2,8 +2,14 @@ import { decode } from "@msgpack/msgpack";
 import type { EpochDump } from "./epoch_dumper.ts";
 
 export async function analyzeEpochDumps(oldFile: string, newFile: string): Promise<string> {
+    if (typeof globalThis.Deno === "undefined") {
+        return `[EPOCH TRANSCRIPT MOCK] Running in Web Browser. Native filesystem deltas disabled.`;
+    }
+
     try {
+        // @ts-ignore
         const oldRaw = await Deno.readFile(oldFile);
+        // @ts-ignore
         const newRaw = await Deno.readFile(newFile);
         
         const oldDump = decode(oldRaw) as EpochDump;

@@ -374,6 +374,12 @@
             <button id="semantic-submit">Project</button>
         </div>
 
+        <div class="genesis-controls" style="display:flex; justify-content:center; gap: 10px; margin-top: 5px;">
+            <button id="btn-save-genesis" style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:var(--accent); padding:6px 16px; border-radius:8px; cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing: 0.1em; transition: all 0.2s;">[ ↓ ] Save State</button>
+            <button id="btn-load-genesis" style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:var(--accent); padding:6px 16px; border-radius:8px; cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing: 0.1em; transition: all 0.2s;">[ ↑ ] Load Genesis</button>
+            <input type="file" id="file-load-genesis" accept=".genesis" style="display:none;">
+        </div>
+
         <div id="replay-controls" class="replay-controls" hidden>
             <button id="replay-play" class="replay-button" type="button">Play</button>
             <label class="replay-label" for="replay-compare">Compare</label>
