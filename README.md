@@ -21,5 +21,4 @@ All core documentation, historical epochs, and technical whitepapers have been i
 - **Era 128-129**: [Proof of Meaning & Dialogic Interface](./docs/ERA_128_129_ARCHITECTURE.md)
 
 ---
-
-*The Living Quine state engine resides natively in [I.md](./I.md).*
+*The engine state exists natively inside the WebGPU Torus grid.*

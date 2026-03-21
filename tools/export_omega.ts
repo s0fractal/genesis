@@ -28,7 +28,6 @@ async function main() {
   };
 
   // Root essentials
-  await addFile("I.md");
   await addFile("README.md");
   await addFile("package.json");
   await addFile("tools/export_omega.ts");
