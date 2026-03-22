@@ -14,7 +14,6 @@ import {
   loadHybridReplayDataset,
 } from "../replay/hybrid_replay.ts";
 import type { ReplayCompareMode } from "../replay/phase_replay.ts";
-import type { PhaseField } from "../shared/phase_lattice.ts";
 import {
   configureCanvas,
   DOM,

@@ -1,18 +1,7 @@
 import { fnv1a_64 } from "./hash.ts";
-import { SENATE_CONSTANTS } from "./constants.ts";
+import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
-
-export interface ForeignPlasmid {
-    hash: string;
-    targetBucket: number;
-    origin: string;
-    // O-48: Biological Survival Proofs
-    locks: number;
-    energy: number;
-    // O-56: Cryptographic Capability Token
-    signature: string;
-}
 
 function verifyPayloadSignature(p: ForeignPlasmid): boolean {
     const expected = fnv1a_64(`${p.hash}:${p.targetBucket}:${p.origin}:${SYSTEMIC_O56_SALT}`).toString(16);
@@ -35,8 +24,8 @@ export class PhaseNetwork {
                 
                 // O-48 & O-56: Payload & Identity Authentication
                 if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
-                    p.locks <= SENATE_CONSTANTS.MYCELIUM_MIN_LOCKS || 
-                    p.energy <= SENATE_CONSTANTS.MYCELIUM_MIN_ENERGY) {
+                    p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
+                    p.energy <= SENATE_MYCELIUM_MIN_ENERGY) {
                     console.log(`🛡️ [Mycelium Firewall] Rejected Local Transmission. Insufficient Biological Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
                     return;
                 }
@@ -116,8 +105,8 @@ export class PhaseNetwork {
                     
                     // O-48 & O-56: Payload & Identity Authentication
                     if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
-                        p.locks <= SENATE_CONSTANTS.MYCELIUM_MIN_LOCKS || 
-                        p.energy <= SENATE_CONSTANTS.MYCELIUM_MIN_ENERGY) {
+                        p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
+                        p.energy <= SENATE_MYCELIUM_MIN_ENERGY) {
                         console.log(`🛡️ [WebRTC Firewall] Rejected Global Transmission. Insufficient Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
                         return;
                     }

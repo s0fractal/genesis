@@ -1,6 +1,5 @@
 import { createPhaseField, getCellIndex, wrapTheta } from "./phase_lattice.ts";
 import { clamp, wrapIndex } from "./topology_core.ts";
-import type { PhaseField, PhaseFieldShape } from "./phase_lattice.ts";
 
 export const CANONICAL_PHASE_SHAPE: PhaseFieldShape = {
     tauDepth: 4,

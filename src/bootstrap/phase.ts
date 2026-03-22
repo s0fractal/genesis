@@ -3,7 +3,6 @@ import {
   phase_lattice_shannon_entropy,
   phase_lattice_signature,
   phase_lattice_total_amplitude,
-  phase_lattice_total_entanglement,
   PhaseLatticeField,
 } from "../../omega_core/pkg/omega_core.js";
 import { PhasePerturbationInjector } from "../lens/phase_input.ts";
@@ -24,8 +23,15 @@ import {
   updateHomeostasisHUD,
   wireSemanticInput,
 } from "./dom.ts";
-import { TISSUE_CONSTANTS } from "../shared/constants.ts";
-import { exportGenesisState, parseGenesisState, downloadGenesisFile } from "../ontology/persistence.ts";
+import {
+  TISSUE_MORPHOLOGICAL_DELTA_MIN,
+  TISSUE_MORPHOLOGICAL_HYSTERESIS,
+} from "../shared/constants.ts";
+import {
+  downloadGenesisFile,
+  exportGenesisState,
+  parseGenesisState,
+} from "../ontology/persistence.ts";
 
 export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   console.log("[Genesis] Bootstrapping experimental phase lattice mode...");
@@ -37,7 +43,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   setInputMode("semantic");
 
   const canvas = configureCanvas();
-  let phaseField = new PhaseLatticeField(64, 10, 3);
+  const phaseField = new PhaseLatticeField(64, 10, 3);
   // Ontology 23: Native Metal compute instantiation
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter!.requestDevice();
@@ -63,20 +69,27 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
   // O-45: Phase Network Initialization (WebRTC/Local Broadcast)
   const myPhaseNetwork = new PhaseNetwork((plasmid) => {
-      console.log(`🍄 [Mycelium] Horizontal Gene Transfer: Absorbing Exogenous Plasmid ${plasmid.hash.substring(0,8)}... into Bucket #${plasmid.targetBucket}`);
-      try {
-          computeEngine.injectPlasmidIntoBucket(plasmid.targetBucket, BigInt(plasmid.hash));
-      } catch(_e) {}
+    console.log(
+      `🍄 [Mycelium] Horizontal Gene Transfer: Absorbing Exogenous Plasmid ${
+        plasmid.hash.substring(0, 8)
+      }... into Bucket #${plasmid.targetBucket}`,
+    );
+    try {
+      computeEngine.injectPlasmidIntoBucket(
+        plasmid.targetBucket,
+        BigInt(plasmid.hash),
+      );
+    } catch (_e) {}
   });
   oracle.bindNetwork((hash, targetBucket) => {
-      // O-48: Genesis Override
-      myPhaseNetwork.broadcastPlasmid(hash.toString(), targetBucket, 1500, 300);
+    // O-48: Genesis Override
+    myPhaseNetwork.broadcastPlasmid(hash.toString(), targetBucket, 1500, 300);
   });
 
   // O-51: Live Senate Visualization
   const senateChat = new SenateChatHUD();
   oracle.onSenateEvent = (event) => {
-      senateChat.handleEvent(event);
+    senateChat.handleEvent(event);
   };
 
   const injector = new PhasePerturbationInjector(
@@ -92,55 +105,65 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   wireSemanticInput(coupler, "Inject phase attractor...");
 
   globalThis.addEventListener("keydown", (e) => {
-      if (e.key === "h" || e.key === "H") {
-          observer.heatmapEnabled = !observer.heatmapEnabled;
-          console.log(`[OS] Tension Heatmap explicitly ${observer.heatmapEnabled ? "ENABLED" : "DISABLED"}!`);
-      }
+    if (e.key === "h" || e.key === "H") {
+      observer.heatmapEnabled = !observer.heatmapEnabled;
+      console.log(
+        `[OS] Tension Heatmap explicitly ${
+          observer.heatmapEnabled ? "ENABLED" : "DISABLED"
+        }!`,
+      );
+    }
   });
 
   // O-59 Substrate Persistence Bindings
   DOM.btnSaveGenesis?.addEventListener("click", async () => {
-      console.log("[GENESIS] Serializing Torus topology and AST registry...");
-      const plasmidsBuffer = await computeEngine.extractPlasmidsBuffer();
-      const binary = exportGenesisState(
-          oracle.getEpochTicks(),
-          oracle.getGlobalEnergy(),
-          plasmidsBuffer,
-          phaseField.cell_count()
-      );
-      downloadGenesisFile(binary, Math.floor(oracle.getEpochTicks() / 1000));
+    console.log("[GENESIS] Serializing Torus topology and AST registry...");
+    const plasmidsBuffer = await computeEngine.extractPlasmidsBuffer();
+    const binary = exportGenesisState(
+      oracle.getEpochTicks(),
+      oracle.getGlobalEnergy(),
+      plasmidsBuffer,
+      phaseField.cell_count(),
+    );
+    downloadGenesisFile(binary, Math.floor(oracle.getEpochTicks() / 1000));
   });
 
   DOM.btnLoadGenesis?.addEventListener("click", () => {
-      DOM.fileLoadGenesis?.click();
+    DOM.fileLoadGenesis?.click();
   });
 
   DOM.fileLoadGenesis?.addEventListener("change", async (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      if (!target.files || target.files.length === 0) return;
-      const file = target.files[0];
-      const buffer = await file.arrayBuffer();
-      const payload = parseGenesisState(buffer);
-      
-      console.log(`[GENESIS] 🧬 Injecting Resurrected Substrate (Epoch Tick: ${payload.epochTicks})`);
-      computeEngine.injectGridState(payload.grid);
-      oracle.unpackState(payload.registry, payload.globalEnergy, payload.epochTicks);
-      
-      // Reset input to allow reloading the identical file consecutively
-      target.value = '';
+    const target = e.target as HTMLInputElement;
+    if (!target.files || target.files.length === 0) return;
+    const file = target.files[0];
+    const buffer = await file.arrayBuffer();
+    const payload = parseGenesisState(buffer);
+
+    console.log(
+      `[GENESIS] 🧬 Injecting Resurrected Substrate (Epoch Tick: ${payload.epochTicks})`,
+    );
+    computeEngine.injectGridState(payload.grid);
+    oracle.unpackState(
+      payload.registry,
+      payload.globalEnergy,
+      payload.epochTicks,
+    );
+
+    // Reset input to allow reloading the identical file consecutively
+    target.value = "";
   });
 
   let lastShedCheck = performance.now();
-  
+
   // O-44: Phylogenetic HUD Initialization
   const phylogenyHUD = new PhylogeneticCanvas();
   let lastPhylogenyCheck = performance.now();
   let isShedding = false; // O-57
-  
+
   // O-65 Invariant Guards
-  let initialWrapSectors = true; 
+  let initialWrapSectors = true;
   let ticksSinceLastShedding = 0;
-  
+
   // O-130 Thermodynamic Safeguards
   let lastAionIntervention = performance.now();
 
@@ -149,27 +172,27 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
     // O-32: Morphological Hot-Reloading Polling (Shedding Event)
     const nowLocal = performance.now();
     if (nowLocal - lastShedCheck > 1000 && !isShedding) {
-        lastShedCheck = nowLocal;
-        try {
-            const res = await fetch("/I.md", { cache: "no-store" });
-            if (res.ok) {
-                const text = await res.text();
-                const nodeIdx = text.indexOf("### tissue_constants");
-                if (nodeIdx !== -1) {
-                    const irIdx = text.indexOf("#### IR", nodeIdx);
-                    if (irIdx !== -1) {
-                        const codeStart = text.indexOf("```json\n", irIdx) + 8;
-                        const codeEnd = text.indexOf("\n```", codeStart);
-                        if (codeStart > 8 && codeEnd > codeStart) {
-                            const body = JSON.parse(text.substring(codeStart, codeEnd));
-                            let tSectors = phaseField.sectors;
-                            let tRadial = phaseField.radial_bins;
-                            let tHarm = phaseField.harmonics;
-                
+      lastShedCheck = nowLocal;
+      try {
+        const res = await fetch("/I.md", { cache: "no-store" });
+        if (res.ok) {
+          const text = await res.text();
+          const nodeIdx = text.indexOf("### tissue_constants");
+          if (nodeIdx !== -1) {
+            const irIdx = text.indexOf("#### IR", nodeIdx);
+            if (irIdx !== -1) {
+              const codeStart = text.indexOf("```json\n", irIdx) + 8;
+              const codeEnd = text.indexOf("\n```", codeStart);
+              if (codeStart > 8 && codeEnd > codeStart) {
+                const body = JSON.parse(text.substring(codeStart, codeEnd));
+                let tSectors = phaseField.sectors;
+                let tRadial = phaseField.radial_bins;
+                let tHarm = phaseField.harmonics;
+
                 if (body.SECTORS !== undefined) tSectors = body.SECTORS;
                 if (body.RADIAL_BINS !== undefined) tRadial = body.RADIAL_BINS;
                 if (body.HARMONICS !== undefined) tHarm = body.HARMONICS;
-                
+
                 // O-50 Phase 2: Dimensional Parameter Clamp (VRAM Quota)
                 if (tSectors > 256) tSectors = 256;
                 if (tRadial > 256) tRadial = 256;
@@ -179,121 +202,204 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 if (tRadial < 8) tRadial = 8;
 
                 // O-65: Prevent Genus Tear
-                if (body.WRAP_SECTORS !== undefined && body.WRAP_SECTORS !== initialWrapSectors) {
-                     console.warn(`[O-65] Topological Invariant Violation. Cannot alter Genus geometry mid-simulation.`);
+                if (
+                  body.WRAP_SECTORS !== undefined &&
+                  body.WRAP_SECTORS !== initialWrapSectors
+                ) {
+                  console.warn(
+                    `[O-65] Topological Invariant Violation. Cannot alter Genus geometry mid-simulation.`,
+                  );
                 }
-                
+
                 // O-65: Morphological Hysteresis & Delta
-                const isMorphing = tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics;
+                const isMorphing = tSectors !== phaseField.sectors ||
+                  tRadial !== phaseField.radial_bins ||
+                  tHarm !== phaseField.harmonics;
                 if (isMorphing) {
-                    if (ticksSinceLastShedding < TISSUE_CONSTANTS.MORPHOLOGICAL_HYSTERESIS) {
-                        console.warn(`[O-65] Morphological Hysteresis active (${ticksSinceLastShedding}/${TISSUE_CONSTANTS.MORPHOLOGICAL_HYSTERESIS}). Rejecting mutation.`);
-                        tSectors = phaseField.sectors;
-                        tRadial = phaseField.radial_bins;
-                        tHarm = phaseField.harmonics;
-                    } else {
-                        const oldVolume = phaseField.sectors * phaseField.radial_bins * phaseField.harmonics;
-                        const newVolume = tSectors * tRadial * tHarm;
-                        const delta = Math.abs(newVolume - oldVolume) / oldVolume;
-                        if (delta < TISSUE_CONSTANTS.MORPHOLOGICAL_DELTA_MIN) {
-                            console.warn(`[O-65] Morphological Delta ${delta.toFixed(2)} < ${TISSUE_CONSTANTS.MORPHOLOGICAL_DELTA_MIN}. Rejecting.`);
-                            tSectors = phaseField.sectors;
-                            tRadial = phaseField.radial_bins;
-                            tHarm = phaseField.harmonics;
-                        }
+                  if (
+                    ticksSinceLastShedding < TISSUE_MORPHOLOGICAL_HYSTERESIS
+                  ) {
+                    console.warn(
+                      `[O-65] Morphological Hysteresis active (${ticksSinceLastShedding}/${TISSUE_MORPHOLOGICAL_HYSTERESIS}). Rejecting mutation.`,
+                    );
+                    tSectors = phaseField.sectors;
+                    tRadial = phaseField.radial_bins;
+                    tHarm = phaseField.harmonics;
+                  } else {
+                    const oldVolume = phaseField.sectors *
+                      phaseField.radial_bins * phaseField.harmonics;
+                    const newVolume = tSectors * tRadial * tHarm;
+                    const delta = Math.abs(newVolume - oldVolume) / oldVolume;
+                    if (delta < TISSUE_MORPHOLOGICAL_DELTA_MIN) {
+                      console.warn(
+                        `[O-65] Morphological Delta ${
+                          delta.toFixed(2)
+                        } < ${TISSUE_MORPHOLOGICAL_DELTA_MIN}. Rejecting.`,
+                      );
+                      tSectors = phaseField.sectors;
+                      tRadial = phaseField.radial_bins;
+                      tHarm = phaseField.harmonics;
                     }
+                  }
                 }
 
-                    if (tSectors !== phaseField.sectors || tRadial !== phaseField.radial_bins || tHarm !== phaseField.harmonics) {
-                        ticksSinceLastShedding = 0;
-                        initialWrapSectors = body.WRAP_SECTORS ?? initialWrapSectors;
-                        
-                        console.log(`\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`);
-                        console.log(`🧨 Securing VRAM Pointers for Asynchronous Morphological Migration...`);
-                        
-                        isShedding = true;
-                        DOM.statusLabel?.replaceChildren(`SHEDDING IN PROGRESS (${tSectors}x${tRadial}x${tHarm})...`);
-                        
-                        // O-57: Asynchronous Morphological Interpolation (Nearest-Neighbor WebWorker)
-                        const oldSectors = phaseField.sectors;
-                        const oldRadial = phaseField.radial_bins;
-                        const oldHarm = phaseField.harmonics;
-                        
-                        // Backup old tensors by safely duplicating via slice() before free
-                        const _OCount = phaseField.cell_count();
-                        const oldTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), _OCount).slice();
-                        const oldOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), _OCount).slice();
-                        const oldPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), _OCount).slice();
+                if (
+                  tSectors !== phaseField.sectors ||
+                  tRadial !== phaseField.radial_bins ||
+                  tHarm !== phaseField.harmonics
+                ) {
+                  ticksSinceLastShedding = 0;
+                  initialWrapSectors = body.WRAP_SECTORS ?? initialWrapSectors;
 
-                        const worker = new Worker(new URL("../workers/shedding_worker.ts", import.meta.url), { type: "module" });
-                        
-                        worker.postMessage({
-                            oldTheta, oldOmega, oldPlasmids,
-                            oldSectors, oldRadial, oldHarm,
-                            tSectors, tRadial, tHarm
-                        }, [oldTheta.buffer, oldOmega.buffer, oldPlasmids.buffer]);
+                  console.log(
+                    `\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`,
+                  );
+                  console.log(
+                    `🧨 Securing VRAM Pointers for Asynchronous Morphological Migration...`,
+                  );
 
-                        worker.onmessage = async (e) => {
-                            const { newTheta, newOmega, newPlasmids } = e.data;
-                            
-                            phaseField.resize_topology(tSectors, tRadial, tHarm);
-                            
-                            const ptrTheta = new Uint8Array(wasmMemory.buffer, phaseField.ptr_theta(), phaseField.cell_count());
-                            const ptrOmega = new Int16Array(wasmMemory.buffer, phaseField.ptr_omega(), phaseField.cell_count());
-                            const ptrPlasmids = new BigUint64Array(wasmMemory.buffer, phaseField.ptr_plasmids(), phaseField.cell_count());
-                            
-                            ptrTheta.set(newTheta);
-                            ptrOmega.set(newOmega);
-                            ptrPlasmids.set(newPlasmids);
-                            
-                            console.log(`✨ Topological interpolation fully migrated across WASM geometries via WebWorker.`);
+                  isShedding = true;
+                  DOM.statusLabel?.replaceChildren(
+                    `SHEDDING IN PROGRESS (${tSectors}x${tRadial}x${tHarm})...`,
+                  );
 
-                            computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
-                            await computeEngine.init();
+                  // O-57: Asynchronous Morphological Interpolation (Nearest-Neighbor WebWorker)
+                  const oldSectors = phaseField.sectors;
+                  const oldRadial = phaseField.radial_bins;
+                  const oldHarm = phaseField.harmonics;
 
-                            observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
-                            await observer.init();
+                  // Backup old tensors by safely duplicating via slice() before free
+                  const _OCount = phaseField.cell_count();
+                  const oldTheta = new Uint8Array(
+                    wasmMemory.buffer,
+                    phaseField.ptr_theta(),
+                    _OCount,
+                  ).slice();
+                  const oldOmega = new Int16Array(
+                    wasmMemory.buffer,
+                    phaseField.ptr_omega(),
+                    _OCount,
+                  ).slice();
+                  const oldPlasmids = new BigUint64Array(
+                    wasmMemory.buffer,
+                    phaseField.ptr_plasmids(),
+                    _OCount,
+                  ).slice();
 
-                            // Rebind global daemon observers identically
-                            oracle.rebind(phaseField, computeEngine, observer);
-                            injector.rebind(phaseField, computeEngine);
-                            
-                            setHudStat("a", "SECTORS", `${tSectors}x${tRadial}x${tHarm}`);
-                            DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");
-                            console.log(`✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`);
-                            
-                            isShedding = false;
-                            worker.terminate();
-                        };
-                    }
-                        }
-                    }
+                  const worker = new Worker(
+                    new URL("../workers/shedding_worker.ts", import.meta.url),
+                    { type: "module" },
+                  );
+
+                  worker.postMessage({
+                    oldTheta,
+                    oldOmega,
+                    oldPlasmids,
+                    oldSectors,
+                    oldRadial,
+                    oldHarm,
+                    tSectors,
+                    tRadial,
+                    tHarm,
+                  }, [oldTheta.buffer, oldOmega.buffer, oldPlasmids.buffer]);
+
+                  worker.onmessage = async (e) => {
+                    const { newTheta, newOmega, newPlasmids } = e.data;
+
+                    phaseField.resize_topology(tSectors, tRadial, tHarm);
+
+                    const ptrTheta = new Uint8Array(
+                      wasmMemory.buffer,
+                      phaseField.ptr_theta(),
+                      phaseField.cell_count(),
+                    );
+                    const ptrOmega = new Int16Array(
+                      wasmMemory.buffer,
+                      phaseField.ptr_omega(),
+                      phaseField.cell_count(),
+                    );
+                    const ptrPlasmids = new BigUint64Array(
+                      wasmMemory.buffer,
+                      phaseField.ptr_plasmids(),
+                      phaseField.cell_count(),
+                    );
+
+                    ptrTheta.set(newTheta);
+                    ptrOmega.set(newOmega);
+                    ptrPlasmids.set(newPlasmids);
+
+                    console.log(
+                      `✨ Topological interpolation fully migrated across WASM geometries via WebWorker.`,
+                    );
+
+                    computeEngine = new PhaseComputeEngine(
+                      device,
+                      phaseField,
+                      wasmMemory,
+                    );
+                    await computeEngine.init();
+
+                    observer = new PhaseWebGPUObserver(
+                      canvas,
+                      phaseField,
+                      computeEngine,
+                      device,
+                    );
+                    await observer.init();
+
+                    // Rebind global daemon observers identically
+                    oracle.rebind(phaseField, computeEngine, observer);
+                    injector.rebind(phaseField, computeEngine);
+
+                    setHudStat(
+                      "a",
+                      "SECTORS",
+                      `${tSectors}x${tRadial}x${tHarm}`,
+                    );
+                    DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");
+                    console.log(
+                      `✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`,
+                    );
+
+                    isShedding = false;
+                    worker.terminate();
+                  };
                 }
+              }
             }
-        } catch(_e) {}
+          }
+        }
+      } catch (_e) {}
     }
 
     // O-44: Lineage Verification Sync (1Hz)
     if (nowLocal - lastPhylogenyCheck > 1000) {
-        lastPhylogenyCheck = nowLocal;
-        phylogenyHUD.tick();
+      lastPhylogenyCheck = nowLocal;
+      phylogenyHUD.tick();
     }
 
     if (!isShedding) {
-        computeEngine.tick();
-        oracle.sync();
+      computeEngine.tick();
+      oracle.sync();
 
-        // O-130: Thermodynamic Wall & Shannon Entropy (AION Vacuum Guard)
-        const entropy = phase_lattice_shannon_entropy(phaseField);
-        if (entropy < 1.5 && nowLocal - lastAionIntervention > 1500) { 
-           lastAionIntervention = nowLocal;
-           // Inject Latent Entropy (Shadow Buckets 1000-1024)
-           const shadowBucket = 1000 + Math.floor(Math.random() * 24);
-           console.log(`[O-130] 🌑 AION ALARM: Thermodynamic Crystallization (Entropy ${entropy.toFixed(2)}). Injecting Latent Entropy into Bucket #${shadowBucket}`);
-           computeEngine.injectEnergy(shadowBucket, Math.floor(Math.random() * 256));
-        }
+      // O-130: Thermodynamic Wall & Shannon Entropy (AION Vacuum Guard)
+      const entropy = phase_lattice_shannon_entropy(phaseField);
+      if (entropy < 1.5 && nowLocal - lastAionIntervention > 1500) {
+        lastAionIntervention = nowLocal;
+        // Inject Latent Entropy (Shadow Buckets 1000-1024)
+        const shadowBucket = 1000 + Math.floor(Math.random() * 24);
+        console.log(
+          `[O-130] 🌑 AION ALARM: Thermodynamic Crystallization (Entropy ${
+            entropy.toFixed(2)
+          }). Injecting Latent Entropy into Bucket #${shadowBucket}`,
+        );
+        computeEngine.injectEnergy(
+          shadowBucket,
+          Math.floor(Math.random() * 256),
+        );
+      }
 
-        observer.render(computeEngine.getActiveBuffer());
+      observer.render(computeEngine.getActiveBuffer());
     }
 
     tickFps();
@@ -314,10 +420,10 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
           phase_lattice_omega_span(phaseField)
         } | Q ${oracle.getQueueSize()}`,
       );
-      
+
       updateHomeostasisHUD(
         phase_lattice_shannon_entropy(phaseField),
-        oracle.getGlobalEnergy()
+        oracle.getGlobalEnergy(),
       );
     }
 

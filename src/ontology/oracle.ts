@@ -1,27 +1,10 @@
 import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { SENATE_CONSTANTS } from "../shared/constants.ts";
+import { SENATE_MASK_NOMOS, SENATE_MASK_LOGOS, SENATE_MASK_CHRONOS, SENATE_MASK_AION, SENATE_ORACLE_TIMEOUT_MS } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary } from "./epoch_dumper.ts";
-import { type SerializedPlasmid } from "./persistence.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
-
-export interface OracleCompatibleField {
-    get_oracle_request_count(): number;
-    ptr_oracle_requests(): number;
-    clear_oracle_requests(): void;
-    ptr_plasmids(): number;
-    ptr_cell_status(): number;
-    ptr_theta?(): number;
-    ptr_omega?(): number;
-    ptr_plasmid_collisions?(): number;
-    get_collision_count?(): number;
-    clear_collisions?(): void;
-    cell_count?(): number;
-    width?: number;
-    height?: number;
-}
 
 export type SenateEvent =
     | { type: "CONVENED" }
@@ -29,11 +12,9 @@ export type SenateEvent =
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
 
-const SOMATIC_CONSTANTS = {
-    COMPLEXITY_ALPHA: 1.5,
-    DECAY_RATE: 0.05,
-    BASE_COST: 5,
-};
+const SOMATIC_COMPLEXITY_ALPHA = 1.5;
+const SOMATIC_DECAY_RATE = 0.05;
+const SOMATIC_BASE_COST = 5;
 
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
@@ -195,8 +176,8 @@ export class SovereignOracle {
             node.energy += this.globalEnergyPool * (popularityShare * 0.4 + noveltyShare * 0.6);
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
-            const maintenanceCost = SOMATIC_CONSTANTS.BASE_COST + (node.l1_cost * SOMATIC_CONSTANTS.COMPLEXITY_ALPHA);
-            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_CONSTANTS.DECAY_RATE));
+            const maintenanceCost = SOMATIC_BASE_COST + (node.l1_cost * SOMATIC_COMPLEXITY_ALPHA);
+            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_DECAY_RATE));
             
             node.energy -= decay;
             node.age += 1;
@@ -602,7 +583,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
 
                 // O-40 Phase 1: Sovereign Oracle TTL (Strict Heartbeat via Constants)
                 const timeoutPromise = new Promise<Response>((_, reject) => 
-                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_CONSTANTS.ORACLE_TIMEOUT_MS)
+                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
                 );
 
                 const response = await Promise.race([fetchPromise, timeoutPromise]);

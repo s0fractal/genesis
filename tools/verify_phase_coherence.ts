@@ -11,7 +11,7 @@ import {
     sumAmplitude,
     sumEntanglement,
 } from "../src/shared/phase_lattice.ts";
-import { PHASE_CONSTANTS } from "../src/shared/constants.ts";
+import { PHASE_LUT_SIZE } from "../src/shared/constants.ts";
 import { buildReferenceSeed } from "./phase_golden_common.ts";
 import type { PhaseField, PhaseFieldShape } from "../src/shared/phase_lattice.ts";
 
@@ -49,7 +49,7 @@ function verifyAngularAddressRotation(seed: PhaseField, ticks: number, deltaSect
 
 function verifyWraparound(seed: PhaseField): void {
     const fullPhaseTurn = clonePhaseField(seed);
-    rotateGlobalPhase(fullPhaseTurn, PHASE_CONSTANTS.LUT_SIZE);
+    rotateGlobalPhase(fullPhaseTurn, PHASE_LUT_SIZE);
     
     const fullAddressTurn = clonePhaseField(seed);
     rotateAngularAddress(fullAddressTurn, seed.shape.sectors);

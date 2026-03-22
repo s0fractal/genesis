@@ -1,28 +1,6 @@
 import { encode } from "@msgpack/msgpack";
 import { formatTerm, PlasmidRegistry } from "../compiler/pure_lambda.ts";
 
-export interface SerializedPlasmid {
-    hash: string;
-    ast: string;
-    energy: number;
-    attention: number;
-    l1_cost: number;
-    mutualists: string[];
-}
-
-export interface EpochDump {
-    timestamp: number;
-    epochTicks: number;
-    globalEnergy: number;
-    populationCount: number;
-    physics: {
-        entropy: number;
-        omegaSpan: string;
-        amplitude: number;
-    };
-    dominantPlasmids: SerializedPlasmid[];
-}
-
 export async function flushEpochBinary(
     epochTicks: number,
     globalEnergy: number,
@@ -51,6 +29,10 @@ export async function flushEpochBinary(
         energy: node.energy === Infinity ? -1 : node.energy, // -1 means Infinity for JSON/MsgPack compat
         attention: node.attention,
         l1_cost: node.l1_cost,
+        age: node.age || 0,
+        fitness: node.fitness || 0,
+        depth: node.depth || 1,
+        nodes: node.nodes || 1,
         mutualists: Array.from(node.mutualists).map(h => h.toString())
     }));
 

@@ -1,11 +1,7 @@
 import { buildProjectedBridgeSeed, CANONICAL_PHASE_SHAPE } from "./phase_canonical.ts";
 import { getCellIndex } from "./phase_lattice.ts";
 import { wrapIndex, phaseSine as phaseSin, phaseCosine as phaseCos } from "./topology_core.ts";
-import { PHASE_CONSTANTS } from "./constants.ts";
-
-const BRIDGE_FNV64_OFFSET_BASIS = 14695981039346656037n;
-const BRIDGE_FNV64_PRIME = 1099511628211n;
-const BRIDGE_FNV64_MASK = (1n << 64n) - 1n;
+import { PHASE_LUT_SIZE, MATH_Q_SCALE, FNV64_OFFSET_BASIS, FNV64_PRIME, FNV64_MASK } from "./constants.ts";
 const BRIDGE_ZERO_LUT = new Int16Array(256);
 const BRIDGE_DELTAS = [1, 2, 3, 4] as const;
 const BRIDGE_MAX_OMEGA = 32;
@@ -237,12 +233,12 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 ? BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS
                 : 0;
 
-        const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + Math.trunc(kuramoto / 1024));
-        const nextTheta = wrapIndex(thetaPrev[index] + nextOmega, PHASE_CONSTANTS.LUT_SIZE);
+        const nextOmega = clampBridgeOmega(decodeBridgeOmega(omegaPrev[index]) + Math.trunc(kuramoto / MATH_Q_SCALE));
+        const nextTheta = wrapIndex(thetaPrev[index] + nextOmega, PHASE_LUT_SIZE);
         const coupledEnergy =
             clampByte(
                 bestEnergy +
-                Math.trunc((coherence * BRIDGE_COHERENCE_ENERGY_GAIN) / 1024) +
+                Math.trunc((coherence * BRIDGE_COHERENCE_ENERGY_GAIN) / MATH_Q_SCALE) +
                 sustainedCoherenceBonus +
                 boundaryBonus * BRIDGE_BOUNDARY_ENERGY_BONUS +
                 stakingEnergyBonus -
@@ -282,7 +278,7 @@ export function stepBridgeField(field: BridgeField, lut: ArrayLike<number> = BRI
                 }
             }
 
-            if (donorPlasmid !== 0n && bestResonance > Math.trunc(BRIDGE_ADOPTION_RESONANCE_THRESHOLD * 1024)) {
+            if (donorPlasmid !== 0n && bestResonance > Math.trunc(BRIDGE_ADOPTION_RESONANCE_THRESHOLD * MATH_Q_SCALE)) {
                 next.thetaNow[index] = Number(donorPlasmid & 0xffn);
                 const donorOmega = decodeBridgeOmega(Number((donorPlasmid >> 8n) & 0xffn));
                 next.omega[index] = encodeBridgeOmega(clampBridgeOmega(donorOmega));
@@ -322,7 +318,7 @@ export function runBridgeField(field: BridgeField, ticks: number, lut: ArrayLike
 }
 
 export function bridgeFieldSignature(field: BridgeField): string {
-    let hash = BRIDGE_FNV64_OFFSET_BASIS;
+    let hash = FNV64_OFFSET_BASIS;
     const size = field.width * field.height;
 
     for (let index = 0; index < size; index++) {
@@ -334,7 +330,7 @@ export function bridgeFieldSignature(field: BridgeField): string {
         mix(BigInt(field.omega[index]));
         mix(BigInt(field.energy[index]));
         mix(BigInt(field.hebbianLocks[index]));
-        mix(field.plasmids[index] & BRIDGE_FNV64_MASK);
+        mix(field.plasmids[index] & FNV64_MASK);
         mix(BigInt(field.cellStatus[index]));
     }
 
@@ -342,7 +338,7 @@ export function bridgeFieldSignature(field: BridgeField): string {
 
     function mix(value: bigint): void {
         hash ^= value;
-        hash = (hash * BRIDGE_FNV64_PRIME) & BRIDGE_FNV64_MASK;
+        hash = (hash * FNV64_PRIME) & FNV64_MASK;
     }
 }
 

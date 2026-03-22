@@ -13,8 +13,7 @@ import {
     structuralSignature,
 } from "../shared/phase_lattice.ts";
 import { clamp, wrapIndex } from "../shared/topology_core.ts";
-import { PHASE_CONSTANTS } from "../shared/constants.ts";
-import type { PhaseField } from "../shared/phase_lattice.ts";
+import { PHASE_LUT_SIZE } from "../shared/constants.ts";
 
 export interface HybridReplayTraceEntry {
     tick: number;
@@ -153,7 +152,7 @@ export function collapsePhaseField(field: PhaseField, radialBins = field.shape.r
             const harmonicCount = field.shape.harmonics;
 
             return {
-                theta: wrapIndex(Math.round((normalizedAngle / (Math.PI * 2)) * 256), PHASE_CONSTANTS.LUT_SIZE),
+                theta: wrapIndex(Math.round((normalizedAngle / (Math.PI * 2)) * 256), PHASE_LUT_SIZE),
                 omega: Math.round(sumOmega / harmonicCount),
                 amplitude: clamp(Math.round(sumAmplitude / harmonicCount), 0, 255),
                 lock: clamp(Math.round(sumLock / harmonicCount), 0, 255),

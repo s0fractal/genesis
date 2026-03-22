@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"]
+    "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
+    "types": ["./src/env.d.ts"]
   },
   "unstable": ["webgpu"]
 }

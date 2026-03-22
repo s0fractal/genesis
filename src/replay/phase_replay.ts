@@ -7,7 +7,6 @@ import {
 } from "../shared/phase_lattice.ts";
 import { phaseDistance } from "../shared/topology_core.ts";
 import { buildCanonicalPhaseSeed } from "../shared/phase_canonical.ts";
-import type { PhaseField, PhaseFieldShape } from "../shared/phase_lattice.ts";
 
 export type ReplayCompareMode = "none" | "seed" | "previous";
 

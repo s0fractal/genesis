@@ -1,4 +1,4 @@
-import { PHASE_CONSTANTS } from "./constants.ts";
+import { PHASE_LUT_SIZE, PHASE_HALF_PHASE } from "./constants.ts";
 
 export interface LatticeConfig {
     sectors: number;
@@ -17,8 +17,8 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 export function signedPhaseDelta(fromTheta: number, toTheta: number): number {
-    const delta = wrapIndex(toTheta - fromTheta, PHASE_CONSTANTS.LUT_SIZE);
-    return delta > PHASE_CONSTANTS.HALF_PHASE ? delta - PHASE_CONSTANTS.LUT_SIZE : delta;
+    const delta = wrapIndex(toTheta - fromTheta, PHASE_LUT_SIZE);
+    return delta > PHASE_HALF_PHASE ? delta - PHASE_LUT_SIZE : delta;
 }
 
 export function phaseDistance(a: number, b: number): number {

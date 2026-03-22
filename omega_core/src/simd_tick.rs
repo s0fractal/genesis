@@ -1,6 +1,9 @@
 use wasm_bindgen::prelude::*;
 use crate::memory::Field;
 
+const MATH_Q_BITS: i32 = 10;
+const MATH_Q_SCALE: i32 = 1 << MATH_Q_BITS;
+
 const BRIDGE_COHERENCE_ENERGY_GAIN_MUL: i64 = 6;
 const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
 const BRIDGE_LOCK_GAIN: u8 = 8;
@@ -8,8 +11,8 @@ const BRIDGE_LOCK_DECAY: u8 = 4;
 const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
-const BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10: i32 = 4096; // 4.0 * 1024
-const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3072; // 3.0 * 1024
+const BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10: i32 = 4 * MATH_Q_SCALE; // 4.0 * Q_SCALE
+const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3 * MATH_Q_SCALE; // 3.0 * Q_SCALE
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
@@ -262,11 +265,11 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         };
 
         // Q10 Normalization: Floor Mapped Trajectory
-        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + (kuramoto / 1024) as i16);
+        let next_omega = clamp_bridge_omega(decode_bridge_omega(omega_prev[idx]) + (kuramoto / MATH_Q_SCALE) as i16);
         let next_theta = wrap_phase(theta_prev[idx] as i16 + next_omega);
         let coupled_energy = (
             best_energy +
-            (((coherence as i64) * BRIDGE_COHERENCE_ENERGY_GAIN_MUL) / 1024) as i16 +
+            (((coherence as i64) * BRIDGE_COHERENCE_ENERGY_GAIN_MUL) / (MATH_Q_SCALE as i64)) as i16 +
             sustained_coherence_bonus +
             staking_energy_bonus +
             boundary_bonus * BRIDGE_BOUNDARY_ENERGY_BONUS -
@@ -294,7 +297,7 @@ pub fn execute_phase_bridge_tick(field: &mut Field, lut_ptr: *const i16) {
         if best_score > 100 && coupled_energy < 240 {
             let neighbors = [left_idx, right_idx, inner_idx, outer_idx, antipode_idx];
             let mut adopted = false;
-            let mut best_resonance = -2048; // -2.0 * 1024
+            let mut best_resonance = -2 * MATH_Q_SCALE; // -2.0 * Q_SCALE
             let mut donor_plasmid = 0u64;
 
             for &neighbor_idx in &neighbors {
@@ -612,12 +615,12 @@ fn phase_cos_i32(from_theta: u8, to_theta: u8) -> i32 {
 
 #[inline]
 fn q10_round(x: i32) -> i32 {
-    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
+    if x >= 0 { (x + (MATH_Q_SCALE / 2)) / MATH_Q_SCALE } else { (x - (MATH_Q_SCALE / 2)) / MATH_Q_SCALE }
 }
 
 #[inline]
 fn q10_round_i64(x: i64) -> i64 {
-    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
+    if x >= 0 { (x + (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) } else { (x - (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) }
 }
 
 fn local_target(lut: &[i16], theta_prev: &[u8], neighborhood: [usize; 4], antipode_idx: usize, include_antipode: bool) -> i16 {

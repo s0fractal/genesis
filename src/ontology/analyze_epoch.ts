@@ -1,5 +1,4 @@
 import { decode } from "@msgpack/msgpack";
-import type { EpochDump } from "./epoch_dumper.ts";
 
 export async function analyzeEpochDumps(oldFile: string, newFile: string): Promise<string> {
     if (typeof globalThis.Deno === "undefined") {

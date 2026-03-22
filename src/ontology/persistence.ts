@@ -1,26 +1,6 @@
 import { encode, decode } from "@msgpack/msgpack";
 import { formatTerm, PlasmidRegistry, parseLambda } from "../compiler/pure_lambda.ts";
 
-export interface SerializedPlasmid {
-    hash: string;
-    ast: string;
-    energy: number;
-    attention: number;
-    l1_cost: number;
-    mutualists: string[];
-    age: number;
-    fitness: number;
-    depth: number;
-    nodes: number;
-}
-
-export interface SubstrateState {
-    globalEnergy: number;
-    epochTicks: number;
-    registry: SerializedPlasmid[];
-    grid: Record<number, string>; // Sparse stringified map: idx -> childHash
-}
-
 export function exportGenesisState(
     epochTicks: number,
     globalEnergy: number,
@@ -64,7 +44,7 @@ export function parseGenesisState(buffer: ArrayBuffer): SubstrateState {
 
 // Browser specific download hook (no Deno / FS required)
 export function downloadGenesisFile(buffer: Uint8Array, currentEpoch: number) {
-    const blob = new Blob([buffer], { type: "application/octet-stream" });
+    const blob = new Blob([buffer.buffer as ArrayBuffer], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

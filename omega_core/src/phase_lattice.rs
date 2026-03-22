@@ -1,11 +1,13 @@
 use wasm_bindgen::prelude::*;
 
 const PHASE_LUT_SIZE: u32 = 256;
+const MATH_Q_BITS: i32 = 10;
+const MATH_Q_SCALE: i32 = 1 << MATH_Q_BITS;
 const SYNC_RATE: i16 = 32;
 const MIN_OMEGA: i16 = -16;
 const MAX_OMEGA: i16 = 16;
 const MAX_ENTANGLEMENT: u8 = 255;
-const COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3072; // 3.0 * 1024
+const COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3 * MATH_Q_SCALE; // 3.0 * Q_SCALE
 const MAX_BYTE: i16 = 255;
 
 #[wasm_bindgen]
@@ -290,10 +292,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     };
                 }
 
-                let omega_delta = (kuramoto / 1024) as i16;
+                let omega_delta = (kuramoto / MATH_Q_SCALE) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, MIN_OMEGA, MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (((coherence as i64 * 6) / 1024) as i16) - (lock as i16 / 64);
+                let amplitude_delta = (((coherence as i64 * 6) / MATH_Q_SCALE as i64) as i16) - (lock as i16 / 64);
                 let lock_delta = if coherence >= COHERENCE_SUSTAIN_THRESHOLD_Q10 { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
@@ -509,12 +511,12 @@ fn phase_cos_i32(from_theta: u8, to_theta: u8) -> i32 {
 
 #[inline]
 fn q10_round(x: i32) -> i32 {
-    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
+    if x >= 0 { (x + (MATH_Q_SCALE / 2)) / MATH_Q_SCALE } else { (x - (MATH_Q_SCALE / 2)) / MATH_Q_SCALE }
 }
 
 #[inline]
 fn q10_round_i64(x: i64) -> i64 {
-    if x >= 0 { (x + 512) / 1024 } else { (x - 512) / 1024 }
+    if x >= 0 { (x + (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) } else { (x - (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) }
 }
 
 fn mix_u64(hash: &mut u64, value: u64) {
