@@ -6,7 +6,7 @@ import {
     initOmegaWasm,
     readGolden,
 } from "./phase_golden_common.ts";
-import type { BridgeTraceEntry, PhaseBridgeGolden, PhaseCoherenceGolden, PhaseTraceEntry, PhaseWasmTraceEntry } from "./phase_golden_common.ts";
+import type { BridgeTraceEntry, PhaseBridgeGolden, PhaseCoherenceGolden, PhaseWasmTraceEntry } from "./phase_golden_common.ts";
 
 function assert(condition: boolean, message: string): void {
     if (!condition) {
@@ -14,17 +14,18 @@ function assert(condition: boolean, message: string): void {
     }
 }
 
-function compareTraceEntry<T extends Record<string, number | string>>(label: string, actual: T, expected: T): void {
-    const keys = Object.keys(expected);
+function compareTraceEntry<T>(label: string, actual: T, expected: T): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const keys = Object.keys(expected as any) as Array<keyof T>;
     for (const key of keys) {
         assert(
             actual[key] === expected[key],
-            `${label} mismatch at ${key}: expected=${expected[key]} actual=${actual[key]}`,
+            `${label} mismatch at ${String(key)}: expected=${expected[key]} actual=${actual[key]}`,
         );
     }
 }
 
-function compareTrace<T extends Record<string, number | string>>(
+function compareTrace<T>(
     label: string,
     actual: T[],
     expected: T[],
@@ -42,7 +43,6 @@ function verifyPhaseCoherence(actual: PhaseCoherenceGolden, expected: PhaseCoher
     assert(actual.shape.radialBins === expected.shape.radialBins, "phase_coherence radialBins mismatch");
     assert(actual.shape.harmonics === expected.shape.harmonics, "phase_coherence harmonics mismatch");
 
-    compareTrace<PhaseTraceEntry>("phase_coherence.referenceTrace", actual.referenceTrace, expected.referenceTrace);
     compareTrace<PhaseWasmTraceEntry>("phase_coherence.wasmTrace", actual.wasmTrace, expected.wasmTrace);
     compareTraceEntry("phase_coherence.invariants", actual.invariants, expected.invariants);
 }
@@ -53,7 +53,6 @@ function verifyPhaseBridge(actual: PhaseBridgeGolden, expected: PhaseBridgeGolde
     assert(actual.width === expected.width, "phase_bridge width mismatch");
     assert(actual.height === expected.height, "phase_bridge height mismatch");
 
-    compareTrace<BridgeTraceEntry>("phase_bridge.referenceTrace", actual.referenceTrace, expected.referenceTrace);
     compareTrace<BridgeTraceEntry>("phase_bridge.wasmTrace", actual.wasmTrace, expected.wasmTrace);
     compareTraceEntry("phase_bridge.invariants", actual.invariants, expected.invariants);
 }

@@ -20,29 +20,10 @@ import {
     collapsePhaseField,
     cropPhaseField,
     snapshotHybridComparableField,
-    snapshotHybridField,
 } from "../src/replay/hybrid_replay.ts";
-import {
-    clonePhaseField,
-    fieldSignature,
-    stepPhaseField,
-    structuralSignature,
-    sumAmplitude,
-    sumEntanglement,
-} from "../src/shared/phase_lattice.ts";
-import { phaseDistance } from "../src/shared/topology_core.ts";
-import { buildCanonicalPhaseSeed } from "../src/shared/phase_canonical.ts";
-import {
-    bridgeFieldSignature,
-    bridgeOmegaSpan,
-    bridgeTotalEnergy,
-    bridgeTotalLocks,
-    bridgeTotalPlasmids,
-    buildBridgeSeed,
-    stepBridgeField,
-} from "../src/shared/phase_bridge.ts";
-import type { BridgeField } from "../src/shared/phase_bridge.ts";
-import type { PhaseField, PhaseFieldShape } from "../src/shared/phase_lattice.ts";
+import { phaseDistance, structuralSignature } from "../src/shared/topology_core.ts";
+import { snapshotWasmPhaseField } from "../src/replay/phase_replay.ts";
+import type { BridgeField, PhaseField, PhaseFieldShape } from "../src/shared/topology_core.ts";
 
 export const GOLDEN_DIR = new URL("./goldens/", import.meta.url);
 export const PHASE_COHERENCE_GOLDEN = new URL("./goldens/phase_coherence_golden.json", import.meta.url);
@@ -76,11 +57,8 @@ export interface PhaseCoherenceGolden {
     schemaVersion: 1;
     shape: PhaseFieldShape;
     ticks: number;
-    referenceTrace: PhaseTraceEntry[];
     wasmTrace: PhaseWasmTraceEntry[];
     invariants: {
-        referenceSeedLegacySignature: string;
-        referenceSeedStructuralSignature: string;
         wasmSeedStructuralSignature: string;
         rotatedPhaseStructuralSignature: string;
         rotatedAddressStructuralSignature: string;
@@ -92,7 +70,6 @@ export interface PhaseBridgeGolden {
     width: number;
     height: number;
     ticks: number;
-    referenceTrace: BridgeTraceEntry[];
     wasmTrace: BridgeTraceEntry[];
     invariants: {
         seedSignature: string;
@@ -136,47 +113,9 @@ export async function ensureGoldenDirectory(): Promise<void> {
     await mkdir(GOLDEN_DIR, { recursive: true });
 }
 
-export const buildReferenceSeed = buildCanonicalPhaseSeed;
 
-export function captureReferenceTrace(shape: PhaseFieldShape, ticks: number): PhaseTraceEntry[] {
-    const trace: PhaseTraceEntry[] = [];
-    let field = buildReferenceSeed(shape);
-    let nextField = clonePhaseField(field);
-    let lastEntry: PhaseTraceEntry | null = null;
-
-    for (let tick = 0; tick <= ticks; tick++) {
-        if (tick > 0) {
-            stepPhaseField(field, nextField);
-            const temp = field;
-            field = nextField;
-            nextField = temp;
-        }
-        
-        const current: PhaseTraceEntry = {
-            tick,
-            legacySignature: fieldSignature(field),
-            structuralSignature: structuralSignature(field),
-            totalAmplitude: sumAmplitude(field),
-            totalEntanglement: sumEntanglement(field),
-        };
-        
-        if (lastEntry &&
-            lastEntry.legacySignature === current.legacySignature &&
-            lastEntry.structuralSignature === current.structuralSignature &&
-            lastEntry.totalAmplitude === current.totalAmplitude &&
-            lastEntry.totalEntanglement === current.totalEntanglement) {
-            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
-        } else {
-            current.runLength = 1;
-            trace.push(current);
-            lastEntry = current;
-        }
-    }
-
-    return trace;
-}
-
-export async function initOmegaWasm(): Promise<WebAssembly.Exports> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function initOmegaWasm(): Promise<any> {
     const wasmBytes = await readFile(new URL("../omega_core/pkg/omega_core_bg.wasm", import.meta.url));
     const wasm = await initWasm({ module_or_path: wasmBytes });
     return wasm;
@@ -252,39 +191,6 @@ export function captureBridgeWasmTrace(width: number, height: number, ticks: num
     return trace;
 }
 
-export function captureBridgeReferenceTrace(width: number, height: number, ticks: number): BridgeTraceEntry[] {
-    const trace: BridgeTraceEntry[] = [];
-    let field = buildBridgeSeed(width, height);
-    let lastEntry: BridgeTraceEntry | null = null;
-
-    for (let tick = 0; tick <= ticks; tick++) {
-        if (tick > 0) field = stepBridgeField(field);
-        
-        const current: BridgeTraceEntry = {
-            tick,
-            signature: bridgeFieldSignature(field),
-            totalEnergy: bridgeTotalEnergy(field),
-            totalLocks: bridgeTotalLocks(field),
-            totalPlasmids: bridgeTotalPlasmids(field),
-            omegaSpan: bridgeOmegaSpan(field),
-        };
-        
-        if (lastEntry &&
-            lastEntry.signature === current.signature &&
-            lastEntry.totalEnergy === current.totalEnergy &&
-            lastEntry.totalLocks === current.totalLocks &&
-            lastEntry.totalPlasmids === current.totalPlasmids &&
-            lastEntry.omegaSpan === current.omegaSpan) {
-            lastEntry.runLength = (lastEntry.runLength || 1) + 1;
-        } else {
-            current.runLength = 1;
-            trace.push(current);
-            lastEntry = current;
-        }
-    }
-
-    return trace;
-}
 
 export function buildPhaseCoherenceGolden(): PhaseCoherenceGolden {
     const shape: PhaseFieldShape = {
@@ -310,11 +216,8 @@ export function buildPhaseCoherenceGolden(): PhaseCoherenceGolden {
         schemaVersion: 1,
         shape,
         ticks,
-        referenceTrace: captureReferenceTrace(shape, ticks),
         wasmTrace: capturePhaseWasmTrace(shape.sectors, shape.radialBins, shape.harmonics, ticks),
         invariants: {
-            referenceSeedLegacySignature: fieldSignature(buildReferenceSeed(shape)),
-            referenceSeedStructuralSignature: structuralSignature(buildReferenceSeed(shape)),
             wasmSeedStructuralSignature: phase_lattice_signature(baseline),
             rotatedPhaseStructuralSignature: phase_lattice_signature(rotatedPhase),
             rotatedAddressStructuralSignature: phase_lattice_signature(rotatedAddress),
@@ -342,7 +245,6 @@ export function buildPhaseBridgeGolden(): PhaseBridgeGolden {
         width,
         height,
         ticks,
-        referenceTrace: captureBridgeReferenceTrace(width, height, ticks),
         wasmTrace: captureBridgeWasmTrace(width, height, ticks),
         invariants: {
             seedSignature: field_signature(seeded),
@@ -365,8 +267,7 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     const collapsedRadialBins = Math.min(phaseShape.radialBins, hybridShape.height);
     const ticks = 12;
 
-    let phaseField = buildReferenceSeed(phaseShape);
-    let nextPhaseField = clonePhaseField(phaseField);
+    const phaseField = new PhaseLatticeField(phaseShape.sectors, phaseShape.radialBins, phaseShape.harmonics);
     const hybridField = new Field(hybridShape.width, hybridShape.height);
     seed_phase_bridge_pattern(hybridField);
 
@@ -374,7 +275,9 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
     let lastEntry: PhaseCrossTraceEntry | null = null;
 
     for (let tick = 0; tick <= ticks; tick++) {
-        const phaseCollapsed = collapsePhaseField(phaseField, collapsedRadialBins);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const phaseSnapshot = snapshotWasmPhaseField(phaseField, wasm as any, phaseShape);
+        const phaseCollapsed = collapsePhaseField(phaseSnapshot, collapsedRadialBins);
         const hybridCropped = cropPhaseField(snapshotHybridComparableField(hybridField, wasm), collapsedRadialBins);
         const summary = buildCrossTraceEntry(tick, phaseCollapsed, hybridCropped);
         
@@ -394,11 +297,7 @@ export function buildPhaseCrossGolden(wasm: WebAssembly.Exports): PhaseCrossGold
         }
 
         if (tick < ticks) {
-            stepPhaseField(phaseField, nextPhaseField);
-            const temp = phaseField;
-            phaseField = nextPhaseField;
-            nextPhaseField = temp;
-            
+            execute_phase_lattice_tick(phaseField);
             execute_phase_bridge_tick(hybridField, 0);
         }
     }
@@ -439,7 +338,8 @@ export interface PhaseCellSnapshot {
     entanglement: number;
 }
 
-export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssembly.Exports): PhaseCellSnapshot[] {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: any): PhaseCellSnapshot[] {
     const count = field.cell_count();
     const memory = wasm.memory;
     if (!(memory instanceof WebAssembly.Memory)) {
@@ -467,7 +367,8 @@ export function snapshotPhaseWasmState(field: PhaseLatticeField, wasm: WebAssemb
     }));
 }
 
-export function snapshotBridgeWasmState(field: Field, wasm: WebAssembly.Exports): BridgeField {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function snapshotBridgeWasmState(field: Field, wasm: any): BridgeField {
     const memory = wasm.memory;
     if (!(memory instanceof WebAssembly.Memory)) {
         throw new Error("WASM memory export is unavailable");

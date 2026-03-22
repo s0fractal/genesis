@@ -1,4 +1,4 @@
-import { projectCellToCartesian } from "../shared/phase_lattice.ts";
+import { projectCellToCartesian } from "../shared/topology_core.ts";
 import { phaseDistance } from "../shared/topology_core.ts";
 import type { PhaseReplayDiffSummary, ReplayCompareMode } from "../replay/phase_replay.ts";
 

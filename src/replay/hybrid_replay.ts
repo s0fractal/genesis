@@ -11,8 +11,8 @@ import {
     createPhaseField,
     getCellIndex,
     structuralSignature,
-} from "../shared/phase_lattice.ts";
-import { clamp, wrapIndex } from "../shared/topology_core.ts";
+    clamp, wrapIndex
+} from "../shared/topology_core.ts";
 import { PHASE_LUT_SIZE } from "../shared/constants.ts";
 
 export interface HybridReplayTraceEntry {
