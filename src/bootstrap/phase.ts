@@ -17,7 +17,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   console.log("[Genesis] Bootstrapping experimental phase lattice mode (Era 195: Systemic Topos)...");
 
   const canvas = configureCanvas();
-  const phaseField = new PhaseLatticeField(1400, 800, 1);
+  const phaseField = new PhaseLatticeField(640, 640, 1);
   hydrateSubstrateHeader(wasmMemory, phaseField.ptr_header());
   
   const adapter = await navigator.gpu.requestAdapter();

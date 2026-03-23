@@ -142,8 +142,8 @@ export class SovereignOracle {
     }
 
     public getGeographicSector(idxOrX: number, yPos?: number): number {
-        const width = this.wasmField.width || 1400;
-        const height = this.wasmField.height || 800;
+        const width = this.wasmField.width || 640;
+        const height = this.wasmField.height || 640;
         
         let x = 0;
         let y = 0;

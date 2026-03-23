@@ -601,15 +601,15 @@ mod alloc_tests {
 
     #[test]
     fn test_huge_alloc() {
-        let field = PhaseLatticeField::new(1400, 800, 1);
-        assert_eq!(field.cell_count(), 1400 * 800 * 1);
+        let field = PhaseLatticeField::new(640, 640, 1);
+        assert_eq!(field.cell_count(), 640 * 640 * 1);
     }
 }
 
 #[test]
 fn extreme_alloc_test() {
-    let f = PhaseLatticeField::new(1400, 800, 1);
-    assert_eq!(f.sectors, 1400);
+    let f = PhaseLatticeField::new(640, 640, 1);
+    assert_eq!(f.sectors, 640);
 }
 
 #[cfg(test)]
