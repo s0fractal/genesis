@@ -116,6 +116,13 @@ export class PhaseNetwork {
             }
         };
 
+        pc.oniceconnectionstatechange = () => {
+            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                console.warn(`🍄 [Auto-Mycelium] WebRTC ICE connection failed with ${remotePeerId}. Triggering ICE Restart...`);
+                pc.restartIce();
+            }
+        };
+
         return pc;
     }
 

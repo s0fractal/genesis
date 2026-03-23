@@ -69,10 +69,14 @@ export class BioAcousticChoir {
         console.log("🔊 [CHOIR] Ontological Audio Matrix Initialized.");
     }
 
-    public resume() {
+    public async resume() {
         if (this.ctx && this.ctx.state === "suspended") {
-            this.ctx.resume();
-            console.log("🔊 [CHOIR] Audio Context Resumed.");
+            try {
+                await this.ctx.resume();
+                console.log("🔊 [CHOIR] Audio Context Resumed.");
+            } catch (err) {
+                console.warn("🔇 [CHOIR] Safari AudioContext auto-play blocked bounds.");
+            }
         }
     }
 

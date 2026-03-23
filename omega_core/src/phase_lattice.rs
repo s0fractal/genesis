@@ -611,3 +611,22 @@ fn extreme_alloc_test() {
     let f = PhaseLatticeField::new(1400, 800, 1);
     assert_eq!(f.sectors, 1400);
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn entropy_never_negative(
+            sectors in 10u32..50u32,
+            radial_bins in 5u32..20u32,
+            harmonics in 1u32..3u32,
+        ) {
+            let field = PhaseLatticeField::new(sectors, radial_bins, harmonics);
+            let entropy = phase_lattice_shannon_entropy(&field);
+            prop_assert!(entropy >= 0.0, "Entropy violated thermodynamic bounds: {}", entropy);
+        }
+    }
+}

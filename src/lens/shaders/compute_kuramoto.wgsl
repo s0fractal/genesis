@@ -123,22 +123,18 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let total_cells = params.sectors * params.radial_bins * params.harmonics;
+    let physical_cells = params.sectors * params.radial_bins;
     let idx = global_id.x;
-    if (idx >= total_cells) { return; }
+    // O-194 Semantic Optimization Pipeline: Restrict compute to Physical layer only (Harmonic 0)
+    // Fossil layers are direct-copied outside WGSL to prevent warp divergence.
+    if (idx >= physical_cells) { return; }
 
     let sector = idx % params.sectors;
     let tmp = idx / params.sectors;
     let rho = tmp % params.radial_bins;
-    let harmonic = tmp / params.radial_bins;
+    let harmonic = 0u; // Guaranteed by index bounds
 
     let me = get_agent(idx);
-
-    if (harmonic > 0u) {
-        // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics
-        set_agent(idx, me);
-        return;
-    }
 
     let left_sec = wrap_index(i32(sector) - 1, i32(params.sectors));
     let right_sec = wrap_index(i32(sector) + 1, i32(params.sectors));

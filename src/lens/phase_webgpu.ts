@@ -27,6 +27,8 @@ export class PhaseWebGPUObserver {
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
         this.canvas = canvas;
+        this.canvas.tabIndex = 0; // O-194: Accessibility Focus
+        this.canvas.style.outline = "none";
         this.field = field;
         this.engine = engine;
         this.device = device;
@@ -97,6 +99,14 @@ export class PhaseWebGPUObserver {
     async init() {
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
+        // O-194: High-DPI Accessibility Scaling
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            this.canvas.width = rect.width * dpr;
+            this.canvas.height = rect.height * dpr;
+        }
+
         const _numCells = this.field.cell_count();
         
         const format = navigator.gpu.getPreferredCanvasFormat();

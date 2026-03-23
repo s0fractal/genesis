@@ -232,13 +232,15 @@ export class PhaseComputeEngine {
         commandEncoder.clearBuffer(this.mycelialBuffer, 0, 16384);
 
         const numCells = this.field.cell_count();
-        const workgroups = Math.ceil(numCells / 64);
+        const physicalCells = this.field.sectors * this.field.radial_bins;
+        const workgroupsMycelial = Math.ceil(numCells / 64);
+        const workgroupsKuramoto = Math.ceil(physicalCells / 64);
         
         // Pass 0: Mycelial Aggregation (Accumulate Mean-Fields via Atomically)
         const pass0 = commandEncoder.beginComputePass();
         pass0.setPipeline(this.mycelialPipeline);
         pass0.setBindGroup(0, this.isPingPongA ? this.mycelialBindGroupA : this.mycelialBindGroupB);
-        pass0.dispatchWorkgroups(workgroups);
+        pass0.dispatchWorkgroups(workgroupsMycelial);
         pass0.end();
 
         // Pass 1: Kuramoto Evolution (Resolve Topological Forces)
@@ -246,8 +248,18 @@ export class PhaseComputeEngine {
         const pass1 = commandEncoder.beginComputePass();
         pass1.setPipeline(this.pipeline);
         pass1.setBindGroup(0, this.isPingPongA ? this.bindGroupA : this.bindGroupB);
-        pass1.dispatchWorkgroups(workgroups);
+        pass1.dispatchWorkgroups(workgroupsKuramoto);
         pass1.end();
+
+        // O-194 Semantic Optimization Pipeline: Native Zero-Overhead Fossil Storage VRAM Migration (Bypassing WGSL execution)
+        if (this.field.harmonics > 1) {
+            const bytesPerCell = 16;
+            const fossilOffset = physicalCells * bytesPerCell;
+            const fossilSize = (numCells - physicalCells) * bytesPerCell;
+            const src = this.isPingPongA ? this.bufferA : this.bufferB;
+            const dst = this.isPingPongA ? this.bufferB : this.bufferA;
+            commandEncoder.copyBufferToBuffer(src, fossilOffset, dst, fossilOffset, fossilSize);
+        }
 
         this.device.queue.submit([commandEncoder.finish()]);
 
