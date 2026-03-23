@@ -26,6 +26,7 @@ export const DOM = {
     hEnergyVal: document.getElementById("h-energy-val") as HTMLSpanElement | null,
     hEndocrineVal: document.getElementById("h-endocrine-val") as HTMLSpanElement | null,
     hToposVal: document.getElementById("h-topos-val") as HTMLSpanElement | null,
+    hApexVal: document.getElementById("h-apex-val") as HTMLSpanElement | null,
 
     // O-59 Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
@@ -98,7 +99,8 @@ export function updateHomeostasisHUD(
     energy: number, 
     kuramoto: number, 
     mutation: number,
-    toposData?: {name: string, heat: number}[]
+    toposData?: {name: string, heat: number}[],
+    apexData?: {hash: bigint, ast: string, energy: number}[]
 ) {
     const now = performance.now();
     if (now - lastDomUpdate < 100) return; // Limit to 10 FPS
@@ -129,5 +131,13 @@ export function updateHomeostasisHUD(
             .map(t => `${t.name.split('[')[1].split(']')[0]}: ${t.heat.toFixed(1)}°`)
             .join(' | ');
         DOM.hToposVal.replaceChildren(toposStr || "ECOLOGICAL STASIS");
+    }
+    if (DOM.hApexVal && apexData) {
+        if (apexData.length === 0) {
+            DOM.hApexVal.replaceChildren("Genetics Formatting...");
+        } else {
+            const out = apexData.slice(0, 3).map((a, i) => `#${i + 1} ⚡${a.energy.toString().padStart(5, '0')} [${a.hash.toString().substring(0,8)}]\n${a.ast}`).join('\n\n');
+            DOM.hApexVal.replaceChildren(out);
+        }
     }
 }

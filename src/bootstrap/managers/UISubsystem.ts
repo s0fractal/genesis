@@ -102,7 +102,8 @@ export class UISubsystem implements ISubsystem {
                 this.oracle.getGlobalEnergy(),
                 KURAMOTO_COUPLING_BASE,
                 MUTATION_BASE_COST,
-                toposData
+                toposData,
+                this.oracle.getApexPlasmids(3)
             );
         }
     }

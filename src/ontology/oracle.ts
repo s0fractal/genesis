@@ -245,6 +245,19 @@ export class SovereignOracle {
         return this.epochTicks;
     }
 
+    // Era 214: The Apex Pantheon
+    public getApexPlasmids(count: number = 3): { hash: bigint; ast: string; energy: number }[] {
+        const sorted = Array.from(this.activePlasmids)
+            .map(hash => {
+                const node = this.plasmidRegistry.get(hash);
+                return { hash, energy: node ? Math.floor(node.energy) : 0, ast: node ? formatTerm(node.ast) : "" };
+            })
+            .filter(n => n.energy > 0 && n.energy !== Infinity) // Exclude dead and Immortal seed combinators
+            .sort((a, b) => b.energy - a.energy);
+        
+        return sorted.slice(0, count);
+    }
+
     // Era 213: Topological Climate Tracker
     public getCurrentClimate(): string {
         const yearTick = this.epochTicks % 4000;

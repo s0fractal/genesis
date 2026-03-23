@@ -93,10 +93,18 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   // Era 134 Vector B: Chrono-Torus Memory Visualization
   let time_dist = f32((params.current_tau + params.tau_depth - tau) % params.tau_depth);
   let history_fade = exp(-time_dist * 1.5); // Exponential timeline decay
-  let chrono_z = z - (time_dist * 0.45); // Chronological depth offsets historical states geometrically
   
-  // Slight wobble based on time and entanglement to simulate wave medium
-  let wobble_z = sin(params.time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * entanglement;
+  // Era 214 Vectors 1 & 2: Phenotypic Extrusion (AST 3D Render topology)
+  let plasmid_amplitude = f32((plasmid_low >> 24u) & 0xFFu);
+  let plasmid_entanglement = f32((plasmid_low >> 16u) & 0xFFu);
+  let p_amp_norm = select(0.0, clamp((plasmid_amplitude - 40.0) / 215.0, 0.0, 1.0), plasmid_low != 0u || plasmid_high != 0u);
+  let p_ent_norm = select(0.0, clamp(plasmid_entanglement / 255.0, 0.0, 1.0), plasmid_low != 0u || plasmid_high != 0u);
+
+  // Z-Depth Extrusion: Dominating algorithms visually extrude toward the glass
+  let chrono_z = z - (time_dist * 0.45) + (p_amp_norm * 0.55); 
+  
+  // Dynamic wobble resonance binding Entanglement DNA
+  let wobble_z = sin(params.time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * (entanglement + (p_ent_norm * 2.5));
   let base_pos = vec3<f32>(cos(angle) * major_radius, sin(angle) * major_radius, chrono_z + wobble_z);
 
   // Quad Billboard
@@ -112,7 +120,8 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let right = vec3<f32>(params.view[0][0], params.view[1][0], params.view[2][0]);
   let up = vec3<f32>(params.view[0][1], params.view[1][1], params.view[2][1]);
   
-  let base_size = 0.04 + amplitude * 0.12 + entanglement * 0.22;
+  // Phenotypic Cell Magnification  
+  let base_size = 0.04 + amplitude * 0.12 + entanglement * 0.22 + (p_amp_norm * 0.18);
   let chronological_compression = max(0.2, 1.0 - (time_dist * 0.25)); // compress geometry into the past
   let particle_size = base_size * chronological_compression;
   
