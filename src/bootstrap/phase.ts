@@ -43,7 +43,8 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   setInputMode("semantic");
 
   const canvas = configureCanvas();
-  const phaseField = new PhaseLatticeField(64, 10, 3);
+  // Era 163 (Ontology 72) - 1400x800 Extrusion Test
+  const phaseField = new PhaseLatticeField(1400, 800, 1);
   // Ontology 23: Native Metal compute instantiation
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter!.requestDevice();
@@ -194,8 +195,8 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
                 if (body.HARMONICS !== undefined) tHarm = body.HARMONICS;
 
                 // O-50 Phase 2: Dimensional Parameter Clamp (VRAM Quota)
-                if (tSectors > 256) tSectors = 256;
-                if (tRadial > 256) tRadial = 256;
+                if (tSectors > 4096) tSectors = 4096;
+                if (tRadial > 4096) tRadial = 4096;
                 if (tHarm > 16) tHarm = 16;
                 // Minimum topology checks
                 if (tSectors < 8) tSectors = 8;

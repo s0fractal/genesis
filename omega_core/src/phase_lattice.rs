@@ -64,9 +64,11 @@ pub struct PhaseLatticeField {
 impl PhaseLatticeField {
     #[wasm_bindgen(constructor)]
     pub fn new(sectors: u32, radial_bins: u32, harmonics: u32) -> PhaseLatticeField {
-        let size = 1_048_576_usize; // 256 * 256 * 16 Fixed Pool (O-130 Capsule Architecture)
+        console_error_panic_hook::set_once();
+        let tau_depth = 4;
+        let max_elements = (sectors * radial_bins * harmonics * tau_depth) as usize; 
         let mut field = PhaseLatticeField {
-            tau_depth: 4,
+            tau_depth,
             current_tau: 0,
             sectors,
             radial_bins,
@@ -75,23 +77,23 @@ impl PhaseLatticeField {
                 sectors,
                 radial_bins,
                 harmonics,
-                max_atoms: 1_048_576,
+                max_atoms: max_elements as u32,
                 damping_base: 1024,
                 ..Default::default()
             },
-            theta: vec![0; size],
+            theta: vec![0; max_elements],
             canary_1: 0xDEADBEEF,
-            omega: vec![0; size],
+            omega: vec![0; max_elements],
             canary_2: 0xDEADBEEF,
-            amplitude: vec![0; size],
-            lock: vec![0; size],
+            amplitude: vec![0; max_elements],
+            lock: vec![0; max_elements],
             canary_3: 0xDEADBEEF,
-            entanglement: vec![0; size],
+            entanglement: vec![0; max_elements],
             oracle_requests: vec![0; 1024],
             oracle_request_count: 0,
             canary_4: 0xDEADBEEF,
-            cell_status: vec![0; size],
-            plasmids: vec![0; size],
+            cell_status: vec![0; max_elements],
+            plasmids: vec![0; max_elements],
             plasmid_collisions: vec![0; 1024 * 3],
             collision_count: 0,
             canary_end: 0xDEADBEEF,
@@ -109,7 +111,7 @@ impl PhaseLatticeField {
     }
 
     pub fn pool_capacity(&self) -> u32 {
-        1_048_576
+        self.theta.len() as u32
     }
 
     pub fn resize_topology(&mut self, sectors: u32, radial_bins: u32, harmonics: u32) {
@@ -120,6 +122,17 @@ impl PhaseLatticeField {
         self.header.sectors = sectors;
         self.header.radial_bins = radial_bins;
         self.header.harmonics = harmonics;
+
+        let required_cap = (sectors * radial_bins * harmonics * self.tau_depth) as usize;
+        if required_cap > self.theta.len() {
+            self.theta.resize(required_cap, 0);
+            self.omega.resize(required_cap, 0);
+            self.amplitude.resize(required_cap, 0);
+            self.lock.resize(required_cap, 0);
+            self.entanglement.resize(required_cap, 0);
+            self.cell_status.resize(required_cap, 0);
+            self.plasmids.resize(required_cap, 0);
+        }
     }
 
     pub fn ptr_header(&self) -> *const u8 {
@@ -626,4 +639,21 @@ mod tests {
 
         assert_same_state(&rotated_seed, &baseline);
     }
+}
+
+#[cfg(test)]
+mod alloc_tests {
+    use super::*;
+
+    #[test]
+    fn test_huge_alloc() {
+        let field = PhaseLatticeField::new(1400, 800, 1);
+        assert_eq!(field.cell_count(), 1400 * 800 * 1);
+    }
+}
+
+#[test]
+fn extreme_alloc_test() {
+    let f = PhaseLatticeField::new(1400, 800, 1);
+    assert_eq!(f.sectors, 1400);
 }

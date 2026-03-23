@@ -14,9 +14,9 @@ export class PerturbationInjector {
     public attach() {
         this.canvas.addEventListener('pointerdown', (e) => {
             const rect = this.canvas.getBoundingClientRect();
-            // Translate absolute pointers to grid coordinates
-            const x = Math.floor((e.clientX - rect.left) / rect.width * 256);
-            const y = Math.floor((e.clientY - rect.top) / rect.height * 256);
+            // Translate absolute pointers to grid coordinates uniformly
+            const x = Math.floor((e.clientX - rect.left) / rect.width * this.field.sectors);
+            const y = Math.floor((e.clientY - rect.top) / rect.height * this.field.radial_bins);
             
             // Generate raw kinetic disturbance intent without specific semantic plasmid
             this.inject(x, y, 500, 10, 128, new Uint8Array(8));

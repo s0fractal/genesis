@@ -38,9 +38,9 @@ export class LensObserver {
         const maxBinding = adapter.limits.maxStorageBufferBindingSize;
         // A single cell takes 19 bytes in our SoA struct
         const maxCells = Math.floor(maxBinding / 19);
-        // Fallback to legacy stable size, but allow optional URL parameter override if we wanted
-        this.W = 256; 
-        this.H = 256;
+        // Era 163 (Ontology 72): Forced 1400x800 Asymmetric Topology Stress Test
+        this.W = 1400; 
+        this.H = 800;
         const numCells = this.W * this.H;
         
         const S_I16 = numCells * 2; // bytes
