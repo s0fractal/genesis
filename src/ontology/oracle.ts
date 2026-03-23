@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { SENATE_MASK_NOMOS, SENATE_MASK_LOGOS, SENATE_MASK_CHRONOS, SENATE_MASK_AION, SENATE_ORACLE_TIMEOUT_MS } from "../shared/constants.ts";
+import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary } from "./epoch_dumper.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
@@ -35,6 +35,9 @@ export class SovereignOracle {
     private isRunning: boolean = false;
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
+    
+    // O-74 Historian Semantic Ledger
+    public eventLedger: SemanticEvent[] = [];
     
     // O-137 Vector F.3: Elastic Global Energy Pool
     private globalEnergyPool: number = 50000;
@@ -120,11 +123,12 @@ export class SovereignOracle {
     }
 
     // O-59 Genesis State Reload
-    public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number) {
+    public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number, loadedLedger?: SemanticEvent[]) {
         // Halt physics completely during transplant
         this.isBusy = true;
         this.globalEnergyPool = newEnergy;
         this.epochTicks = newEpoch;
+        this.eventLedger = loadedLedger || [];
         
         PlasmidRegistry.clear();
         
@@ -252,6 +256,53 @@ export class SovereignOracle {
                 this.triggerSenateIntervention(1, [], `MACRO EPOCH SHIFT: 1000 biological ticks have elapsed.`);
             }
         }
+    }
+
+    // O-75 Autopoietic Homeostasis Guard (Vector H.2)
+    public tickHomeostasis(entropy: number) {
+        if (!this.wasmField.ptr_header) return;
+        
+        const ptr = this.wasmField.ptr_header();
+        if (ptr === 0) return;
+        const view = new DataView(this.wasmMemory.buffer, ptr, 256);
+        
+        // 1. Read true native thermodynamic coefficients (Q10 logic applied for Kuramoto)
+        let currentKuramoto = view.getInt32(28, true) / MATH_Q_SCALE;
+        let currentMutation = view.getInt32(64, true);
+
+        // 2. The Basal Endocrine Algorithm
+        // Ideal "Edge of Chaos" entropy resides functionally between 2.5 and 5.0
+        
+        let kuramotoTarget = 12.0;
+        let mutationTarget = 5.0;
+
+        if (entropy < 1.0) {
+            // CRYSTALLIZATION: The Torus is dead/frozen flat
+            // Spike Kuramoto to forcibly break symmetries, drop mutation cost to inject chaotic fragments
+            kuramotoTarget = 24.0;
+            mutationTarget = 0.0;
+        } else if (entropy > 6.0) {
+            // BOILING: The Torus is absolute noise
+            // Collapse Coupling to stop wildfire logic chains, ruthlessly starve mutations
+            kuramotoTarget = 5.0;
+            mutationTarget = 50.0;
+        } else if (this.globalEnergyPool < 30000) {
+            // STARVATION: Not enough native math to survive
+            // Drop mutation costs rapidly so the graph can find valid logic before death
+            mutationTarget = 1.0;
+        }
+
+        // LERP the coefficients slowly (Native physical adaptation takes time)
+        const LERP_SPEED = 0.01;
+        currentKuramoto += (kuramotoTarget - currentKuramoto) * LERP_SPEED;
+        currentMutation += (mutationTarget - currentMutation) * LERP_SPEED;
+
+        // 3. Write directly over the WASM physical barriers
+        view.setInt32(28, Math.round(currentKuramoto * MATH_Q_SCALE), true);
+        view.setInt32(64, Math.round(currentMutation), true);
+
+        // Hydrate TypeScript single-source-of-truth constants globally
+        hydrateSubstrateHeader(this.wasmMemory, ptr);
     }
 
     public sync() {
@@ -721,11 +772,13 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
         if (this.engine) {
             // O-23 Native WebGPU Interface
             if (targetBucket !== undefined) {
+                this.eventLedger.push({ epoch: this.getEpochTicks(), action: "SENATE_INJECT", hash: hash.toString() });
                 this.engine.injectPlasmidIntoBucket(targetBucket, hash);
                 console.log(`[ORACLE] Successfully decoded algorithm and flooded Bucket #${targetBucket} with Resonance Plasmid.`);
                 if (this.onBroadcast) this.onBroadcast(hash, targetBucket);
             } else {
                 let success = 0;
+                this.eventLedger.push({ epoch: this.getEpochTicks(), action: "SENATE_INJECT_GLOBAL", hash: hash.toString() });
                 for (const idx of requests) {
                     this.engine.injectPlasmid(idx, hash);
                     if (this.onBroadcast) this.onBroadcast(hash, idx);

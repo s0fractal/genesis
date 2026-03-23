@@ -1,4 +1,5 @@
 import type { SemanticCoupler } from "../ontology/semantic_layer.ts";
+import { KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
 
 export let frames = 0;
 export let lastTime = performance.now();
@@ -24,6 +25,7 @@ export const DOM = {
     hMarkerEnergy: document.getElementById("h-marker-energy") as HTMLDivElement | null,
     hEntropyVal: document.getElementById("h-entropy-val") as HTMLSpanElement | null,
     hEnergyVal: document.getElementById("h-energy-val") as HTMLSpanElement | null,
+    hEndocrineVal: document.getElementById("h-endocrine-val") as HTMLSpanElement | null,
 
     // O-59 Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
@@ -109,5 +111,8 @@ export function updateHomeostasisHUD(entropy: number, energy: number) {
         if (enPct > 100) enPct = 100;
         DOM.hMarkerEnergy.style.setProperty("--h-pos", `${enPct}%`);
         DOM.hEnergyVal.replaceChildren(Math.floor(energy).toString());
+    }
+    if (DOM.hEndocrineVal) {
+        DOM.hEndocrineVal.replaceChildren(`K: ${KURAMOTO_COUPLING_BASE.toFixed(2)} | M: ${MUTATION_BASE_COST.toFixed(1)}`);
     }
 }

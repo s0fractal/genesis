@@ -39,11 +39,19 @@ interface SerializedPlasmid {
     nodes: number;
 }
 
+interface SemanticEvent {
+    epoch: number;
+    action: string;
+    hash?: string;
+}
+
 interface SubstrateState {
     globalEnergy: number;
     epochTicks: number;
     registry: SerializedPlasmid[];
     grid: Record<number, string>; // Sparse stringified map: idx -> childHash
+    header_buffer: Uint8Array; // Raw 256-byte OMGA layout
+    event_ledger: SemanticEvent[]; // Historian chronological record
 }
 
 interface EpochDump {

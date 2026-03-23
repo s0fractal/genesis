@@ -125,11 +125,15 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   DOM.btnSaveGenesis?.addEventListener("click", async () => {
     console.log("[GENESIS] Serializing Torus topology and AST registry...");
     const plasmidsBuffer = await computeEngine.extractPlasmidsBuffer();
+    const headerBuffer = new Uint8Array(wasmMemory.buffer, phaseField.ptr_header(), 256).slice();
+    
     const binary = exportGenesisState(
       oracle.getEpochTicks(),
       oracle.getGlobalEnergy(),
       plasmidsBuffer,
       phaseField.cell_count(),
+      headerBuffer,
+      oracle.eventLedger
     );
     downloadGenesisFile(binary, Math.floor(oracle.getEpochTicks() / 1000));
   });
@@ -153,6 +157,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       payload.registry,
       payload.globalEnergy,
       payload.epochTicks,
+      payload.event_ledger
     );
 
     // Reset input to allow reloading the identical file consecutively
@@ -404,6 +409,8 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
           Math.floor(Math.random() * 256),
         );
       }
+      
+      oracle.tickHomeostasis(entropy);
 
       observer.render(computeEngine.getActiveBuffer());
     }

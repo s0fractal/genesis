@@ -1,11 +1,13 @@
 import { encode, decode } from "@msgpack/msgpack";
-import { formatTerm, PlasmidRegistry, parseLambda } from "../compiler/pure_lambda.ts";
+import { formatTerm, PlasmidRegistry } from "../compiler/pure_lambda.ts";
 
 export function exportGenesisState(
     epochTicks: number,
     globalEnergy: number,
     plasmidsArray: BigUint64Array,
-    size: number
+    size: number,
+    headerBuffer: Uint8Array,
+    eventLedger: SemanticEvent[]
 ): Uint8Array {
     const population = Array.from(PlasmidRegistry.entries()).map(([hash, node]) => ({
         hash: hash.toString(),
@@ -32,7 +34,9 @@ export function exportGenesisState(
         globalEnergy,
         epochTicks,
         registry: population,
-        grid: sparseGrid
+        grid: sparseGrid,
+        header_buffer: headerBuffer,
+        event_ledger: eventLedger
     };
 
     return encode(payload);
