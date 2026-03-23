@@ -7,6 +7,12 @@ pub const FNV64_OFFSET_BASIS: u64 = 14695981039346656037;
 pub const FNV64_PRIME: u64 = 1099511628211;
 pub const FNV64_MASK: u64 = 0xFFFFFFFFFFFFFFFF;
 
+// O-80 The Mycelial Lattice: Homotopy Type Theory (HoTT) ∞-groupoid 
+// Tau-buffer is a physical realization of a 4-level groupoid:
+// Layer 0 (theta_now): Points (cells).
+// Layer 1 (theta_f1): Paths (current synchronization/1-morphisms).
+// Layer 2 (theta_f2): Paths between paths (2-morphisms, how paths deformed).
+// Layer 3 (theta_f3): Higher coherent memory (3-morphisms).
 pub const PHASE_TAU_DEPTH: i32 = 4;
 pub const PHASE_LUT_SIZE: u32 = 256;
 pub const PHASE_MAX_AMPLITUDE: u8 = 255;

@@ -464,6 +464,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
 }
 
 // O-64: The Stratum (Fossilization Layer)
+// Mathematics Note (Ontology 80): This functionally acts as a HoTT ∞-groupoid preserving structural "memory of paths".
+// Lean 4 / Agda Certificate Direction: Conservation of Flow.
+// Theorem: if path p : A = B exists in the phase field, 
+// then total_amplitude(A) + total_amplitude(B) = const (minus entropy loss).
 #[wasm_bindgen]
 pub fn execute_phase_lattice_fossilization(field: &mut PhaseLatticeField) {
     let sectors = field.sectors as usize;
