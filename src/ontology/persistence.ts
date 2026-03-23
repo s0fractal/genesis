@@ -32,6 +32,7 @@ export function exportGenesisState(
     }
 
     const payload: SubstrateState = {
+        manifest: { version: 4200, schema: "omega-64-stratum" },
         globalEnergy,
         epochTicks,
         registry: population,
@@ -44,7 +45,12 @@ export function exportGenesisState(
 }
 
 export function parseGenesisState(buffer: ArrayBuffer): SubstrateState {
-    return decode(new Uint8Array(buffer)) as SubstrateState;
+    const decoded = decode(new Uint8Array(buffer)) as SubstrateState;
+    if (!decoded.manifest || decoded.manifest.version < 4200) {
+        console.warn(`[AION] Genesis Version Mismatch. Found: ${decoded.manifest?.version || 'Legacy'}, Expected: 4200+. Proceeding loosely with downward migration...`);
+        // Future migration logic placeholder: return migrateFromEra63(decoded);
+    }
+    return decoded;
 }
 
 // Browser specific download hook (no Deno / FS required)

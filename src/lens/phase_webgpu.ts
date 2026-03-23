@@ -37,6 +37,12 @@ export class PhaseWebGPUObserver {
         this.camera.distance = 6.0;
         this.choir = new BioAcousticChoir();
         
+        this.device.lost.then((info) => {
+            console.warn(`[AION] WebGPU device lost: ${info.reason}`, info.message);
+            // Broadcast collapse to trigger hard reload from Genesis Checkpoint
+            globalThis.dispatchEvent(new CustomEvent("substrateCollapse", { detail: { reason: info.reason } }));
+        });
+        
         this.setupInteractions();
     }
     

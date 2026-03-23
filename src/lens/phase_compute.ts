@@ -46,6 +46,7 @@ export class PhaseComputeEngine {
     public offsets: number[] = [];
     private startTime: number;
     private injections = new Map<number, PendingInjection>();
+    private stagingPool: GPUBuffer[] = [];
 
     constructor(device: GPUDevice, field: PhaseLatticeField, memory: WebAssembly.Memory) {
         this.device = device;
@@ -63,8 +64,18 @@ export class PhaseComputeEngine {
                 document.body.appendChild(errDiv);
             }
             errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
-            // deno-lint-ignore no-explicit-any
-        }) as any;
+            }) as any;
+    }
+
+    private getStagingBuffer(size: number): GPUBuffer {
+        const existing = this.stagingPool.find(b => b.size >= size && b.size <= size * 2 && b.mapState === 'unmapped');
+        if (existing) return existing;
+        const newBuf = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+        this.stagingPool.push(newBuf);
+        return newBuf;
     }
 
     // deno-lint-ignore require-await
@@ -296,10 +307,7 @@ export class PhaseComputeEngine {
         if (!this.device) return new Float32Array(0);
         
         const size = this.mycelialBuffer.size;
-        const stagingBuffer = this.device.createBuffer({
-            size,
-            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-        });
+        const stagingBuffer = this.getStagingBuffer(size);
 
         const commandEncoder = this.device.createCommandEncoder();
         commandEncoder.copyBufferToBuffer(this.mycelialBuffer, 0, stagingBuffer, 0, size);
@@ -311,8 +319,7 @@ export class PhaseComputeEngine {
         const f32Data = new Float32Array(copyBuffer.slice(0));
         
         stagingBuffer.unmap();
-        // Discard the staging bridge explicitly to free heap bounds
-        stagingBuffer.destroy();
+        // Zero-copy pooling avoids arbitrary GC blocks
         
         return f32Data;
     }
@@ -325,10 +332,7 @@ export class PhaseComputeEngine {
         const numCells = this.field.cell_count();
         const size = numCells * 16; // 16 bytes per PhaseAgent
         
-        const stagingBuffer = this.device.createBuffer({
-            size,
-            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-        });
+        const stagingBuffer = this.getStagingBuffer(size);
 
         const commandEncoder = this.device.createCommandEncoder();
         commandEncoder.copyBufferToBuffer(activeBuffer, 0, stagingBuffer, 0, size);
@@ -346,7 +350,7 @@ export class PhaseComputeEngine {
         }
         
         stagingBuffer.unmap();
-        stagingBuffer.destroy();
+        // Zero-copy pooling mechanism
         
         return data;
     }

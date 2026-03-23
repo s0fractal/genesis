@@ -45,7 +45,13 @@ interface SemanticEvent {
     hash?: string;
 }
 
+interface GenesisManifest {
+    version: number;
+    schema: string;
+}
+
 interface SubstrateState {
+    manifest?: GenesisManifest;
     globalEnergy: number;
     epochTicks: number;
     registry: SerializedPlasmid[];
