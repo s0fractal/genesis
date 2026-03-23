@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@wasm': path.resolve(__dirname, './omega_core/pkg/omega_core.js')
+    }
+  },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',

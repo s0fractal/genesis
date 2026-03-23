@@ -1,4 +1,4 @@
-import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseLatticeField, phase_lattice_omega_span } from "@wasm";
 
 function hsv2rgb(h: number, s: number, v: number): [number, number, number] {
     const i = Math.floor(h * 6);
@@ -49,14 +49,9 @@ export class PhaseLensObserver {
         const cx = width / 2;
         const cy = height / 2;
         const maxRadius = Math.min(width, height) * 0.42;
-        const cellCount = this.field.cell_count();
 
-        const theta = new Uint8Array(this.memory.buffer, this.field.ptr_theta(), cellCount);
-        const omega = new Int16Array(this.memory.buffer, this.field.ptr_omega(), cellCount);
-        const amplitude = new Uint8Array(this.memory.buffer, this.field.ptr_amplitude(), cellCount);
-        const lock = new Uint8Array(this.memory.buffer, this.field.ptr_lock(), cellCount);
-        const entanglement = new Uint8Array(this.memory.buffer, this.field.ptr_entanglement(), cellCount);
-        const plasmids = new BigUint64Array(this.memory.buffer, this.field.ptr_plasmids(), cellCount);
+        const ptrAgents = this.field.ptr_agents() as number;
+        const view = new DataView(this.memory.buffer);
 
         ctx.clearRect(0, 0, width, height);
 
@@ -86,7 +81,8 @@ export class PhaseLensObserver {
                 for (let rho = 0; rho < this.field.radial_bins; rho++) {
                     for (let sector = 0; sector < this.field.sectors / 2; sector++) {
                         const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
-                        const strength = entanglement[idx];
+                        const agentOffset = ptrAgents + idx * 16;
+                        const strength = view.getUint8(agentOffset + 6);
                         if (strength < 120) {
                             continue;
                         }
@@ -118,7 +114,8 @@ export class PhaseLensObserver {
             for (let rho = 0; rho < this.field.radial_bins; rho++) {
                 for (let sector = 0; sector < this.field.sectors; sector++) {
                     const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
-                    const p = plasmids[idx];
+                    const agentOffset = ptrAgents + idx * 16;
+                    const p = view.getBigUint64(agentOffset + 8, true);
                     if (p !== 0n) {
                         const angle = sector / this.field.sectors * Math.PI * 2;
                         const ringRadius = maxRadius * ((rho + 1) / (this.field.radial_bins + 1));
@@ -145,7 +142,8 @@ export class PhaseLensObserver {
             for (let rho = 0; rho < this.field.radial_bins; rho++) {
                 for (let sector = 0; sector < this.field.sectors; sector++) {
                     const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
-                    const p = plasmids[idx];
+                    const agentOffset = ptrAgents + idx * 16;
+                    const p = view.getBigUint64(agentOffset + 8, true);
                     if (p !== 0n) {
                         const group = this.plasmidGroups.get(p);
                         if (group && group.count > 1) {
@@ -177,23 +175,30 @@ export class PhaseLensObserver {
             for (let rho = 0; rho < this.field.radial_bins; rho++) {
                 for (let sector = 0; sector < this.field.sectors; sector++) {
                     const idx = harmonic * this.field.radial_bins * this.field.sectors + rho * this.field.sectors + sector;
+                    const agentOffset = ptrAgents + idx * 16;
+
                     const angle = sector / this.field.sectors * Math.PI * 2;
                     const ringRadius = maxRadius * ((rho + 1) / (this.field.radial_bins + 1));
                     const harmonicOffset = (harmonic - (this.field.harmonics - 1) / 2) * 3;
                     const x = cx + Math.cos(angle) * (ringRadius + harmonicOffset);
                     const y = cy + Math.sin(angle) * (ringRadius + harmonicOffset);
 
-                    const hue = theta[idx] / 255;
-                    const saturation = 0.6 + entanglement[idx] / 1024;
-                    const value = 0.3 + amplitude[idx] / 320;
+                    const currentTheta = view.getUint8(agentOffset);
+                    const currentEntanglement = view.getUint8(agentOffset + 6);
+                    const currentAmplitude = view.getUint8(agentOffset + 4);
+                    const currentLock = view.getUint8(agentOffset + 5);
+
+                    const hue = currentTheta / 255;
+                    const saturation = 0.6 + currentEntanglement / 1024;
+                    const value = 0.3 + currentAmplitude / 320;
                     const [r, g, b] = hsv2rgb(hue, Math.min(1, saturation), Math.min(1, value));
-                    const alpha = 0.25 + Math.min(0.7, lock[idx] / 255 * 0.5 + amplitude[idx] / 255 * 0.25);
-                    const size = 1.4 + amplitude[idx] / 100 + entanglement[idx] / 220;
+                    const alpha = 0.25 + Math.min(0.7, currentLock / 255 * 0.5 + currentAmplitude / 255 * 0.25);
+                    const size = 1.4 + currentAmplitude / 100 + currentEntanglement / 220;
 
                     ctx.beginPath();
                     ctx.fillStyle = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${alpha})`;
                     ctx.shadowColor = `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, 0.45)`;
-                    ctx.shadowBlur = 8 + entanglement[idx] / 16;
+                    ctx.shadowBlur = 8 + currentEntanglement / 16;
                     ctx.arc(x, y, size, 0, Math.PI * 2);
                     ctx.fill();
                 }
@@ -204,6 +209,6 @@ export class PhaseLensObserver {
         ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
         ctx.font = "12px monospace";
         ctx.fillText(`phase lattice ${this.field.sectors}x${this.field.radial_bins}x${this.field.harmonics}`, 24, 28);
-        ctx.fillText(`omega span ${Math.min(...omega)}..${Math.max(...omega)}`, 24, 46);
+        ctx.fillText(`omega span ${phase_lattice_omega_span(this.field)}`, 24, 46);
     }
 }

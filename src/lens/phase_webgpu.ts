@@ -1,7 +1,7 @@
 /// <reference types="@webgpu/types" />
 
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
-import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from './phase_compute.ts';
 import * as C from "../shared/constants.ts";
 import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4 } from "./math_3d.ts";

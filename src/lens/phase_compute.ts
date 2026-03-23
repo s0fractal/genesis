@@ -1,7 +1,7 @@
 import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import commonWgsl from './shaders/common.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
-import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseLatticeField } from "@wasm";
 import * as C from "../shared/constants.ts";
 
 interface PendingInjection {

@@ -1,4 +1,4 @@
-import { fnv1a_64 } from "../../omega_core/pkg/omega_core.js";
+import { fnv1a_64 } from "@wasm";
 import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";

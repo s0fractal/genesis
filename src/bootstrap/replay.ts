@@ -1,4 +1,4 @@
-import initWasm from "../../omega_core/pkg/omega_core.js";
+import initWasm from "@wasm";
 import { PhaseReplayObserver } from "../lens/phase_replay_view.ts";
 import {
   buildDiffSummary,

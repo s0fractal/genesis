@@ -1,4 +1,4 @@
-import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
+import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from "./phase_compute.ts";
 import { SovereignOracle } from "../ontology/oracle.ts";
 

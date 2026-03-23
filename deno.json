@@ -3,5 +3,8 @@
     "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
     "types": ["./src/env.d.ts"]
   },
+  "imports": {
+    "@wasm": "./omega_core/pkg/omega_core.js"
+  },
   "unstable": ["webgpu"]
 }

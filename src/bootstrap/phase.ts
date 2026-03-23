@@ -4,7 +4,7 @@ import {
   phase_lattice_signature,
   phase_lattice_total_amplitude,
   PhaseLatticeField,
-} from "../../omega_core/pkg/omega_core.js";
+} from "@wasm";
 import { PhasePerturbationInjector } from "../lens/phase_input.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";

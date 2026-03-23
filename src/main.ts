@@ -2,7 +2,7 @@ import { bootstrapPhase } from "./bootstrap/phase.ts";
 import { bootstrapReplay } from "./bootstrap/replay.ts";
 import { bindNativeConstants } from "./shared/constants.ts";
 
-import initWasm from "../omega_core/pkg/omega_core.js";
+import initWasm from "@wasm";
 
 export const START_MS = performance.now();
 

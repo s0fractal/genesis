@@ -1,4 +1,4 @@
-import initWasm, { PhaseLatticeField, execute_phase_lattice_tick } from "../../omega_core/pkg/omega_core.js";
+import initWasm, { PhaseLatticeField, execute_phase_lattice_tick } from "@wasm";
 import {
     createPhaseField,
     structuralSignature,

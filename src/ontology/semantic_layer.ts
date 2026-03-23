@@ -1,4 +1,4 @@
-import { fnv1a_64 } from "../../omega_core/pkg/omega_core.js";
+import { fnv1a_64 } from "@wasm";
 
 export class SemanticCoupler {
     private injector: any; // PerturbationInjector
