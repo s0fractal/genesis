@@ -130,17 +130,23 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let t_outer = get_byte(params.off_theta, get_idx(sector, outer_rho, harmonic));
     let t_harm = get_byte(params.off_theta, get_idx(sector, rho, harm_peer));
 
+    // O-164: Local Thermodynamic Feedback (Energy -> Coupling)
+    // As a cell gains Amplitude (Energy/Resonance), its Kuramoto coupling strength increases.
+    // This allows spontaneous synchronized structures to harden against chaos without an Oracle.
+    // Base strength when amp=64; 2x strength when amp=192 (Q10 preserved via ratio).
+    let dynamic_coupling = (COUPLING_BASE * (amplitude + 64)) / 128;
+
     // Kuramoto Delta sums (SINE_LUT x COUPLING = Q10 x Q10 = Q20 Matrix)
-    var kuramoto = phase_sin_i32(theta, t_left) * COUPLING_BASE +
-                   phase_sin_i32(theta, t_right) * COUPLING_BASE +
-                   phase_sin_i32(theta, t_inner) * COUPLING_BASE +
-                   phase_sin_i32(theta, t_outer) * COUPLING_BASE +
+    var kuramoto = phase_sin_i32(theta, t_left) * dynamic_coupling +
+                   phase_sin_i32(theta, t_right) * dynamic_coupling +
+                   phase_sin_i32(theta, t_inner) * dynamic_coupling +
+                   phase_sin_i32(theta, t_outer) * dynamic_coupling +
                    phase_sin_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
 
-    var coherence = phase_cos_i32(theta, t_left) * COUPLING_BASE +
-                    phase_cos_i32(theta, t_right) * COUPLING_BASE +
-                    phase_cos_i32(theta, t_inner) * COUPLING_BASE +
-                    phase_cos_i32(theta, t_outer) * COUPLING_BASE +
+    var coherence = phase_cos_i32(theta, t_left) * dynamic_coupling +
+                    phase_cos_i32(theta, t_right) * dynamic_coupling +
+                    phase_cos_i32(theta, t_inner) * dynamic_coupling +
+                    phase_cos_i32(theta, t_outer) * dynamic_coupling +
                     phase_cos_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
 
     // Antipode Coupling
