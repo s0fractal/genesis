@@ -256,7 +256,28 @@ export class SovereignOracle {
         totalNovelty = totalNovelty || 1.0;
         
         let bankruptCount = 0;
+        const localStalemates: bigint[] = [];
         
+        // Era 202 Vector 2: Diurnal Macro-Cycles (The Sleep Ticks)
+        const isLunarPhase = (this.epochTicks % 1000) > 500;
+        
+        if (isLunarPhase) {
+            // LUNAR PHASE: Taxation halts, execution slumbers, AST memory naturally compresses
+            for (const hash of this.activePlasmids) {
+                const node = this.plasmidRegistry.get(hash);
+                if (!node || node.energy === Infinity) continue;
+                
+                // Hibernation compression (Simulated Biological Sleep Recovery)
+                node.age = Math.max(0, node.age - 1); 
+                if (node.l1_cost > 10) {
+                    node.l1_cost = Math.floor(node.l1_cost * 0.99); // Slow organic pruning
+                }
+            }
+            this.epochTicks++;
+            return; // Skip normal economy completely
+        }
+        
+        // SOLAR PHASE (Daytime execution & metabolism)
         for (const hash of this.activePlasmids) {
             const node = this.plasmidRegistry.get(hash);
             if (!node) {
@@ -302,61 +323,76 @@ export class SovereignOracle {
                 }
             }
 
-            // O-141 Vector J.1: Energy-Bound Execution (Environmental Diversity)
-            // Stochastic 5% population sampling. A node's energy strictly dictates its computational allowance.
-            if (node.energy !== Infinity && Math.random() < 0.05) {
-                try {
-                    const testTerm = apply(node.ast, variable("target"));
-                    const computationalLimit = Math.max(10, Math.floor(node.energy)); // Minimum 10 steps to prove survival
-                    const { timeout } = evaluateFitness(testTerm, computationalLimit);
-                    
-                    if (timeout) {
-                        const penalty = Math.min(node.energy, 2000); // PARASITE_PENALTY
-                        node.energy -= penalty;
-                        collectedTaxes += penalty;
-                        node.fitness = Math.max(0, node.fitness - 2.0); // Never sub-zero fitness
-                    } else {
-                        // O-141 Vector J.3: Decoupling Evolution from Execution
-                        // Nodes earn fitness purely by surviving execution, unlocking the ability to breed
-                        node.fitness += 0.5; 
-                        
-                        // O-201 Vector 3: Proof of Useful Work (PoUW)
-                        // Surviving deep mathematical execution mints fresh energy from the 21M reserve cap!
-                        if (this.reserveEnergyPool > 0) {
-                            const reward = Math.min(this.miningReward, this.reserveEnergyPool);
-                            this.reserveEnergyPool -= reward;
-                            node.energy += reward;
-                            
-                            this.epochsMined++;
-                            // Bitcoin-style Halving: Every 210,000 blocks
-                            if (this.epochsMined % 210000 === 0) {
-                                this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
-                            }
-                        }
-                    }
-                } catch (_e) {
-                    const penalty = Math.min(node.energy, 2000); // Unparseable / Mathematically Divergent
-                    node.energy -= penalty;
-                    collectedTaxes += penalty;
-                    node.fitness = Math.max(0, node.fitness - 2.0);
-                }
-            }
-            
             // Extinction threshold
             if (node.energy <= 0) {
                 // O-140 Vector I.3: AION Structural Necrosis (Topological Garbage Collection)
-                // We cannot sever the node without warning the network natively
                 for (const mHash of node.mutualists) {
                     const relative = this.plasmidRegistry.get(mHash);
                     if (relative) relative.mutualists.delete(hash);
                 }
                 
                 this.plasmidRegistry.delete(hash);
+                this.activePlasmids.add(hash); // Let it get wiped properly (wait, delete actually removes it)
                 this.activePlasmids.delete(hash);
                 bankruptCount++;
             } else if (node.attention === 0 && node.energy === Infinity) {
                 this.activePlasmids.delete(hash);
             }
+        }
+        
+        // Era 202 Vector 3: The SUPERSCHEDULER (Biological Execution Priority)
+        const candidates = Array.from(this.activePlasmids).filter(h => {
+             const n = this.plasmidRegistry.get(h);
+             return n && n.energy !== Infinity && n.energy > 0;
+        });
+        
+        // Sort Apex Mutualists first, tie-break by highest energy
+        candidates.sort((a, b) => {
+             const nA = this.plasmidRegistry.get(a)!;
+             const nB = this.plasmidRegistry.get(b)!;
+             if (nB.mutualists.size !== nA.mutualists.size) {
+                 return nB.mutualists.size - nA.mutualists.size;
+             }
+             return nB.energy - nA.energy;
+        });
+
+        // Execute top 64 priority nodes (Max WASM geometric budget)
+        const executionBudget = Math.min(64, candidates.length);
+        for (let i = 0; i < executionBudget; i++) {
+             const hash = candidates[i];
+             const node = this.plasmidRegistry.get(hash)!;
+             
+             try {
+                 const testTerm = apply(node.ast, variable("target"));
+                 // Minimum 10 steps to prove survival
+                 const computationalLimit = Math.max(10, Math.floor(node.energy)); 
+                 const { timeout } = evaluateFitness(testTerm, computationalLimit);
+                 
+                 if (timeout) {
+                     // Era 202 Vector 1: Paradoxical Reproduction
+                     localStalemates.push(hash);
+                     node.fitness = Math.max(0, node.fitness - 0.5); 
+                 } else {
+                     node.fitness += 0.5; 
+                     
+                     // O-201 Vector 3: PoUW Mining
+                     if (this.reserveEnergyPool > 0) {
+                         const reward = Math.min(this.miningReward, this.reserveEnergyPool);
+                         this.reserveEnergyPool -= reward;
+                         node.energy += reward;
+                         
+                         this.epochsMined++;
+                         if (this.epochsMined % 210000 === 0) {
+                             this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
+                         }
+                     }
+                 }
+             } catch (_e) {
+                 const penalty = Math.min(node.energy, 2000); 
+                 node.energy -= penalty;
+                 collectedTaxes += penalty;
+                 node.fitness = Math.max(0, node.fitness - 2.0);
+             }
         }
         
         if (bankruptCount > 0) {
@@ -366,6 +402,20 @@ export class SovereignOracle {
         // Re-inject taxes and undistributed fragments back into circulation
         this.globalEnergyPool += collectedTaxes;
         this.globalEnergyPool += (distributionPool - distributedEnergy);
+        
+        // Era 202 Vector 1: Cross-breed the Paradoxes
+        if (localStalemates.length >= 2) {
+            console.log(`[ORACLE] 🧬 Vector 202.1: Detected ${localStalemates.length} Paradoxical Stalemates. Forcibly cross-breeding infinite loops.`);
+            const pairs = Math.floor(localStalemates.length / 2);
+            const collisionArray = new BigUint64Array(pairs * 3);
+            for (let i = 0; i < pairs; i++) {
+                const randomIdx = BigInt(Math.floor(Math.random() * 4000));
+                collisionArray[i * 3] = randomIdx; 
+                collisionArray[i * 3 + 1] = localStalemates[i * 2];
+                collisionArray[i * 3 + 2] = localStalemates[i * 2 + 1];
+            }
+            this.processHorizontalGeneTransfers(pairs, collisionArray);
+        }
         
         // O-139 Vector H.3: Torus Observation Triggers
         this.epochTicks++;
@@ -860,10 +910,10 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             // O-196 Taper backoff
             this.oracleBackoffDelay = 0;
 
-        } catch (e: any) {
+        } catch (_e) {
             // O-196 "Degraded Mode" State Machining
             this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? 5000 : Math.min(60000, this.oracleBackoffDelay * 2);
-            console.warn(`[ORACLE] Entire Senate failed/timeout (${e.message}). Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms.`);
+            console.warn(`[ORACLE] Entire Senate failed/timeout. Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms.`);
             if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: `AI Nodes Non-Responsive [DEGRADED_MODE ${this.oracleBackoffDelay}ms]` });
             
             // Explicitly do NOT emit stochastic fallback. Let biology handle the silence.
