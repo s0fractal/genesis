@@ -1,5 +1,5 @@
 export type Term =
-    | { type: "Combinator"; name: "S" | "K" | "I" | "Y" }
+    | { type: "Combinator"; name: "S" | "K" | "I" | "Y" | "B" | "C" | "W" }
     | { type: "Variable"; name: string }
     | { type: "Application"; left: Term; right: Term };
 
@@ -7,6 +7,9 @@ export const S: Term = { type: "Combinator", name: "S" };
 export const K: Term = { type: "Combinator", name: "K" };
 export const I: Term = { type: "Combinator", name: "I" };
 export const Y: Term = { type: "Combinator", name: "Y" };
+export const B: Term = { type: "Combinator", name: "B" };
+export const C: Term = { type: "Combinator", name: "C" };
+export const W: Term = { type: "Combinator", name: "W" };
 
 export function apply(left: Term, right: Term): Term {
     return { type: "Application", left, right };
@@ -68,12 +71,18 @@ export function phenotypeHue(term: Term): number {
     let sCount = 0;
     let kCount = 0;
     let iCount = 0;
+    let bCount = 0;
+    let cCount = 0;
+    let wCount = 0;
     
     function walk(t: Term) {
         if (t.type === "Combinator") {
             if (t.name === "S") sCount++;
             else if (t.name === "K") kCount++;
             else if (t.name === "I" || t.name === "Y") iCount++;
+            else if (t.name === "B") bCount++;
+            else if (t.name === "C") cCount++;
+            else if (t.name === "W") wCount++;
         } else if (t.type === "Application") {
             walk(t.left);
             walk(t.right);
@@ -82,16 +91,29 @@ export function phenotypeHue(term: Term): number {
     
     walk(term);
     
-    const total = sCount + kCount + iCount;
+    const total = sCount + kCount + iCount + bCount + cCount + wCount;
     if (total === 0) return 42; // Variables default to slightly yellow (60 degrees approx)
     
-    // Calculate color vectors: S=0 deg(Red), K=120 deg(Green), I/Y=240 deg(Blue)
-    const sRatio = sCount / total;
-    const kRatio = kCount / total;
-    const iRatio = iCount / total;
+    const sRatio = sCount / total; // Red (0 deg)
+    const wRatio = wCount / total; // Amber (60 deg)
+    const kRatio = kCount / total; // Green (120 deg)
+    const iRatio = iCount / total; // Blue (240 deg)
+    const bRatio = bCount / total; // Indigo (270 deg)
+    const cRatio = cCount / total; // Crimson (330 deg)
     
-    const x = sRatio * Math.cos(0) + kRatio * Math.cos(2 * Math.PI / 3) + iRatio * Math.cos(4 * Math.PI / 3);
-    const y = sRatio * Math.sin(0) + kRatio * Math.sin(2 * Math.PI / 3) + iRatio * Math.sin(4 * Math.PI / 3);
+    const x = sRatio * Math.cos(0) 
+            + wRatio * Math.cos(Math.PI / 3) 
+            + kRatio * Math.cos(2 * Math.PI / 3) 
+            + iRatio * Math.cos(4 * Math.PI / 3)
+            + bRatio * Math.cos(4.5 * Math.PI / 3)
+            + cRatio * Math.cos(5.5 * Math.PI / 3);
+            
+    const y = sRatio * Math.sin(0) 
+            + wRatio * Math.sin(Math.PI / 3) 
+            + kRatio * Math.sin(2 * Math.PI / 3) 
+            + iRatio * Math.sin(4 * Math.PI / 3)
+            + bRatio * Math.sin(4.5 * Math.PI / 3)
+            + cRatio * Math.sin(5.5 * Math.PI / 3);
     
     let hue = Math.atan2(y, x) * (180 / Math.PI);
     if (hue < 0) hue += 360;
@@ -107,12 +129,18 @@ export function compileMorphology(term: Term): bigint {
     let sCount = 0;
     let kCount = 0;
     let iCount = 0;
+    let bCount = 0;
+    let cCount = 0;
+    let wCount = 0;
     
     function walk(t: Term) {
         if (t.type === "Combinator") {
             if (t.name === "S") sCount++;
             else if (t.name === "K") kCount++;
             else if (t.name === "I" || t.name === "Y") iCount++;
+            else if (t.name === "B") bCount++;
+            else if (t.name === "C") cCount++;
+            else if (t.name === "W") wCount++;
         } else if (t.type === "Application") {
             walk(t.left);
             walk(t.right);
@@ -122,18 +150,18 @@ export function compileMorphology(term: Term): bigint {
 
     const hue = BigInt(phenotypeHue(term));
     
-    // Phase (Theta) - Mapped to I/Y count (Temporal Delay logic shifts continuous phase)
-    const phaseShift = BigInt(Math.min(255, iCount * 32));
+    // Phase (Theta) - Mapped to I/Y/B logic shifts continuous phase
+    const phaseShift = BigInt(Math.min(255, (iCount + bCount) * 32));
     
-    // Entanglement - Mapped to S count (Structural Splitting induces massive web bounds)
-    const entanglement = BigInt(Math.min(255, sCount * 18));
+    // Entanglement - Mapped to S/W (Duplication and Splitting induces massive web bounds)
+    const entanglement = BigInt(Math.min(255, (sCount + wCount) * 18));
     
     // Amplitude (Energy) - Mapped to total AST sheer gravity
     const metrics = measureIR(term);
     const amplitude = BigInt(Math.min(255, 40 + metrics.nodes * 12));
     
-    // Lock (Rigidity) - Mapped to K count (Pruning logic permanently scars topology)
-    const lock = BigInt(Math.min(255, kCount * 24));
+    // Lock (Rigidity) - Mapped to K/C (Pruning and Transposition permanently scars topology)
+    const lock = BigInt(Math.min(255, (kCount + cCount) * 24));
 
     // Pack into u64 Schema
     // Byte 0: Hue | Byte 1: Phase | Byte 2: Entanglement | Byte 3: Amplitude | Byte 4: Lock
@@ -195,6 +223,44 @@ export function reduceStep(term: Term): Term | null {
     if (term.left.type === "Combinator" && term.left.name === "Y") {
         const x = term.right;
         return apply(x, apply(Y, x));
+    }
+
+    // Era 210: Smullyan Cambrian Expansion
+    // B x y z => x (y z) (Composition / Bluebird)
+    if (
+        term.left.type === "Application" &&
+        term.left.left.type === "Application" &&
+        term.left.left.left.type === "Combinator" &&
+        term.left.left.left.name === "B"
+    ) {
+        const x = term.left.left.right;
+        const y = term.left.right;
+        const z = term.right;
+        return apply(x, apply(y, z));
+    }
+
+    // C x y z => x z y (Exchange / Cardinal)
+    if (
+        term.left.type === "Application" &&
+        term.left.left.type === "Application" &&
+        term.left.left.left.type === "Combinator" &&
+        term.left.left.left.name === "C"
+    ) {
+        const x = term.left.left.right;
+        const y = term.left.right;
+        const z = term.right;
+        return apply(apply(x, z), y);
+    }
+
+    // W x y => (x y) y (Duplication / Warbler)
+    if (
+        term.left.type === "Application" &&
+        term.left.left.type === "Combinator" &&
+        term.left.left.name === "W"
+    ) {
+        const x = term.left.right;
+        const y = term.right;
+        return apply(apply(x, y), y);
     }
 
     // Attempt to reduce the left side of the application first (applicative order / strict)
@@ -316,10 +382,10 @@ export function parseLambda(input: string): Term {
                 throw new Error("Lambda Parse Error: Empty parenthesis '()'.");
             }
             return left;
-        } else if (token === ")") {
+        } else if (")" === token) {
             throw new Error("Lambda Parse Error: Unexpected closing parenthesis ')'.");
-        } else if (["S", "K", "I", "Y"].includes(token)) {
-            return { type: "Combinator", name: token as "S" | "K" | "I" | "Y" };
+        } else if (["S", "K", "I", "Y", "B", "C", "W"].includes(token)) {
+            return { type: "Combinator", name: token as "S" | "K" | "I" | "Y" | "B" | "C" | "W" };
         } else if (MACROS[token]) {
             // O-145 Vector N.2: Hardware Expansion
             // Dynamically unwrap the Senate's semantic intent into pure physics nodes

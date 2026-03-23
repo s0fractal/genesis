@@ -3,7 +3,7 @@ import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -166,7 +166,10 @@ export class SovereignOracle {
             { term: S, string: "S" },
             { term: K, string: "K" },
             { term: I, string: "I" },
-            { term: Y, string: "Y" }
+            { term: Y, string: "Y" },
+            { term: B, string: "B" },
+            { term: C, string: "C" },
+            { term: W, string: "W" }
         ];
         for (const meta of immortals) {
             const childHash = compileMorphology(meta.term);
@@ -188,7 +191,7 @@ export class SovereignOracle {
                 this.activePlasmids.add(childHash);
             }
         }
-        console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y) directly into Native Memory.`);
+        console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y, B, C, W) directly into Native Memory.`);
     }
 
     /**
