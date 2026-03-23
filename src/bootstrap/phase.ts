@@ -52,7 +52,10 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   
   // Ontology 23: Native Metal compute instantiation
   const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter!.requestDevice();
+  if (!adapter) {
+      throw new Error("WebGPU adapter not found — check browser/hardware support");
+  }
+  const device = await adapter.requestDevice();
 
   const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
   await computeEngine.init();
@@ -98,6 +101,14 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const senateChat = new SenateChatHUD();
   oracle.onSenateEvent = (event) => {
     senateChat.handleEvent(event);
+  };
+  
+  oracle.onVision = (base64: string) => {
+      const debugImg = document.getElementById("oracle-debug-vision") as HTMLImageElement;
+      if (debugImg) {
+          debugImg.style.display = "block";
+          debugImg.src = "data:image/png;base64," + base64;
+      }
   };
 
   const injector = new PhasePerturbationInjector(

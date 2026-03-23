@@ -52,6 +52,9 @@ export class SovereignOracle {
     
     // O-45 WebRTC Transmitter
     private onBroadcast?: (hash: bigint, targetBucket: number) => void;
+    
+    // O-189 Peripheral DOM Transmitter
+    public onVision?: (base64: string) => void;
 
     // The single central prompt logic is preserved but now delegated internally
     // as we transition to Ontology 43 (Four Masks)
@@ -597,11 +600,8 @@ export class SovereignOracle {
             }
         }
         
-        // Output snapshot to a debug pane if it exists
-        const debugImg = document.getElementById("oracle-debug-vision") as HTMLImageElement;
-        if (debugImg && structuralImage) {
-            debugImg.style.display = "block";
-            debugImg.src = "data:image/png;base64," + structuralImage;
+        if (this.onVision && structuralImage) {
+            this.onVision(structuralImage);
         }
 
         let seasonValue = 0;

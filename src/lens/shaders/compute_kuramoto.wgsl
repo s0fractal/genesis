@@ -6,7 +6,13 @@ override MAX_ENTANGLEMENT: i32;
 override MAX_OMEGA: i32;
 override SHADOW_BUCKET_MIN: i32;
 override SHADOW_BUCKET_MAX: i32;
+// WGSL WebGPU Semantic Thresholds
+const COHERENCE_LOCK_THRESHOLD: i32 = 3145728; // Q20 representation of 3.0
+const COHERENCE_HIGH_THRESHOLD: i32 = 4404019; // Q20 representation of 4.2
+const MYCELIAL_COUPLING_WEIGHT: i32 = 4096;    // Base multiplier (4.0)
+const STAKING_COUPLING_WEIGHT: i32 = 3072;     // Base multiplier (3.0)
 
+// Semantic Buffers
 struct Params {
   sectors: u32,
   radial_bins: u32,
@@ -195,8 +201,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var centroid_theta_rad = atan2(m_y, m_x);
             if (centroid_theta_rad < 0.0) { centroid_theta_rad += 6.283185307; }
             let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
-            kuramoto += sin(me.theta, centroid) * 4096;
-            coherence += cos(me.theta, centroid) * 4096;
+            kuramoto += sin(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
+            coherence += cos(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
         }
     }
 
@@ -209,7 +215,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
                 if (n.energy > me.energy) {
                     staking_energy_bonus += i32(n.energy - me.energy) / 4;
-                    kuramoto += sin(me.theta, n.theta) * 3072;
+                    kuramoto += sin(me.theta, n.theta) * STAKING_COUPLING_WEIGHT;
                 }
             }
         }
@@ -222,9 +228,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var next_theta = u32(wrap_index(i32(me.theta) + next_omega, 256));
 
     var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus;
-    if (coherence > 4404019) { amp_delta += 2; }
+    if (coherence > COHERENCE_HIGH_THRESHOLD) { amp_delta += 2; }
 
-    let lock_delta = select(-4, 8, coherence >= 3145728);
+    let lock_delta = select(-4, 8, coherence >= COHERENCE_LOCK_THRESHOLD);
 
     var next_amp = clamp(i32(me.energy) + amp_delta, 0, 255);
     var next_lock = clamp(i32(me.lock) + lock_delta, 0, 255);

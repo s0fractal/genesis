@@ -74,19 +74,15 @@ export function tickFps() {
   }
 }
 
+const STAT_SLOTS = {
+    a: { label: () => DOM.statALabel, value: () => DOM.statAValue },
+    b: { label: () => DOM.statBLabel, value: () => DOM.statBValue },
+    c: { label: () => DOM.statCLabel, value: () => DOM.statCValue },
+} as const;
+
 export function setHudStat(slot: "a" | "b" | "c", label: string, value: string) {
-  if (slot === "a") {
-    DOM.statALabel?.replaceChildren(label);
-    DOM.statAValue?.replaceChildren(value);
-    return;
-  }
-  if (slot === "b") {
-    DOM.statBLabel?.replaceChildren(label);
-    DOM.statBValue?.replaceChildren(value);
-    return;
-  }
-  DOM.statCLabel?.replaceChildren(label);
-  DOM.statCValue?.replaceChildren(value);
+    STAT_SLOTS[slot].label()?.replaceChildren(label);
+    STAT_SLOTS[slot].value()?.replaceChildren(value);
 }
 
 export function setInputMode(target: "semantic" | "replay") {

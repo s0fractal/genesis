@@ -38,8 +38,6 @@ export async function bootstrapReplay(replayStack: string) {
   observer.init();
 
   const phaseDataset = await loadPhaseReplayDataset();
-  // deno-lint-ignore no-explicit-any
-  const wasm = await initWasm();
   let currentTick = 0;
   let compareMode: ReplayCompareMode = "seed";
   let playing = false;
@@ -141,18 +139,4 @@ export async function bootstrapReplay(replayStack: string) {
   console.log(
     `[Genesis] Replay diff viewer active. Use ?mode=replay&stack=${replayStack} to inspect this trace.`,
   );
-}
-
-function getSnapshotComparison(
-  snapshots: PhaseField[],
-  tick: number,
-  compareMode: ReplayCompareMode,
-): PhaseField | null {
-  if (compareMode === "none") {
-    return null;
-  }
-  if (compareMode === "seed") {
-    return snapshots[0];
-  }
-  return tick > 0 ? snapshots[tick - 1] : null;
 }

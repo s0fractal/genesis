@@ -1,5 +1,6 @@
 import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import commonWgsl from './shaders/common.wgsl?raw';
+import generatedWgslLut from './shaders/generated/lut_data.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
 import { PhaseLatticeField } from "@wasm";
 import * as C from "../shared/constants.ts";
@@ -12,6 +13,16 @@ interface PendingInjection {
     amp: number;
     phase: number;
     ent: number;
+}
+
+function decomposeHash(hash: bigint) {
+    return {
+        amp: Number((hash >> 24n) & 0xFFn),
+        phase: Number((hash >> 8n) & 0xFFn),
+        ent: Number((hash >> 16n) & 0xFFn),
+        low: Number(hash & 0xFFFFFFFFn),
+        high: Number(hash >> 32n),
+    };
 }
 
 export class PhaseComputeEngine {
@@ -94,8 +105,9 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.bufferA, 0, new Uint8Array(mem, agentPtr, totalSize));
         this.device.queue.writeBuffer(this.bufferB, 0, new Uint8Array(mem, agentPtr, totalSize));
 
-        const shaderModule = this.device.createShaderModule({ code: commonWgsl + "\n" + computeKuramotoWgsl });
-        const mycelialModule = this.device.createShaderModule({ code: commonWgsl + "\n" + computeMycelialWgsl });
+        const fullCommonWgsl = generatedWgslLut + "\n" + commonWgsl;
+        const shaderModule = this.device.createShaderModule({ code: fullCommonWgsl + "\n" + computeKuramotoWgsl });
+        const mycelialModule = this.device.createShaderModule({ code: fullCommonWgsl + "\n" + computeMycelialWgsl });
 
         const pipelineConstants = {
             PHASE_LUT_SIZE: C.PHASE_LUT_SIZE,
@@ -241,16 +253,14 @@ export class PhaseComputeEngine {
 
     injectPlasmid(index: number, hash: bigint) {
         if (!this.device) return;
-        const amp = Number((hash >> 24n) & 0xFFn);
-        const phase = Number((hash >> 8n) & 0xFFn);
-        const ent = Number((hash >> 16n) & 0xFFn);
+        const dec = decomposeHash(hash);
         
         const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
-        inj.hashLow = Number(hash & 0xFFFFFFFFn);
-        inj.hashHigh = Number(hash >> 32n);
-        inj.amp = Math.max(20, amp); 
-        inj.phase = phase;
-        inj.ent = ent;
+        inj.hashLow = dec.low;
+        inj.hashHigh = dec.high;
+        inj.amp = Math.max(20, dec.amp); 
+        inj.phase = dec.phase;
+        inj.ent = dec.ent;
         this.injections.set(index, inj);
     }
 
@@ -259,18 +269,16 @@ export class PhaseComputeEngine {
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
         if (!this.device) return;
         const injId = this.nextInjId--;
-        const amp = Number((hash >> 24n) & 0xFFn);
-        const phase = Number((hash >> 8n) & 0xFFn);
-        const ent = Number((hash >> 16n) & 0xFFn);
+        const dec = decomposeHash(hash);
         
         const inj = { 
             idx: 0xFFFFFFFF, 
             bucket: bucketId, 
-            hashLow: Number(hash & 0xFFFFFFFFn), 
-            hashHigh: Number(hash >> 32n), 
-            amp: Math.max(20, amp), 
-            phase: phase, 
-            ent: ent 
+            hashLow: dec.low, 
+            hashHigh: dec.high, 
+            amp: Math.max(20, dec.amp), 
+            phase: dec.phase, 
+            ent: dec.ent 
         };
         this.injections.set(injId, inj);
     }

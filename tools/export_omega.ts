@@ -15,6 +15,7 @@ const EXCLUDE_DIRS = [
   /puppeteer/,
   /archive/,
   /tasks/,
+  /generated/,
 ];
 
 async function main() {
