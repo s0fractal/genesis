@@ -24,8 +24,6 @@ import {
   wireSemanticInput,
 } from "./dom.ts";
 import {
-  TISSUE_MORPHOLOGICAL_DELTA_MIN,
-  TISSUE_MORPHOLOGICAL_HYSTERESIS,
   hydrateSubstrateHeader,
   KURAMOTO_COUPLING_BASE,
   MUTATION_BASE_COST,
@@ -56,10 +54,10 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter!.requestDevice();
 
-  let computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
+  const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
   await computeEngine.init();
 
-  let observer = new PhaseWebGPUObserver(
+  const observer = new PhaseWebGPUObserver(
     canvas,
     phaseField,
     computeEngine,
@@ -87,7 +85,9 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
         plasmid.targetBucket,
         BigInt(plasmid.hash),
       );
-    } catch (_e) {}
+    } catch (_e) {
+      // Ignore exogenous off-grid WebRTC packets
+    }
   });
   oracle.bindNetwork((hash, targetBucket) => {
     // O-48: Genesis Override
@@ -167,233 +167,22 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
     target.value = "";
   });
 
-  let lastShedCheck = performance.now();
-
   // O-44: Phylogenetic HUD Initialization
   const phylogenyHUD = new PhylogeneticCanvas();
   let lastPhylogenyCheck = performance.now();
-  let isShedding = false; // O-57
-
-  // O-65 Invariant Guards
-  let initialWrapSectors = true;
-  let ticksSinceLastShedding = 0;
 
   // O-130 Thermodynamic Safeguards
   let lastAionIntervention = performance.now();
   let lastShadowTelemetryCheck = performance.now();
 
-  const loop = async () => {
-    ticksSinceLastShedding++;
-    // O-32: Morphological Hot-Reloading Polling (Shedding Event)
+  const loop = () => {
     const nowLocal = performance.now();
-    if (nowLocal - lastShedCheck > 1000 && !isShedding) {
-      lastShedCheck = nowLocal;
-      try {
-        const res = await fetch("/I.md", { cache: "no-store" });
-        if (res.ok) {
-          const text = await res.text();
-          const nodeIdx = text.indexOf("### tissue_constants");
-          if (nodeIdx !== -1) {
-            const irIdx = text.indexOf("#### IR", nodeIdx);
-            if (irIdx !== -1) {
-              const codeStart = text.indexOf("```json\n", irIdx) + 8;
-              const codeEnd = text.indexOf("\n```", codeStart);
-              if (codeStart > 8 && codeEnd > codeStart) {
-                const body = JSON.parse(text.substring(codeStart, codeEnd));
-                let tSectors = phaseField.sectors;
-                let tRadial = phaseField.radial_bins;
-                let tHarm = phaseField.harmonics;
-
-                if (body.SECTORS !== undefined) tSectors = body.SECTORS;
-                if (body.RADIAL_BINS !== undefined) tRadial = body.RADIAL_BINS;
-                if (body.HARMONICS !== undefined) tHarm = body.HARMONICS;
-
-                // O-50 Phase 2: Dimensional Parameter Clamp (VRAM Quota)
-                if (tSectors > 4096) tSectors = 4096;
-                if (tRadial > 4096) tRadial = 4096;
-                if (tHarm > 16) tHarm = 16;
-                // Minimum topology checks
-                if (tSectors < 8) tSectors = 8;
-                if (tRadial < 8) tRadial = 8;
-
-                // O-65: Prevent Genus Tear
-                if (
-                  body.WRAP_SECTORS !== undefined &&
-                  body.WRAP_SECTORS !== initialWrapSectors
-                ) {
-                  console.warn(
-                    `[O-65] Topological Invariant Violation. Cannot alter Genus geometry mid-simulation.`,
-                  );
-                }
-
-                // O-65: Morphological Hysteresis & Delta
-                const isMorphing = tSectors !== phaseField.sectors ||
-                  tRadial !== phaseField.radial_bins ||
-                  tHarm !== phaseField.harmonics;
-                if (isMorphing) {
-                  if (
-                    ticksSinceLastShedding < TISSUE_MORPHOLOGICAL_HYSTERESIS
-                  ) {
-                    console.warn(
-                      `[O-65] Morphological Hysteresis active (${ticksSinceLastShedding}/${TISSUE_MORPHOLOGICAL_HYSTERESIS}). Rejecting mutation.`,
-                    );
-                    tSectors = phaseField.sectors;
-                    tRadial = phaseField.radial_bins;
-                    tHarm = phaseField.harmonics;
-                  } else {
-                    const oldVolume = phaseField.sectors *
-                      phaseField.radial_bins * phaseField.harmonics;
-                    const newVolume = tSectors * tRadial * tHarm;
-                    const delta = Math.abs(newVolume - oldVolume) / oldVolume;
-                    if (delta < TISSUE_MORPHOLOGICAL_DELTA_MIN) {
-                      console.warn(
-                        `[O-65] Morphological Delta ${
-                          delta.toFixed(2)
-                        } < ${TISSUE_MORPHOLOGICAL_DELTA_MIN}. Rejecting.`,
-                      );
-                      tSectors = phaseField.sectors;
-                      tRadial = phaseField.radial_bins;
-                      tHarm = phaseField.harmonics;
-                    }
-                  }
-                }
-
-                if (
-                  tSectors !== phaseField.sectors ||
-                  tRadial !== phaseField.radial_bins ||
-                  tHarm !== phaseField.harmonics
-                ) {
-                  ticksSinceLastShedding = 0;
-                  initialWrapSectors = body.WRAP_SECTORS ?? initialWrapSectors;
-
-                  console.log(
-                    `\n🦋 UNIVERSAL SHEDDING EVENT DETECTED -> Biomass mutated geometry to ${tSectors}x${tRadial}x${tHarm}`,
-                  );
-                  console.log(
-                    `🧨 Securing VRAM Pointers for Asynchronous Morphological Migration...`,
-                  );
-
-                  isShedding = true;
-                  DOM.statusLabel?.replaceChildren(
-                    `SHEDDING IN PROGRESS (${tSectors}x${tRadial}x${tHarm})...`,
-                  );
-
-                  // O-57: Asynchronous Morphological Interpolation (Nearest-Neighbor WebWorker)
-                  const oldSectors = phaseField.sectors;
-                  const oldRadial = phaseField.radial_bins;
-                  const oldHarm = phaseField.harmonics;
-
-                  // Backup old tensors by safely duplicating via slice() before free
-                  const _OCount = phaseField.cell_count();
-                  const oldTheta = new Uint8Array(
-                    wasmMemory.buffer,
-                    phaseField.ptr_theta(),
-                    _OCount,
-                  ).slice();
-                  const oldOmega = new Int16Array(
-                    wasmMemory.buffer,
-                    phaseField.ptr_omega(),
-                    _OCount,
-                  ).slice();
-                  const oldPlasmids = new BigUint64Array(
-                    wasmMemory.buffer,
-                    phaseField.ptr_plasmids(),
-                    _OCount,
-                  ).slice();
-
-                  const worker = new Worker(
-                    new URL("../workers/shedding_worker.ts", import.meta.url),
-                    { type: "module" },
-                  );
-
-                  worker.postMessage({
-                    oldTheta,
-                    oldOmega,
-                    oldPlasmids,
-                    oldSectors,
-                    oldRadial,
-                    oldHarm,
-                    tSectors,
-                    tRadial,
-                    tHarm,
-                  }, [oldTheta.buffer, oldOmega.buffer, oldPlasmids.buffer]);
-
-                  worker.onmessage = async (e) => {
-                    const { newTheta, newOmega, newPlasmids } = e.data;
-
-                    phaseField.resize_topology(tSectors, tRadial, tHarm);
-
-                    const ptrTheta = new Uint8Array(
-                      wasmMemory.buffer,
-                      phaseField.ptr_theta(),
-                      phaseField.cell_count(),
-                    );
-                    const ptrOmega = new Int16Array(
-                      wasmMemory.buffer,
-                      phaseField.ptr_omega(),
-                      phaseField.cell_count(),
-                    );
-                    const ptrPlasmids = new BigUint64Array(
-                      wasmMemory.buffer,
-                      phaseField.ptr_plasmids(),
-                      phaseField.cell_count(),
-                    );
-
-                    ptrTheta.set(newTheta);
-                    ptrOmega.set(newOmega);
-                    ptrPlasmids.set(newPlasmids);
-
-                    console.log(
-                      `✨ Topological interpolation fully migrated across WASM geometries via WebWorker.`,
-                    );
-
-                    computeEngine = new PhaseComputeEngine(
-                      device,
-                      phaseField,
-                      wasmMemory,
-                    );
-                    await computeEngine.init();
-
-                    observer = new PhaseWebGPUObserver(
-                      canvas,
-                      phaseField,
-                      computeEngine,
-                      device,
-                    );
-                    await observer.init();
-
-                    // Rebind global daemon observers identically
-                    oracle.rebind(phaseField, computeEngine, observer);
-                    injector.rebind(phaseField, computeEngine);
-
-                    setHudStat(
-                      "a",
-                      "SECTORS",
-                      `${tSectors}x${tRadial}x${tHarm}`,
-                    );
-                    DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");
-                    console.log(
-                      `✨ Shedding Event Complete. System dimensions hot-reloaded seamlessly.\n`,
-                    );
-
-                    isShedding = false;
-                    worker.terminate();
-                  };
-                }
-              }
-            }
-          }
-        }
-      } catch (_e) {}
-    }
 
     // O-44: Lineage Verification Sync (1Hz)
     if (nowLocal - lastPhylogenyCheck > 1000) {
       lastPhylogenyCheck = nowLocal;
       phylogenyHUD.tick();
     }
-
-    if (!isShedding) {
       computeEngine.tick();
       oracle.sync();
 
@@ -427,16 +216,15 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
         });
       }
 
-      // Era 172: Live Bio-Acoustic Sonification Parametrics
-      observer.choir.modulateParams(
-          oracle.getGlobalEnergy() / 100000.0,
-          Math.max(0, 1.0 - (oracle.getQueueSize() / 20.0)),
-          Math.max(0, 1.0 - (entropy / 6.0)),
-          (nowLocal % 5000) / 5000.0
-      );
+    // Era 172: Live Bio-Acoustic Sonification Parametrics
+    observer.choir.modulateParams(
+        oracle.getGlobalEnergy() / 100000.0,
+        Math.max(0, 1.0 - (oracle.getQueueSize() / 20.0)),
+        Math.max(0, 1.0 - (entropy / 6.0)),
+        (nowLocal % 5000) / 5000.0
+    );
 
-      observer.render(computeEngine.getActiveBuffer());
-    }
+    observer.render(computeEngine.getActiveBuffer());
 
     tickFps();
 
