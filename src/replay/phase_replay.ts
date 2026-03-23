@@ -4,8 +4,10 @@ import {
     structuralSignature,
     sumAmplitude,
     sumEntanglement,
+    type PhaseField, // NEW
+    phaseDistance,   // FUSED
 } from "../shared/topology_core.ts";
-import { phaseDistance } from "../shared/topology_core.ts";
+export type { PhaseField };
 import { hydrateSubstrateHeader, SUBSTRATE_VERSION } from "../shared/constants.ts";
 
 export type ReplayCompareMode = "none" | "seed" | "previous";

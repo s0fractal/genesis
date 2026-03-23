@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
+import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary, archiveLedgerChunk } from "./epoch_dumper.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
@@ -121,7 +121,7 @@ export class SovereignOracle {
             { term: Y, string: "Y" }
         ];
         for (const meta of immortals) {
-            let childHash = compileMorphology(meta.term);
+            const childHash = compileMorphology(meta.term);
             
             if (!this.plasmidRegistry.has(childHash)) {
                 this.plasmidRegistry.set(childHash, {
@@ -422,9 +422,11 @@ export class SovereignOracle {
             size = this.wasmField.width * this.wasmField.height;
         }
         
-        const plasmidPtr = this.wasmField.ptr_plasmids();
+        if (!this.wasmField.ptr_plasmids || !this.wasmField.ptr_cell_status) return;
+        
+        const plasmidPtr = this.wasmField.ptr_plasmids!();
         const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
-        const statusPtr = this.wasmField.ptr_cell_status();
+        const statusPtr = this.wasmField.ptr_cell_status!();
         const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
 
         for (let i = 0; i < count; i++) {
@@ -824,10 +826,12 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             size = this.wasmField.width * this.wasmField.height;
         }
         
-        const plasmidPtr = this.wasmField.ptr_plasmids();
+        if (!this.wasmField.ptr_plasmids || !this.wasmField.ptr_cell_status) return;
+
+        const plasmidPtr = this.wasmField.ptr_plasmids!();
         const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
         
-        const statusPtr = this.wasmField.ptr_cell_status();
+        const statusPtr = this.wasmField.ptr_cell_status!();
         const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
         
         let success = 0;

@@ -15,6 +15,8 @@ struct Params {
   off_plasmids: u32,
   pad1: u32,
   pad2: u32,
+  view: mat4x4<f32>,
+  proj: mat4x4<f32>,
 };
 
 @group(0) @binding(0) var<storage, read> field: array<u32>;
@@ -55,27 +57,6 @@ fn hsv2rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
   return rgb + vec3<f32>(m);
 }
 
-fn look_at(eye: vec3<f32>, focal_point: vec3<f32>, up: vec3<f32>) -> mat4x4<f32> {
-    let z = normalize(eye - focal_point);
-    let x = normalize(cross(up, z));
-    let y = cross(z, x);
-    return mat4x4<f32>(
-        vec4<f32>(x.x, y.x, z.x, 0.0),
-        vec4<f32>(x.y, y.y, z.y, 0.0),
-        vec4<f32>(x.z, y.z, z.z, 0.0),
-        vec4<f32>(-dot(x, eye), -dot(y, eye), -dot(z, eye), 1.0)
-    );
-}
-
-fn perspective(fov: f32, aspect: f32, near: f32, far: f32) -> mat4x4<f32> {
-    let f = 1.0 / tan(fov * 0.5);
-    return mat4x4<f32>(
-        vec4<f32>(f / aspect, 0.0, 0.0, 0.0),
-        vec4<f32>(0.0, f, 0.0, 0.0),
-        vec4<f32>(0.0, 0.0, -far / (far - near), -1.0),
-        vec4<f32>(0.0, 0.0, -(near * far) / (far - near), 0.0)
-    );
-}
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) -> VertexOutput {
@@ -123,17 +104,10 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
     vec2<f32>( 1.0,  1.0)
   );
 
-  let cam_radius = 5.5;
-  let cam_x = cos(params.time * 0.15) * cam_radius;
-  let cam_y = sin(params.time * 0.15) * cam_radius;
-  let cam_z = 3.5 + sin(params.time * 0.08) * 1.5;
-  
-  let view = look_at(vec3<f32>(cam_x, cam_y, cam_z), vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
-  let proj = perspective(0.785398, params.aspect_ratio, 0.1, 100.0);
-  let view_proj = proj * view;
+  let view_proj = params.proj * params.view;
 
-  let right = vec3<f32>(view[0][0], view[1][0], view[2][0]);
-  let up = vec3<f32>(view[0][1], view[1][1], view[2][1]);
+  let right = vec3<f32>(params.view[0][0], params.view[1][0], params.view[2][0]);
+  let up = vec3<f32>(params.view[0][1], params.view[1][1], params.view[2][1]);
   
   let base_size = 0.04 + amplitude * 0.12 + entanglement * 0.22;
   let chronological_compression = max(0.2, 1.0 - (time_dist * 0.25)); // compress geometry into the past

@@ -7,13 +7,7 @@ import {
   loadPhaseReplayDataset,
   summarizeReplayDiff,
 } from "../replay/phase_replay.ts";
-import {
-  collapsePhaseField,
-  cropPhaseField,
-  hybridSnapshotSignature,
-  loadHybridReplayDataset,
-} from "../replay/hybrid_replay.ts";
-import type { ReplayCompareMode } from "../replay/phase_replay.ts";
+import type { ReplayCompareMode, PhaseField } from "../replay/phase_replay.ts";
 import {
   configureCanvas,
   DOM,
@@ -36,15 +30,7 @@ export async function bootstrapReplay(replayStack: string) {
   DOM.statusLabel?.replaceChildren("LOADING CANONICAL TRACE");
   setHudStat("a", "TICK", "0/0");
   setHudStat("b", "FPS", "0");
-  setHudStat(
-    "c",
-    replayStack === "phase"
-      ? "PARITY"
-      : replayStack === "hybrid"
-      ? "TRACE"
-      : "MODE",
-    "loading",
-  );
+  setHudStat("c", "PARITY", "loading");
   setInputMode("replay");
 
   const canvas = configureCanvas();
@@ -52,23 +38,13 @@ export async function bootstrapReplay(replayStack: string) {
   observer.init();
 
   const phaseDataset = await loadPhaseReplayDataset();
-  const wasm = replayStack === "phase" ? null : await initWasm();
   // deno-lint-ignore no-explicit-any
-  const hybridDataset = wasm
-    ? await loadHybridReplayDataset(wasm as any)
-    : null;
+  const wasm = await initWasm();
   let currentTick = 0;
   let compareMode: ReplayCompareMode = "seed";
   let playing = false;
   let lastAdvance = performance.now();
-  const commonTicks = hybridDataset
-    ? Math.min(phaseDataset.golden.ticks, hybridDataset.golden.ticks)
-    : phaseDataset.golden.ticks;
-  const totalTicks = replayStack === "hybrid" && hybridDataset
-    ? hybridDataset.golden.ticks
-    : replayStack === "cross"
-    ? commonTicks
-    : phaseDataset.golden.ticks;
+  const totalTicks = phaseDataset.golden.ticks;
 
   if (DOM.replayTickSlider) {
     DOM.replayTickSlider.min = "0";
@@ -92,61 +68,6 @@ export async function bootstrapReplay(replayStack: string) {
     let rightLabel: string;
     let summary;
 
-    if (replayStack === "hybrid" && hybridDataset) {
-      current = hybridDataset.snapshots[boundedTick];
-      compare = getSnapshotComparison(
-        hybridDataset.snapshots,
-        boundedTick,
-        compareMode,
-      );
-      const hybridTrace = hybridDataset.golden.wasmTrace[boundedTick];
-      summary = buildDiffSummary(
-        current,
-        compare,
-        hybridSnapshotSignature(current),
-        hybridTrace.signature,
-        false,
-      );
-      title = "hybrid replay";
-      statusLine = `compare ${compareMode} | trace ${
-        hybridTrace.signature.slice(0, 8)
-      } | Ω ${hybridTrace.omegaSpan}`;
-      leftLabel = "view";
-      rightLabel = "golden";
-      setHudStat("c", "TRACE", hybridTrace.signature.slice(0, 12));
-      DOM.statusLabel?.replaceChildren(
-        `HYBRID Δ${summary.changedCells} | RAW ${
-          hybridTrace.signature.slice(0, 8)
-        } | Ω ${hybridTrace.omegaSpan}`,
-      );
-    } else if (replayStack === "cross" && hybridDataset) {
-      current = collapsePhaseField(
-        getReplaySnapshot(phaseDataset, boundedTick),
-        6,
-      );
-      compare = cropPhaseField(
-        hybridDataset.snapshots[boundedTick],
-        current.shape.radialBins,
-      );
-      summary = buildDiffSummary(
-        current,
-        compare,
-        hybridSnapshotSignature(current),
-        hybridSnapshotSignature(compare),
-        false,
-      );
-      title = "phase vs hybrid";
-      statusLine =
-        "cross diff | phase collapsed to 1 harmonic | hybrid cropped to 6 rings";
-      leftLabel = "phase";
-      rightLabel = "hybrid";
-      setHudStat("c", "MODE", "PH↔HY");
-      DOM.statusLabel?.replaceChildren(
-        `CROSS Δ${summary.changedCells} | PH ${
-          summary.referenceStructuralSignature.slice(0, 8)
-        } | HY ${summary.wasmStructuralSignature.slice(0, 8)}`,
-      );
-    } else {
       current = getReplaySnapshot(phaseDataset, boundedTick);
       compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
       summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
@@ -164,7 +85,6 @@ export async function bootstrapReplay(replayStack: string) {
           referenceTrace.structuralSignature.slice(0, 8)
         } | WASM ${wasmTrace.structuralSignature.slice(0, 8)}`,
       );
-    }
 
     observer.render(current, compare, {
       tick: boundedTick,

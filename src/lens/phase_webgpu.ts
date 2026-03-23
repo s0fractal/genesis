@@ -4,6 +4,7 @@ import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from './phase_compute.ts';
 import { generateWgslConstants } from "../shared/constants.ts";
+import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4 } from "./math_3d.ts";
 
 export class PhaseWebGPUObserver {
     public heatmapEnabled: boolean = false;
@@ -17,6 +18,9 @@ export class PhaseWebGPUObserver {
     private field: PhaseLatticeField;
     private engine: PhaseComputeEngine;
     private startTime: number;
+    public camera: OrbitCamera;
+    private isDragging: boolean = false;
+    private lastPinchDist = 0;
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
         this.canvas = canvas;
@@ -24,6 +28,55 @@ export class PhaseWebGPUObserver {
         this.engine = engine;
         this.device = device;
         this.startTime = performance.now();
+        
+        this.camera = new OrbitCamera();
+        this.camera.pitch = Math.PI / 4; // 45 degrees
+        this.camera.distance = 6.0;
+        
+        this.setupInteractions();
+    }
+    
+    private setupInteractions() {
+        this.canvas.addEventListener('pointerdown', (e) => {
+            if (e.button === 0) this.isDragging = true;
+        });
+
+        globalThis.addEventListener('pointerup', () => {
+            this.isDragging = false;
+            this.lastPinchDist = 0;
+        });
+
+        this.canvas.addEventListener('pointermove', (e) => {
+            if (!this.isDragging) return;
+            this.camera.yaw -= e.movementX * 0.01;
+            this.camera.pitch += e.movementY * 0.01;
+            
+            // Clamp pitch to prevent flipping
+            const PITCH_LIMIT = Math.PI / 2 - 0.05;
+            if (this.camera.pitch > PITCH_LIMIT) this.camera.pitch = PITCH_LIMIT;
+            if (this.camera.pitch < -PITCH_LIMIT) this.camera.pitch = -PITCH_LIMIT;
+        });
+
+        this.canvas.addEventListener('wheel', (e) => {
+            this.camera.distance += e.deltaY * 0.01;
+            if (this.camera.distance < 1.0) this.camera.distance = 1.0;
+            if (this.camera.distance > 20.0) this.camera.distance = 20.0;
+        }, { passive: true });
+        
+        // Touch scaling for pinch to zoom
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (this.lastPinchDist > 0) {
+                    this.camera.distance += (this.lastPinchDist - dist) * 0.02;
+                    if (this.camera.distance < 1.0) this.camera.distance = 1.0;
+                    if (this.camera.distance > 20.0) this.camera.distance = 20.0;
+                }
+                this.lastPinchDist = dist;
+            }
+        }, { passive: true });
     }
 
     // deno-lint-ignore require-await
@@ -45,9 +98,9 @@ export class PhaseWebGPUObserver {
             alphaMode: 'opaque'
         });
 
-        // 64 bytes total structurally (16 x 4-byte fields)
+        // 192 bytes total structurally (64 default bytes + 64 bytes VIEW + 64 bytes PROJ)
         this.paramsBuffer = this.device.createBuffer({
-            size: 64,
+            size: 192,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
         
@@ -110,7 +163,7 @@ export class PhaseWebGPUObserver {
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
 
-        const uniformBuffer = new ArrayBuffer(64);
+        const uniformBuffer = new ArrayBuffer(192);
         const viewU32 = new Uint32Array(uniformBuffer);
         const viewF32 = new Float32Array(uniformBuffer);
 
@@ -130,6 +183,25 @@ export class PhaseWebGPUObserver {
         viewU32[11] = Math.floor(this.engine.offsets[3] / 4);
         viewU32[12] = Math.floor(this.engine.offsets[4] / 4);
         viewU32[13] = Math.floor(this.engine.offsets[5] / 4);
+        
+        // Compute View and Proj Matrices
+        const proj = createMat4();
+        const view = createMat4();
+        mat4Perspective(proj, Math.PI / 4, aspect, 0.1, 100.0);
+        
+        const cp = Math.cos(this.camera.pitch);
+        const sp = Math.sin(this.camera.pitch);
+        const cy = Math.cos(this.camera.yaw);
+        const sy = Math.sin(this.camera.yaw);
+        const eyeX = this.camera.targetX + this.camera.distance * cp * sy;
+        const eyeY = this.camera.targetY + this.camera.distance * sp;
+        const eyeZ = this.camera.targetZ + this.camera.distance * cp * cy;
+        
+        mat4LookAt(view, eyeX, eyeY, eyeZ, this.camera.targetX, this.camera.targetY, this.camera.targetZ, 0, 1, 0);
+
+        // Inject Matrices sequentially into the single continuous Uniform Buffer
+        viewF32.set(view, 16);  // Float offset 16 = Byte offset 64
+        viewF32.set(proj, 32);  // Float offset 32 = Byte offset 128
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
 
