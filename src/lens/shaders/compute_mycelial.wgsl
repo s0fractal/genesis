@@ -70,20 +70,20 @@ fn get_agent(idx: u32) -> PhaseAgent {
     let t3 = buffer_a[offset + 3u];
 
     var agent: PhaseAgent;
-    agent.theta = t0 & 0xFFu;
-    agent.energy = (t0 >> 8u) & 0xFFu;
+    agent.plasmid_low = t0;
+    agent.plasmid_high = t1;
     
-    let omega_raw = (t0 >> 16u) & 0xFFFFu;
+    let omega_raw = t2 & 0xFFFFu;
     if ((omega_raw & 0x8000u) != 0u) {
         agent.omega = i32(omega_raw) - 65536;
     } else {
         agent.omega = i32(omega_raw);
     }
     
-    agent.lock = t1 & 0xFFu;
-    agent.ent = (t1 >> 8u) & 0xFFu;
-    agent.plasmid_low = t2;
-    agent.plasmid_high = t3;
+    agent.theta = t3 & 0xFFu;
+    agent.energy = (t3 >> 8u) & 0xFFu;
+    agent.lock = (t3 >> 16u) & 0xFFu;
+    agent.ent = (t3 >> 24u) & 0xFFu;
     return agent;
 }
 

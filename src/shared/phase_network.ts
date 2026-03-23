@@ -16,6 +16,9 @@ export class PhaseNetwork {
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     private nodeId: string;
     
+    // O-200 Vector 7: WebRTC Jitter Initialization Backoff
+    private backoffMs: number;
+    
     // O-196 WebRTC Traffic Shaping
     private originRateLimits: Map<string, { count: number, resetAt: number }> = new Map();
     
@@ -34,6 +37,7 @@ export class PhaseNetwork {
     constructor(onPlasmidReceived: (plasmid: ForeignPlasmid) => void) {
         this.onPlasmidReceived = onPlasmidReceived;
         this.nodeId = "node_" + Math.random().toString(36).substring(2, 9);
+        this.backoffMs = 100 + Math.random() * 500; // Stochastic initialization bounds
         
         // 🍄 Phase 1: Local Mycelial Fusion (Same-Machine Cross-Tab)
         this.channel = new BroadcastChannel("omega_64_mycelium");
@@ -72,14 +76,23 @@ export class PhaseNetwork {
         if (msg.type === "HELLO") {
             // A new peer appeared! We will initiate the connection as the Caller.
             if (!this.peers.has(msg.origin)) {
-                console.log(`🍄 [Auto-Mycelium] Detected new peer ${msg.origin}. Initiating WebRTC Handshake...`);
-                const pc = this.createPeerConnection(msg.origin);
-                const dc = pc.createDataChannel("mycelium_vector");
-                this.bindDataChannel(dc);
-
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                this.meshChannel.postMessage({ type: "OFFER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
+                
+                // O-200 Vector 7: Jitter delay to prevent thundering herd when > 3 peers exist
+                const delay = this.peers.size > 3 ? this.backoffMs * Math.random() * 3 : 0;
+                
+                setTimeout(async () => {
+                    // Re-verify after backoff
+                    if (this.peers.has(msg.origin)) return;
+                    
+                    console.log(`🍄 [Auto-Mycelium] Detected new peer ${msg.origin}. Initiating WebRTC Handshake...`);
+                    const pc = this.createPeerConnection(msg.origin);
+                    const dc = pc.createDataChannel("mycelium_vector");
+                    this.bindDataChannel(dc);
+    
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    this.meshChannel.postMessage({ type: "OFFER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
+                }, delay);
             }
         } 
         else if (msg.type === "OFFER" && msg.target === this.nodeId) {

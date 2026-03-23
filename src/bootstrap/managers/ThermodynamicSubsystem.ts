@@ -38,6 +38,8 @@ export class ThermodynamicSubsystem implements ISubsystem {
         if (nowLocal - this.lastShadowTelemetryCheck > 1000) {
             this.lastShadowTelemetryCheck = nowLocal;
             this.engine.readMycelialCentroids().then(centroids => {
+                if (!centroids) return;
+                
                 let pressure = 0;
                 // Sum active cells inside the Latent Network (Buckets 1000-1024)
                 for (let i = 1000; i < 1025; i++) {

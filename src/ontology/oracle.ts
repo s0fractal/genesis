@@ -46,6 +46,7 @@ export class SovereignOracle {
     private observer?: PhaseWebGPUObserver;
     
     public plasmidRegistry = new Map<bigint, SomaticNode>();
+    public activePlasmids = new Set<bigint>();
     
     // O-51 Senate Chat HUD Telemetry
     public onSenateEvent?: (event: SenateEvent) => void;
@@ -62,12 +63,27 @@ export class SovereignOracle {
 
     private isRunning: boolean = false;
     private isBusy: boolean = false;
+    
+    
+    // O-200 Oracle Semantic Cache implementation
+    private llmCache = new Map<string, { response: string, ts: number }>();
     private requestQueue: number[] = [];
     
     // O-196 The Existential Event Economy (Degraded Mode & ATP Sink)
     private oracleBackoffDelay: number = 0;
     private lastOracleAttempt: number = 0;
     private ORACLE_INVOCATION_COST: number = 10000; // Gods demand massive energy
+    
+    // O-200 Vector 6: Fast V8 Interning for FNV WASM boundaries
+    private fnvStringCache = new Map<string, bigint>();
+    private fastSemanticHash(intent: string): bigint {
+        const cached = this.fnvStringCache.get(intent);
+        if (cached !== undefined) return cached;
+        const h = fnv1a_64(intent);
+        this.fnvStringCache.set(intent, h);
+        if (this.fnvStringCache.size > 10000) this.fnvStringCache.clear();
+        return h;
+    }
     
     // O-74 Historian Semantic Ledger
     public eventLedger: SemanticEvent[] = [];
@@ -84,8 +100,12 @@ export class SovereignOracle {
         }
     }
     
-    // O-137 Vector F.3: Elastic Global Energy Pool
-    private globalEnergyPool: number = 50000;
+    // O-201 Vector 1: The Thermodynamic Currency (21M ATP)
+    public readonly MAX_SYSTEM_ENERGY = 21_000_000;
+    private globalEnergyPool: number = 20000; // Circulating Supply (Transaction Fees)
+    private reserveEnergyPool: number = this.MAX_SYSTEM_ENERGY - 20000; // Mined via PoUW
+    private miningReward: number = 50;
+    private epochsMined: number = 0;
     
     // O-48 Git-Watchdog Ontology Phase 5
     private epochTicks: number = 0;
@@ -148,6 +168,7 @@ export class SovereignOracle {
                     fitness: 1.0,
                     mutualists: new Set()
                 });
+                this.activePlasmids.add(childHash);
             }
         }
         console.log(`[ORACLE] ⛓️ Bootstrapped Core Dependencies (S, K, I, Y) directly into Native Memory.`);
@@ -158,7 +179,15 @@ export class SovereignOracle {
      * Garbage collects mathematically stagnant plasmids and penalizes massive AST payloads.
      */
     public getGlobalEnergy(): number {
+        return this.globalEnergyPool + this.reserveEnergyPool;
+    }
+    
+    public getCirculatingEnergy(): number {
         return this.globalEnergyPool;
+    }
+    
+    public getReserveEnergy(): number {
+        return this.reserveEnergyPool;
     }
 
     public getEpochTicks(): number {
@@ -169,11 +198,13 @@ export class SovereignOracle {
     public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number, loadedLedger?: SemanticEvent[]) {
         // Halt physics completely during transplant
         this.isBusy = true;
-        this.globalEnergyPool = newEnergy;
+        this.globalEnergyPool = Math.min(newEnergy, this.MAX_SYSTEM_ENERGY);
+        this.reserveEnergyPool = this.MAX_SYSTEM_ENERGY - this.globalEnergyPool;
         this.epochTicks = newEpoch;
         this.eventLedger = loadedLedger || [];
         
         this.plasmidRegistry.clear();
+        this.activePlasmids.clear();
         
         for (const node of registryPayload) {
             const hash = BigInt(node.hash);
@@ -189,13 +220,14 @@ export class SovereignOracle {
                 nodes: node.nodes || 1,
                 mutualists: new Set(node.mutualists.map((h: string) => BigInt(h)))
             });
+            this.activePlasmids.add(hash);
         }
         
         console.log(`[ORACLE] 🌌 Re-sequenced ${registryPayload.length} Logic Matrices into Torus Reality.`);
         this.isBusy = false;
     }
 
-    public tickSomaticEconomy(activity: number = 0) {
+    public tickSomaticEconomy(_activity: number = 0) {
         if (this.plasmidRegistry.size === 0) return;
         
         // O-154 Vector V.2: Oracle Pressure Gate (Ontology 57)
@@ -204,29 +236,50 @@ export class SovereignOracle {
             return;
         }
         
-        // F.3 Elastic Energy Capacity
-        // Momentum expands the pool dynamically. Stagnation crushes it.
-        this.globalEnergyPool = Math.max(20000, activity * 500);
+        // O-201 Vector 1: Thermodynamic Currency (Strict Conservation)
+        // Momentum no longer creates energy out of thin air. The pool is strictly bounded by 21M limit.
+        const distributionPool = this.globalEnergyPool;
+        this.globalEnergyPool = 0; // We distribute all circulating energy this frame.
+        let distributedEnergy = 0;
+        let collectedTaxes = 0;
         
         // Energy Distribution Phase
-        const activeNodes = Array.from(this.plasmidRegistry.values());
-        const totalAttention = activeNodes.reduce((sum, n) => sum + n.attention, 0);
-        const totalNovelty = activeNodes.reduce((sum, n) => sum + (1.0 / (1.0 + n.attention)), 0) || 1.0;
+        let totalAttention = 0;
+        let totalNovelty = 0;
+        for (const hash of this.activePlasmids) {
+            const node = this.plasmidRegistry.get(hash);
+            if (node) {
+                totalAttention += node.attention;
+                totalNovelty += (1.0 / (1.0 + node.attention));
+            }
+        }
+        totalNovelty = totalNovelty || 1.0;
         
         let bankruptCount = 0;
         
-        for (const [hash, node] of this.plasmidRegistry.entries()) {
+        for (const hash of this.activePlasmids) {
+            const node = this.plasmidRegistry.get(hash);
+            if (!node) {
+                this.activePlasmids.delete(hash);
+                continue;
+            }
             // F.1 Vector Novelty Selection & Clone Rot Preventative Shield
             const popularityShare = (totalAttention > 0 && node.attention > 0) ? (node.attention / totalAttention) : 0;
             const noveltyShare = (1.0 / (1.0 + node.attention)) / totalNovelty; // Weirdest/Newest get priority
             
-            node.energy += this.globalEnergyPool * (popularityShare * 0.4 + noveltyShare * 0.6);
+            const share = distributionPool * (popularityShare * 0.4 + noveltyShare * 0.6);
+            node.energy += share;
+            distributedEnergy += share;
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
             const maintenanceCost = SOMATIC_BASE_COST + (node.l1_cost * SOMATIC_COMPLEXITY_ALPHA);
             const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_DECAY_RATE));
             
-            node.energy -= decay;
+            // Strictly collect taxes into the circulating pool
+            const taxable = Math.min(node.energy, decay);
+            node.energy -= taxable;
+            collectedTaxes += taxable;
+            
             node.age += 1;
             
             // Plasticity & Attention half-life (attenuation)
@@ -244,6 +297,7 @@ export class SovereignOracle {
                     if (relative && relative.energy !== Infinity) {
                         relative.energy += slice;
                         relative.attention += 1;
+                        this.activePlasmids.add(mHash);
                     }
                 }
             }
@@ -257,15 +311,33 @@ export class SovereignOracle {
                     const { timeout } = evaluateFitness(testTerm, computationalLimit);
                     
                     if (timeout) {
-                        node.energy -= 2000; // PARASITE_PENALTY
+                        const penalty = Math.min(node.energy, 2000); // PARASITE_PENALTY
+                        node.energy -= penalty;
+                        collectedTaxes += penalty;
                         node.fitness = Math.max(0, node.fitness - 2.0); // Never sub-zero fitness
                     } else {
                         // O-141 Vector J.3: Decoupling Evolution from Execution
                         // Nodes earn fitness purely by surviving execution, unlocking the ability to breed
                         node.fitness += 0.5; 
+                        
+                        // O-201 Vector 3: Proof of Useful Work (PoUW)
+                        // Surviving deep mathematical execution mints fresh energy from the 21M reserve cap!
+                        if (this.reserveEnergyPool > 0) {
+                            const reward = Math.min(this.miningReward, this.reserveEnergyPool);
+                            this.reserveEnergyPool -= reward;
+                            node.energy += reward;
+                            
+                            this.epochsMined++;
+                            // Bitcoin-style Halving: Every 210,000 blocks
+                            if (this.epochsMined % 210000 === 0) {
+                                this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
+                            }
+                        }
                     }
                 } catch (_e) {
-                    node.energy -= 2000; // Unparseable / Mathematically Divergent
+                    const penalty = Math.min(node.energy, 2000); // Unparseable / Mathematically Divergent
+                    node.energy -= penalty;
+                    collectedTaxes += penalty;
                     node.fitness = Math.max(0, node.fitness - 2.0);
                 }
             }
@@ -280,13 +352,20 @@ export class SovereignOracle {
                 }
                 
                 this.plasmidRegistry.delete(hash);
+                this.activePlasmids.delete(hash);
                 bankruptCount++;
+            } else if (node.attention === 0 && node.energy === Infinity) {
+                this.activePlasmids.delete(hash);
             }
         }
         
         if (bankruptCount > 0) {
             console.log(`[ORACLE] ♻️ Somatic Economy collected ${bankruptCount} bankrupt plasmids due to L1 AST penalties or Attention decay.`);
         }
+        
+        // Re-inject taxes and undistributed fragments back into circulation
+        this.globalEnergyPool += collectedTaxes;
+        this.globalEnergyPool += (distributionPool - distributedEnergy);
         
         // O-139 Vector H.3: Torus Observation Triggers
         this.epochTicks++;
@@ -409,7 +488,12 @@ export class SovereignOracle {
     private triggerSenateIntervention(count: number, requests: number[], reason: string) {
         this.isBusy = true;
         this.lastOracleAttempt = performance.now();
-        this.globalEnergyPool -= this.ORACLE_INVOCATION_COST;
+        
+        // O-201 Vector 2: Oracle Invocation Fee Recycling
+        // The cost of triggering an LLM query drains circulating energy back into the unmined reserve PoUW pool.
+        const invocationCost = Math.min(this.globalEnergyPool, this.ORACLE_INVOCATION_COST);
+        this.globalEnergyPool -= invocationCost;
+        this.reserveEnergyPool += invocationCost;
         
         let trajectoryTranscript = "Recent Entropy/Energy Trajectory:\n";
         if (this.chronosMemory.length === 0) {
@@ -459,9 +543,14 @@ export class SovereignOracle {
                  const hostNode = this.plasmidRegistry.get(host_plasmid);
                  const foreignNode = this.plasmidRegistry.get(foreign_plasmid);
                  
-                 // Feed energy back to functional parents
-                 if (hostNode) { hostNode.attention += 5; hostNode.energy += 50; }
-                 if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += 50; }
+                 // O-201 Strict Conservation: HGT Parents mint rewards from unmined blocks, not from thin air.
+                 const hostReward = Math.min(50, this.reserveEnergyPool);
+                 this.reserveEnergyPool -= hostReward;
+                 if (hostNode) { hostNode.attention += 5; hostNode.energy += hostReward; this.activePlasmids.add(host_plasmid); }
+                 
+                 const foreignReward = Math.min(50, this.reserveEnergyPool);
+                 this.reserveEnergyPool -= foreignReward;
+                 if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += foreignReward; this.activePlasmids.add(foreign_plasmid); }
 
                  const hostTerm = hostNode ? hostNode.ast : apply(I, variable("host"));
                  const foreignTerm = foreignNode ? foreignNode.ast : apply(I, variable("foreign"));
@@ -485,7 +574,7 @@ export class SovereignOracle {
                      }
                      
                      const childStr = formatTerm(childTerm);
-                     let childHash = fnv1a_64(childStr);
+                     let childHash = this.fastSemanticHash(childStr);
                      
                      // O-146 Vector O.2: Epigenetic Integration
                      const hue = phenotypeHue(childTerm);
@@ -505,8 +594,10 @@ export class SovereignOracle {
                          }
                          
                          // O-141 Vector J.3: Decoupling Evolution from Execution
-                         // We no longer reward "Goal Emergence" (rho === 1) at genesis.
                          // A child is simply born into the graph with minimal seed energy and 0 fitness.
+                         const childSeed = Math.min(50, this.reserveEnergyPool);
+                         this.reserveEnergyPool -= childSeed;
+                         
                          this.plasmidRegistry.set(childHash, {
                              ast: childTerm,
                              l1_cost: metrics.cost,
@@ -514,7 +605,7 @@ export class SovereignOracle {
                              nodes: metrics.nodes,
                              attention: 1,
                              age: 0,
-                             energy: 50, // Baseline biological seed
+                             energy: childSeed, // Strict Conservation 21M Bound
                              fitness: 0, // Must survive tickSomaticEconomy to earn fitness
                              mutualists: new Set([host_plasmid, foreign_plasmid]) // Vector I.1: Edge Binding
                          });
@@ -537,6 +628,7 @@ export class SovereignOracle {
                          if (foreignNode) foreignNode.mutualists.add(childHash);
                      }
                      plasmids[idx] = childHash;
+                     this.activePlasmids.add(childHash);
                      
                      // O-154 Vector V.3: Phase-Hash Unification (Ontology 56)
                      // A node's Hash deterministically initializes its physical coordinates on Torus birth.
@@ -574,6 +666,8 @@ export class SovereignOracle {
         let mycelialContext = "";
         if (this.engine) {
             const centroids = await this.engine.readMycelialCentroids();
+            if (!centroids) return; // Triplex buffer yielding (pipeline is rendering ahead)
+
             let activeBuckets = 0;
             let totalX = 0;
             let totalY = 0;
@@ -679,6 +773,13 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     requestBody.images = [structuralImage];
                 }
                 
+                // O-200 Oracle Semantic Cache Check
+                const cacheKey = this.fastSemanticHash(prompt).toString(16);
+                const cached = this.llmCache.get(cacheKey);
+                if (cached && (performance.now() - cached.ts < 60000)) { // 60s TTL
+                    return { mask: mask.name, response: cached.response };
+                }
+                
                 const fetchPromise = fetch(OLLAMA_URL, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -695,6 +796,14 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                 
                 const data = await response.json();
                 const fullResponse = data.response?.trim() || "";
+                
+                // Save to LRU Cache
+                this.llmCache.set(cacheKey, { response: fullResponse, ts: performance.now() });
+                if (this.llmCache.size > 50) {
+                    const oldestKey = Array.from(this.llmCache.entries()).sort((a,b) => a[1].ts - b[1].ts)[0][0];
+                    this.llmCache.delete(oldestKey);
+                }
+                
                 return { mask: mask.name, response: fullResponse };
             });
 
@@ -780,6 +889,9 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             
             if (!this.plasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
+                const seedEnergy = Math.min(10000, this.reserveEnergyPool);
+                this.reserveEnergyPool -= seedEnergy;
+                
                 this.plasmidRegistry.set(hash, {
                     ast: astTerm,
                     l1_cost: metrics.cost,
@@ -787,15 +899,19 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     nodes: metrics.nodes,
                     attention: 50, // Massive protective shield for LLM synthesis
                     age: 0,
-                    energy: 10000, // Seed funding
+                    energy: seedEnergy, // O-201 Thermodynamics Strict Minting
                     fitness: 0,
                     mutualists: new Set()
                 });
+                this.activePlasmids.add(hash);
                 console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
             } else {
                 const existing = this.plasmidRegistry.get(hash)!;
                 existing.attention += 25; // Rewarding resonant convergence
-                existing.energy += 5000;
+                const injection = Math.min(5000, this.reserveEnergyPool);
+                this.reserveEnergyPool -= injection;
+                existing.energy += injection;
+                this.activePlasmids.add(hash);
             }
         } catch (_e) {
             console.error(`[SENATE] ❌ Syntactic Compilation Failed: ${intent} is not valid Pure Lambda Calculus.`);

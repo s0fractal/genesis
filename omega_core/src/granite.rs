@@ -6,15 +6,16 @@ use wasm_bindgen::prelude::*;
 // drastically improving hardware cache locality over the fragmented Struct of Arrays.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(C, packed(4))]
+#[repr(C)]
 #[derive(Default)]
 pub struct PhaseAgent {
-    pub theta: u8,           // 1 byte
-    pub energy: u8,          // 1 byte (Amplitude/Resonance)
-    pub omega: i16,          // 2 bytes
-    pub lock: u8,            // 1 byte
-    pub entanglement: u8,    // 1 byte
-    pub _pad: u16,           // 2 bytes (Padding to reach 8-byte alignment before the u64)
-    pub plasmid: u64,        // 8 bytes (Mycelial Semantic Blueprint)
+    pub plasmid: u64,        // 0-7 (8-byte aligned naturally)
+    pub omega: i16,          // 8-9
+    pub _pad1: i16,          // 10-11 (for alignment to prevent implicit padding)
+    pub theta: u8,           // 12
+    pub energy: u8,          // 13
+    pub lock: u8,            // 14
+    pub entanglement: u8,    // 15
+    // Full 16 bytes exactly aligned for WGSL extraction
 }
 

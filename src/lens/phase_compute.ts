@@ -47,6 +47,10 @@ export class PhaseComputeEngine {
     private startTime: number;
     private injections = new Map<number, PendingInjection>();
     private stagingPool: GPUBuffer[] = [];
+    
+    // O-200 Triplex Ring Buffering (Non-Blocking GPU Readbacks)
+    private readbackRing: GPUBuffer[] = [];
+    private ringIndex = 0;
 
     constructor(device: GPUDevice, field: PhaseLatticeField, memory: WebAssembly.Memory) {
         this.device = device;
@@ -315,25 +319,45 @@ export class PhaseComputeEngine {
         this.injections.set(index, inj);
     }
 
-    async readMycelialCentroids(): Promise<Float32Array> {
-        if (!this.device) return new Float32Array(0);
+    async readMycelialCentroids(): Promise<Float32Array | null> {
+        if (!this.device) return null;
         
-        const size = this.mycelialBuffer.size;
-        const stagingBuffer = this.getStagingBuffer(size);
+        const size = 16384; // 1024 buckets * 16 bytes
+        
+        // Lazy initialize the Triplex Buffer strictly
+        if (this.readbackRing.length === 0) {
+            for (let i = 0; i < 3; i++) {
+                this.readbackRing.push(this.device.createBuffer({
+                    size,
+                    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+                }));
+            }
+        }
+        
+        const buf = this.readbackRing[this.ringIndex];
+        
+        if (buf.mapState === 'unmapped') {
+            const commandEncoder = this.device.createCommandEncoder();
+            commandEncoder.copyBufferToBuffer(this.mycelialBuffer, 0, buf, 0, size);
+            this.device.queue.submit([commandEncoder.finish()]);
+            
+            // Advance the ring
+            this.ringIndex = (this.ringIndex + 1) % 3;
+            
+            // Map asynchronously without awaiting
+            buf.mapAsync(GPUMapMode.READ).catch(e => {
+                console.warn("[O-64 GPU] Triplex Map Failed:", e);
+            });
+            
+            return null; // Return null intentionally to yield thread
+        } else if (buf.mapState === 'mapped') {
+            const mappedBuffer = buf.getMappedRange();
+            const f32Data = new Float32Array(mappedBuffer.slice(0)); // copy the data
+            buf.unmap();
+            return f32Data;
+        }
 
-        const commandEncoder = this.device.createCommandEncoder();
-        commandEncoder.copyBufferToBuffer(this.mycelialBuffer, 0, stagingBuffer, 0, size);
-        this.device.queue.submit([commandEncoder.finish()]);
-
-        // Await the hardware transfer from VRAM to System RAM
-        await stagingBuffer.mapAsync(GPUMapMode.READ);
-        const copyBuffer = stagingBuffer.getMappedRange();
-        const f32Data = new Float32Array(copyBuffer.slice(0));
-        
-        stagingBuffer.unmap();
-        // Zero-copy pooling avoids arbitrary GC blocks
-        
-        return f32Data;
+        return null;
     }
 
     // O-59 Persistent Substrate Serialization Hooks
@@ -356,9 +380,9 @@ export class PhaseComputeEngine {
         
         const data = new BigUint64Array(numCells);
         const dataView = new DataView(dataU8.buffer);
-        // Extract the 64-bit Plasmid from offset 8 of each 16-byte AoS struct
+        // Extract the 64-bit Plasmid from offset 0 of each 16-byte AoS struct
         for(let i=0; i<numCells; i++) {
-            data[i] = dataView.getBigUint64(i * 16 + 8, true);
+            data[i] = dataView.getBigUint64(i * 16 + 0, true);
         }
         
         stagingBuffer.unmap();
@@ -388,11 +412,22 @@ export class PhaseComputeEngine {
             const hash = BigInt(hashStr);
             const offset = idx * AGENT_BYTES;
             
-            dataView.setUint8(offset + 0, Number((hash >> 8n) & 0xFFn)); // theta
-            dataView.setUint8(offset + 1, Math.max(20, Number((hash >> 24n) & 0x3Fn))); // energy
-            dataView.setInt16(offset + 2, Number((hash >> 16n) & 0x07n) - 3, true); // omega
-            // lock = 0, ent = 0, pad = 0
-            dataView.setBigUint64(offset + 8, hash, true); // plasmid
+            // 8-byte aligned layout:
+            // 0: plasmid (64-bit)
+            // 8: omega (16-bit)
+            // 10: pad1 (16-bit)
+            // 12: theta (8-bit)
+            // 13: energy (8-bit)
+            // 14: lock (8-bit)
+            // 15: entanglement (8-bit)
+            
+            dataView.setBigUint64(offset + 0, hash, true); // plasmid
+            dataView.setInt16(offset + 8, Number((hash >> 16n) & 0x07n) - 3, true); // omega
+            dataView.setInt16(offset + 10, 0, true); // pad1
+            dataView.setUint8(offset + 12, Number((hash >> 8n) & 0xFFn)); // theta
+            dataView.setUint8(offset + 13, Math.max(20, Number((hash >> 24n) & 0x3Fn))); // energy
+            dataView.setUint8(offset + 14, 0); // lock
+            dataView.setUint8(offset + 15, 0); // ent
         }
 
         // Parallel hardware pipeline teleportation using unified payload

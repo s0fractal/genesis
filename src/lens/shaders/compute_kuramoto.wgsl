@@ -80,33 +80,34 @@ fn get_agent(idx: u32) -> PhaseAgent {
     let t3 = field_in[offset + 3u];
 
     var agent: PhaseAgent;
-    agent.theta = t0 & 0xFFu;
-    agent.energy = (t0 >> 8u) & 0xFFu;
+    agent.plasmid_low = t0;
+    agent.plasmid_high = t1;
     
-    let omega_raw = (t0 >> 16u) & 0xFFFFu;
+    let omega_raw = t2 & 0xFFFFu;
     if ((omega_raw & 0x8000u) != 0u) {
         agent.omega = i32(omega_raw) - 65536;
     } else {
         agent.omega = i32(omega_raw);
     }
     
-    agent.lock = t1 & 0xFFu;
-    agent.ent = (t1 >> 8u) & 0xFFu;
-    agent.plasmid_low = t2;
-    agent.plasmid_high = t3;
+    agent.theta = t3 & 0xFFu;
+    agent.energy = (t3 >> 8u) & 0xFFu;
+    agent.lock = (t3 >> 16u) & 0xFFu;
+    agent.ent = (t3 >> 24u) & 0xFFu;
     return agent;
 }
 
 fn set_agent(idx: u32, agent: PhaseAgent) {
     let offset = idx * 4u;
     let omega_u16 = u32(agent.omega) & 0xFFFFu;
-    let t0 = (agent.theta & 0xFFu) | ((agent.energy & 0xFFu) << 8u) | (omega_u16 << 16u);
-    let t1 = (agent.lock & 0xFFu) | ((agent.ent & 0xFFu) << 8u);
     
-    field_out[offset] = t0;
-    field_out[offset + 1u] = t1;
-    field_out[offset + 2u] = agent.plasmid_low;
-    field_out[offset + 3u] = agent.plasmid_high;
+    let t2 = omega_u16; 
+    let t3 = (agent.theta & 0xFFu) | ((agent.energy & 0xFFu) << 8u) | ((agent.lock & 0xFFu) << 16u) | ((agent.ent & 0xFFu) << 24u);
+    
+    field_out[offset] = agent.plasmid_low;
+    field_out[offset + 1u] = agent.plasmid_high;
+    field_out[offset + 2u] = t2;
+    field_out[offset + 3u] = t3;
 }
 
 fn wrap_index(val: i32, modulo: i32) -> u32 {
