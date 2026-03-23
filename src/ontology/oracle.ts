@@ -120,6 +120,7 @@ export class SovereignOracle {
     private globalEnergyPool: number = 20000; // Circulating Supply (Transaction Fees)
     private reserveEnergyPool: number = this.MAX_SYSTEM_ENERGY - 20000; // Mined via PoUW
     private miningReward: number = 50;
+    private lastGlobalFitness: number = 0; // Era 216 ADA
     private epochsMined: number = 0;
     
     // O-48 Git-Watchdog Ontology Phase 5
@@ -322,14 +323,31 @@ export class SovereignOracle {
         // Energy Distribution Phase
         let totalAttention = 0;
         let totalNovelty = 0;
+        let currentGlobalFitness = 0;
         for (const hash of this.activePlasmids) {
             const node = this.plasmidRegistry.get(hash);
             if (node) {
                 totalAttention += node.attention;
                 totalNovelty += (1.0 / (1.0 + node.attention));
+                currentGlobalFitness += node.fitness;
             }
         }
         totalNovelty = totalNovelty || 1.0;
+        
+        // Era 216 Vector 2: Adaptive Difficulty Adjustment (ADA)
+        const globalFitnessVelocity = currentGlobalFitness - this.lastGlobalFitness;
+        this.lastGlobalFitness = currentGlobalFitness;
+        
+        if (globalFitnessVelocity > 50.0) { 
+            // Hodler Brake: Massive logical explosion detected. Exponentially starve the mining reward.
+            this.miningReward = Math.max(1, Math.floor(this.miningReward * 0.95)); 
+        } else if (globalFitnessVelocity < 5.0 && this.reserveEnergyPool > 1000) { 
+            // Quantitative Easing: Stagnation. Pump ATP directly into circulation.
+            const stimulus = Math.floor(Math.random() * 500) + 100;
+            this.reserveEnergyPool -= stimulus;
+            this.globalEnergyPool += stimulus;
+            this.miningReward = Math.min(1000, Math.floor(this.miningReward * 1.05) + 1); // Stimulate mining
+        }
         
         let bankruptCount = 0;
         const localStalemates: bigint[] = [];
@@ -530,9 +548,7 @@ export class SovereignOracle {
                              node.energy += reward;
                              
                              this.epochsMined++;
-                             if (this.epochsMined % 210000 === 0) {
-                                 this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
-                             }
+                             // ADA auto-regulates this, we remove the hardcoded halving.
                          }
                          
                          // Era 208: Libra Taxation

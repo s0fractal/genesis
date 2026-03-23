@@ -272,6 +272,16 @@ export class PhaseNetwork {
                     currentAmplitude *= 0.8; 
                     
                     if (currentAmplitude > 100) {
+                        
+                        // Era 216 Vector 3: Thermodynamic Routing (Shadow Shunts)
+                        // Active fail-safe to prevent DDoS collapse when the local matrix is heavily saturated
+                        if (this.localRefractiveIndex > 5.0 && Math.random() > 0.3) {
+                            console.log(`🕳️ [Thermodynamic Routing] High local entropy (${this.localRefractiveIndex.toFixed(2)}). Absorbing Wave ${p.hash.substring(0,8)} into Shadow Bucket.`);
+                            p.targetBucket = 1000 + Math.floor(Math.random() * 25);
+                            this.onPlasmidReceived(p);
+                            return; // Terminate geometric propagation (absorb completely)
+                        }
+
                         // Snell's Law calculation: n1 * sin(theta_in) = n2 * sin(theta_out)
                         // Assuming vacuum n1 = 1.0; n2 = localRefractiveIndex (Entropy Density)
                         let sin_out = (1.0 / this.localRefractiveIndex) * Math.sin(theta_in);

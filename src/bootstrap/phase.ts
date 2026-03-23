@@ -31,7 +31,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   // O-195 Formalized Systemic Orchestrator
   const orchestrator = new SubstrateOrchestrator();
 
-  const gpuSys = new GPUCoreSubsystem(device, phaseField, computeEngine, observer);
+  const gpuSys = new GPUCoreSubsystem(device, phaseField, computeEngine, observer, oracle);
   const oracleSys = new OracleNetworkSubsystem(oracle, computeEngine);
   const thermoSys = new ThermodynamicSubsystem(phaseField, computeEngine, oracle, oracleSys.senateChat);
   const uiSys = new UISubsystem(phaseField, oracle, observer);
