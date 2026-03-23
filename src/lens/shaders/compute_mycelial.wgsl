@@ -9,25 +9,47 @@ struct MycelialBucket {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
 
+override PHASE_LUT_SIZE: i32;
+override MAX_AMPLITUDE: i32;
+override MAX_ENTANGLEMENT: i32;
+override MAX_OMEGA: i32;
+override SHADOW_BUCKET_MIN: i32;
+override SHADOW_BUCKET_MAX: i32;
+
 struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
   time: f32,
-  _pad1: u32,
-  _pad2: u32,
-  _pad3: u32,
-  _pad4: u32,
-  _pad5: u32,
-  _pad6: u32,
+  
+  coupling_base: i32,
+  coupling_antipode: i32,
+  coupling_harmonic_peer: i32,
+  coherence_lock: i32,
+  
+  coherence_high: i32,
+  coherence_res: i32,
+  antipode_align: i32,
+  coupling_plasmid: i32,
+  
   aspect_ratio: f32,
   inj_idx: u32,
   inj_hash_low: u32,
   inj_hash_high: u32,
+  
   inj_amp: u32,
   inj_phase: u32,
   inj_ent: u32,
   inj_bucket: u32,
+  
+  padding1: u32,
+  padding2: u32,
+  padding3: u32,
+  padding4: u32,
+  padding5: u32,
+  padding6: u32,
+  padding7: u32,
+  padding8: u32,
 }
 
 struct PhaseAgent {

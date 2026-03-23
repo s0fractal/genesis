@@ -1,3 +1,6 @@
+override SHADOW_BUCKET_MIN: i32;
+override SHADOW_BUCKET_MAX: i32;
+
 struct Params {
   sectors: u32,
   radial_bins: u32,

@@ -1,24 +1,46 @@
 // O-176 Native Metal Kuramoto Physics Compute Shader (Granite Core AoS)
 
+override PHASE_LUT_SIZE: i32;
+override MAX_AMPLITUDE: i32;
+override MAX_ENTANGLEMENT: i32;
+override MAX_OMEGA: i32;
+override SHADOW_BUCKET_MIN: i32;
+override SHADOW_BUCKET_MAX: i32;
+
 struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
   time: f32,
-  _pad1: u32,
-  _pad2: u32,
-  _pad3: u32,
-  _pad4: u32,
-  _pad5: u32,
-  _pad6: u32,
+  
+  coupling_base: i32,
+  coupling_antipode: i32,
+  coupling_harmonic_peer: i32,
+  coherence_lock: i32,
+  
+  coherence_high: i32,
+  coherence_res: i32,
+  antipode_align: i32,
+  coupling_plasmid: i32,
+  
   aspect_ratio: f32,
   inj_idx: u32,
   inj_hash_low: u32,
   inj_hash_high: u32,
+  
   inj_amp: u32,
   inj_phase: u32,
   inj_ent: u32,
   inj_bucket: u32,
+  
+  padding1: u32,
+  padding2: u32,
+  padding3: u32,
+  padding4: u32,
+  padding5: u32,
+  padding6: u32,
+  padding7: u32,
+  padding8: u32,
 };
 
 @group(0) @binding(0) var<storage, read> field_in: array<u32>;
@@ -125,31 +147,31 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let a_h = get_agent(get_idx(sector, rho, harm_peer));
 
     // O-164 Local Thermodynamic Feedback
-    let dynamic_coupling = (COUPLING_BASE * (i32(me.energy) + 64)) / 128;
+    let dynamic_coupling = (params.coupling_base * (i32(me.energy) + 64)) / 128;
 
     var kuramoto = phase_sin_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
                    phase_sin_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
                    phase_sin_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
                    phase_sin_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                   phase_sin_i32(me.theta, a_h.theta) * COUPLING_HARMONIC_PEER;
+                   phase_sin_i32(me.theta, a_h.theta) * params.coupling_harmonic_peer;
 
     var coherence = phase_cos_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
                     phase_cos_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
                     phase_cos_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
                     phase_cos_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                    phase_cos_i32(me.theta, a_h.theta) * COUPLING_HARMONIC_PEER;
+                    phase_cos_i32(me.theta, a_h.theta) * params.coupling_harmonic_peer;
 
     var next_ent = i32(me.ent);
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
         
-        let weight = (i32(me.ent) * COUPLING_ANTIPODE) / MAX_ENTANGLEMENT;
+        let weight = (i32(me.ent) * params.coupling_antipode) / MAX_ENTANGLEMENT;
         kuramoto += phase_sin_i32(me.theta, a_anti.theta) * weight;
         coherence += phase_cos_i32(me.theta, a_anti.theta) * weight;
 
         let align = phase_cos_i32(me.theta, a_anti.theta);
-        if (align > ANTIPODE_ALIGNMENT_THRESHOLD && me.energy > 96u) {
+        if (align > params.antipode_align && me.energy > 96u) {
             next_ent += 8;
         } else {
             next_ent -= 3;
@@ -161,8 +183,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
         let target_theta = me.plasmid_low & 0xFFu;
-        kuramoto += phase_sin_i32(me.theta, target_theta) * COUPLING_PLASMID;
-        coherence += phase_cos_i32(me.theta, target_theta) * COUPLING_PLASMID;
+        kuramoto += phase_sin_i32(me.theta, target_theta) * params.coupling_plasmid;
+        coherence += phase_cos_i32(me.theta, target_theta) * params.coupling_plasmid;
         
         let hash = (me.plasmid_low ^ me.plasmid_high);
         let bucket_idx = hash & 1023u;

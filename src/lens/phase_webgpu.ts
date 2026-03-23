@@ -3,7 +3,7 @@
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from './phase_compute.ts';
-import { generateWgslConstants } from "../shared/constants.ts";
+import * as C from "../shared/constants.ts";
 import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4 } from "./math_3d.ts";
 import { BioAcousticChoir } from "./audio_synth.ts";
 
@@ -113,14 +113,20 @@ export class PhaseWebGPUObserver {
         });
         
         const shaderModule = this.device.createShaderModule({
-            code: generateWgslConstants() + phaseLensWgsl 
+            code: phaseLensWgsl 
         });
+
+        const pipelineConstants = {
+            SHADOW_BUCKET_MIN: C.SENATE_SHADOW_BUCKET_MIN,
+            SHADOW_BUCKET_MAX: C.SENATE_SHADOW_BUCKET_MAX,
+        };
 
         this.pipeline = this.device.createRenderPipeline({
             layout: 'auto',
             vertex: {
                 module: shaderModule,
-                entryPoint: 'vs_main'
+                entryPoint: 'vs_main',
+                constants: pipelineConstants
             },
             fragment: {
                 module: shaderModule,

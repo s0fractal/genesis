@@ -125,26 +125,7 @@ export function bindNativeConstants(wasm: any) {
 }
 
 // WebGPU Shader Injection Bridge
-export const generateWgslConstants = (): string => `
-// ==========================================
-// DYNAMICALLY INJECTED FROM UNIVERSAL AXIOM
-// ==========================================
-const PHASE_LUT_SIZE: i32 = ${PHASE_LUT_SIZE};
-const MAX_AMPLITUDE: i32 = ${PHASE_MAX_AMPLITUDE};
-const MAX_ENTANGLEMENT: i32 = ${PHASE_MAX_ENTANGLEMENT};
-const MAX_OMEGA: i32 = ${PHASE_MAX_OMEGA};
-const COUPLING_BASE: i32 = ${Math.round(KURAMOTO_COUPLING_BASE * MATH_Q_SCALE)};
-const COUPLING_ANTIPODE: i32 = ${Math.round(KURAMOTO_COUPLING_ANTIPODE * MATH_Q_SCALE)};
-const COUPLING_HARMONIC_PEER: i32 = ${Math.round(KURAMOTO_COUPLING_HARMONIC_PEER * MATH_Q_SCALE)};
-const COHERENCE_THRESHOLD_LOCK: i32 = ${Math.round(KURAMOTO_COHERENCE_THRESHOLD_LOCK * MATH_Q_SCALE)};
-const COHERENCE_THRESHOLD_HIGH: i32 = ${Math.round(KURAMOTO_COHERENCE_THRESHOLD_HIGH * MATH_Q_SCALE)};
-const ADOPTION_RESONANCE_THRESHOLD: i32 = ${Math.round(KURAMOTO_ADOPTION_RESONANCE_THRESHOLD * MATH_Q_SCALE)};
-const ANTIPODE_ALIGNMENT_THRESHOLD: i32 = ${Math.round(KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD * MATH_Q_SCALE)};
-const COUPLING_PLASMID: i32 = ${Math.round(KURAMOTO_COUPLING_PLASMID * MATH_Q_SCALE)};
-const PLASMID_DIFFUSION_RATE: i32 = ${Math.round(KURAMOTO_PLASMID_DIFFUSION_RATE * MATH_Q_SCALE)};
-const SHADOW_BUCKET_MIN: i32 = ${SENATE_SHADOW_BUCKET_MIN};
-const SHADOW_BUCKET_MAX: i32 = ${SENATE_SHADOW_BUCKET_MAX};
-
+export const WGSL_COMMON_LIB = `
 // ==========================================
 // DETERMINISTIC FIXED-POINT TRIGONOMETRY (Q10)
 // ==========================================

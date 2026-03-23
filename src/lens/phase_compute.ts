@@ -2,7 +2,7 @@ import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import generatedBiologyWgsl from './shaders/generated_biology.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
-import { generateWgslConstants } from "../shared/constants.ts";
+import * as C from "../shared/constants.ts";
 
 interface PendingInjection {
     idx: number;
@@ -94,14 +94,24 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.bufferA, 0, new Uint8Array(mem, agentPtr, totalSize));
         this.device.queue.writeBuffer(this.bufferB, 0, new Uint8Array(mem, agentPtr, totalSize));
 
-        const shaderModule = this.device.createShaderModule({ code: generateWgslConstants() + generatedBiologyWgsl + "\n" + computeKuramotoWgsl });
-        const mycelialModule = this.device.createShaderModule({ code: generateWgslConstants() + computeMycelialWgsl });
+        const shaderModule = this.device.createShaderModule({ code: C.WGSL_COMMON_LIB + generatedBiologyWgsl + "\n" + computeKuramotoWgsl });
+        const mycelialModule = this.device.createShaderModule({ code: C.WGSL_COMMON_LIB + computeMycelialWgsl });
+
+        const pipelineConstants = {
+            PHASE_LUT_SIZE: C.PHASE_LUT_SIZE,
+            MAX_AMPLITUDE: C.PHASE_MAX_AMPLITUDE,
+            MAX_ENTANGLEMENT: C.PHASE_MAX_ENTANGLEMENT,
+            MAX_OMEGA: C.PHASE_MAX_OMEGA,
+            SHADOW_BUCKET_MIN: C.SENATE_SHADOW_BUCKET_MIN,
+            SHADOW_BUCKET_MAX: C.SENATE_SHADOW_BUCKET_MAX,
+        };
 
         this.pipeline = this.device.createComputePipeline({
             layout: 'auto',
             compute: {
                 module: shaderModule,
-                entryPoint: 'main'
+                entryPoint: 'main',
+                constants: pipelineConstants
             }
         });
 
@@ -109,7 +119,8 @@ export class PhaseComputeEngine {
             layout: 'auto',
             compute: {
                 module: mycelialModule,
-                entryPoint: 'main'
+                entryPoint: 'main',
+                constants: pipelineConstants
             }
         });
 
@@ -156,9 +167,10 @@ export class PhaseComputeEngine {
         if (!this.device) return;
 
         const time = (performance.now() - this.startTime) / 1000.0;
-        const uniformBuffer = new ArrayBuffer(72);
+        const uniformBuffer = new ArrayBuffer(112);
         const viewU32 = new Uint32Array(uniformBuffer);
         const viewF32 = new Float32Array(uniformBuffer);
+        const viewI32 = new Int32Array(uniformBuffer);
 
         let activeInj: PendingInjection | null = null;
         for (const [idx, inj] of this.injections.entries()) {
@@ -171,20 +183,24 @@ export class PhaseComputeEngine {
         viewU32[1] = this.field.radial_bins;
         viewU32[2] = this.field.harmonics;
         viewF32[3] = time;
-        viewU32[4] = 0;
-        viewU32[5] = 0;
-        viewU32[6] = 0;
-        viewU32[7] = 0;
-        viewU32[8] = 0;
-        viewU32[9] = 0;
-        viewF32[10] = 16.0 / 9.0;
-        viewU32[11] = activeInj ? activeInj.idx : 0xFFFFFFFF;
-        viewU32[12] = activeInj ? activeInj.hashLow : 0;
-        viewU32[13] = activeInj ? activeInj.hashHigh : 0;
-        viewU32[14] = activeInj ? activeInj.amp : 0;
-        viewU32[15] = activeInj ? activeInj.phase : 0;
-        viewU32[16] = activeInj ? activeInj.ent : 0;
-        viewU32[17] = activeInj && activeInj.bucket !== undefined ? activeInj.bucket : 0xFFFFFFFF;
+
+        viewI32[4] = Math.round(C.KURAMOTO_COUPLING_BASE * C.MATH_Q_SCALE);
+        viewI32[5] = Math.round(C.KURAMOTO_COUPLING_ANTIPODE * C.MATH_Q_SCALE);
+        viewI32[6] = Math.round(C.KURAMOTO_COUPLING_HARMONIC_PEER * C.MATH_Q_SCALE);
+        viewI32[7] = Math.round(C.KURAMOTO_COHERENCE_THRESHOLD_LOCK * C.MATH_Q_SCALE);
+        viewI32[8] = Math.round(C.KURAMOTO_COHERENCE_THRESHOLD_HIGH * C.MATH_Q_SCALE);
+        viewI32[9] = Math.round(C.KURAMOTO_ADOPTION_RESONANCE_THRESHOLD * C.MATH_Q_SCALE);
+        viewI32[10] = Math.round(C.KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD * C.MATH_Q_SCALE);
+        viewI32[11] = Math.round(C.KURAMOTO_COUPLING_PLASMID * C.MATH_Q_SCALE);
+
+        viewF32[12] = 16.0 / 9.0;
+        viewU32[13] = activeInj ? activeInj.idx : 0xFFFFFFFF;
+        viewU32[14] = activeInj ? activeInj.hashLow : 0;
+        viewU32[15] = activeInj ? activeInj.hashHigh : 0;
+        viewU32[16] = activeInj ? activeInj.amp : 0;
+        viewU32[17] = activeInj ? activeInj.phase : 0;
+        viewU32[18] = activeInj ? activeInj.ent : 0;
+        viewU32[19] = activeInj && activeInj.bucket !== undefined ? activeInj.bucket : 0xFFFFFFFF;
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
         
