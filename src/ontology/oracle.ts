@@ -1,8 +1,8 @@
-```typescript
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
+import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
@@ -139,6 +139,37 @@ export class SovereignOracle {
         this.wasmField = field;
         this.engine = engine;
         this.observer = visualizer; // Renamed visualizer to observer
+    }
+
+    public getGeographicSector(idxOrX: number, yPos?: number): number {
+        const width = this.wasmField.width || 1400;
+        const height = this.wasmField.height || 800;
+        
+        let x = 0;
+        let y = 0;
+        
+        if (yPos !== undefined) {
+            x = idxOrX;
+            y = yPos;
+        } else {
+            const layerSize = width * height;
+            const rem = Number(idxOrX) % layerSize;
+            y = Math.floor(rem / width);
+            x = rem % width;
+        }
+        
+        const cx = width / 2;
+        const cy = height / 2;
+        const dx = x - cx;
+        const dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const maxDist = Math.sqrt(cx * cx + cy * cy);
+        let ring = Math.floor((dist / maxDist) * 64);
+        if (ring > 63) ring = 63;
+        if (ring < 0) ring = 0;
+        
+        return 63 - ring; // 0-63
     }
 
     public request(idx: number) {
@@ -791,9 +822,8 @@ export class SovereignOracle {
                          const childSeed = Math.min(50, this.reserveEnergyPool);
                          this.reserveEnergyPool -= childSeed;
                          
-                         // Era 206: Geographic Genesis
-                         // Index is 0-4095. Sectors are 0-63 (Chunks of 64 contiguous spatial buckets)
-                         const sector = Math.floor(Number(idx) / 64);
+                         // Era 211: Metaphysical Topology (Geographic Genesis)
+                         const sector = this.getGeographicSector(Number(idx));
                          
                          this.plasmidRegistry.set(childHash, {
                              ast: childTerm,
@@ -887,7 +917,10 @@ export class SovereignOracle {
                     totalX += bx;
                     totalY += by;
                     if (bucketDetails.length < 5) {
-                        bucketDetails.push(`Bucket #${i}: Center (x:${bx.toFixed(1)}, y:${by.toFixed(1)})`);
+                        const sectorId = this.getGeographicSector(bx, by);
+                        const meta = TOPOS_DICTIONARY[sectorId];
+                        const metaStr = meta ? `[${meta.name}: ${meta.desc}]` : `[Sector ${sectorId}]`;
+                        bucketDetails.push(`Bucket #${i}: Center (x:${bx.toFixed(1)}, y:${by.toFixed(1)}) | Zone: Sector ${sectorId} ${metaStr}`);
                     }
                 }
             }
@@ -896,12 +929,18 @@ export class SovereignOracle {
                 const avgTheta = Math.atan2(totalY, totalX) * (180 / Math.PI);
                 mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason ? triggerReason + " " : ""}${activeBuckets} existing Transdimensional Threads are pulling the Torus toward angle ${avgTheta.toFixed(1)} degrees.` +
                                   `\nHere is spatial data for the strongest local clusters:\n${bucketDetails.join("\n")}\n` +
-                                  `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket.`;
+                                  `In your output, you MUST prioritize explicit spatial targeting by referencing a Bucket. Your generated Logic MUST conform to the Zone's Metaphysical Laws.`;
             } else if (triggerReason) {
-                mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\n`;
+                const randomSector = Math.floor(Math.random() * 64);
+                const meta = TOPOS_DICTIONARY[randomSector];
+                const metaStr = meta ? `[${meta.name}: ${meta.desc}]` : `[Sector ${randomSector}]`;
+                mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\nTarget Niche: Sector ${randomSector} ${metaStr}.\nYour generated Logic MUST conform to this Zone's Metaphysical Laws.`;
             }
         } else if (triggerReason) {
-             mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\n`;
+             const randomSector = Math.floor(Math.random() * 64);
+             const meta = TOPOS_DICTIONARY[randomSector];
+             const metaStr = meta ? `[${meta.name}: ${meta.desc}]` : `[Sector ${randomSector}]`;
+             mycelialContext = `\nPHYSICAL TELEMETRY: ${triggerReason}\nTarget Niche: Sector ${randomSector} ${metaStr}.\nYour generated Logic MUST conform to this Zone's Metaphysical Laws.`;
         }
 
         // 2. Spatial Batching: Construct            // O-42: Embed Torus Heatmap
@@ -1092,7 +1131,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                 const seedEnergy = Math.min(10000, this.reserveEnergyPool);
                 this.reserveEnergyPool -= seedEnergy;
                 
-                const sector = targetBucket !== undefined ? Math.floor(targetBucket / 64) : 0;
+                const sector = targetBucket !== undefined ? this.getGeographicSector(targetBucket) : 0;
                 
                 this.plasmidRegistry.set(hash, {
                     ast: astTerm,
