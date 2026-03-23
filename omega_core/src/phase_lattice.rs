@@ -306,25 +306,25 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
-                let mut kuramoto = phase_sin_i32(theta, field.agents[left].theta)
-                    + phase_sin_i32(theta, field.agents[right].theta)
-                    + phase_sin_i32(theta, field.agents[inner].theta)
-                    + phase_sin_i32(theta, field.agents[outer].theta)
-                    + (phase_sin_i32(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
-                    + ((phase_sin_i32(theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
+                let mut kuramoto = sin(theta, field.agents[left].theta)
+                    + sin(theta, field.agents[right].theta)
+                    + sin(theta, field.agents[inner].theta)
+                    + sin(theta, field.agents[outer].theta)
+                    + (sin(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + ((sin(theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
 
-                let mut coherence = phase_cos_i32(theta, field.agents[left].theta)
-                    + phase_cos_i32(theta, field.agents[right].theta)
-                    + phase_cos_i32(theta, field.agents[inner].theta)
-                    + phase_cos_i32(theta, field.agents[outer].theta)
-                    + (phase_cos_i32(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
-                    + ((phase_cos_i32(theta, field.agents[historical_peer].theta) * 3) / 10);
+                let mut coherence = cos(theta, field.agents[left].theta)
+                    + cos(theta, field.agents[right].theta)
+                    + cos(theta, field.agents[inner].theta)
+                    + cos(theta, field.agents[outer].theta)
+                    + (cos(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + ((cos(theta, field.agents[historical_peer].theta) * 3) / 10);
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.agents[past_idx].plasmid != 0 {
                     let target_theta = (field.agents[past_idx].plasmid & 0xFF) as u8;
-                    kuramoto += (phase_sin_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
-                    coherence += (phase_cos_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
+                    kuramoto += (sin(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
+                    coherence += (cos(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
                 }
 
                 let mut next_ent_val = entanglement;
@@ -332,8 +332,8 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 if sectors.is_multiple_of(2) {
                     let antipode_sector = (sector + sectors / 2) % sectors;
                     let antipode = field.idx(past_tau, antipode_sector, rho, harmonic);
-                    let sin_anti = phase_sin_i32(theta, field.agents[antipode].theta);
-                    let cos_anti = phase_cos_i32(theta, field.agents[antipode].theta);
+                    let sin_anti = sin(theta, field.agents[antipode].theta);
+                    let cos_anti = cos(theta, field.agents[antipode].theta);
                     
                     kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
                     coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
@@ -373,7 +373,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     for &neighbor_idx in &neighbors {
                         let candidate_plasmid = field.agents[neighbor_idx].plasmid;
                         if candidate_plasmid == 0 { continue; }
-                        let candidate_resonance = phase_cos_i32(theta, field.agents[neighbor_idx].theta);
+                        let candidate_resonance = cos(theta, field.agents[neighbor_idx].theta);
                         if candidate_resonance > best_resonance {
                             best_resonance = candidate_resonance;
                             donor_plasmid = candidate_plasmid;

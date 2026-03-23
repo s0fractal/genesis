@@ -149,17 +149,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // O-164 Local Thermodynamic Feedback
     let dynamic_coupling = (params.coupling_base * (i32(me.energy) + 64)) / 128;
 
-    var kuramoto = phase_sin_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
-                   phase_sin_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
-                   phase_sin_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
-                   phase_sin_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                   phase_sin_i32(me.theta, a_h.theta) * params.coupling_harmonic_peer;
+    var kuramoto = sin(me.theta, a_l.theta) * i32(dynamic_coupling) +
+                   sin(me.theta, a_r.theta) * i32(dynamic_coupling) +
+                   sin(me.theta, a_i.theta) * i32(dynamic_coupling) +
+                   sin(me.theta, a_o.theta) * i32(dynamic_coupling) +
+                   sin(me.theta, a_h.theta) * params.coupling_harmonic_peer;
 
-    var coherence = phase_cos_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
-                    phase_cos_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
-                    phase_cos_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
-                    phase_cos_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                    phase_cos_i32(me.theta, a_h.theta) * params.coupling_harmonic_peer;
+    var coherence = cos(me.theta, a_l.theta) * i32(dynamic_coupling) +
+                    cos(me.theta, a_r.theta) * i32(dynamic_coupling) +
+                    cos(me.theta, a_i.theta) * i32(dynamic_coupling) +
+                    cos(me.theta, a_o.theta) * i32(dynamic_coupling) +
+                    cos(me.theta, a_h.theta) * params.coupling_harmonic_peer;
 
     var next_ent = i32(me.ent);
     if (params.sectors % 2u == 0u) {
@@ -167,10 +167,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
         
         let weight = (i32(me.ent) * params.coupling_antipode) / MAX_ENTANGLEMENT;
-        kuramoto += phase_sin_i32(me.theta, a_anti.theta) * weight;
-        coherence += phase_cos_i32(me.theta, a_anti.theta) * weight;
+        kuramoto += sin(me.theta, a_anti.theta) * weight;
+        coherence += cos(me.theta, a_anti.theta) * weight;
 
-        let align = phase_cos_i32(me.theta, a_anti.theta);
+        let align = cos(me.theta, a_anti.theta);
         if (align > params.antipode_align && me.energy > 96u) {
             next_ent += 8;
         } else {
@@ -183,8 +183,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
         let target_theta = me.plasmid_low & 0xFFu;
-        kuramoto += phase_sin_i32(me.theta, target_theta) * params.coupling_plasmid;
-        coherence += phase_cos_i32(me.theta, target_theta) * params.coupling_plasmid;
+        kuramoto += sin(me.theta, target_theta) * params.coupling_plasmid;
+        coherence += cos(me.theta, target_theta) * params.coupling_plasmid;
         
         let hash = (me.plasmid_low ^ me.plasmid_high);
         let bucket_idx = hash & 1023u;
@@ -195,8 +195,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var centroid_theta_rad = atan2(m_y, m_x);
             if (centroid_theta_rad < 0.0) { centroid_theta_rad += 6.283185307; }
             let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
-            kuramoto += phase_sin_i32(me.theta, centroid) * 4096;
-            coherence += phase_cos_i32(me.theta, centroid) * 4096;
+            kuramoto += sin(me.theta, centroid) * 4096;
+            coherence += cos(me.theta, centroid) * 4096;
         }
     }
 
@@ -209,7 +209,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
                 if (n.energy > me.energy) {
                     staking_energy_bonus += i32(n.energy - me.energy) / 4;
-                    kuramoto += phase_sin_i32(me.theta, n.theta) * 3072;
+                    kuramoto += sin(me.theta, n.theta) * 3072;
                 }
             }
         }
