@@ -26,6 +26,7 @@ import {
 import {
   TISSUE_MORPHOLOGICAL_DELTA_MIN,
   TISSUE_MORPHOLOGICAL_HYSTERESIS,
+  hydrateSubstrateHeader,
 } from "../shared/constants.ts";
 import {
   downloadGenesisFile,
@@ -45,6 +46,10 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const canvas = configureCanvas();
   // Era 163 (Ontology 72) - 1400x800 Extrusion Test
   const phaseField = new PhaseLatticeField(1400, 800, 1);
+  
+  // O-73: Hydrate Torus Logic Physics explicitly into Universal Axiom
+  hydrateSubstrateHeader(wasmMemory, phaseField.ptr_header());
+  
   // Ontology 23: Native Metal compute instantiation
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter!.requestDevice();

@@ -14,7 +14,27 @@ pub struct SubstrateHeader {
     pub harmonics: u32,
     pub max_atoms: u32,
     pub damping_base: i32,
-    pub padding: [u8; 36],
+    
+    // Physics Parameters (Evolutionary Mechanics)
+    pub kuramoto_base: i32,
+    pub kuramoto_harmonic_peer: i32,
+    pub kuramoto_antipode: i32,
+    pub kuramoto_threshold_lock: i32,
+    pub kuramoto_threshold_high: i32,
+    pub kuramoto_adoption_resonance: i32,
+    pub kuramoto_antipode_alignment: i32,
+    pub kuramoto_plasmid: i32,
+    pub kuramoto_diffusion_rate: i32,
+    
+    // Biological Parameters (Somatic Economy)
+    pub mutation_base_cost: i32,
+    pub mutation_min_cost: i32,
+    pub mutation_max_cost: i32,
+    pub mutation_smoothing_factor: i32,
+    pub senate_min_locks: i32,
+    pub senate_min_energy: i32,
+    
+    pub padding: [u8; 168], // Exactly 256 bytes total (28 base + 60 traits + 168 padding)
 }
 
 impl Default for SubstrateHeader {
@@ -27,7 +47,22 @@ impl Default for SubstrateHeader {
             harmonics: 0,
             max_atoms: 0,
             damping_base: 0,
-            padding: [0; 36],
+            kuramoto_base: 0,
+            kuramoto_harmonic_peer: 0,
+            kuramoto_antipode: 0,
+            kuramoto_threshold_lock: 0,
+            kuramoto_threshold_high: 0,
+            kuramoto_adoption_resonance: 0,
+            kuramoto_antipode_alignment: 0,
+            kuramoto_plasmid: 0,
+            kuramoto_diffusion_rate: 0,
+            mutation_base_cost: 0,
+            mutation_min_cost: 0,
+            mutation_max_cost: 0,
+            mutation_smoothing_factor: 0,
+            senate_min_locks: 0,
+            senate_min_energy: 0,
+            padding: [0; 168],
         }
     }
 }
@@ -79,6 +114,21 @@ impl PhaseLatticeField {
                 harmonics,
                 max_atoms: max_elements as u32,
                 damping_base: 1024,
+                kuramoto_base: KURAMOTO_COUPLING_BASE,
+                kuramoto_harmonic_peer: KURAMOTO_COUPLING_HARMONIC_PEER,
+                kuramoto_antipode: KURAMOTO_COUPLING_ANTIPODE,
+                kuramoto_threshold_lock: KURAMOTO_COHERENCE_THRESHOLD_LOCK,
+                kuramoto_threshold_high: KURAMOTO_COHERENCE_THRESHOLD_HIGH,
+                kuramoto_adoption_resonance: KURAMOTO_ADOPTION_RESONANCE_THRESHOLD,
+                kuramoto_antipode_alignment: KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD,
+                kuramoto_plasmid: KURAMOTO_COUPLING_PLASMID,
+                kuramoto_diffusion_rate: KURAMOTO_PLASMID_DIFFUSION_RATE,
+                mutation_base_cost: MUTATION_BASE_COST,
+                mutation_min_cost: MUTATION_MIN_COST,
+                mutation_max_cost: MUTATION_MAX_COST,
+                mutation_smoothing_factor: MUTATION_SMOOTHING_FACTOR,
+                senate_min_locks: SENATE_MYCELIUM_MIN_LOCKS,
+                senate_min_energy: SENATE_MYCELIUM_MIN_ENERGY,
                 ..Default::default()
             },
             theta: vec![0; max_elements],
@@ -307,22 +357,21 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     + phase_sin_i32(theta, field.theta[right])
                     + phase_sin_i32(theta, field.theta[inner])
                     + phase_sin_i32(theta, field.theta[outer])
-                    + (phase_sin_i32(theta, field.theta[harmonic_peer]) / 2)
+                    + (phase_sin_i32(theta, field.theta[harmonic_peer]) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
                     + ((phase_sin_i32(theta, field.theta[historical_peer]) * 3) / 10); // Temporal Z-axis weight (0.3)
 
                 let mut coherence = phase_cos_i32(theta, field.theta[left])
                     + phase_cos_i32(theta, field.theta[right])
                     + phase_cos_i32(theta, field.theta[inner])
                     + phase_cos_i32(theta, field.theta[outer])
-                    + (phase_cos_i32(theta, field.theta[harmonic_peer]) / 2)
+                    + (phase_cos_i32(theta, field.theta[harmonic_peer]) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
                     + ((phase_cos_i32(theta, field.theta[historical_peer]) * 3) / 10);
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.plasmids[past_idx] != 0 {
                     let target_theta = (field.plasmids[past_idx] & 0xFF) as u8;
-                    // K_PLASMID = 0.75 -> 3/4
-                    kuramoto += (phase_sin_i32(theta, target_theta) * 3) / 4;
-                    coherence += (phase_cos_i32(theta, target_theta) * 3) / 4;
+                    kuramoto += (phase_sin_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
+                    coherence += (phase_cos_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
                 }
 
                 let mut next_ent_val = entanglement;
@@ -333,22 +382,22 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     let sin_anti = phase_sin_i32(theta, field.theta[antipode]);
                     let cos_anti = phase_cos_i32(theta, field.theta[antipode]);
                     
-                    kuramoto += (sin_anti * entanglement as i32 * 35) / 25500;
-                    coherence += (cos_anti * entanglement as i32 * 35) / 25500;
+                    kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
+                    coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
 
                     let antipode_alignment = cos_anti;
-                    next_ent_val = if antipode_alignment > 942 && amplitude > 96 { // 0.92 * 1024
+                    next_ent_val = if antipode_alignment > field.header.kuramoto_antipode_alignment && amplitude > 96 { // 0.92 * 1024
                         entanglement.saturating_add(8)
                     } else {
                         entanglement.saturating_sub(3)
                     };
                 }
 
-                let omega_delta = (kuramoto / MATH_Q_SCALE) as i16;
+                let omega_delta = (kuramoto / field.header.kuramoto_base) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (((coherence as i64 * 6) / MATH_Q_SCALE as i64) as i16) - (lock as i16 / 64);
-                let lock_delta = if coherence >= KURAMOTO_COHERENCE_THRESHOLD_LOCK { 8 } else { -4 };
+                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock as i16 / 64);
+                let lock_delta = if coherence >= field.header.kuramoto_threshold_lock { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
                 let next_lock_val = clamp_byte(lock + lock_delta);
@@ -378,7 +427,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                         }
                     }
 
-                    if donor_plasmid != 0 && best_resonance > 614 {
+                    if donor_plasmid != 0 && best_resonance > field.header.kuramoto_adoption_resonance {
                         local_next_theta = (donor_plasmid & 0xFF) as u8;
                         let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
                         local_next_omega = clamp_i16(donor_omega, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
