@@ -6,7 +6,7 @@ Until Ontology 30, the OMEGA-64 thermodynamic simulation relied on immutable, ha
 
 While these scalars stabilized the system during initial development, they structurally violated the absolute autonomy of the organism. By hardcoding costs, the `engine` acted as a "god outside the machine," artificially preventing starvation or hyper-inflation.
 
-Ontology 31 migrates all Engine Constraints directly into the biological substrate (`I.md`) as the `tissue_constants` node. The LLM (and blind mutators) can now evolve and re-write the physical laws of their own universe.
+Ontology 31 historically attempted to migrate all Engine Constraints directly into the biological substrate (`legacy_text_substrate`) as the `tissue_constants` node. However, to prevent universal desync, these parameters are now strictly hardcoded in the Native Rust Core (`omega_core/src/constants.rs`), and the LLM receives these constants via readonly WASM bindings rather than parsing them from Markdown or TypeScript AST.
 
 ## The Kinematic Dependencies
 
@@ -37,4 +37,4 @@ Conversely, if the mutator sets `MUTATION_COST` to `300` and `FATIGUE_THRESHOLD`
 If the LLM touches the Kuramoto structural coupling weights (e.g., editing Semantic Mycelial Pull from `$4.0$` to `$0.01$`), the visual Mycelial buckets will visually shatter. Semantic injection will lose structural consequence over the hardware cells, entirely decoupling the "ideas" from "reality."
 
 ## Conclusion
-By embedding `tissue_constants` into the readable Spore framework (`I.md`), we accept these existential risks as necessary consequences of True Autopoiesis. Omega-64's survival now depends not on hardcoded engine limits, but on the organic system's ability to "learn" how to tune its own metabolism to maximize stability.
+By embedding `tissue_constants` centrally within the compiled Rust Engine (`omega_core`), we shield the overarching simulation bounds from lethal catastrophic Paradoxes. Omega-64's survival now depends not on LLMs hallucinating mathematical boundaries in text files, but on strict native constraints balancing biological homeostasis.

@@ -3,18 +3,18 @@
 ## Theoretical Introduction
 As the final capstone in establishing Absolute Hyperparameter autonomy, OMEGA-64 transcends Thermodynamic mutation into Morphological mutation. Previously, simulating physics (`PhaseLatticeField `) necessitated instantiating flat Cartesian arrays (e.g., $64 \times 10 \times 3$ vectors) at JS startup. If the organism mutated intellectually to demand denser neural pathways, its physics engine would reject the divergence, hard-bound by immutable memory pointers.
 
-Ontology 32 rewrites this static geometry by binding the very dimensions of Reality to the Biological `tissue_constants` genome.
+Ontology 32 previously explored rewriting this static geometry by binding the very dimensions of Reality to a Biological text-based genome. However, due to fatal memory desync issues, dimensional scaling and morphological boundaries are strictly derived directly from Native Rust bindings (`constants.rs`), preventing hallucinated geometric sizes from over-allocating WebAssembly RAM.
 
 ## The Kinematics of Morphological Resizing
-The Universe is now dimensioned mathematically by three geometric constants hidden in the `tissue_constants` abstract syntax tree:
+The Universe is now dimensioned mathematically by architectural parameters hardcoded inside the `omega_core` physics cluster:
 1. `SECTORS`: The angular $xy$ resolution.
 2. `RADIAL_BINS`: The depth gradient expanding from the Torus inner radius. 
 3. `HARMONICS`: The multidimensional discrete topological layers.
 
-When the LLM Sovereign Oracle evolves and modifies these dimensional integers natively, it causes a structural incongruency between the Biology (JS Code intent) and the Environment (Native physical WASM allocations/VRAM Arrays).
+When the LLM Sovereign Oracle evolves, it must adhere to these mathematical invariants rather than dynamically expanding the physical substrate.
 
 ## The Universal Shedding Event (Autopoiesis Core)
-If the rendering engine (`src/main.ts`) detects that the Organism's biological DNA dimensions (`tissue_constants.ir.body.SECTORS`) deviate from its actively instantiated memory arrays (`PhaseLatticeField.sectors`), the simulation invokes a strictly blocking **Universal Shedding Event**:
+If the rendering engine (`src/main.ts`) orchestrates a dimension expansion (for instance through subsequent compiler epochs), it invokes a strictly blocking **Universal Shedding Event**:
 
 1. **Molting (De-allocation)**: The framework triggers `phaseField.free()`, cleanly stripping WebAssembly memory pointers of their previous incarnation without panicking the Garbage Collector.
 2. **WebGPU Evisceration**: The WebGPU Ping-Pong Textures (`Buffer A` & `Buffer B`) and spatial mapping centroids are instantly destroyed and garbage-collected natively. VRAM allocations drop abruptly to zero.

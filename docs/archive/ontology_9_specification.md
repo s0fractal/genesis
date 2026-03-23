@@ -3,10 +3,10 @@
 **Date:** March 2026
 
 ## 1. The Death of Text (Abstract)
-The Σ³ Semantic Schema defined the philosophy of a living ecological runtime. However, attempting to serialize this ecosystem into an ASCII `Markdown` file (`I.md`) inherently crippled the simulation. Text is linear, parse-heavy, and biologically static.
+The Σ³ Semantic Schema defined the philosophy of a living ecological runtime. However, attempting to serialize this ecosystem into an ASCII `Markdown` file (`legacy_text_substrate`) inherently crippled the simulation. Text is linear, parse-heavy, and biologically static.
 
 In Ontology 9.0, we abandon the concept of "Source Code as a Document" and transition to **Source Code as a Spatial Medium**.
-- No more `I.md`.
+- No more `legacy_text_substrate`.
 - No more `JSON.parse`.
 - The universe is a raw, multi-dimensional Tensor (`Int16Array`).
 - Computation is geometric movement within this Tensor.
