@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, decodeMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -245,6 +245,16 @@ export class SovereignOracle {
         return this.epochTicks;
     }
 
+    // Era 213: Topological Climate Tracker
+    public getCurrentClimate(): string {
+        const yearTick = this.epochTicks % 4000;
+        const season = Math.floor(yearTick / 1000); // 0-3
+        if (season === 0) return "SPRING: Cambrian Logics";
+        if (season === 1) return "SUMMER: Apex Predation";
+        if (season === 2) return "AUTUMN: The Reaping";
+        return "WINTER: Topological Freeze";
+    }
+
     // O-59 Genesis State Reload
     public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number, loadedLedger?: SemanticEvent[]) {
         // Halt physics completely during transplant
@@ -311,10 +321,11 @@ export class SovereignOracle {
         let bankruptCount = 0;
         const localStalemates: bigint[] = [];
         
-        // Era 202 Vector 2: Diurnal Macro-Cycles (The Sleep Ticks)
-        const isLunarPhase = (this.epochTicks % 1000) > 500;
+        // Era 213 Vector 3: Topological Climate (Seasonal Physics)
+        const yearTick = this.epochTicks % 4000;
+        const season = Math.floor(yearTick / 1000); 
         
-        if (isLunarPhase) {
+        if (season === 3) { // WINTER: Stasis (Equivalent to prior Lunar Phase)
             // LUNAR PHASE: Taxation halts, execution slumbers, AST memory naturally compresses
             for (const hash of this.activePlasmids) {
                 const node = this.plasmidRegistry.get(hash);
@@ -330,7 +341,20 @@ export class SovereignOracle {
             return; // Skip normal economy completely
         }
         
-        // SOLAR PHASE (Daytime execution & metabolism)
+        let climateEnergyMod = 1.0;
+        let climateDecayMod = 1.0;
+        if (season === 0) { // SPRING
+            climateEnergyMod = 1.5; 
+            climateDecayMod = 0.5;
+        } else if (season === 1) { // SUMMER
+            climateEnergyMod = 1.0;
+            climateDecayMod = 2.0; 
+        } else if (season === 2) { // AUTUMN
+            climateEnergyMod = 0.5;
+            climateDecayMod = 1.0; 
+        }
+        
+        // SOLAR ACTIVE PHASES (Spring, Summer, Autumn)
         for (const hash of this.activePlasmids) {
             const node = this.plasmidRegistry.get(hash);
             if (!node) {
@@ -341,13 +365,13 @@ export class SovereignOracle {
             const popularityShare = (totalAttention > 0 && node.attention > 0) ? (node.attention / totalAttention) : 0;
             const noveltyShare = (1.0 / (1.0 + node.attention)) / totalNovelty; // Weirdest/Newest get priority
             
-            const share = distributionPool * (popularityShare * 0.4 + noveltyShare * 0.6);
+            const share = distributionPool * (popularityShare * 0.4 + noveltyShare * 0.6) * climateEnergyMod;
             node.energy += share;
             distributedEnergy += share;
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
             const maintenanceCost = SOMATIC_BASE_COST + (node.l1_cost * SOMATIC_COMPLEXITY_ALPHA);
-            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_DECAY_RATE));
+            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_DECAY_RATE)) * climateDecayMod;
             
             // Strictly collect taxes into the circulating pool
             const taxable = Math.min(node.energy, decay);
@@ -800,12 +824,26 @@ export class SovereignOracle {
                      const childStr = formatTerm(childTerm);
                      let childHash = this.fastSemanticHash(childStr);
                      
-                     // O-146 Vector O.2: Epigenetic Integration
                      const hue = phenotypeHue(childTerm);
                      childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
                      
+                     // Era 211: Metaphysical Topology (Geographic Genesis)
+                     const sector = this.getGeographicSector(Number(idx));
+                     let metrics = measureIR(childTerm);
+                     
+                     // Era 213: Reverse DNA Recoding (Topological Radiation)
+                     if (this.sectorHeat[sector] > 7.0 && Math.random() < 0.15) {
+                         // High thermodynamic heat causes rapid physical mutation on the 64-bit payload
+                         const corruptBit = BigInt(1) << BigInt(Math.floor(Math.random() * 64));
+                         childHash ^= corruptBit;
+                         
+                         // Instantly reverse-recode the damaged struct back into a living logical tree
+                         childTerm = decodeMorphology(childHash);
+                         metrics = measureIR(childTerm); // Recalculate physical stress of new alien architecture
+                         console.log(`☢️ [REVERSE RECODING] Sector ${sector} Heat violently mutated a logical sequence into an Alien Genotype: ${formatTerm(childTerm)}`);
+                     }
+
                      if (!this.plasmidRegistry.has(childHash)) {
-                         const metrics = measureIR(childTerm);
                          
                          // O-137 Vector F.2: Topological Niches (Core vs Membrane)
                          if (rho <= 1 && metrics.cost > 15) {
@@ -821,9 +859,6 @@ export class SovereignOracle {
                          // A child is simply born into the graph with minimal seed energy and 0 fitness.
                          const childSeed = Math.min(50, this.reserveEnergyPool);
                          this.reserveEnergyPool -= childSeed;
-                         
-                         // Era 211: Metaphysical Topology (Geographic Genesis)
-                         const sector = this.getGeographicSector(Number(idx));
                          
                          this.plasmidRegistry.set(childHash, {
                              ast: childTerm,

@@ -84,8 +84,9 @@ export class UISubsystem implements ISubsystem {
                 "SIGNATURE",
                 phase_lattice_signature(this.field).slice(0, 12)
             );
+            const climate = this.oracle.getCurrentClimate();
             DOM.statusLabel?.replaceChildren(
-                `ENT ${entropy.toFixed(2)} | Ω ${
+                `[${climate}] ENT ${entropy.toFixed(2)} | Ω ${
                 phase_lattice_omega_span(this.field)
                 } | Q ${this.oracle.getQueueSize()}`
             );

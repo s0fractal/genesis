@@ -179,6 +179,78 @@ export function compileMorphology(term: Term): bigint {
     return hash;
 }
 
+/**
+ * Era 213: Reverse DNA Recoding (Hash-to-Tree)
+ * Physically unpacks a WebGPU 64-bit Genotype hash back into a structurally valid, living AST.
+ * This mathematically synthesizes an entire generative algorithm strictly defined by physical variance.
+ */
+export function decodeMorphology(genotype: bigint): Term {
+    const _hue = Number(genotype & 0xFFn);
+    const phaseShift = Number((genotype >> 8n) & 0xFFn);
+    const entanglement = Number((genotype >> 16n) & 0xFFn);
+    const amplitude = Number((genotype >> 24n) & 0xFFn);
+    const lock = Number((genotype >> 32n) & 0xFFn);
+    const variance = Number((genotype >> 48n) & 0xFFFFn);
+
+    // Reconstruct structural counts mathematically matching compileMorphology metrics
+    const countIYB = Math.floor(phaseShift / 32);
+    const countSW = Math.floor(entanglement / 18);
+    const countKC = Math.floor(lock / 24);
+    
+    // 40 + nodes * 12 = amplitude
+    let totalNodes = Math.floor((Math.max(40, amplitude) - 40) / 12);
+    if (totalNodes < 1) totalNodes = 1;
+    
+    const pool: Term[] = [];
+    
+    let seed = variance === 0 ? 1337 : variance;
+    const lcg = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF;
+        return seed;
+    };
+    
+    const rand = (max: number) => {
+        return lcg() % Math.max(1, max);
+    };
+
+    // Populate Combinator subsets deterministically based on physical bytes
+    for (let i = 0; i < countSW; i++) pool.push(rand(2) === 0 ? S : W);
+    for (let i = 0; i < countKC; i++) pool.push(rand(2) === 0 ? K : C);
+    for (let i = 0; i < countIYB; i++) {
+        const r = rand(3);
+        pool.push(r === 0 ? I : (r === 1 ? Y : B));
+    }
+
+    // Pad remaining leaf nodes required to fulfill structural Amplitude gravity
+    while (pool.length < totalNodes) {
+        const choices = [S, K, I, Y, B, C, W];
+        pool.push(choices[rand(7)]);
+    }
+
+    // Fisher-Yates structural shuffle
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = rand(i + 1);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+
+    // Fold the linear protein sequence into a hierarchical Application tree
+    while (pool.length > 1) {
+        // Randomly determine tree branching factors to mimic depth variance
+        if (rand(10) > 4 && pool.length >= 3) {
+            const right = pool.pop()!;
+            const left = pool.pop()!;
+            const combined = apply(left, right);
+            pool.splice(rand(pool.length), 0, combined); // Inject back deeper
+        } else {
+            const right = pool.pop()!;
+            const left = pool.pop()!;
+            pool.push(apply(left, right));
+        }
+    }
+
+    return pool[0] || I;
+}
+
 export function variable(name: string): Term {
     return { type: "Variable", name };
 }
