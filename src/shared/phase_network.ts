@@ -12,6 +12,8 @@ export class PhaseNetwork {
     private channel: BroadcastChannel;
     private meshChannel: BroadcastChannel;
     private rtcConnections: Set<RTCDataChannel> = new Set();
+    private geometricMatrix: Map<number, RTCDataChannel> = new Map(); // Era 203: Optical IP abstraction
+    public localRefractiveIndex: number = 1.0; // Governed by thermodynamic homeostasis
     private peers: Map<string, RTCPeerConnection> = new Map();
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     private nodeId: string;
@@ -154,22 +156,45 @@ export class PhaseNetwork {
         return pc;
     }
 
-    // Broadcast a mutated idea to all connected mycelial nodes (Local & Remote)
+    // Broadcast a mutated idea to all connected mycelial nodes via Holographic Refraction
     public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number) {
         const origin = "peer_" + Math.random().toString(36).substring(7);
         const signature = fnv1a_64(`${hash}:${targetBucket}:${origin}:${SYSTEMIC_O56_SALT}`).toString(16);
         const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature };
-        const msg = { type: "FOREIGN_PLASMID", payload };
         
-        // Emit locally
-        this.channel.postMessage(msg);
+        // Emitting internally locally ignores geometry
+        const localMsg = { type: "FOREIGN_PLASMID", payload };
+        this.channel.postMessage(localMsg);
 
-        // Emit globally over WebRTC
-        const serialized = JSON.stringify(msg);
-        for (const rtc of this.rtcConnections) {
-            if (rtc.readyState === "open") {
-                rtc.send(serialized);
+        // Era 203: Global Emission as a Phase Wave
+        const startingTheta = Math.random() * Math.PI * 2;
+        const startingAmplitude = Math.max(1000, energy * 10);
+        this.refractPlasmid(payload, startingTheta, startingAmplitude);
+    }
+    
+    // Era 203: Snell's Law Geometric Proxy
+    private refractPlasmid(p: ForeignPlasmid, thetaOut: number, amplitude: number, excludeDc?: RTCDataChannel) {
+        if (this.geometricMatrix.size === 0) return;
+        
+        let bestDc: RTCDataChannel | null = null;
+        let minDiff = Infinity;
+        
+        // Find the WebRTC pipe that geometrically aligns best with the refracted angle
+        for (const [theta, dc] of this.geometricMatrix.entries()) {
+            if (dc === excludeDc) continue;
+            
+            let diff = Math.abs(theta - thetaOut);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff; // Circular Wrap
+            
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestDc = dc;
             }
+        }
+        
+        if (bestDc && bestDc.readyState === "open") {
+            const msg = { type: "FOREIGN_PLASMID", payload: p, theta: thetaOut, amplitude };
+            bestDc.send(JSON.stringify(msg));
         }
     }
 
@@ -210,6 +235,9 @@ export class PhaseNetwork {
         dc.onopen = () => {
             console.log(`🌐 [WebRTC] Global Phase Node connected!`);
             this.rtcConnections.add(dc);
+            // Era 203: Assign abstract geometric coordinate
+            const theta = Math.random() * Math.PI * 2;
+            this.geometricMatrix.set(theta, dc);
         };
         dc.onmessage = (e) => {
             try {
@@ -235,12 +263,41 @@ export class PhaseNetwork {
                         this.onPlasmidReceived(p);
                         return;
                     }
+                    // Era 203: Wave Propagation & Snell's Law
+                    const theta_in = data.theta || 0;
+                    let currentAmplitude = data.amplitude || 1000;
                     
-                    console.log(`📡 [WebRTC] Received Cryptographically Verified Global Plasmid: ${p.hash}`);
+                    // The wave loses energy as it travels through the geometric internet
+                    currentAmplitude *= 0.8; 
+                    
+                    if (currentAmplitude > 100) {
+                        // Snell's Law calculation: n1 * sin(theta_in) = n2 * sin(theta_out)
+                        // Assuming vacuum n1 = 1.0; n2 = localRefractiveIndex (Entropy Density)
+                        let sin_out = (1.0 / this.localRefractiveIndex) * Math.sin(theta_in);
+                        
+                        // Total Internal Reflection constraints
+                        if (sin_out > 1) sin_out = 1;
+                        if (sin_out < -1) sin_out = -1;
+                        
+                        const theta_out = Math.asin(sin_out);
+                        
+                        // Propagate the wave onward without stopping
+                        this.refractPlasmid(p, theta_out, currentAmplitude, dc);
+                        console.log(`🌈 [Refraction] Proxied plasmid ${p.hash} at angle ${theta_out.toFixed(2)} rad. Amp: ${currentAmplitude.toFixed(0)}`);
+                    }
+
+                    // 🍄 Era 203: Holographic CRDT Resonance
+                    // Even as the wave passes through us, we attempt to biologically absorb it
+                    console.log(`📡 [Holo-CRDT] Attempting to resonate with plasmid: ${p.hash}`);
                     this.onPlasmidReceived(p);
                 }
             } catch (_err) {}
         };
-        dc.onclose = () => this.rtcConnections.delete(dc);
+        dc.onclose = () => {
+            this.rtcConnections.delete(dc);
+            for (const [theta, channel] of this.geometricMatrix.entries()) {
+                if (channel === dc) this.geometricMatrix.delete(theta);
+            }
+        };
     }
 }

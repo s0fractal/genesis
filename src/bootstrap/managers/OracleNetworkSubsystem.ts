@@ -15,18 +15,31 @@ export class OracleNetworkSubsystem implements ISubsystem {
         this.senateChat = new SenateChatHUD();
         
         this.network = new PhaseNetwork((plasmid) => {
+            const hash = BigInt(plasmid.hash);
+            
+            // Era 203: Holographic CRDT Resonance (Constructive Interference)
+            if (this.oracle.plasmidRegistry.has(hash)) {
+                const node = this.oracle.plasmidRegistry.get(hash)!;
+                node.attention += Math.max(10, Math.floor(plasmid.energy / 100)); // Optical resonance
+                node.energy += Math.min(1000, plasmid.energy); // Inject arriving amplitude
+                this.oracle.activePlasmids.add(hash); // Re-awaken standard metabolism
+                console.log(`🌈 [Holo-CRDT] Constructive Interference! Amplified existing node: ${plasmid.hash.substring(0, 8)}`);
+                return;
+            }
+
+            // Novel logic branch. Attempt to merge into local WebGPU Phase Lattice
             console.log(
-                `🍄 [Mycelium] Horizontal Gene Transfer: Absorbing Exogenous Plasmid ${
+                `🍄 [Mycelium] Holographic DAG Merge: Absorbing Novel Plasmid ${
                     plasmid.hash.substring(0, 8)
                 }... into Bucket #${plasmid.targetBucket}`
             );
             try {
                 this.engine.injectPlasmidIntoBucket(
                     plasmid.targetBucket,
-                    BigInt(plasmid.hash),
+                    hash,
                 );
             } catch (_e) {
-                // Ignore exogenous off-grid WebRTC packets
+                // Ignore exogenous off-grid WebRTC packets if buckets are full
             }
         });
 
@@ -54,5 +67,7 @@ export class OracleNetworkSubsystem implements ISubsystem {
 
     tick() {
         this.oracle.sync();
+        // Era 203: Snell's Law thermodynamic coupling
+        this.network.localRefractiveIndex = Math.max(0.1, this.oracle.lastEntropy);
     }
 }

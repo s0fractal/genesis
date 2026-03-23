@@ -430,8 +430,11 @@ export class SovereignOracle {
         }
     }
 
+    public lastEntropy: number = 2.5;
+
     // O-75 Autopoietic Homeostasis Guard (Vector H.2)
     public tickHomeostasis(entropy: number) {
+        this.lastEntropy = entropy;
         if (!this.wasmField.ptr_header) return;
         
         const ptr = this.wasmField.ptr_header();
