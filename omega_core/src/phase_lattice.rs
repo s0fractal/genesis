@@ -1,14 +1,36 @@
 use wasm_bindgen::prelude::*;
+use crate::constants::*;
 
-const PHASE_LUT_SIZE: u32 = 256;
-const MATH_Q_BITS: i32 = 10;
-const MATH_Q_SCALE: i32 = 1 << MATH_Q_BITS;
 const SYNC_RATE: i16 = 32;
-const MIN_OMEGA: i16 = -16;
-const MAX_OMEGA: i16 = 16;
-const MAX_ENTANGLEMENT: u8 = 255;
-const COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3 * MATH_Q_SCALE; // 3.0 * Q_SCALE
 const MAX_BYTE: i16 = 255;
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct SubstrateHeader {
+    pub magic: [u8; 4],
+    pub version: u32,
+    pub sectors: u32,
+    pub radial_bins: u32,
+    pub harmonics: u32,
+    pub max_atoms: u32,
+    pub damping_base: i32,
+    pub padding: [u8; 36],
+}
+
+impl Default for SubstrateHeader {
+    fn default() -> Self {
+        SubstrateHeader {
+            magic: [b'O', b'M', b'G', b'A'],
+            version: 71,
+            sectors: 0,
+            radial_bins: 0,
+            harmonics: 0,
+            max_atoms: 0,
+            damping_base: 0,
+            padding: [0; 36],
+        }
+    }
+}
 
 #[wasm_bindgen]
 #[derive(Clone)]
@@ -19,6 +41,7 @@ pub struct PhaseLatticeField {
     pub sectors: u32,
     pub radial_bins: u32,
     pub harmonics: u32,
+    pub(crate) header: SubstrateHeader,
     pub(crate) theta: Vec<u8>,
     pub(crate) canary_1: u32,
     pub(crate) omega: Vec<i16>,
@@ -48,6 +71,14 @@ impl PhaseLatticeField {
             sectors,
             radial_bins,
             harmonics,
+            header: SubstrateHeader {
+                sectors,
+                radial_bins,
+                harmonics,
+                max_atoms: 1_048_576,
+                damping_base: 1024,
+                ..Default::default()
+            },
             theta: vec![0; size],
             canary_1: 0xDEADBEEF,
             omega: vec![0; size],
@@ -85,6 +116,14 @@ impl PhaseLatticeField {
         self.sectors = sectors;
         self.radial_bins = radial_bins;
         self.harmonics = harmonics;
+        
+        self.header.sectors = sectors;
+        self.header.radial_bins = radial_bins;
+        self.header.harmonics = harmonics;
+    }
+
+    pub fn ptr_header(&self) -> *const u8 {
+        &self.header as *const SubstrateHeader as *const u8
     }
 
     pub fn ptr_theta(&self) -> *const u8 {
@@ -146,7 +185,7 @@ impl PhaseLatticeField {
                     for sector in 0..self.sectors as usize {
                         let idx = self.idx(tau, sector, rho, harmonic);
                         self.theta[idx] = wrap_phase((tau * 3 + sector * 7 + rho * 19 + harmonic * 23) as i16);
-                        self.omega[idx] = clamp_i16(((tau + sector + rho + harmonic) % 5) as i16 - 2, MIN_OMEGA, MAX_OMEGA);
+                        self.omega[idx] = clamp_i16(((tau + sector + rho + harmonic) % 5) as i16 - 2, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                         self.amplitude[idx] = clamp_byte((tau * 11 + sector * 13 + rho * 17 + harmonic * 29) as i16);
                         self.lock[idx] = ((tau * 7 + sector * 5 + rho * 11 + harmonic * 3) % 64) as u8;
                         self.entanglement[idx] = 0;
@@ -293,10 +332,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 }
 
                 let omega_delta = (kuramoto / MATH_Q_SCALE) as i16;
-                let next_omega_val = clamp_i16(omega + omega_delta, MIN_OMEGA, MAX_OMEGA);
+                let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
                 let amplitude_delta = (((coherence as i64 * 6) / MATH_Q_SCALE as i64) as i16) - (lock as i16 / 64);
-                let lock_delta = if coherence >= COHERENCE_SUSTAIN_THRESHOLD_Q10 { 8 } else { -4 };
+                let lock_delta = if coherence >= KURAMOTO_COHERENCE_THRESHOLD_LOCK { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
                 let next_lock_val = clamp_byte(lock + lock_delta);
@@ -329,7 +368,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     if donor_plasmid != 0 && best_resonance > 614 {
                         local_next_theta = (donor_plasmid & 0xFF) as u8;
                         let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
-                        local_next_omega = clamp_i16(donor_omega, MIN_OMEGA, MAX_OMEGA);
+                        local_next_omega = clamp_i16(donor_omega, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                         next_plasmid = donor_plasmid;
                         adopted = true;
                     }

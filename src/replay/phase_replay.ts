@@ -6,6 +6,7 @@ import {
     sumEntanglement,
 } from "../shared/topology_core.ts";
 import { phaseDistance } from "../shared/topology_core.ts";
+import { hydrateSubstrateHeader, SUBSTRATE_VERSION } from "../shared/constants.ts";
 
 export type ReplayCompareMode = "none" | "seed" | "previous";
 
@@ -70,6 +71,8 @@ export async function loadPhaseReplayDataset(): Promise<PhaseReplayDataset> {
 
     const wasm = await initWasm();
     const field = new PhaseLatticeField(golden.shape.sectors, golden.shape.radialBins, golden.shape.harmonics);
+    hydrateSubstrateHeader(wasm.memory, field.ptr_header());
+    console.log(`[SNAPSHOT_ENGINE] Substrate Header Hydrated. OMGA Version: ${SUBSTRATE_VERSION}`);
     
     const snapshots: PhaseField[] = [];
     snapshots.push(snapshotWasmPhaseField(field, wasm, golden.shape));

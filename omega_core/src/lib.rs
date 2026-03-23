@@ -5,4 +5,5 @@ pub mod phase_lattice;
 pub mod perturbation;
 pub mod generated_biology;
 pub mod lut;
+pub mod constants;
 

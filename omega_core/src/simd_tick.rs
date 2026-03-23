@@ -1,8 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::memory::Field;
-
-const MATH_Q_BITS: i32 = 10;
-const MATH_Q_SCALE: i32 = 1 << MATH_Q_BITS;
+use crate::constants::*;
 
 const BRIDGE_COHERENCE_ENERGY_GAIN_MUL: i64 = 6;
 const BRIDGE_LOCK_PENALTY_DIVISOR: i16 = 64;
@@ -12,7 +10,7 @@ const BRIDGE_BOUNDARY_ENERGY_BONUS: i16 = 0;
 const BRIDGE_BOUNDARY_LOCK_BONUS: u8 = 1;
 const BRIDGE_DEPTH1_SUSTAINED_ENERGY_BONUS: i16 = 2;
 const BRIDGE_DEPTH2_LOCK_THRESHOLD_Q10: i32 = 4 * MATH_Q_SCALE; // 4.0 * Q_SCALE
-const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = 3 * MATH_Q_SCALE; // 3.0 * Q_SCALE
+const BRIDGE_COHERENCE_SUSTAIN_THRESHOLD_Q10: i32 = KURAMOTO_COHERENCE_THRESHOLD_LOCK;
 
 #[wasm_bindgen]
 pub fn execute_simd_tick(field: &mut Field, lut_ptr: *const i16) {
