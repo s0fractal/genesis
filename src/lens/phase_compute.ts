@@ -242,9 +242,16 @@ export class PhaseComputeEngine {
 
     injectPlasmid(index: number, hash: bigint) {
         if (!this.device) return;
+        const amp = Number((hash >> 24n) & 0xFFn);
+        const phase = Number((hash >> 8n) & 0xFFn);
+        const ent = Number((hash >> 16n) & 0xFFn);
+        
         const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
         inj.hashLow = Number(hash & 0xFFFFFFFFn);
         inj.hashHigh = Number(hash >> 32n);
+        inj.amp = Math.max(20, amp); 
+        inj.phase = phase;
+        inj.ent = ent;
         this.injections.set(index, inj);
     }
 
@@ -253,7 +260,19 @@ export class PhaseComputeEngine {
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
         if (!this.device) return;
         const injId = this.nextInjId--;
-        const inj = { idx: 0xFFFFFFFF, bucket: bucketId, hashLow: Number(hash & 0xFFFFFFFFn), hashHigh: Number(hash >> 32n), amp: 200, phase: 0, ent: 128 };
+        const amp = Number((hash >> 24n) & 0xFFn);
+        const phase = Number((hash >> 8n) & 0xFFn);
+        const ent = Number((hash >> 16n) & 0xFFn);
+        
+        const inj = { 
+            idx: 0xFFFFFFFF, 
+            bucket: bucketId, 
+            hashLow: Number(hash & 0xFFFFFFFFn), 
+            hashHigh: Number(hash >> 32n), 
+            amp: Math.max(20, amp), 
+            phase: phase, 
+            ent: ent 
+        };
         this.injections.set(injId, inj);
     }
 

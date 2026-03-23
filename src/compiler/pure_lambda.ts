@@ -90,6 +90,58 @@ export function phenotypeHue(term: Term): number {
     return Math.floor((hue / 360) * 255);
 }
 
+/**
+ * O-146 Vector I.1: The Epigenetic Compiler (Ontology 76)
+ * Deterministically packs the logical morphology of the abstract syntax tree into a 64-bit Genotype.
+ */
+export function compileMorphology(term: Term): bigint {
+    let sCount = 0;
+    let kCount = 0;
+    let iCount = 0;
+    
+    function walk(t: Term) {
+        if (t.type === "Combinator") {
+            if (t.name === "S") sCount++;
+            else if (t.name === "K") kCount++;
+            else if (t.name === "I" || t.name === "Y") iCount++;
+        } else if (t.type === "Application") {
+            walk(t.left);
+            walk(t.right);
+        }
+    }
+    walk(term);
+
+    const hue = BigInt(phenotypeHue(term));
+    
+    // Phase (Theta) - Mapped to I/Y count (Temporal Delay logic shifts continuous phase)
+    const phaseShift = BigInt(Math.min(255, iCount * 32));
+    
+    // Entanglement - Mapped to S count (Structural Splitting induces massive web bounds)
+    const entanglement = BigInt(Math.min(255, sCount * 18));
+    
+    // Amplitude (Energy) - Mapped to total AST sheer gravity
+    const metrics = measureIR(term);
+    const amplitude = BigInt(Math.min(255, 40 + metrics.nodes * 12));
+    
+    // Lock (Rigidity) - Mapped to K count (Pruning logic permanently scars topology)
+    const lock = BigInt(Math.min(255, kCount * 24));
+
+    // Pack into u64 Schema
+    // Byte 0: Hue | Byte 1: Phase | Byte 2: Entanglement | Byte 3: Amplitude | Byte 4: Lock
+    let hash = 0n;
+    hash |= hue;
+    hash |= (phaseShift << 8n);
+    hash |= (entanglement << 16n);
+    hash |= (amplitude << 24n);
+    hash |= (lock << 32n);
+    
+    // Add deterministic variance based on semantic depth to prevent identical collisions
+    const variance = BigInt(metrics.depth * 31337) & 0xFFFFn;
+    hash |= (variance << 48n);
+
+    return hash;
+}
+
 export function variable(name: string): Term {
     return { type: "Variable", name };
 }

@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary } from "./epoch_dumper.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
 
@@ -87,11 +87,7 @@ export class SovereignOracle {
             { term: Y, string: "Y" }
         ];
         for (const meta of immortals) {
-            let childHash = fnv1a_64(meta.string);
-            
-            // O-146 Vector O.2: Epigenetic Integration
-            const hue = phenotypeHue(meta.term);
-            childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
+            let childHash = compileMorphology(meta.term);
             
             if (!PlasmidRegistry.has(childHash)) {
                 PlasmidRegistry.set(childHash, {
@@ -736,11 +732,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
         try {
             const astTerm = parseLambda(intent);
             const astStr = formatTerm(astTerm); // Normalize spacing and validation
-            hash = fnv1a_64(astStr);
-            
-            // O-146 Vector O.2: Epigenetic Integration
-            const hue = phenotypeHue(astTerm);
-            hash = (hash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
+            hash = compileMorphology(astTerm);
             
             if (!PlasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
