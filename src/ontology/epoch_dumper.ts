@@ -58,3 +58,23 @@ export async function flushEpochBinary(
     console.log(`[WATCHDOG] 📦 Wrote Epoch Dump (${binary.byteLength} bytes) to ${filename}`);
     return filename;
 }
+
+export async function archiveLedgerChunk(events: SemanticEvent[]): Promise<string> {
+    const timestamp = Date.now();
+    
+    if (typeof globalThis.Deno === "undefined") {
+        console.warn(`[WATCHDOG] 🚫 Browser environment detected. Skipping Ledger chunk dump.`);
+        return `browser_mock_ledger_${timestamp}.msgpack`;
+    }
+
+    // @ts-ignore: Deno is dynamically available natively
+    await Deno.mkdir("./mycelium/ledgers", { recursive: true });
+    
+    const binary = encode(events);
+    const filename = `./mycelium/ledgers/ledger_chunk_${timestamp}.msgpack`;
+    // @ts-ignore: Deno is dynamically available natively
+    await Deno.writeFile(filename, binary);
+    
+    console.log(`[WATCHDOG] 📚 Archived Ledger Chunk (${events.length} events, ${binary.byteLength} bytes) to ${filename}`);
+    return filename;
+}

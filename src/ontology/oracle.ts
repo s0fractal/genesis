@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
-import { flushEpochBinary } from "./epoch_dumper.ts";
+import { flushEpochBinary, archiveLedgerChunk } from "./epoch_dumper.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
 
 export type SenateEvent =
@@ -57,6 +57,21 @@ export class SovereignOracle {
     
     // O-74 Historian Semantic Ledger
     public eventLedger: SemanticEvent[] = [];
+    
+    // O-78 Auto-Truncation Bounds
+    private LEDGER_MAX_EVENTS = 1000;
+    private LEDGER_TRUNCATE_SIZE = 800;
+    
+    public pushLedgerEvent(event: SemanticEvent) {
+        this.eventLedger.push(event);
+        if (this.eventLedger.length >= this.LEDGER_MAX_EVENTS) {
+            // Asynchronously cast old events to disk, keeping the most recent.
+            const chunk = this.eventLedger.splice(0, this.LEDGER_TRUNCATE_SIZE);
+            archiveLedgerChunk(chunk).catch(e => {
+                console.error("[ORACLE] ❌ Failed to securely archive Semantic Ledger chunk:", e);
+            });
+        }
+    }
     
     // O-137 Vector F.3: Elastic Global Energy Pool
     private globalEnergyPool: number = 50000;
@@ -784,13 +799,13 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
         if (this.engine) {
             // O-23 Native WebGPU Interface
             if (targetBucket !== undefined) {
-                this.eventLedger.push({ epoch: this.getEpochTicks(), action: "SENATE_INJECT", hash: hash.toString() });
+                this.pushLedgerEvent({ epoch: this.getEpochTicks(), action: "SENATE_INJECT", hash: hash.toString() });
                 this.engine.injectPlasmidIntoBucket(targetBucket, hash);
                 console.log(`[ORACLE] Successfully decoded algorithm and flooded Bucket #${targetBucket} with Resonance Plasmid.`);
                 if (this.onBroadcast) this.onBroadcast(hash, targetBucket);
             } else {
                 let success = 0;
-                this.eventLedger.push({ epoch: this.getEpochTicks(), action: "SENATE_INJECT_GLOBAL", hash: hash.toString() });
+                this.pushLedgerEvent({ epoch: this.getEpochTicks(), action: "SENATE_INJECT_GLOBAL", hash: hash.toString() });
                 for (const idx of requests) {
                     this.engine.injectPlasmid(idx, hash);
                     if (this.onBroadcast) this.onBroadcast(hash, idx);
