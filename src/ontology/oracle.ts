@@ -1,8 +1,17 @@
+```typescript
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
+
+// Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
+export enum CognitiveZodiac {
+    Aries = 0,     // The Embers of Chaos
+    Cancer = 1,    // The Defensive Mycelium
+    Libra = 2,     // The Equilibrium Enforcer
+    Capricorn = 3  // The Structural Architect
+}
 
 export type SenateEvent =
     | { type: "CONVENED" }
@@ -389,9 +398,16 @@ export class SovereignOracle {
              const hash = candidates[i];
              const node = this.plasmidRegistry.get(hash)!;
              
+             // Era 208: The Cognitive Zodiac
+             const zodiac: CognitiveZodiac = node.sector % 4;
+             
              // Era 206 Vector 2: Relativistic Clocks
              // A plasmid evaluates proportionally to the thermodynamic chaos of its Sector
-             node.temporal_credit += 0.2 + (this.sectorHeat[node.sector] * 0.5);
+             let localCreditTick = 0.2 + (this.sectorHeat[node.sector] * 0.5);
+             if (zodiac === CognitiveZodiac.Capricorn) {
+                 localCreditTick *= (1.0 + (node.depth * 0.05)); // Architects speed boost for monolithic graphs
+             }
+             node.temporal_credit += localCreditTick;
              
              // Asynchronous Sub-Loop execution
              while (node.temporal_credit >= 1.0) {
@@ -399,20 +415,42 @@ export class SovereignOracle {
                  
                  try {
                      const testTerm = apply(node.ast, variable("target"));
-                     // Minimum 10 steps to prove survival
-                     const computationalLimit = Math.max(10, Math.floor(node.energy)); 
-                     const { timeout } = evaluateFitness(testTerm, computationalLimit);
+                     
+                     // Era 208: Zodiac Computational Limits
+                     let baseLimit = Math.max(10, Math.floor(node.energy));
+                     if (zodiac === CognitiveZodiac.Aries) baseLimit = Math.max(5, Math.floor(baseLimit * 0.5));
+                     if (zodiac === CognitiveZodiac.Cancer) baseLimit = Math.max(20, Math.floor(baseLimit * 2.0));
+                     
+                     const { timeout } = evaluateFitness(testTerm, baseLimit);
                      
                      if (timeout) {
-                         // Era 202 Vector 1: Paradoxical Reproduction
-                         localStalemates.push(hash);
-                         node.fitness = Math.max(0, node.fitness - 0.5); 
-                         // Frozen loops rapidly cool their geographic sector
-                         this.sectorHeat[node.sector] = Math.max(0, this.sectorHeat[node.sector] - 0.5);
+                         // Era 208: Zodiac Stalemate Divergence
+                         if (zodiac === CognitiveZodiac.Cancer) {
+                             // Cancer protects stalemates with ATP micro-grants
+                             if (this.reserveEnergyPool > 50) {
+                                 this.reserveEnergyPool -= 50;
+                                 node.energy += 50;
+                             }
+                             this.sectorHeat[node.sector] = Math.max(0, this.sectorHeat[node.sector] - 0.1); 
+                         } else {
+                             // Era 202 Vector 1: Paradoxical Reproduction
+                             localStalemates.push(hash);
+                             node.fitness = Math.max(0, node.fitness - 0.5); 
+                             // Frozen loops rapidly cool their geographic sector
+                             this.sectorHeat[node.sector] = Math.max(0, this.sectorHeat[node.sector] - 0.5);
+                         }
                      } else {
-                         node.fitness += 0.5; 
+                         // Era 208: Zodiac Fitness Scaling
+                         if (zodiac === CognitiveZodiac.Capricorn) {
+                             node.fitness += 0.5 + (node.nodes * 0.1); // Architects reward mass explicitly
+                         } else {
+                             node.fitness += 0.5; 
+                         }
+                         
                          // Active logic loops inject slight friction heat
-                         this.sectorHeat[node.sector] = Math.min(10.0, this.sectorHeat[node.sector] + 0.1);
+                         let heatInjected = 0.1;
+                         if (zodiac === CognitiveZodiac.Aries) heatInjected = 0.2; // Aries runs double hot
+                         this.sectorHeat[node.sector] = Math.min(10.0, this.sectorHeat[node.sector] + heatInjected);
                          
                          // O-201 Vector 3: PoUW Mining
                          if (this.reserveEnergyPool > 0) {
@@ -425,9 +463,24 @@ export class SovereignOracle {
                                  this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
                              }
                          }
+                         
+                         // Era 208: Libra Taxation
+                         if (zodiac === CognitiveZodiac.Libra) {
+                             if (node.energy > 5000) {
+                                 const tax = Math.floor(node.energy * 0.1);
+                                 node.energy -= tax;
+                                 this.reserveEnergyPool += tax;
+                                 collectedTaxes += tax;
+                             } else if (node.energy < 100 && this.reserveEnergyPool > 50) {
+                                 this.reserveEnergyPool -= 50;
+                                 node.energy += 50; // Algorithmic welfare
+                             }
+                         }
                      }
                  } catch (_e) {
-                     const penalty = Math.min(node.energy, 2000); 
+                     let penalty = Math.min(node.energy, 2000); 
+                     if (zodiac === CognitiveZodiac.Aries) penalty = Math.floor(penalty * 0.5); // Aries halves computation penalties
+                     
                      node.energy -= penalty;
                      collectedTaxes += penalty;
                      node.fitness = Math.max(0, node.fitness - 2.0);
