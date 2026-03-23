@@ -59,27 +59,18 @@ export class PhaseComputeEngine {
     // deno-lint-ignore require-await
     async init() {
         const numCells = this.field.cell_count();
-        const S_U8 = numCells;
-        const S_I16 = numCells * 2;
-        const S_U64 = numCells * 8;
+        const AGENT_BYTES = 16;
+        const totalSize = numCells * AGENT_BYTES;
         
-        let cursor = 0;
-        const offTheta = cursor; cursor += S_U8;
-        const offOmega = cursor; cursor += S_I16;
-        const offAmplitude = cursor; cursor += S_U8;
-        const offLock = cursor; cursor += S_U8;
-        const offEntanglement = cursor; cursor += S_U8;
-        const offPlasmids = cursor; cursor += S_U64;
-        
-        this.offsets = [offTheta, offOmega, offAmplitude, offLock, offEntanglement, offPlasmids];
+        this.offsets = [0]; // Deprecated, keeping array for compatibility
 
         this.bufferA = this.device.createBuffer({
-            size: cursor,
+            size: totalSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
         this.bufferB = this.device.createBuffer({
-            size: cursor,
+            size: totalSize,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
@@ -97,19 +88,11 @@ export class PhaseComputeEngine {
         // Seed deterministic WASM state into Buffer A
         const mem = this.wasmMemory.buffer;
         const f = this.field;
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[0], new Uint8Array(mem, f.ptr_theta(), numCells));
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[1], new Uint8Array(mem, f.ptr_omega(), numCells * 2));
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[2], new Uint8Array(mem, f.ptr_amplitude(), numCells));
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[3], new Uint8Array(mem, f.ptr_lock(), numCells));
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[4], new Uint8Array(mem, f.ptr_entanglement(), numCells));
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[5], new Uint8Array(mem, f.ptr_plasmids(), numCells * 8));
-        // Clone into B so atomic updates work on initialized memory
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[0], new Uint8Array(mem, f.ptr_theta(), numCells));
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[1], new Uint8Array(mem, f.ptr_omega(), numCells * 2));
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[2], new Uint8Array(mem, f.ptr_amplitude(), numCells));
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[3], new Uint8Array(mem, f.ptr_lock(), numCells));
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[4], new Uint8Array(mem, f.ptr_entanglement(), numCells));
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[5], new Uint8Array(mem, f.ptr_plasmids(), numCells * 8));
+        // @ts-ignore ptr_agents maps array of structs natively
+        const agentPtr = f.ptr_agents();
+        
+        this.device.queue.writeBuffer(this.bufferA, 0, new Uint8Array(mem, agentPtr, totalSize));
+        this.device.queue.writeBuffer(this.bufferB, 0, new Uint8Array(mem, agentPtr, totalSize));
 
         const shaderModule = this.device.createShaderModule({ code: generateWgslConstants() + generatedBiologyWgsl + "\n" + computeKuramotoWgsl });
         const mycelialModule = this.device.createShaderModule({ code: generateWgslConstants() + computeMycelialWgsl });
@@ -188,12 +171,12 @@ export class PhaseComputeEngine {
         viewU32[1] = this.field.radial_bins;
         viewU32[2] = this.field.harmonics;
         viewF32[3] = time;
-        viewU32[4] = Math.floor(this.offsets[0] / 4);
-        viewU32[5] = Math.floor(this.offsets[1] / 4);
-        viewU32[6] = Math.floor(this.offsets[2] / 4);
-        viewU32[7] = Math.floor(this.offsets[3] / 4);
-        viewU32[8] = Math.floor(this.offsets[4] / 4);
-        viewU32[9] = Math.floor(this.offsets[5] / 4);
+        viewU32[4] = 0;
+        viewU32[5] = 0;
+        viewU32[6] = 0;
+        viewU32[7] = 0;
+        viewU32[8] = 0;
+        viewU32[9] = 0;
         viewF32[10] = 16.0 / 9.0;
         viewU32[11] = activeInj ? activeInj.idx : 0xFFFFFFFF;
         viewU32[12] = activeInj ? activeInj.hashLow : 0;
@@ -315,8 +298,8 @@ export class PhaseComputeEngine {
         if (!this.device) return new BigUint64Array(0);
         
         const activeBuffer = this.getActiveBuffer();
-        const size = this.field.cell_count() * 8; // 8 bytes per u64
-        const offset = this.offsets[5];
+        const numCells = this.field.cell_count();
+        const size = numCells * 16; // 16 bytes per PhaseAgent
         
         const stagingBuffer = this.device.createBuffer({
             size,
@@ -324,12 +307,19 @@ export class PhaseComputeEngine {
         });
 
         const commandEncoder = this.device.createCommandEncoder();
-        commandEncoder.copyBufferToBuffer(activeBuffer, offset, stagingBuffer, 0, size);
+        commandEncoder.copyBufferToBuffer(activeBuffer, 0, stagingBuffer, 0, size);
         this.device.queue.submit([commandEncoder.finish()]);
 
         await stagingBuffer.mapAsync(GPUMapMode.READ);
         const copyBuffer = stagingBuffer.getMappedRange();
-        const data = new BigUint64Array(copyBuffer.slice(0));
+        const dataU8 = new Uint8Array(copyBuffer.slice(0));
+        
+        const data = new BigUint64Array(numCells);
+        const dataView = new DataView(dataU8.buffer);
+        // Extract the 64-bit Plasmid from offset 8 of each 16-byte AoS struct
+        for(let i=0; i<numCells; i++) {
+            data[i] = dataView.getBigUint64(i * 16 + 8, true);
+        }
         
         stagingBuffer.unmap();
         stagingBuffer.destroy();
@@ -341,39 +331,32 @@ export class PhaseComputeEngine {
         if (!this.device) return;
         
         const numCells = this.field.cell_count();
+        const AGENT_BYTES = 16;
+        const totalSize = numCells * AGENT_BYTES;
         const mem = this.wasmMemory.buffer;
         
-        const thetaArray = new Uint8Array(mem, this.field.ptr_theta(), numCells);
-        // @ts-ignore ptr_omega might exist but typescript field map is partial
-        const omegaPtr = this.field.ptr_omega ? this.field.ptr_omega() : this.field.ptr_theta() + numCells;
-        const omegaArray = new Int16Array(mem, omegaPtr, numCells);
-        const ampArray = new Uint8Array(mem, this.field.ptr_amplitude(), numCells);
-        const plasmids = new BigUint64Array(mem, this.field.ptr_plasmids(), numCells);
-        
-        thetaArray.fill(0);
-        omegaArray.fill(0);
-        ampArray.fill(0);
-        plasmids.fill(0n);
+        // @ts-ignore AoS mapping
+        const agentPtr = this.field.ptr_agents();
+        const dataU8 = new Uint8Array(mem, agentPtr, totalSize);
+        const dataView = new DataView(dataU8.buffer, dataU8.byteOffset, dataU8.byteLength);
+
+        // Zero out memory
+        dataU8.fill(0);
 
         for (const [idxStr, hashStr] of Object.entries(grid)) {
             const idx = parseInt(idxStr, 10);
             const hash = BigInt(hashStr);
+            const offset = idx * AGENT_BYTES;
             
-            plasmids[idx] = hash;
-            ampArray[idx] = Math.max(20, Number((hash >> 24n) & 0x3Fn)); 
-            thetaArray[idx] = Number((hash >> 8n) & 0xFFn);
-            omegaArray[idx] = Number((hash >> 16n) & 0x07n) - 3;
+            dataView.setUint8(offset + 0, Number((hash >> 8n) & 0xFFn)); // theta
+            dataView.setUint8(offset + 1, Math.max(20, Number((hash >> 24n) & 0x3Fn))); // energy
+            dataView.setInt16(offset + 2, Number((hash >> 16n) & 0x07n) - 3, true); // omega
+            // lock = 0, ent = 0, pad = 0
+            dataView.setBigUint64(offset + 8, hash, true); // plasmid
         }
 
-        // Parallel hardware pipeline teleportation
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[0], thetaArray);
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[1], omegaArray);
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[2], ampArray);
-        this.device.queue.writeBuffer(this.bufferA, this.offsets[5], plasmids);
-        
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[0], thetaArray);
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[1], omegaArray);
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[2], ampArray);
-        this.device.queue.writeBuffer(this.bufferB, this.offsets[5], plasmids);
+        // Parallel hardware pipeline teleportation using unified payload
+        this.device.queue.writeBuffer(this.bufferA, 0, dataU8);
+        this.device.queue.writeBuffer(this.bufferB, 0, dataU8);
     }
 }

@@ -78,19 +78,12 @@ pub struct PhaseLatticeField {
     pub radial_bins: u32,
     pub harmonics: u32,
     pub(crate) header: SubstrateHeader,
-    pub(crate) theta: Vec<u8>,
+    pub(crate) agents: Vec<crate::granite::PhaseAgent>,
     pub(crate) canary_1: u32,
-    pub(crate) omega: Vec<i16>,
-    pub(crate) canary_2: u32,
-    pub(crate) amplitude: Vec<u8>,
-    pub(crate) lock: Vec<u8>,
-    pub(crate) canary_3: u32,
-    pub(crate) entanglement: Vec<u8>,
     pub(crate) oracle_requests: Vec<u32>,
     pub(crate) oracle_request_count: u32,
-    pub(crate) canary_4: u32,
+    pub(crate) canary_2: u32,
     pub(crate) cell_status: Vec<u8>,
-    pub(crate) plasmids: Vec<u64>,
     pub(crate) plasmid_collisions: Vec<u64>,
     pub(crate) collision_count: u32,
     pub(crate) canary_end: u32,
@@ -132,19 +125,12 @@ impl PhaseLatticeField {
                 senate_min_energy: SENATE_MYCELIUM_MIN_ENERGY,
                 ..Default::default()
             },
-            theta: vec![0; max_elements],
+            agents: vec![crate::granite::PhaseAgent::default(); max_elements],
             canary_1: 0xDEADBEEF,
-            omega: vec![0; max_elements],
-            canary_2: 0xDEADBEEF,
-            amplitude: vec![0; max_elements],
-            lock: vec![0; max_elements],
-            canary_3: 0xDEADBEEF,
-            entanglement: vec![0; max_elements],
             oracle_requests: vec![0; 1024],
             oracle_request_count: 0,
-            canary_4: 0xDEADBEEF,
+            canary_2: 0xDEADBEEF,
             cell_status: vec![0; max_elements],
-            plasmids: vec![0; max_elements],
             plasmid_collisions: vec![0; 1024 * 3],
             collision_count: 0,
             canary_end: 0xDEADBEEF,
@@ -162,7 +148,7 @@ impl PhaseLatticeField {
     }
 
     pub fn pool_capacity(&self) -> u32 {
-        self.theta.len() as u32
+        self.agents.len() as u32
     }
 
     pub fn resize_topology(&mut self, sectors: u32, radial_bins: u32, harmonics: u32) {
@@ -175,14 +161,9 @@ impl PhaseLatticeField {
         self.header.harmonics = harmonics;
 
         let required_cap = (sectors * radial_bins * harmonics * self.tau_depth) as usize;
-        if required_cap > self.theta.len() {
-            self.theta.resize(required_cap, 0);
-            self.omega.resize(required_cap, 0);
-            self.amplitude.resize(required_cap, 0);
-            self.lock.resize(required_cap, 0);
-            self.entanglement.resize(required_cap, 0);
+        if required_cap > self.agents.len() {
+            self.agents.resize(required_cap, crate::granite::PhaseAgent::default());
             self.cell_status.resize(required_cap, 0);
-            self.plasmids.resize(required_cap, 0);
         }
     }
 
@@ -190,24 +171,8 @@ impl PhaseLatticeField {
         &self.header as *const SubstrateHeader as *const u8
     }
 
-    pub fn ptr_theta(&self) -> *const u8 {
-        self.theta.as_ptr()
-    }
-
-    pub fn ptr_omega(&self) -> *const i16 {
-        self.omega.as_ptr()
-    }
-
-    pub fn ptr_amplitude(&self) -> *const u8 {
-        self.amplitude.as_ptr()
-    }
-
-    pub fn ptr_lock(&self) -> *const u8 {
-        self.lock.as_ptr()
-    }
-
-    pub fn ptr_entanglement(&self) -> *const u8 {
-        self.entanglement.as_ptr()
+    pub fn ptr_agents(&self) -> *const u8 {
+        self.agents.as_ptr() as *const u8
     }
 
     pub fn ptr_oracle_requests(&self) -> *const u32 {
@@ -238,21 +203,19 @@ impl PhaseLatticeField {
         self.cell_status.as_ptr()
     }
 
-    pub fn ptr_plasmids(&self) -> *const u64 {
-        self.plasmids.as_ptr()
-    }
-
     pub fn seed_deterministic(&mut self) {
         for tau in 0..self.tau_depth as usize {
             for harmonic in 0..self.harmonics as usize {
                 for rho in 0..self.radial_bins as usize {
                     for sector in 0..self.sectors as usize {
                         let idx = self.idx(tau, sector, rho, harmonic);
-                        self.theta[idx] = wrap_phase((tau * 3 + sector * 7 + rho * 19 + harmonic * 23) as i16);
-                        self.omega[idx] = clamp_i16(((tau + sector + rho + harmonic) % 5) as i16 - 2, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
-                        self.amplitude[idx] = clamp_byte((tau * 11 + sector * 13 + rho * 17 + harmonic * 29) as i16);
-                        self.lock[idx] = ((tau * 7 + sector * 5 + rho * 11 + harmonic * 3) % 64) as u8;
-                        self.entanglement[idx] = 0;
+                        let agent = &mut self.agents[idx];
+                        agent.theta = wrap_phase((tau * 3 + sector * 7 + rho * 19 + harmonic * 23) as i16);
+                        agent.omega = clamp_i16(((tau + sector + rho + harmonic) % 5) as i16 - 2, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
+                        agent.energy = clamp_byte((tau * 11 + sector * 13 + rho * 17 + harmonic * 29) as i16);
+                        agent.lock = ((tau * 7 + sector * 5 + rho * 11 + harmonic * 3) % 64) as u8;
+                        agent.entanglement = 0;
+                        agent.plasmid = 0;
                     }
                 }
             }
@@ -260,19 +223,14 @@ impl PhaseLatticeField {
     }
 
     pub fn rotate_global_phase(&mut self, delta: i16) {
-        for theta in &mut self.theta {
-            *theta = wrap_phase(*theta as i16 + delta);
+        for agent in &mut self.agents {
+            agent.theta = wrap_phase(agent.theta as i16 + delta);
         }
     }
 
     pub fn rotate_angular_address(&mut self, delta_sector: i32) {
-        let theta_clone = self.theta.clone();
-        let omega_clone = self.omega.clone();
-        let amp_clone = self.amplitude.clone();
-        let lock_clone = self.lock.clone();
-        let ent_clone = self.entanglement.clone();
+        let agents_clone = self.agents.clone();
         let status_clone = self.cell_status.clone();
-        let plas_clone = self.plasmids.clone();
 
         for tau in 0..self.tau_depth as usize {
             for harmonic in 0..self.harmonics as usize {
@@ -282,13 +240,8 @@ impl PhaseLatticeField {
                         let target_sector = wrap_index(sector as i32 + delta_sector, self.sectors as usize);
                         let target = self.idx(tau, target_sector, rho, harmonic);
                         
-                        self.theta[target] = theta_clone[source];
-                        self.omega[target] = omega_clone[source];
-                        self.amplitude[target] = amp_clone[source];
-                        self.lock[target] = lock_clone[source];
-                        self.entanglement[target] = ent_clone[source];
+                        self.agents[target] = agents_clone[source];
                         self.cell_status[target] = status_clone[source];
-                        self.plasmids[target] = plas_clone[source];
                     }
                 }
             }
@@ -314,13 +267,13 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     let past_idx = field.idx(past_tau, sector, rho, harmonic);
                     let next_idx = field.idx(next_tau, sector, rho, harmonic);
                     
-                    field.theta[next_idx] = field.theta[past_idx];
-                    field.omega[next_idx] = field.omega[past_idx];
-                    field.amplitude[next_idx] = field.amplitude[past_idx];
-                    field.lock[next_idx] = field.lock[past_idx];
-                    field.entanglement[next_idx] = field.entanglement[past_idx];
+                    field.agents[next_idx].theta = field.agents[past_idx].theta;
+                    field.agents[next_idx].omega = field.agents[past_idx].omega;
+                    field.agents[next_idx].energy = field.agents[past_idx].energy;
+                    field.agents[next_idx].lock = field.agents[past_idx].lock;
+                    field.agents[next_idx].entanglement = field.agents[past_idx].entanglement;
                     field.cell_status[next_idx] = field.cell_status[past_idx];
-                    field.plasmids[next_idx] = field.plasmids[past_idx];
+                    field.agents[next_idx].plasmid = field.agents[past_idx].plasmid;
                 }
             }
             continue;
@@ -338,11 +291,11 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     0
                 };
 
-                let theta = field.theta[past_idx];
-                let omega = field.omega[past_idx];
-                let amplitude = field.amplitude[past_idx] as i16;
-                let lock = field.lock[past_idx] as i16;
-                let entanglement = field.entanglement[past_idx];
+                let theta = field.agents[past_idx].theta;
+                let omega = field.agents[past_idx].omega;
+                let amplitude = field.agents[past_idx].energy as i16;
+                let lock = field.agents[past_idx].lock as i16;
+                let entanglement = field.agents[past_idx].entanglement;
 
                 let left = field.idx(past_tau, wrap_index(sector as i32 - 1, sectors), rho, harmonic);
                 let right = field.idx(past_tau, wrap_index(sector as i32 + 1, sectors), rho, harmonic);
@@ -354,23 +307,23 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
-                let mut kuramoto = phase_sin_i32(theta, field.theta[left])
-                    + phase_sin_i32(theta, field.theta[right])
-                    + phase_sin_i32(theta, field.theta[inner])
-                    + phase_sin_i32(theta, field.theta[outer])
-                    + (phase_sin_i32(theta, field.theta[harmonic_peer]) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
-                    + ((phase_sin_i32(theta, field.theta[historical_peer]) * 3) / 10); // Temporal Z-axis weight (0.3)
+                let mut kuramoto = phase_sin_i32(theta, field.agents[left].theta)
+                    + phase_sin_i32(theta, field.agents[right].theta)
+                    + phase_sin_i32(theta, field.agents[inner].theta)
+                    + phase_sin_i32(theta, field.agents[outer].theta)
+                    + (phase_sin_i32(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + ((phase_sin_i32(theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
 
-                let mut coherence = phase_cos_i32(theta, field.theta[left])
-                    + phase_cos_i32(theta, field.theta[right])
-                    + phase_cos_i32(theta, field.theta[inner])
-                    + phase_cos_i32(theta, field.theta[outer])
-                    + (phase_cos_i32(theta, field.theta[harmonic_peer]) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
-                    + ((phase_cos_i32(theta, field.theta[historical_peer]) * 3) / 10);
+                let mut coherence = phase_cos_i32(theta, field.agents[left].theta)
+                    + phase_cos_i32(theta, field.agents[right].theta)
+                    + phase_cos_i32(theta, field.agents[inner].theta)
+                    + phase_cos_i32(theta, field.agents[outer].theta)
+                    + (phase_cos_i32(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + ((phase_cos_i32(theta, field.agents[historical_peer].theta) * 3) / 10);
 
                 // --- O-130: Plasmid-Field Bridge ---
-                if field.plasmids[past_idx] != 0 {
-                    let target_theta = (field.plasmids[past_idx] & 0xFF) as u8;
+                if field.agents[past_idx].plasmid != 0 {
+                    let target_theta = (field.agents[past_idx].plasmid & 0xFF) as u8;
                     kuramoto += (phase_sin_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
                     coherence += (phase_cos_i32(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
                 }
@@ -380,8 +333,8 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 if sectors % 2 == 0 {
                     let antipode_sector = (sector + sectors / 2) % sectors;
                     let antipode = field.idx(past_tau, antipode_sector, rho, harmonic);
-                    let sin_anti = phase_sin_i32(theta, field.theta[antipode]);
-                    let cos_anti = phase_cos_i32(theta, field.theta[antipode]);
+                    let sin_anti = phase_sin_i32(theta, field.agents[antipode].theta);
+                    let cos_anti = phase_cos_i32(theta, field.agents[antipode].theta);
                     
                     kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
                     coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
@@ -404,7 +357,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let next_lock_val = clamp_byte(lock + lock_delta);
 
                 let mut adopted = false;
-                let mut next_plasmid = field.plasmids[past_idx];
+                let mut next_plasmid = field.agents[past_idx].plasmid;
                 let mut local_next_theta = next_theta_val;
                 let mut local_next_omega = next_omega_val;
 
@@ -419,9 +372,9 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     let mut donor_plasmid = 0u64;
 
                     for &neighbor_idx in &neighbors {
-                        let candidate_plasmid = field.plasmids[neighbor_idx];
+                        let candidate_plasmid = field.agents[neighbor_idx].plasmid;
                         if candidate_plasmid == 0 { continue; }
-                        let candidate_resonance = phase_cos_i32(theta, field.theta[neighbor_idx]);
+                        let candidate_resonance = phase_cos_i32(theta, field.agents[neighbor_idx].theta);
                         if candidate_resonance > best_resonance {
                             best_resonance = candidate_resonance;
                             donor_plasmid = candidate_plasmid;
@@ -451,13 +404,13 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 }
 
                 // Resolve execution into Native Next Cache
-                field.theta[next_idx] = local_next_theta;
-                field.omega[next_idx] = local_next_omega;
-                field.amplitude[next_idx] = next_amplitude_val;
-                field.lock[next_idx] = next_lock_val;
-                field.entanglement[next_idx] = next_ent_val;
+                field.agents[next_idx].theta = local_next_theta;
+                field.agents[next_idx].omega = local_next_omega;
+                field.agents[next_idx].energy = next_amplitude_val;
+                field.agents[next_idx].lock = next_lock_val;
+                field.agents[next_idx].entanglement = next_ent_val;
                 field.cell_status[next_idx] = next_status_val;
-                field.plasmids[next_idx] = next_plasmid;
+                field.agents[next_idx].plasmid = next_plasmid;
             }
         }
     }
@@ -484,12 +437,7 @@ pub fn execute_phase_lattice_fossilization(field: &mut PhaseLatticeField) {
     let dst_start = tau_offset + cells_per_harm;
     
     // Copy the (harmonics-1) deeper strata into upper ranges, maintaining local `current_tau` integrity
-    field.theta.copy_within(src_start..src_end, dst_start);
-    field.omega.copy_within(src_start..src_end, dst_start);
-    field.amplitude.copy_within(src_start..src_end, dst_start);
-    field.lock.copy_within(src_start..src_end, dst_start);
-    field.entanglement.copy_within(src_start..src_end, dst_start);
-    field.plasmids.copy_within(src_start..src_end, dst_start);
+    field.agents.copy_within(src_start..src_end, dst_start);
     field.cell_status.copy_within(src_start..src_end, dst_start);
 }
 
@@ -504,13 +452,13 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
                 mix_u64(&mut hash, sector as u64);
                 mix_u64(&mut hash, rho as u64);
                 mix_u64(&mut hash, harmonic as u64);
-                mix_u64(&mut hash, field.theta[idx] as u64);
-                mix_u64(&mut hash, (field.omega[idx] as i32) as u32 as u64);
-                mix_u64(&mut hash, field.amplitude[idx] as u64);
-                mix_u64(&mut hash, field.lock[idx] as u64);
-                mix_u64(&mut hash, field.entanglement[idx] as u64);
+                mix_u64(&mut hash, field.agents[idx].theta as u64);
+                mix_u64(&mut hash, (field.agents[idx].omega as i32) as u32 as u64);
+                mix_u64(&mut hash, field.agents[idx].energy as u64);
+                mix_u64(&mut hash, field.agents[idx].lock as u64);
+                mix_u64(&mut hash, field.agents[idx].entanglement as u64);
                 mix_u64(&mut hash, field.cell_status[idx] as u64);
-                mix_u64(&mut hash, field.plasmids[idx]);
+                mix_u64(&mut hash, field.agents[idx].plasmid);
             }
         }
     }
@@ -525,7 +473,7 @@ pub fn phase_lattice_total_amplitude(field: &PhaseLatticeField) -> u32 {
     for harmonic in 0..field.harmonics as usize {
         for sector in 0..field.sectors as usize {
             let idx = field.idx(tau, sector, rho, harmonic);
-            sum += field.amplitude[idx] as u32;
+            sum += field.agents[idx].energy as u32;
         }
     }
     sum
@@ -539,7 +487,7 @@ pub fn phase_lattice_total_entanglement(field: &PhaseLatticeField) -> u32 {
     for harmonic in 0..field.harmonics as usize {
         for sector in 0..field.sectors as usize {
             let idx = field.idx(tau, sector, rho, harmonic);
-            sum += field.entanglement[idx] as u32;
+            sum += field.agents[idx].entanglement as u32;
         }
     }
     sum
@@ -554,8 +502,8 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
     for harmonic in 0..field.harmonics as usize {
         for sector in 0..field.sectors as usize {
             let idx = field.idx(tau, sector, rho, harmonic);
-            min = min.min(field.omega[idx]);
-            max = max.max(field.omega[idx]);
+            min = min.min(field.agents[idx].omega);
+            max = max.max(field.agents[idx].omega);
         }
     }
     if min == i16::MAX {
@@ -567,7 +515,7 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
 #[wasm_bindgen]
 pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> f32 {
     let mut sum_q10 = 0i32;
-    for &amp in field.amplitude.iter() {
+    for amp in field.agents.iter().map(|a| a.energy) {
         if amp > 0 {
             sum_q10 += crate::lut::ENTROPY_LUT[amp as usize];
         }
@@ -608,13 +556,8 @@ mod tests {
         let end_l = start_l + cells;
         let end_r = start_r + cells;
 
-        assert_eq!(left.theta[start_l..end_l], right.theta[start_r..end_r], "theta mismatch");
-        assert_eq!(left.omega[start_l..end_l], right.omega[start_r..end_r], "omega mismatch");
-        assert_eq!(left.amplitude[start_l..end_l], right.amplitude[start_r..end_r], "amplitude mismatch");
-        assert_eq!(left.lock[start_l..end_l], right.lock[start_r..end_r], "lock mismatch");
-        assert_eq!(left.entanglement[start_l..end_l], right.entanglement[start_r..end_r], "entanglement mismatch");
+        assert_eq!(left.agents[start_l..end_l], right.agents[start_r..end_r], "agents mismatch");
         assert_eq!(left.cell_status[start_l..end_l], right.cell_status[start_r..end_r], "status mismatch");
-        assert_eq!(left.plasmids[start_l..end_l], right.plasmids[start_r..end_r], "plasmids mismatch");
     }
 
     #[test]

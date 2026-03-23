@@ -1,16 +1,16 @@
-// O-23 Native Metal Kuramoto Physics Compute Shader
+// O-176 Native Metal Kuramoto Physics Compute Shader (Granite Core AoS)
 
 struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
   time: f32,
-  off_theta: u32,
-  off_omega: u32,
-  off_amplitude: u32,
-  off_lock: u32,
-  off_entanglement: u32,
-  off_plasmids: u32,
+  _pad1: u32,
+  _pad2: u32,
+  _pad3: u32,
+  _pad4: u32,
+  _pad5: u32,
+  _pad6: u32,
   aspect_ratio: f32,
   inj_idx: u32,
   inj_hash_low: u32,
@@ -22,7 +22,7 @@ struct Params {
 };
 
 @group(0) @binding(0) var<storage, read> field_in: array<u32>;
-@group(0) @binding(1) var<storage, read_write> field_out: array<atomic<u32>>;
+@group(0) @binding(1) var<storage, read_write> field_out: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
 
 struct MycelialBucket {
@@ -34,40 +34,51 @@ struct MycelialBucket {
 
 @group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
 
-// Memory unpackers
-fn ext_byte(u32_val: u32, byte_idx: u32) -> u32 {
-    return (u32_val >> (byte_idx * 8u)) & 0xFFu;
-}
-fn get_byte(base_offset: u32, idx: u32) -> u32 {
-    return ext_byte(field_in[base_offset + (idx / 4u)], idx % 4u);
-}
-fn set_byte(base_offset: u32, idx: u32, val: u32) {
-    let shift = (idx % 4u) * 8u;
-    let mask = 0xFFu << shift;
-    let val_shifted = (val & 0xFFu) << shift;
-    let u32_idx = base_offset + (idx / 4u);
-    atomicAnd(&field_out[u32_idx], ~mask);
-    atomicOr(&field_out[u32_idx], val_shifted);
+struct PhaseAgent {
+    theta: u32,
+    energy: u32,
+    omega: i32,
+    lock: u32,
+    ent: u32,
+    plasmid_low: u32,
+    plasmid_high: u32,
 }
 
-// i16 packing
-fn get_i16(base_offset: u32, idx: u32) -> i32 {
-    let arr_idx = base_offset + (idx / 2u);
-    let u32_val = field_in[arr_idx];
-    let shift = (idx % 2u) * 16u;
-    let u16_val = (u32_val >> shift) & 0xFFFFu;
-    if ((u16_val & 0x8000u) != 0u) {
-        return i32(u16_val) - 65536;
+fn get_agent(idx: u32) -> PhaseAgent {
+    let offset = idx * 4u;
+    let t0 = field_in[offset];
+    let t1 = field_in[offset + 1u];
+    let t2 = field_in[offset + 2u];
+    let t3 = field_in[offset + 3u];
+
+    var agent: PhaseAgent;
+    agent.theta = t0 & 0xFFu;
+    agent.energy = (t0 >> 8u) & 0xFFu;
+    
+    let omega_raw = (t0 >> 16u) & 0xFFFFu;
+    if ((omega_raw & 0x8000u) != 0u) {
+        agent.omega = i32(omega_raw) - 65536;
+    } else {
+        agent.omega = i32(omega_raw);
     }
-    return i32(u16_val);
+    
+    agent.lock = t1 & 0xFFu;
+    agent.ent = (t1 >> 8u) & 0xFFu;
+    agent.plasmid_low = t2;
+    agent.plasmid_high = t3;
+    return agent;
 }
-fn set_i16(base_offset: u32, idx: u32, val: i32) {
-    let shift = (idx % 2u) * 16u;
-    let mask = 0xFFFFu << shift;
-    let val_shifted = (u32(val) & 0xFFFFu) << shift;
-    let u32_idx = base_offset + (idx / 2u);
-    atomicAnd(&field_out[u32_idx], ~mask);
-    atomicOr(&field_out[u32_idx], val_shifted);
+
+fn set_agent(idx: u32, agent: PhaseAgent) {
+    let offset = idx * 4u;
+    let omega_u16 = u32(agent.omega) & 0xFFFFu;
+    let t0 = (agent.theta & 0xFFu) | ((agent.energy & 0xFFu) << 8u) | (omega_u16 << 16u);
+    let t1 = (agent.lock & 0xFFu) | ((agent.ent & 0xFFu) << 8u);
+    
+    field_out[offset] = t0;
+    field_out[offset + 1u] = t1;
+    field_out[offset + 2u] = agent.plasmid_low;
+    field_out[offset + 3u] = agent.plasmid_high;
 }
 
 fn wrap_index(val: i32, modulo: i32) -> u32 {
@@ -82,192 +93,132 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
     return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
 }
 
-// O-23 Native Metal Kuramoto Physics Compute Shader (Integer Logic Only)
-
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let total_cells = params.sectors * params.radial_bins * params.harmonics;
     let idx = global_id.x;
     if (idx >= total_cells) { return; }
 
-    // Recover multidimensional address
     let sector = idx % params.sectors;
     let tmp = idx / params.sectors;
     let rho = tmp % params.radial_bins;
     let harmonic = tmp / params.radial_bins;
 
+    let me = get_agent(idx);
+
     if (harmonic > 0u) {
-        // O-64 Execution Barrier: Fossilized Layers strictly bypass Ping-Pong thermodynamics
-        set_byte(params.off_theta, idx, get_byte(params.off_theta, idx));
-        set_i16(params.off_omega, idx, get_i16(params.off_omega, idx));
-        set_byte(params.off_amplitude, idx, get_byte(params.off_amplitude, idx));
-        set_byte(params.off_lock, idx, get_byte(params.off_lock, idx));
-        set_byte(params.off_entanglement, idx, get_byte(params.off_entanglement, idx));
-        
-        let p_u32_idx = params.off_plasmids + (idx * 2u);
-        atomicOr(&field_out[p_u32_idx], field_in[p_u32_idx]);
-        atomicOr(&field_out[p_u32_idx + 1u], field_in[p_u32_idx + 1u]);
+        // O-64 Execution Barrier: Fossilized Layers bypass thermodynamics
+        set_agent(idx, me);
         return;
     }
 
-    // Load Cell State from field_in
-    let theta = get_byte(params.off_theta, idx);
-    let omega = get_i16(params.off_omega, idx);
-    let amplitude = i32(get_byte(params.off_amplitude, idx));
-    let lock = i32(get_byte(params.off_lock, idx));
-    let entanglement = get_byte(params.off_entanglement, idx);
-
-    // Neighborhood Phase Lookups
     let left_sec = wrap_index(i32(sector) - 1, i32(params.sectors));
     let right_sec = wrap_index(i32(sector) + 1, i32(params.sectors));
     let inner_rho = max(0u, rho - 1u);
     let outer_rho = min(params.radial_bins - 1u, rho + 1u);
     let harm_peer = wrap_index(i32(harmonic) + 1, i32(params.harmonics));
 
-    let t_left = get_byte(params.off_theta, get_idx(left_sec, rho, harmonic));
-    let t_right = get_byte(params.off_theta, get_idx(right_sec, rho, harmonic));
-    let t_inner = get_byte(params.off_theta, get_idx(sector, inner_rho, harmonic));
-    let t_outer = get_byte(params.off_theta, get_idx(sector, outer_rho, harmonic));
-    let t_harm = get_byte(params.off_theta, get_idx(sector, rho, harm_peer));
+    let a_l = get_agent(get_idx(left_sec, rho, harmonic));
+    let a_r = get_agent(get_idx(right_sec, rho, harmonic));
+    let a_i = get_agent(get_idx(sector, inner_rho, harmonic));
+    let a_o = get_agent(get_idx(sector, outer_rho, harmonic));
+    let a_h = get_agent(get_idx(sector, rho, harm_peer));
 
-    // O-164: Local Thermodynamic Feedback (Energy -> Coupling)
-    // As a cell gains Amplitude (Energy/Resonance), its Kuramoto coupling strength increases.
-    // This allows spontaneous synchronized structures to harden against chaos without an Oracle.
-    // Base strength when amp=64; 2x strength when amp=192 (Q10 preserved via ratio).
-    let dynamic_coupling = (COUPLING_BASE * (amplitude + 64)) / 128;
+    // O-164 Local Thermodynamic Feedback
+    let dynamic_coupling = (COUPLING_BASE * (i32(me.energy) + 64)) / 128;
 
-    // Kuramoto Delta sums (SINE_LUT x COUPLING = Q10 x Q10 = Q20 Matrix)
-    var kuramoto = phase_sin_i32(theta, t_left) * dynamic_coupling +
-                   phase_sin_i32(theta, t_right) * dynamic_coupling +
-                   phase_sin_i32(theta, t_inner) * dynamic_coupling +
-                   phase_sin_i32(theta, t_outer) * dynamic_coupling +
-                   phase_sin_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
+    var kuramoto = phase_sin_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
+                   phase_sin_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
+                   phase_sin_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
+                   phase_sin_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
+                   phase_sin_i32(me.theta, a_h.theta) * COUPLING_HARMONIC_PEER;
 
-    var coherence = phase_cos_i32(theta, t_left) * dynamic_coupling +
-                    phase_cos_i32(theta, t_right) * dynamic_coupling +
-                    phase_cos_i32(theta, t_inner) * dynamic_coupling +
-                    phase_cos_i32(theta, t_outer) * dynamic_coupling +
-                    phase_cos_i32(theta, t_harm) * COUPLING_HARMONIC_PEER;
+    var coherence = phase_cos_i32(me.theta, a_l.theta) * i32(dynamic_coupling) +
+                    phase_cos_i32(me.theta, a_r.theta) * i32(dynamic_coupling) +
+                    phase_cos_i32(me.theta, a_i.theta) * i32(dynamic_coupling) +
+                    phase_cos_i32(me.theta, a_o.theta) * i32(dynamic_coupling) +
+                    phase_cos_i32(me.theta, a_h.theta) * COUPLING_HARMONIC_PEER;
 
-    // Antipode Coupling
-    var next_ent = i32(entanglement);
+    var next_ent = i32(me.ent);
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
-        let t_anti = get_byte(params.off_theta, get_idx(antipode_sec, rho, harmonic));
-        let weight = (i32(entanglement) * COUPLING_ANTIPODE) / MAX_ENTANGLEMENT; // Q10 Preserved
-        kuramoto += phase_sin_i32(theta, t_anti) * weight;
-        coherence += phase_cos_i32(theta, t_anti) * weight;
+        let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
+        
+        let weight = (i32(me.ent) * COUPLING_ANTIPODE) / MAX_ENTANGLEMENT;
+        kuramoto += phase_sin_i32(me.theta, a_anti.theta) * weight;
+        coherence += phase_cos_i32(me.theta, a_anti.theta) * weight;
 
-        let align = phase_cos_i32(theta, t_anti);
-        if (align > ANTIPODE_ALIGNMENT_THRESHOLD && amplitude > 96) {
+        let align = phase_cos_i32(me.theta, a_anti.theta);
+        if (align > ANTIPODE_ALIGNMENT_THRESHOLD && me.energy > 96u) {
             next_ent += 8;
         } else {
             next_ent -= 3;
         }
-        set_byte(params.off_entanglement, idx, u32(clamp(next_ent, 0, 255)));
-    } else {
-        set_byte(params.off_entanglement, idx, entanglement); // Carry over
     }
 
-    // O-24: Transdimensional Mycelial Lattice Topology
-    let p_u32_idx = params.off_plasmids + (idx * 2u);
-    var local_plasmid_low = field_in[p_u32_idx];
-    var local_plasmid_high = field_in[p_u32_idx + 1u];
+    var next_plasmid_low = me.plasmid_low;
+    var next_plasmid_high = me.plasmid_high;
 
-    if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
-        // O-130: Plasmid-Field Bridge
-        let target_theta = local_plasmid_low & 0xFFu;
-        kuramoto += phase_sin_i32(theta, target_theta) * COUPLING_PLASMID;
-        coherence += phase_cos_i32(theta, target_theta) * COUPLING_PLASMID;
+    if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
+        let target_theta = me.plasmid_low & 0xFFu;
+        kuramoto += phase_sin_i32(me.theta, target_theta) * COUPLING_PLASMID;
+        coherence += phase_cos_i32(me.theta, target_theta) * COUPLING_PLASMID;
         
-        // Find bucket from FNV-1a structural hash
-        let hash = (local_plasmid_low ^ local_plasmid_high);
+        let hash = (me.plasmid_low ^ me.plasmid_high);
         let bucket_idx = hash & 1023u;
-
         let m_count = atomicLoad(&mycelial_centroids[bucket_idx].count);
-        // Only trigger non-local pull if more than 1 node shares this exact LLM Semantic Intent
         if (m_count > 1u) {
             let m_x = f32(atomicLoad(&mycelial_centroids[bucket_idx].x_sum));
             let m_y = f32(atomicLoad(&mycelial_centroids[bucket_idx].y_sum));
-
-            // Cartesian recovery back to Radians
             var centroid_theta_rad = atan2(m_y, m_x);
-            if (centroid_theta_rad < 0.0) {
-                centroid_theta_rad += 6.283185307;
-            }
-            
-            // Map back to 0-255 u8 Phase integer
+            if (centroid_theta_rad < 0.0) { centroid_theta_rad += 6.283185307; }
             let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
-
-            // Apply a Massive K=4.0 structural pull toward the specific Mycelial thought group
-            let mycelial_pull = phase_sin_i32(theta, centroid) * 4096; // 4.0 * 1024
-            kuramoto += mycelial_pull;
-            coherence += phase_cos_i32(theta, centroid) * 4096;
+            kuramoto += phase_sin_i32(me.theta, centroid) * 4096;
+            coherence += phase_cos_i32(me.theta, centroid) * 4096;
         }
     }
 
-    // O-63: Differential Tissue (Resonance Proof-of-Stake)
-    var staking_energy_bonus = 0;
-    if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
-        // Read neighbor energies and plasmids natively 
-        let n_indices = array<u32, 4>(
-            get_idx(left_sec, rho, harmonic),
-            get_idx(right_sec, rho, harmonic),
-            get_idx(sector, inner_rho, harmonic),
-            get_idx(sector, outer_rho, harmonic)
-        );
-
+    // O-63 Differential Tissue (Staking Bonus)
+    var staking_energy_bonus = 0i;
+    if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
+        let neighbors = array<PhaseAgent, 4>(a_l, a_r, a_i, a_o);
         for (var i = 0u; i < 4u; i = i + 1u) {
-            let n_idx = n_indices[i];
-            let n_p_idx = params.off_plasmids + (n_idx * 2u);
-            let n_plasmid_low = field_in[n_p_idx];
-            let n_plasmid_high = field_in[n_p_idx + 1u];
-
-            if (n_plasmid_low == local_plasmid_low && n_plasmid_high == local_plasmid_high) {
-                let n_energy = i32(get_byte(params.off_amplitude, n_idx));
-                if (n_energy > amplitude) {
-                    staking_energy_bonus += (n_energy - amplitude) / 4;
-                    
-                    let n_theta = get_byte(params.off_theta, n_idx);
-                    kuramoto += phase_sin_i32(theta, n_theta) * 3072; // K=3 multiplier * 1024 (Q10 logic)
+            let n = neighbors[i];
+            if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
+                if (n.energy > me.energy) {
+                    staking_energy_bonus += i32(n.energy - me.energy) / 4;
+                    kuramoto += phase_sin_i32(me.theta, n.theta) * 3072;
                 }
             }
         }
     }
 
-    // Kinematic Updates (Q20 -> Q0 translation)
-    var omega_delta = q20_round(kuramoto); // Strip Q20 safely via manual truncation offset
-    omega_delta = fast_abs(omega_delta); // O-62: Evaluated by Autopoietic Transpiler Bridge
-    let next_omega = clamp(omega + omega_delta, -16, 16);
-    var next_theta = u32(wrap_index(i32(theta) + next_omega, 256));
+    // Kinematics
+    var omega_delta = q20_round(kuramoto);
+    omega_delta = fast_abs(omega_delta);
+    let next_omega = clamp(me.omega + omega_delta, -16, 16);
+    var next_theta = u32(wrap_index(i32(me.theta) + next_omega, 256));
 
-    var amp_delta = q20_round(coherence * 6) - (lock / 64) + staking_energy_bonus;
-    
-    // O-33: Resonance Economics Subsidy
-    // If the von Neumann neighborhood is nearly mathematically identical (R > 0.93)
-    if (coherence > 4404019) { // 4.2 * 1048576
-        amp_delta += 2; // Inject metabolic heat back into the biological grid
-    }
+    var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus;
+    if (coherence > 4404019) { amp_delta += 2; }
 
-    let lock_delta = select(-4, 8, coherence >= 3145728); // 3.0 * 1048576
+    let lock_delta = select(-4, 8, coherence >= 3145728);
 
-    var next_amp = clamp(amplitude + amp_delta, 0, 255);
-    var next_lock = clamp(lock + lock_delta, 0, 255);
+    var next_amp = clamp(i32(me.energy) + amp_delta, 0, 255);
+    var next_lock = clamp(i32(me.lock) + lock_delta, 0, 255);
     var target_ent = u32(clamp(next_ent, 0, 255));
     
-    // O-130: Semantic Diffusion (Plasmid Decay)
     if (next_amp < 40) {
-        local_plasmid_low = 0u;
-        local_plasmid_high = 0u;
+        next_plasmid_low = 0u;
+        next_plasmid_high = 0u;
     }
     
-    // Evaluate O-22/O-29 Explicit Intent Injection via Uniform Params
     var receives_injection = false;
     if (params.inj_idx == idx && params.inj_amp > 0u) {
         receives_injection = true;
     } else if (params.inj_bucket != 0xFFFFFFFFu && params.inj_amp > 0u) {
-        if (local_plasmid_low != 0u || local_plasmid_high != 0u) {
-            let hash = (local_plasmid_low ^ local_plasmid_high);
+        if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
+            let hash = (me.plasmid_low ^ me.plasmid_high);
             if ((hash & 1023u) == params.inj_bucket) {
                 receives_injection = true;
             }
@@ -278,27 +229,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         next_amp = i32(params.inj_amp);
         next_theta = params.inj_phase;
         target_ent = params.inj_ent;
-        next_lock = 0; // Break kinematic lock to enforce adoption
-        
-        // Since p_u32_idx is defined in the Mycelial Block, let's redeclare locally to avoid scope errors
-        let target_p_idx = params.off_plasmids + (idx * 2u);
-        atomicAnd(&field_out[target_p_idx], 0u);
-        atomicOr(&field_out[target_p_idx], params.inj_hash_low);
-        atomicAnd(&field_out[target_p_idx + 1u], 0u);
-        atomicOr(&field_out[target_p_idx + 1u], params.inj_hash_high);
-    } else {
-        // Carry over existing plasmids if no injection overrides them
-        let target_p_idx = params.off_plasmids + (idx * 2u);
-        atomicOr(&field_out[target_p_idx], local_plasmid_low);
-        atomicOr(&field_out[target_p_idx + 1u], local_plasmid_high);
+        next_lock = 0;
+        next_plasmid_low = params.inj_hash_low;
+        next_plasmid_high = params.inj_hash_high;
     }
 
-    set_byte(params.off_theta, idx, next_theta);
-    set_i16(params.off_omega, idx, next_omega);
-    set_byte(params.off_amplitude, idx, u32(next_amp));
-    set_byte(params.off_lock, idx, u32(next_lock));
-    if (params.sectors % 2u == 0u || (params.inj_idx == idx && params.inj_amp > 0u)) {
-        // Write entanglement if we computed antipode or if we got an injection
-        set_byte(params.off_entanglement, idx, target_ent);
-    }
+    var next_agent: PhaseAgent;
+    next_agent.theta = next_theta;
+    next_agent.energy = u32(next_amp);
+    next_agent.omega = next_omega;
+    next_agent.lock = u32(next_lock);
+    next_agent.ent = target_ent;
+    next_agent.plasmid_low = next_plasmid_low;
+    next_agent.plasmid_high = next_plasmid_high;
+
+    set_agent(idx, next_agent);
 }
