@@ -1,5 +1,5 @@
 import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
-import generatedBiologyWgsl from './shaders/generated_biology.wgsl?raw';
+import commonWgsl from './shaders/common.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
 import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import * as C from "../shared/constants.ts";
@@ -94,8 +94,8 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.bufferA, 0, new Uint8Array(mem, agentPtr, totalSize));
         this.device.queue.writeBuffer(this.bufferB, 0, new Uint8Array(mem, agentPtr, totalSize));
 
-        const shaderModule = this.device.createShaderModule({ code: C.WGSL_COMMON_LIB + generatedBiologyWgsl + "\n" + computeKuramotoWgsl });
-        const mycelialModule = this.device.createShaderModule({ code: C.WGSL_COMMON_LIB + computeMycelialWgsl });
+        const shaderModule = this.device.createShaderModule({ code: commonWgsl + "\n" + computeKuramotoWgsl });
+        const mycelialModule = this.device.createShaderModule({ code: commonWgsl + "\n" + computeMycelialWgsl });
 
         const pipelineConstants = {
             PHASE_LUT_SIZE: C.PHASE_LUT_SIZE,

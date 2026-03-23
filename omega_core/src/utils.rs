@@ -19,7 +19,7 @@ pub(crate) fn clamp_i16(value: i16, min: i16, max: i16) -> i16 {
 
 #[inline(always)]
 pub(crate) fn clamp_byte(value: i16) -> u8 {
-    value.clamp(0, MAX_BYTE as i16) as u8
+    value.clamp(0, MAX_BYTE) as u8
 }
 
 #[inline(always)]

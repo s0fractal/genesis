@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C, packed(4))]
+#[derive(Default)]
 pub struct PhaseAgent {
     pub theta: u8,           // 1 byte
     pub energy: u8,          // 1 byte (Amplitude/Resonance)
@@ -17,16 +18,3 @@ pub struct PhaseAgent {
     pub plasmid: u64,        // 8 bytes (Mycelial Semantic Blueprint)
 }
 
-impl Default for PhaseAgent {
-    fn default() -> Self {
-        PhaseAgent {
-            theta: 0,
-            energy: 0,
-            omega: 0,
-            lock: 0,
-            entanglement: 0,
-            _pad: 0,
-            plasmid: 0,
-        }
-    }
-}

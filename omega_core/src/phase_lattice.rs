@@ -2,8 +2,7 @@ use wasm_bindgen::prelude::*;
 use crate::constants::*;
 use crate::utils::*;
 
-const SYNC_RATE: i16 = 32;
-const MAX_BYTE: i16 = 255;
+
 
 #[repr(C)]
 #[derive(Clone)]
@@ -330,7 +329,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
 
                 let mut next_ent_val = entanglement;
 
-                if sectors % 2 == 0 {
+                if sectors.is_multiple_of(2) {
                     let antipode_sector = (sector + sectors / 2) % sectors;
                     let antipode = field.idx(past_tau, antipode_sector, rho, harmonic);
                     let sin_anti = phase_sin_i32(theta, field.agents[antipode].theta);
@@ -350,7 +349,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let omega_delta = (kuramoto / field.header.kuramoto_base) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock as i16 / 64);
+                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock / 64);
                 let lock_delta = if coherence >= field.header.kuramoto_threshold_lock { 8 } else { -4 };
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
@@ -399,7 +398,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     }
                 }
 
-                if next_amplitude_val < 15 && next_plasmid != 0 && local_next_theta % 4 == 0 {
+                if next_amplitude_val < 15 && next_plasmid != 0 && local_next_theta.is_multiple_of(4) {
                     next_plasmid = 0;
                 }
 
