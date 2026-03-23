@@ -22,6 +22,8 @@ export interface SomaticNode {
     energy: number;
     fitness: number;
     mutualists: Set<bigint>; // O-140 Vector I.1: The Mycelial Graph (Σ² Topology)
+    sector: number; // Era 206: Geographic Niche (0-63)
+    temporal_credit: number; // Era 206: Asynchronous Time Dilation execution counter
 }
 
 /**

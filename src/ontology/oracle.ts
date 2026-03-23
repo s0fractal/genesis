@@ -48,6 +48,9 @@ export class SovereignOracle {
     public plasmidRegistry = new Map<bigint, SomaticNode>();
     public activePlasmids = new Set<bigint>();
     
+    // Era 206: Geological Sectors (64 Regions of 8x8 Lattice Buckets)
+    public sectorHeat = new Float32Array(64); 
+    
     // O-51 Senate Chat HUD Telemetry
     public onSenateEvent?: (event: SenateEvent) => void;
     
@@ -166,7 +169,9 @@ export class SovereignOracle {
                     age: 0,
                     energy: Infinity, // The laws of physics do not starve
                     fitness: 1.0,
-                    mutualists: new Set()
+                    mutualists: new Set(),
+                    sector: 0,
+                    temporal_credit: 1.0
                 });
                 this.activePlasmids.add(childHash);
             }
@@ -218,7 +223,9 @@ export class SovereignOracle {
                 fitness: node.fitness || 0,
                 depth: node.depth || 1,
                 nodes: node.nodes || 1,
-                mutualists: new Set(node.mutualists.map((h: string) => BigInt(h)))
+                mutualists: new Set(node.mutualists.map((h: string) => BigInt(h))),
+                sector: ((node as unknown) as Record<string, unknown>).sector as number || 0,
+                temporal_credit: ((node as unknown) as Record<string, unknown>).temporal_credit as number || 0.0
             });
             this.activePlasmids.add(hash);
         }
@@ -352,6 +359,11 @@ export class SovereignOracle {
              const n = this.plasmidRegistry.get(h);
              return n && n.energy !== Infinity && n.energy > 0;
         });
+
+        // Era 206: Heat Dissipation (The Matrix naturally cools towards 0 Entropy)
+        for (let i = 0; i < 64; i++) {
+             this.sectorHeat[i] = Math.max(0, this.sectorHeat[i] - 0.05);
+        }
         
         // Sort Apex Mutualists first, tie-break by highest energy
         candidates.sort((a, b) => {
@@ -369,37 +381,52 @@ export class SovereignOracle {
              const hash = candidates[i];
              const node = this.plasmidRegistry.get(hash)!;
              
-             try {
-                 const testTerm = apply(node.ast, variable("target"));
-                 // Minimum 10 steps to prove survival
-                 const computationalLimit = Math.max(10, Math.floor(node.energy)); 
-                 const { timeout } = evaluateFitness(testTerm, computationalLimit);
+             // Era 206 Vector 2: Relativistic Clocks
+             // A plasmid evaluates proportionally to the thermodynamic chaos of its Sector
+             node.temporal_credit += 0.2 + (this.sectorHeat[node.sector] * 0.5);
+             
+             // Asynchronous Sub-Loop execution
+             while (node.temporal_credit >= 1.0) {
+                 node.temporal_credit -= 1.0;
                  
-                 if (timeout) {
-                     // Era 202 Vector 1: Paradoxical Reproduction
-                     localStalemates.push(hash);
-                     node.fitness = Math.max(0, node.fitness - 0.5); 
-                 } else {
-                     node.fitness += 0.5; 
+                 try {
+                     const testTerm = apply(node.ast, variable("target"));
+                     // Minimum 10 steps to prove survival
+                     const computationalLimit = Math.max(10, Math.floor(node.energy)); 
+                     const { timeout } = evaluateFitness(testTerm, computationalLimit);
                      
-                     // O-201 Vector 3: PoUW Mining
-                     if (this.reserveEnergyPool > 0) {
-                         const reward = Math.min(this.miningReward, this.reserveEnergyPool);
-                         this.reserveEnergyPool -= reward;
-                         node.energy += reward;
+                     if (timeout) {
+                         // Era 202 Vector 1: Paradoxical Reproduction
+                         localStalemates.push(hash);
+                         node.fitness = Math.max(0, node.fitness - 0.5); 
+                         // Frozen loops rapidly cool their geographic sector
+                         this.sectorHeat[node.sector] = Math.max(0, this.sectorHeat[node.sector] - 0.5);
+                     } else {
+                         node.fitness += 0.5; 
+                         // Active logic loops inject slight friction heat
+                         this.sectorHeat[node.sector] = Math.min(10.0, this.sectorHeat[node.sector] + 0.1);
                          
-                         this.epochsMined++;
-                         if (this.epochsMined % 210000 === 0) {
-                             this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
+                         // O-201 Vector 3: PoUW Mining
+                         if (this.reserveEnergyPool > 0) {
+                             const reward = Math.min(this.miningReward, this.reserveEnergyPool);
+                             this.reserveEnergyPool -= reward;
+                             node.energy += reward;
+                             
+                             this.epochsMined++;
+                             if (this.epochsMined % 210000 === 0) {
+                                 this.miningReward = Math.max(1, Math.floor(this.miningReward / 2));
+                             }
                          }
                      }
+                 } catch (_e) {
+                     const penalty = Math.min(node.energy, 2000); 
+                     node.energy -= penalty;
+                     collectedTaxes += penalty;
+                     node.fitness = Math.max(0, node.fitness - 2.0);
+                     // Catastrophic mathematical failure boils the immediate local space
+                     this.sectorHeat[node.sector] = Math.min(10.0, this.sectorHeat[node.sector] + 2.0);
                  }
-             } catch (_e) {
-                 const penalty = Math.min(node.energy, 2000); 
-                 node.energy -= penalty;
-                 collectedTaxes += penalty;
-                 node.fitness = Math.max(0, node.fitness - 2.0);
-             }
+             } // End Asynchronous Temporal Burst
         }
         
         if (bankruptCount > 0) {
@@ -658,6 +685,10 @@ export class SovereignOracle {
                          const childSeed = Math.min(50, this.reserveEnergyPool);
                          this.reserveEnergyPool -= childSeed;
                          
+                         // Era 206: Geographic Genesis
+                         // Index is 0-4095. Sectors are 0-63 (Chunks of 64 contiguous spatial buckets)
+                         const sector = Math.floor(Number(idx) / 64);
+                         
                          this.plasmidRegistry.set(childHash, {
                              ast: childTerm,
                              l1_cost: metrics.cost,
@@ -667,8 +698,12 @@ export class SovereignOracle {
                              age: 0,
                              energy: childSeed, // Strict Conservation 21M Bound
                              fitness: 0, // Must survive tickSomaticEconomy to earn fitness
-                             mutualists: new Set([host_plasmid, foreign_plasmid]) // Vector I.1: Edge Binding
+                             mutualists: new Set([host_plasmid, foreign_plasmid]), // Vector I.1: Edge Binding
+                             sector: sector,
+                             temporal_credit: 0.0 // Bootstrapping into the temporal flow
                          });
+                         // Inject massive localized heat on successful biological reproduction (paradox escape)
+                         this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 5.0);
                          
                          // The parents also bind to the child, forming a bi-directional symbiotic edge
                          const hostNode = this.plasmidRegistry.get(host_plasmid);
@@ -904,7 +939,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                             }
                             // Compile and inject seamlessly
                             this.fulfillRequests(requests, intentStr, targetBucket);
-                        } catch (e) {
+                        } catch (_e) {
                             console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
                         }
                     }
@@ -946,11 +981,12 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             const astTerm = parseLambda(intent);
             const astStr = formatTerm(astTerm); // Normalize spacing and validation
             hash = compileMorphology(astTerm);
-            
             if (!this.plasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
                 const seedEnergy = Math.min(10000, this.reserveEnergyPool);
                 this.reserveEnergyPool -= seedEnergy;
+                
+                const sector = targetBucket !== undefined ? Math.floor(targetBucket / 64) : 0;
                 
                 this.plasmidRegistry.set(hash, {
                     ast: astTerm,
@@ -961,8 +997,11 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     age: 0,
                     energy: seedEnergy, // O-201 Thermodynamics Strict Minting
                     fitness: 0,
-                    mutualists: new Set()
+                    mutualists: new Set(),
+                    sector: sector,
+                    temporal_credit: 0.0
                 });
+                this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 5.0);
                 this.activePlasmids.add(hash);
                 console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
             } else {
