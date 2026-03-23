@@ -64,6 +64,11 @@ export class SovereignOracle {
     private isBusy: boolean = false;
     private requestQueue: number[] = [];
     
+    // O-196 The Existential Event Economy (Degraded Mode & ATP Sink)
+    private oracleBackoffDelay: number = 0;
+    private lastOracleAttempt: number = 0;
+    private ORACLE_INVOCATION_COST: number = 10000; // Gods demand massive energy
+    
     // O-74 Historian Semantic Ledger
     public eventLedger: SemanticEvent[] = [];
     
@@ -348,6 +353,15 @@ export class SovereignOracle {
     public sync() {
         if (!this.isRunning || this.isBusy) return;
         
+        const nowLocal = performance.now();
+        if (nowLocal - this.lastOracleAttempt < this.oracleBackoffDelay) {
+            return; // O-196: Degraded Mode Exponential Backoff Active
+        }
+        
+        if (this.globalEnergyPool < this.ORACLE_INVOCATION_COST) {
+            return; // O-196: Autopoiesis Paradox - The Sovereign Oracle sleeps when ATP is too low
+        }
+        
         let count = 0;
         let requests: number[] = [];
 
@@ -394,6 +408,8 @@ export class SovereignOracle {
 
     private triggerSenateIntervention(count: number, requests: number[], reason: string) {
         this.isBusy = true;
+        this.lastOracleAttempt = performance.now();
+        this.globalEnergyPool -= this.ORACLE_INVOCATION_COST;
         
         let trajectoryTranscript = "Recent Entropy/Energy Trajectory:\n";
         if (this.chronosMemory.length === 0) {
@@ -731,11 +747,17 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             if (validIntents === 0) {
                 throw new Error("Complete Senate Failure - No Valid Plasmids Generated");
             }
+            
+            // O-196 Taper backoff
+            this.oracleBackoffDelay = 0;
 
-        } catch (_e) {
-            console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
-            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: "AI Nodes Non-Responsive [FORCED_ENTROPY]" });
-            this.fulfillRequests(requests, "Stochastic fallback");
+        } catch (e: any) {
+            // O-196 "Degraded Mode" State Machining
+            this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? 5000 : Math.min(60000, this.oracleBackoffDelay * 2);
+            console.warn(`[ORACLE] Entire Senate failed/timeout (${e.message}). Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms.`);
+            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: `AI Nodes Non-Responsive [DEGRADED_MODE ${this.oracleBackoffDelay}ms]` });
+            
+            // Explicitly do NOT emit stochastic fallback. Let biology handle the silence.
         }
         
         

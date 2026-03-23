@@ -15,6 +15,21 @@ export class PhaseNetwork {
     private peers: Map<string, RTCPeerConnection> = new Map();
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     private nodeId: string;
+    
+    // O-196 WebRTC Traffic Shaping
+    private originRateLimits: Map<string, { count: number, resetAt: number }> = new Map();
+    
+    private checkRateLimit(origin: string): boolean {
+        const nowLocal = performance.now();
+        let tracker = this.originRateLimits.get(origin);
+        if (!tracker || tracker.resetAt < nowLocal) {
+            tracker = { count: 0, resetAt: nowLocal + 1000 };
+            this.originRateLimits.set(origin, tracker);
+        }
+        tracker.count++;
+        if (tracker.count > 50) return false;
+        return true;
+    }
 
     constructor(onPlasmidReceived: (plasmid: ForeignPlasmid) => void) {
         this.onPlasmidReceived = onPlasmidReceived;
@@ -29,12 +44,12 @@ export class PhaseNetwork {
                 // O-48 & O-56: Payload & Identity Authentication
                 if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
                     p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
-                    p.energy <= SENATE_MYCELIUM_MIN_ENERGY) {
-                    console.log(`🛡️ [Mycelium Firewall] Rejected Local Transmission. Insufficient Biological Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
-                    return;
-                }
-                if (!verifyPayloadSignature(p)) {
-                    console.log(`🛡️ [Mycelium Firewall] BLOCKED: Malicious Intent Detected. Forged Cryptographic Capability Token from ${p.origin}.`);
+                    p.energy <= SENATE_MYCELIUM_MIN_ENERGY ||
+                    !verifyPayloadSignature(p)) {
+                    console.log(`🛡️ [Mycelium Firewall] DETECTED MALICIOUS/LOCAL PLASMID from ${p.origin}. Exhibiting Phantom Trace Protocol.`);
+                    // O-196: Phantom Traces & Ethical Immunity. Exile to Shadow Buckets (1000-1024)
+                    p.targetBucket = 1000 + Math.floor(Math.random() * 25);
+                    this.onPlasmidReceived(p);
                     return;
                 }
                 
@@ -189,15 +204,22 @@ export class PhaseNetwork {
                 if (data && data.type === "FOREIGN_PLASMID") {
                     const p = data.payload as ForeignPlasmid;
                     
+                    // O-196 WebRTC Traffic Shaping (DDoS Armor)
+                    if (!this.checkRateLimit(p.origin)) {
+                        console.warn(`🛑 [WebRTC DDoS Armor] Peer ${p.origin} exceeded 50 plasmids/sec. Dropping connection.`);
+                        dc.close();
+                        return;
+                    }
+
                     // O-48 & O-56: Payload & Identity Authentication
                     if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
                         p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
-                        p.energy <= SENATE_MYCELIUM_MIN_ENERGY) {
-                        console.log(`🛡️ [WebRTC Firewall] Rejected Global Transmission. Insufficient Proof-of-Work (Locks: ${p.locks}, ATP: ${p.energy}).`);
-                        return;
-                    }
-                    if (!verifyPayloadSignature(p)) {
-                        console.log(`🛡️ [WebRTC Firewall] FATAL BLOCKED: Incoming Cross-Machine Transmission forged Cryptographic Signature. Isolating peer ${p.origin}.`);
+                        p.energy <= SENATE_MYCELIUM_MIN_ENERGY ||
+                        !verifyPayloadSignature(p)) {
+                        console.log(`🛡️ [WebRTC Firewall] DETECTED MALICIOUS PLASMID from ${p.origin}. Exhibiting Phantom Trace Protocol.`);
+                        // O-196: Phantom Traces & Ethical Immunity. Exile to Shadow Buckets (1000-1024)
+                        p.targetBucket = 1000 + Math.floor(Math.random() * 25);
+                        this.onPlasmidReceived(p);
                         return;
                     }
                     
