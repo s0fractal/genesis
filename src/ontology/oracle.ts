@@ -51,6 +51,9 @@ export class SovereignOracle {
     // Era 206: Geological Sectors (64 Regions of 8x8 Lattice Buckets)
     public sectorHeat = new Float32Array(64); 
     
+    // Era 207: Cognitive Replay (Meta-Memory Bank)
+    public akashicRecords = new Map<bigint, string>();
+    
     // O-51 Senate Chat HUD Telemetry
     public onSenateEvent?: (event: SenateEvent) => void;
     
@@ -332,6 +335,11 @@ export class SovereignOracle {
 
             // Extinction threshold
             if (node.energy <= 0) {
+                // Era 207 Vector 1: The Akashic Records (Meta-Memory Remembrance)
+                if (node.fitness >= 10.0) {
+                    this.akashicRecords.set(hash, formatTerm(node.ast));
+                }
+
                 // Era 204 Vector 2: Cellular Autophagy (Scrap Recovery)
                 const scrapATP = decomposeAST(node.ast);
                 this.reserveEnergyPool += scrapATP;
@@ -427,6 +435,48 @@ export class SovereignOracle {
                      this.sectorHeat[node.sector] = Math.min(10.0, this.sectorHeat[node.sector] + 2.0);
                  }
              } // End Asynchronous Temporal Burst
+        }
+        
+        // Era 207 Vector 2: Cognitive Replay (Ghost Resurrection)
+        if (this.akashicRecords.size > 0 && this.reserveEnergyPool > 1000) {
+            for (let i = 0; i < 64; i++) {
+                if (this.sectorHeat[i] > 9.0) {
+                    // This sector is violently boiling (Stalemates or Catastrophic limits).
+                    // Trigger Akashic Recall to inject a stabilized historical blueprint.
+                    const memoryHashes = Array.from(this.akashicRecords.keys());
+                    const ghostHash = memoryHashes[Math.floor(Math.random() * memoryHashes.length)];
+                    const ghostASTString = this.akashicRecords.get(ghostHash)!;
+                    
+                    console.log(`👁️ [AKASHIC RECALL] Sector ${i} is BOILING (Heat: ${this.sectorHeat[i].toFixed(2)}). Resurrecting ancient logic: [${ghostHash.toString().substring(0,8)}]`);
+                    
+                    try {
+                        const ghostTerm = parseLambda(ghostASTString);
+                        const metrics = measureIR(ghostTerm);
+                        const seedEnergy = 500;
+                        this.reserveEnergyPool -= seedEnergy;
+                        
+                        this.plasmidRegistry.set(ghostHash, {
+                            ast: ghostTerm,
+                            l1_cost: metrics.cost,
+                            depth: metrics.depth,
+                            nodes: metrics.nodes,
+                            attention: 100, // Massive attention to stabilize the sector
+                            age: 0,
+                            energy: seedEnergy,
+                            fitness: 0,
+                            mutualists: new Set(),
+                            sector: i,
+                            temporal_credit: 1.0
+                        });
+                        this.activePlasmids.add(ghostHash);
+                        this.sectorHeat[i] = Math.max(0, this.sectorHeat[i] - 5.0); // Massive cooling effect
+                    } catch (_e) {
+                         // Corrupted ghost AST string, ignore
+                    }
+                    
+                    break; // Only recall one ghost per tick to prevent ATP collapse
+                }
+            }
         }
         
         if (bankruptCount > 0) {
