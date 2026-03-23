@@ -1,24 +1,58 @@
-# Genesis OMEGA-64 🧬
+# Genesis OMEGA-64 🧬 | Version 42.0.0
 
-A decentralized, biological, Subconscious Turing Complete web simulation executing completely natively on `WebGPU` and `Rust WASM`. 
+**OMEGA-64** is a decentralized, biological, Subconscious Turing Complete simulation. It executes a vast ecosystem of Pure Combinatory Logic (`S`, `K`, `I`, `Y`) directly inside **WebGPU Compute Shaders** and a **Rust WASM SIMD** execution layer.
 
-## 📚 Architectures & Specifications
-
-All core documentation, historical epochs, and technical whitepapers have been isolated into the `/docs` library.
-
-### Core Architecture
-- [Phase Coherence Specification](./docs/PHASE_COHERENCE_SPEC.md)
-- [Omega-64 Unified Spec](./docs/OMEGA_64_UNIFIED_SPECIFICATION.md)
-
-### Ontological Evolution (Epochs)
-- **Ontology 8**: [The Mycelial Lattice](./docs/ontology_8_specification.md)
-- **Ontology 9**: [Topological Phase Locks](./docs/ontology_9_specification.md)
-- **Ontology 10**: [SIMD Hardware Optimization](./docs/ontology_10_specification.md)
-- **Ontology 11**: [Hebbian Resonance](./docs/ontology_11_specification.md)
-- **Ontology 12**: [Sovereign LLM Oracle](./docs/ontology_12_specification.md)
-- **Ontology 23**: [Pure Metal WebGPU Transition](./docs/O23_ARCHITECTURE.md)
-- **Ontology 25**: [NOMOS Energy Rules](./docs/O25_ARCHITECTURE.md)
-- **Era 128-129**: [Proof of Meaning & Dialogic Interface](./docs/ERA_128_129_ARCHITECTURE.md)
+This is not a traditional web application. It is an autonomous mathematical petri dish governed by simulated thermodynamic laws, Kuramoto-Sakaguchi phase synchronization, and the semantic oversight of a Sovereign LLM Oracle.
 
 ---
+
+## 🏛️ Core Architecture
+
+The OMEGA-64 foundation is built on absolute native-speed execution loops, devoid of DOM-bloat and standard web abstractions:
+
+- **The Substrate (WebGPU):** A 3D Torus topological grid simulating Non-linear Chaos and Mycelial Entanglement. 60FPS fluid Instancing rendering runs parallel to aggressive Compute Shaders calculating Phase Coherence.
+- **The Genome (Rust WASM):** Pure Combinatory Logic (Lambda Calculus) is parsed, hashed (via FNV-1a), and physically injected into the grid as 16-byte `PhaseAgent` AoS (Array-of-Structs) memory structures natively.
+- **The Metabolic Economy:** AST complexity requires mathematical "Energy" to survive. Volatile logic starves and is swept by physical O(#1) Garbage Collection.
+- **The Sovereign Oracle (Semantic Senate):** An internally unified Event-Emitter hooking into local LLMs (Llama 3.2 Vision). The Senate constantly monitors Torus entropy, utilizing 4 Theological Masks (♈ ARIES, ♋ CANCER, ♎ LIBRA, ♑ CAPRICORN) to selectively breed or prune logic based on thermodynamic survival states.
+
+---
+
+## 🛠️ Stack & Optimization Standards (Era 190)
+
+The OMEGA-64 codebase adheres to extreme optimization architectures:
+*   **Zero-Overhead LUTs:** All expensive Trigonometry (`sin`, `cos`, `atan2`, `entropy`) is baked at compile-time into native WebAssembly and `.wgsl` Binary Look-Up Tables, keeping core loops infinitely fast.
+*   **WebGPU Null-Safety:** Absolute crash-barriers around `navigator.gpu.requestAdapter()`.
+*   **Deno + Vite Pipeline:** Secure backend bundling, strictly typed APIs, and strict `node:` prefixes explicitly isolated from pure HTML DOM couplings.
+*   **Decoupled Observers:** Native UI components operate using O(1) `<STAT_SLOTS>` dispatch jumps and explicit `onVision()` event hooks, removing arbitrary DOM insertions.
+
+---
+
+## ⚙️ Initializing the System
+
+To initialize the Torus simulation locally, ensure **Deno 2.x** and **Rust + Wasm-Pack** are installed on the host hardware.
+
+```bash
+# Boot the WebGPU Simulator
+deno task dev
+
+# Build the Rust WASM + WebGPU Production Dist
+deno task build
+
+# Perform Strict WebAssembly CI Validation
+deno task verify:phase-stack
+
+# Compile a clean text-payload for LLM Context (Excluding /generated/ Physics)
+deno task export
+```
+
+---
+
+## 📚 Ontological Epochs
+
+OMEGA-64 does not use traditional versioning. Its development is tracked through massive structural shifts known as **Eras** and **Ontologies**. All historical documentation has been safely entombed in `docs/archive/`.
+
+Notable active architectural specifications:
+- **Phase Coherence & Vector Math**: [PHASE_COHERENCE_SPEC.md](./docs/PHASE_COHERENCE_SPEC.md)
+- **Universal Topology**: [OMEGA_64_UNIFIED_SPECIFICATION.md](./docs/OMEGA_64_UNIFIED_SPECIFICATION.md)
+
 *The engine state exists natively inside the WebGPU Torus grid.*

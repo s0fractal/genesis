@@ -1,4 +1,3 @@
-import initWasm from "@wasm";
 import { PhaseReplayObserver } from "../lens/phase_replay_view.ts";
 import {
   buildDiffSummary,

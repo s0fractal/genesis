@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "omega_core"
-version = "10.0.0"
+version = "42.0.0"
 dependencies = [
  "console_error_panic_hook",
  "wasm-bindgen",
