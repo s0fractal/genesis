@@ -74,17 +74,24 @@ export class PhasePerturbationInjector {
             return;
         }
 
-        // Legacy WASM buffer mutation
-        const theta = new Uint8Array(this.memory.buffer, this.field.ptr_theta(), this.field.cell_count());
-        const omega = new Int16Array(this.memory.buffer, this.field.ptr_omega(), this.field.cell_count());
-        const amplitude = new Uint8Array(this.memory.buffer, this.field.ptr_amplitude(), this.field.cell_count());
-        const lock = new Uint8Array(this.memory.buffer, this.field.ptr_lock(), this.field.cell_count());
-        const entanglement = new Uint8Array(this.memory.buffer, this.field.ptr_entanglement(), this.field.cell_count());
+        // Legacy WASM buffer mutation via 16-byte PhaseAgent struct
+        const ptr = this.field.ptr_agents();
+        const memoryView = new DataView(this.memory.buffer);
+        const agentOffset = ptr + idx * 16;
 
-        theta[idx] = (theta[idx] + phaseShift) & 0xFF;
-        amplitude[idx] = clamp(amplitude[idx] + Math.floor(energy / Math.max(1, radius + 1)), 0, 255);
-        omega[idx] = clamp(omega[idx] + ((plasmid[1] % 5) - 2), -16, 16);
-        lock[idx] = clamp(lock[idx] + 12, 0, 255);
-        entanglement[idx] = Math.max(entanglement[idx], plasmid[6]);
+        const currentTheta = memoryView.getUint8(agentOffset);
+        memoryView.setUint8(agentOffset, (currentTheta + phaseShift) & 0xFF);
+
+        const currentOmega = memoryView.getInt16(agentOffset + 2, true);
+        memoryView.setInt16(agentOffset + 2, clamp(currentOmega + ((plasmid[1] % 5) - 2), -16, 16), true);
+
+        const currentAmplitude = memoryView.getUint8(agentOffset + 4);
+        memoryView.setUint8(agentOffset + 4, clamp(currentAmplitude + Math.floor(energy / Math.max(1, radius + 1)), 0, 255));
+
+        const currentLock = memoryView.getUint8(agentOffset + 5);
+        memoryView.setUint8(agentOffset + 5, clamp(currentLock + 12, 0, 255));
+
+        const currentEntanglement = memoryView.getUint8(agentOffset + 6);
+        memoryView.setUint8(agentOffset + 6, Math.max(currentEntanglement, plasmid[6]));
     }
 }

@@ -8,6 +8,7 @@
 // Q10 Fixed-Point Math Constants
 export const MATH_Q_BITS = 10;
 export let MATH_Q_SCALE = 1 << MATH_Q_BITS; // 1024
+export const NATIVE_GRAVITY = -0.05;
 
 // FNV-1a 64-bit BigInt Hashing Constants
 export const FNV64_OFFSET_BASIS = 14695981039346656037n;

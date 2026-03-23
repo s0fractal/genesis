@@ -1,4 +1,4 @@
-import { fnv1a_64 } from "../shared/hash.ts";
+import { fnv1a_64 } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE } from "../shared/constants.ts";

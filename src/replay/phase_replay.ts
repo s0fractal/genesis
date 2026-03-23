@@ -102,26 +102,25 @@ export function snapshotWasmPhaseField(field: PhaseLatticeField, wasm: any, shap
 
     const offsetElements = field.get_current_tau() * field.cell_count();
 
-    const thetaArr = new Uint8Array(memory.buffer, field.ptr_theta() + offsetElements * 1, field.cell_count());
-    const omegaArr = new Int16Array(memory.buffer, field.ptr_omega() + offsetElements * 2, field.cell_count());
-    const amplitudeArr = new Uint8Array(memory.buffer, field.ptr_amplitude() + offsetElements * 1, field.cell_count());
-    const lockArr = new Uint8Array(memory.buffer, field.ptr_lock() + offsetElements * 1, field.cell_count());
-    const entArr = new Uint8Array(memory.buffer, field.ptr_entanglement() + offsetElements * 1, field.cell_count());
+    const ptrAgents = field.ptr_agents();
+    const baseOffsetBytes = ptrAgents + offsetElements * 16;
+    const view = new DataView(memory.buffer);
+
     const cellStatusArr = new Uint8Array(memory.buffer, field.ptr_cell_status() + offsetElements * 1, field.cell_count());
-    const plasmidsArr = new BigUint64Array(memory.buffer, field.ptr_plasmids() + offsetElements * 8, field.cell_count());
 
     return createPhaseField(
         shape,
         (_tau, sector, rho, harmonic) => {
             const index = harmonic * shape.radialBins * shape.sectors + rho * shape.sectors + sector;
+            const agentOffset = baseOffsetBytes + index * 16;
             return {
-                theta: thetaArr[index],
-                omega: omegaArr[index],
-                amplitude: amplitudeArr[index],
-                lock: lockArr[index],
-                entanglement: entArr[index],
+                theta: view.getUint8(agentOffset),
+                omega: view.getInt16(agentOffset + 2, true),
+                amplitude: view.getUint8(agentOffset + 4),
+                lock: view.getUint8(agentOffset + 5),
+                entanglement: view.getUint8(agentOffset + 6),
                 cellStatus: cellStatusArr[index],
-                plasmids: plasmidsArr[index],
+                plasmids: view.getBigUint64(agentOffset + 8, true),
             };
         },
     );
