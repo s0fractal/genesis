@@ -2,7 +2,7 @@ import { fnv1a_64 } from "../shared/hash.ts";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, KURAMOTO_COUPLING_BASE, MUTATION_BASE_COST } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, PlasmidRegistry, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
 import { flushEpochBinary } from "./epoch_dumper.ts";
 import { analyzeEpochDumps } from "./analyze_epoch.ts";
 
@@ -11,6 +11,23 @@ export type SenateEvent =
     | { type: "VERDICT"; mask: string; intent: string; bucket?: number }
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
+
+export interface OracleCompatibleField {
+    get_oracle_request_count: () => number;
+    ptr_oracle_requests: () => number;
+    clear_oracle_requests: () => void;
+    get_collision_count?: () => number;
+    ptr_plasmid_collisions?: () => number;
+    clear_collisions?: () => void;
+    ptr_header?: () => number;
+    width?: number;
+    height?: number;
+    cell_count?: () => number;
+    ptr_plasmids?: () => number;
+    ptr_cell_status?: () => number;
+    ptr_theta?: () => number;
+    ptr_omega?: () => number;
+}
 
 const SOMATIC_COMPLEXITY_ALPHA = 1.5;
 const SOMATIC_DECAY_RATE = 0.05;
@@ -21,6 +38,8 @@ export class SovereignOracle {
     private wasmMemory: WebAssembly.Memory;
     private engine?: PhaseComputeEngine;
     private observer?: PhaseWebGPUObserver;
+    
+    public plasmidRegistry = new Map<bigint, SomaticNode>();
     
     // O-51 Senate Chat HUD Telemetry
     public onSenateEvent?: (event: SenateEvent) => void;
@@ -89,8 +108,8 @@ export class SovereignOracle {
         for (const meta of immortals) {
             let childHash = compileMorphology(meta.term);
             
-            if (!PlasmidRegistry.has(childHash)) {
-                PlasmidRegistry.set(childHash, {
+            if (!this.plasmidRegistry.has(childHash)) {
+                this.plasmidRegistry.set(childHash, {
                     ast: meta.term,
                     l1_cost: 0,
                     depth: 1,
@@ -126,12 +145,12 @@ export class SovereignOracle {
         this.epochTicks = newEpoch;
         this.eventLedger = loadedLedger || [];
         
-        PlasmidRegistry.clear();
+        this.plasmidRegistry.clear();
         
         for (const node of registryPayload) {
             const hash = BigInt(node.hash);
             const astTerm = parseLambda(node.ast);
-            PlasmidRegistry.set(hash, {
+            this.plasmidRegistry.set(hash, {
                 ast: astTerm,
                 energy: node.energy === -1 ? Infinity : node.energy,
                 attention: node.attention,
@@ -149,7 +168,7 @@ export class SovereignOracle {
     }
 
     public tickSomaticEconomy(activity: number = 0) {
-        if (PlasmidRegistry.size === 0) return;
+        if (this.plasmidRegistry.size === 0) return;
         
         // O-154 Vector V.2: Oracle Pressure Gate (Ontology 57)
         // If the Senate is deliberating asynchronously, freeze somatic decay completely.
@@ -162,13 +181,13 @@ export class SovereignOracle {
         this.globalEnergyPool = Math.max(20000, activity * 500);
         
         // Energy Distribution Phase
-        const activeNodes = Array.from(PlasmidRegistry.values());
+        const activeNodes = Array.from(this.plasmidRegistry.values());
         const totalAttention = activeNodes.reduce((sum, n) => sum + n.attention, 0);
         const totalNovelty = activeNodes.reduce((sum, n) => sum + (1.0 / (1.0 + n.attention)), 0) || 1.0;
         
         let bankruptCount = 0;
         
-        for (const [hash, node] of PlasmidRegistry.entries()) {
+        for (const [hash, node] of this.plasmidRegistry.entries()) {
             // F.1 Vector Novelty Selection & Clone Rot Preventative Shield
             const popularityShare = (totalAttention > 0 && node.attention > 0) ? (node.attention / totalAttention) : 0;
             const noveltyShare = (1.0 / (1.0 + node.attention)) / totalNovelty; // Weirdest/Newest get priority
@@ -193,7 +212,7 @@ export class SovereignOracle {
                 
                 const slice = Math.floor(siphon / node.mutualists.size);
                 for (const mHash of node.mutualists) {
-                    const relative = PlasmidRegistry.get(mHash);
+                    const relative = this.plasmidRegistry.get(mHash);
                     if (relative && relative.energy !== Infinity) {
                         relative.energy += slice;
                         relative.attention += 1;
@@ -228,11 +247,11 @@ export class SovereignOracle {
                 // O-140 Vector I.3: AION Structural Necrosis (Topological Garbage Collection)
                 // We cannot sever the node without warning the network natively
                 for (const mHash of node.mutualists) {
-                    const relative = PlasmidRegistry.get(mHash);
+                    const relative = this.plasmidRegistry.get(mHash);
                     if (relative) relative.mutualists.delete(hash);
                 }
                 
-                PlasmidRegistry.delete(hash);
+                this.plasmidRegistry.delete(hash);
                 bankruptCount++;
             }
         }
@@ -354,7 +373,8 @@ export class SovereignOracle {
             const currentDumpPath = await flushEpochBinary(
                 this.epochTicks,
                 this.globalEnergyPool,
-                0, "0", 0
+                0, "0", 0,
+                this.plasmidRegistry
             );
             
             let trajectoryTranscript = "[First Epoch. No Historical Macro-Analysis Available.]";
@@ -400,8 +420,8 @@ export class SovereignOracle {
              const foreign_plasmid = collisions[i * 3 + 2];
              
              if (host_plasmid !== 0n && foreign_plasmid !== 0n) {
-                 const hostNode = PlasmidRegistry.get(host_plasmid);
-                 const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                 const hostNode = this.plasmidRegistry.get(host_plasmid);
+                 const foreignNode = this.plasmidRegistry.get(foreign_plasmid);
                  
                  // Feed energy back to functional parents
                  if (hostNode) { hostNode.attention += 5; hostNode.energy += 50; }
@@ -435,7 +455,7 @@ export class SovereignOracle {
                      const hue = phenotypeHue(childTerm);
                      childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
                      
-                     if (!PlasmidRegistry.has(childHash)) {
+                     if (!this.plasmidRegistry.has(childHash)) {
                          const metrics = measureIR(childTerm);
                          
                          // O-137 Vector F.2: Topological Niches (Core vs Membrane)
@@ -451,7 +471,7 @@ export class SovereignOracle {
                          // O-141 Vector J.3: Decoupling Evolution from Execution
                          // We no longer reward "Goal Emergence" (rho === 1) at genesis.
                          // A child is simply born into the graph with minimal seed energy and 0 fitness.
-                         PlasmidRegistry.set(childHash, {
+                         this.plasmidRegistry.set(childHash, {
                              ast: childTerm,
                              l1_cost: metrics.cost,
                              depth: metrics.depth,
@@ -464,20 +484,20 @@ export class SovereignOracle {
                          });
                          
                          // The parents also bind to the child, forming a bi-directional symbiotic edge
-                         const hostNode = PlasmidRegistry.get(host_plasmid);
+                         const hostNode = this.plasmidRegistry.get(host_plasmid);
                          if (hostNode) hostNode.mutualists.add(childHash);
-                         const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                         const foreignNode = this.plasmidRegistry.get(foreign_plasmid);
                          if (foreignNode) foreignNode.mutualists.add(childHash);
                      } else {
-                         const existing = PlasmidRegistry.get(childHash)!;
+                         const existing = this.plasmidRegistry.get(childHash)!;
                          existing.attention += 1;
                          
                          // Refresh mutualist binding upon parallel discovery
                          existing.mutualists.add(host_plasmid);
                          existing.mutualists.add(foreign_plasmid);
-                         const hostNode = PlasmidRegistry.get(host_plasmid);
+                         const hostNode = this.plasmidRegistry.get(host_plasmid);
                          if (hostNode) hostNode.mutualists.add(childHash);
-                         const foreignNode = PlasmidRegistry.get(foreign_plasmid);
+                         const foreignNode = this.plasmidRegistry.get(foreign_plasmid);
                          if (foreignNode) foreignNode.mutualists.add(childHash);
                      }
                      plasmids[idx] = childHash;
@@ -734,9 +754,9 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             const astStr = formatTerm(astTerm); // Normalize spacing and validation
             hash = compileMorphology(astTerm);
             
-            if (!PlasmidRegistry.has(hash)) {
+            if (!this.plasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
-                PlasmidRegistry.set(hash, {
+                this.plasmidRegistry.set(hash, {
                     ast: astTerm,
                     l1_cost: metrics.cost,
                     depth: metrics.depth,
@@ -749,7 +769,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                 });
                 console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
             } else {
-                const existing = PlasmidRegistry.get(hash)!;
+                const existing = this.plasmidRegistry.get(hash)!;
                 existing.attention += 25; // Rewarding resonant convergence
                 existing.energy += 5000;
             }

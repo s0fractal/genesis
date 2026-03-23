@@ -27,6 +27,8 @@ import {
   TISSUE_MORPHOLOGICAL_DELTA_MIN,
   TISSUE_MORPHOLOGICAL_HYSTERESIS,
   hydrateSubstrateHeader,
+  KURAMOTO_COUPLING_BASE,
+  MUTATION_BASE_COST,
 } from "../shared/constants.ts";
 import {
   downloadGenesisFile,
@@ -133,7 +135,8 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       plasmidsBuffer,
       phaseField.cell_count(),
       headerBuffer,
-      oracle.eventLedger
+      oracle.eventLedger,
+      oracle.plasmidRegistry
     );
     downloadGenesisFile(binary, Math.floor(oracle.getEpochTicks() / 1000));
   });
@@ -437,6 +440,8 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       updateHomeostasisHUD(
         phase_lattice_shannon_entropy(phaseField),
         oracle.getGlobalEnergy(),
+        KURAMOTO_COUPLING_BASE,
+        MUTATION_BASE_COST
       );
     }
 

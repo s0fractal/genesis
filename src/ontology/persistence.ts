@@ -1,5 +1,5 @@
 import { encode, decode } from "@msgpack/msgpack";
-import { formatTerm, PlasmidRegistry } from "../compiler/pure_lambda.ts";
+import { formatTerm, SomaticNode } from "../compiler/pure_lambda.ts";
 
 export function exportGenesisState(
     epochTicks: number,
@@ -7,9 +7,10 @@ export function exportGenesisState(
     plasmidsArray: BigUint64Array,
     size: number,
     headerBuffer: Uint8Array,
-    eventLedger: SemanticEvent[]
+    eventLedger: SemanticEvent[],
+    registry: Map<bigint, SomaticNode>
 ): Uint8Array {
-    const population = Array.from(PlasmidRegistry.entries()).map(([hash, node]) => ({
+    const population = Array.from(registry.entries()).map(([hash, node]) => ({
         hash: hash.toString(),
         ast: formatTerm(node.ast),
         energy: node.energy === Infinity ? -1 : node.energy, // msgpack/json inf handling

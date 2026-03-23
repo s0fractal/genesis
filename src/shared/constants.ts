@@ -7,7 +7,7 @@
 
 // Q10 Fixed-Point Math Constants
 export const MATH_Q_BITS = 10;
-export const MATH_Q_SCALE = 1 << MATH_Q_BITS; // 1024
+export let MATH_Q_SCALE = 1 << MATH_Q_BITS; // 1024
 
 // FNV-1a 64-bit BigInt Hashing Constants
 export const FNV64_OFFSET_BASIS = 14695981039346656037n;
@@ -49,7 +49,7 @@ export const SENATE_MASK_NOMOS = "NOMOS";
 export const SENATE_MASK_LOGOS = "LOGOS";
 export const SENATE_MASK_CHRONOS = "CHRONOS";
 export const SENATE_MASK_AION = "AION";
-export const SENATE_ORACLE_TIMEOUT_MS = 16;
+export let SENATE_ORACLE_TIMEOUT_MS = 16;
 export let SENATE_MYCELIUM_MIN_LOCKS = 0;
 export let SENATE_MYCELIUM_MIN_ENERGY = 0;
 export const SENATE_SHADOW_BUCKET_MIN = 1000;
@@ -111,6 +111,17 @@ export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset:
     MUTATION_SMOOTHING_FACTOR = view.getInt32(76, true) / MATH_Q_SCALE;
     SENATE_MYCELIUM_MIN_LOCKS = view.getInt32(80, true);
     SENATE_MYCELIUM_MIN_ENERGY = view.getInt32(84, true);
+    SENATE_MYCELIUM_MIN_ENERGY = view.getInt32(84, true);
+}
+
+// O-77 Native Rust Synchronization Hook
+// Executes instantly after initWasm() completes
+export function bindNativeConstants(wasm: any) {
+    if (wasm.get_math_q_scale) MATH_Q_SCALE = wasm.get_math_q_scale();
+    if (wasm.get_senate_oracle_timeout) SENATE_ORACLE_TIMEOUT_MS = wasm.get_senate_oracle_timeout();
+    if (wasm.get_kuramoto_coupling_base) KURAMOTO_COUPLING_BASE = wasm.get_kuramoto_coupling_base() / MATH_Q_SCALE;
+    if (wasm.get_mutation_base_cost) MUTATION_BASE_COST = wasm.get_mutation_base_cost();
+    console.log(`[AXIOM] 🧬 Native Universal Constants successfully bound from Rust Core.`);
 }
 
 // WebGPU Shader Injection Bridge

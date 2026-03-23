@@ -1,3 +1,5 @@
+use wasm_bindgen::prelude::*;
+
 pub const MATH_Q_BITS: i32 = 10;
 pub const MATH_Q_SCALE: i32 = 1 << MATH_Q_BITS;
 
@@ -40,3 +42,23 @@ pub const SENATE_SHADOW_BUCKET_MAX: i32 = 1024;
 
 pub const TISSUE_MORPHOLOGICAL_HYSTERESIS: i32 = 5;
 pub const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 154; 
+
+#[wasm_bindgen]
+pub fn get_kuramoto_coupling_base() -> i32 {
+    KURAMOTO_COUPLING_BASE
+}
+
+#[wasm_bindgen]
+pub fn get_mutation_base_cost() -> i32 {
+    MUTATION_BASE_COST
+}
+
+#[wasm_bindgen]
+pub fn get_senate_oracle_timeout() -> i32 {
+    SENATE_ORACLE_TIMEOUT_MS
+}
+
+#[wasm_bindgen]
+pub fn get_math_q_scale() -> i32 {
+    MATH_Q_SCALE
+}

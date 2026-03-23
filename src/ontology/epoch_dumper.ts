@@ -1,12 +1,13 @@
 import { encode } from "@msgpack/msgpack";
-import { formatTerm, PlasmidRegistry } from "../compiler/pure_lambda.ts";
+import { formatTerm, SomaticNode } from "../compiler/pure_lambda.ts";
 
 export async function flushEpochBinary(
     epochTicks: number,
     globalEnergy: number,
     entropy: number,
     omegaSpan: string,
-    amplitude: number
+    amplitude: number,
+    registry: Map<bigint, SomaticNode>
 ): Promise<string> {
     const timestamp = Date.now();
     
@@ -19,7 +20,7 @@ export async function flushEpochBinary(
     await Deno.mkdir("./mycelium/dumps", { recursive: true });
     
     // Extract top 100 dominant plasmids by attention/energy to prevent massive dumps
-    const population = Array.from(PlasmidRegistry.entries())
+    const population = Array.from(registry.entries())
         .map(([hash, node]) => ({ hash, node }))
         .sort((a, b) => b.node.attention - a.node.attention);
         

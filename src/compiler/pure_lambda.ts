@@ -25,13 +25,6 @@ export interface SomaticNode {
 }
 
 /**
- * Universal mappings preserving the bidirectional bridge between 
- * mathematical 64-bit grid bounds in WASM and pure SKI syntactical strings.
- * Upgraded to a biological Somatic Engine tracking L1 Complexity and Age Decay.
- */
-export const PlasmidRegistry = new Map<bigint, SomaticNode>();
-
-/**
  * Traverses a Compiled AST Node, measuring its Topological constraints.
  * Structural bulk is penalized by L1 Complexity Regulators.
  */
