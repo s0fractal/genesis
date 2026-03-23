@@ -44,6 +44,20 @@ export function measureIR(term: Term): { cost: number; depth: number; nodes: num
 }
 
 /**
+ * Era 204 Vector 2: Cellular Autophagy (AST Decomposition)
+ * Traverses a dead topological structure and returns its raw base-pair mass.
+ * S, K, I, Y combinators map directly to 1 ATP each in the Systemic Reserve.
+ */
+export function decomposeAST(term: Term): number {
+    if (term.type === "Combinator") {
+        return 1;
+    } else if (term.type === "Application") {
+        return decomposeAST(term.left) + decomposeAST(term.right);
+    }
+    return 0; // Variables yield no energy
+}
+
+/**
  * O-146 Vector O.1: Epigenetic Phenotype Measurement
  * Scans the structural geometry of the Plasmid to deterministically assign its 
  * visual Hue mapping. Chaos (S) is Red, Pruning (K) is Green, Identity (I) is Blue.

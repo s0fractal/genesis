@@ -2,7 +2,7 @@ import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
 export type SenateEvent =
     | { type: "CONVENED" }
@@ -325,6 +325,13 @@ export class SovereignOracle {
 
             // Extinction threshold
             if (node.energy <= 0) {
+                // Era 204 Vector 2: Cellular Autophagy (Scrap Recovery)
+                const scrapATP = decomposeAST(node.ast);
+                this.reserveEnergyPool += scrapATP;
+                if (scrapATP > 5) {
+                     console.log(`♻️ [AUTOPHAGY] Decomposed extinct plasmid ${hash.toString().substring(0, 8)}. Refunded ${scrapATP} ATP to Reserve.`);
+                }
+
                 // O-140 Vector I.3: AION Structural Necrosis (Topological Garbage Collection)
                 for (const mHash of node.mutualists) {
                     const relative = this.plasmidRegistry.get(mHash);

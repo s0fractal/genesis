@@ -3,6 +3,7 @@
 export class BioAcousticChoir {
     private ctx: AudioContext | null = null;
     private masterGain!: GainNode;
+    private panner!: PannerNode; // Era 204: Spatial Audio Node
     private filter!: BiquadFilterNode;
     private delay!: DelayNode;
     private delayFeedback!: GainNode;
@@ -23,7 +24,17 @@ export class BioAcousticChoir {
         // Master Gain (Energy Modulation)
         this.masterGain = this.ctx.createGain();
         this.masterGain.gain.value = 0.0; // Start absolutely silent
-        this.masterGain.connect(this.ctx.destination);
+        
+        // Era 204: 3D Spatial Mycelium
+        this.panner = this.ctx.createPanner();
+        this.panner.panningModel = "HRTF";
+        this.panner.distanceModel = "inverse";
+        this.panner.refDistance = 1;
+        this.panner.maxDistance = 10000;
+        this.panner.rolloffFactor = 1;
+        
+        this.masterGain.connect(this.panner);
+        this.panner.connect(this.ctx.destination);
 
         // Mathematical BiquadFilter (Lock Correlation)
         this.filter = this.ctx.createBiquadFilter();
@@ -113,6 +124,21 @@ export class BioAcousticChoir {
              const detuneAmount = (thetaNorm - 0.5) * 35; // -17.5 to +17.5 cents beating
              this.oscillators[1].detune.linearRampToValueAtTime(detuneAmount, time);
              this.oscillators[2].detune.linearRampToValueAtTime(-detuneAmount, time);
+        }
+
+        // 5. Era 204: True 3D Spatial coordinates
+        const radius = 10.0;
+        const x = Math.cos(thetaNorm * Math.PI * 2) * radius;
+        const z = Math.sin(thetaNorm * Math.PI * 2) * radius;
+        const y = (energyNorm - 0.5) * 5.0; // Massive energy calculations hover above the listener
+
+        try {
+            this.panner.positionX.linearRampToValueAtTime(x, time);
+            this.panner.positionY.linearRampToValueAtTime(y, time);
+            this.panner.positionZ.linearRampToValueAtTime(z, time);
+        } catch (_e) {
+            // Safari fallback for older SpatialAudio specs
+            this.panner.setPosition(x, y, z);
         }
     }
 }

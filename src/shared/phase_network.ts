@@ -72,8 +72,9 @@ export class PhaseNetwork {
         this.meshChannel.postMessage({ type: "HELLO", origin: this.nodeId });
     }
 
-    private async handleMeshSignal(msg: any) {
-        if (!msg || msg.origin === this.nodeId) return;
+    private async handleMeshSignal(msgData: unknown) {
+        const msg = msgData as { type?: string, origin?: string, target?: string, sdp?: RTCSessionDescriptionInit, candidate?: RTCIceCandidateInit };
+        if (!msg || !msg.origin || msg.origin === this.nodeId) return;
 
         if (msg.type === "HELLO") {
             // A new peer appeared! We will initiate the connection as the Caller.
@@ -84,10 +85,10 @@ export class PhaseNetwork {
                 
                 setTimeout(async () => {
                     // Re-verify after backoff
-                    if (this.peers.has(msg.origin)) return;
+                    if (this.peers.has(msg.origin!)) return;
                     
                     console.log(`🍄 [Auto-Mycelium] Detected new peer ${msg.origin}. Initiating WebRTC Handshake...`);
-                    const pc = this.createPeerConnection(msg.origin);
+                    const pc = this.createPeerConnection(msg.origin!);
                     const dc = pc.createDataChannel("mycelium_vector");
                     this.bindDataChannel(dc);
     
@@ -99,22 +100,22 @@ export class PhaseNetwork {
         } 
         else if (msg.type === "OFFER" && msg.target === this.nodeId) {
             console.log(`🍄 [Auto-Mycelium] Answering WebRTC Offer from ${msg.origin}...`);
-            const pc = this.createPeerConnection(msg.origin);
+            const pc = this.createPeerConnection(msg.origin!);
             pc.ondatachannel = (e) => this.bindDataChannel(e.channel);
             
-            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp!));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             this.meshChannel.postMessage({ type: "ANSWER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
         }
         else if (msg.type === "ANSWER" && msg.target === this.nodeId) {
-            const pc = this.peers.get(msg.origin);
+            const pc = this.peers.get(msg.origin!);
             if (pc) {
-                await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp!));
             }
         }
         else if (msg.type === "ICE" && msg.target === this.nodeId) {
-            const pc = this.peers.get(msg.origin);
+            const pc = this.peers.get(msg.origin!);
             if (pc && msg.candidate) {
                 try {
                     await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
@@ -135,7 +136,7 @@ export class PhaseNetwork {
                     type: "ICE",
                     origin: this.nodeId,
                     target: remotePeerId,
-                    candidate: event.candidate
+                    candidate: event.candidate.toJSON()
                 });
             }
         };
@@ -291,7 +292,9 @@ export class PhaseNetwork {
                     console.log(`📡 [Holo-CRDT] Attempting to resonate with plasmid: ${p.hash}`);
                     this.onPlasmidReceived(p);
                 }
-            } catch (_err) {}
+            } catch (_err) {
+                // Ignore malformed WebRTC frames
+            }
         };
         dc.onclose = () => {
             this.rtcConnections.delete(dc);
