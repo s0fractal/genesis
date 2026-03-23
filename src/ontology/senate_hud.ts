@@ -3,6 +3,7 @@ import { SenateEvent } from "./oracle.ts";
 export class SenateChatHUD {
     private container: HTMLDivElement;
     private logArea: HTMLDivElement;
+    private pressureSpan: HTMLSpanElement;
     
     constructor() {
         this.container = document.createElement("div");
@@ -35,9 +36,40 @@ export class SenateChatHUD {
             letterSpacing: "2px",
             textTransform: "uppercase",
             display: "flex",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
+            alignItems: "center"
         });
-        header.innerHTML = `<span>🏛️ Senate Chat</span><span style="color:#666; font-size:10px;">O-51</span>`;
+        
+        const titleSpan = document.createElement("span");
+        titleSpan.innerText = "🏛️ Senate Chat";
+        
+        this.pressureSpan = document.createElement("span");
+        Object.assign(this.pressureSpan.style, {
+            color: "#ff55ff", // Magenta for Shadow Network
+            fontSize: "10px",
+            background: "rgba(255, 85, 255, 0.1)",
+            padding: "2px 6px",
+            borderRadius: "4px",
+            display: "none" // Hidden until pressure is > 0
+        });
+        this.pressureSpan.innerText = "SHADOW: 0";
+        
+        const rightContainer = document.createElement("div");
+        rightContainer.style.display = "flex";
+        rightContainer.style.gap = "8px";
+        rightContainer.style.alignItems = "center";
+        
+        const versionSpan = document.createElement("span");
+        versionSpan.style.color = "#666";
+        versionSpan.style.fontSize = "10px";
+        versionSpan.innerText = "O-163";
+        
+        rightContainer.appendChild(this.pressureSpan);
+        rightContainer.appendChild(versionSpan);
+        
+        header.appendChild(titleSpan);
+        header.appendChild(rightContainer);
+        
         this.container.appendChild(header);
         
         this.logArea = document.createElement("div");
@@ -135,5 +167,18 @@ export class SenateChatHUD {
         
         this.logArea.appendChild(msgBlock);
         this.logArea.scrollTop = this.logArea.scrollHeight;
+    }
+    
+    // O-163 (Era 174) Shadow Network Telemetry
+    public updateShadowPressure(pressure: number) {
+        if (pressure > 0) {
+            this.pressureSpan.style.display = "block";
+            this.pressureSpan.innerText = `SHADOW: ${pressure}`;
+            // Optional: Intensify glow based on pressure
+            const glow = Math.min(pressure / 20.0, 1.0) * 15;
+            this.pressureSpan.style.boxShadow = `0 0 ${glow}px rgba(255, 85, 255, 0.8)`;
+        } else {
+            this.pressureSpan.style.display = "none";
+        }
     }
 }

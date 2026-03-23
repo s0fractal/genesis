@@ -180,6 +180,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
   // O-130 Thermodynamic Safeguards
   let lastAionIntervention = performance.now();
+  let lastShadowTelemetryCheck = performance.now();
 
   const loop = async () => {
     ticksSinceLastShedding++;
@@ -398,22 +399,33 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
       // O-130: Thermodynamic Wall & Shannon Entropy (AION Vacuum Guard)
       const entropy = phase_lattice_shannon_entropy(phaseField);
-      if (entropy < 1.5 && nowLocal - lastAionIntervention > 1500) {
+      
+      // O-163 (Era 174): Gradient AION Vacuum Flow (Proof of Meaning)
+      if (entropy < 2.0 && nowLocal - lastAionIntervention > 150) {
         lastAionIntervention = nowLocal;
-        // Inject Latent Entropy (Shadow Buckets 1000-1024)
-        const shadowBucket = 1000 + Math.floor(Math.random() * 24);
-        console.log(
-          `[O-130] 🌑 AION ALARM: Thermodynamic Crystallization (Entropy ${
-            entropy.toFixed(2)
-          }). Injecting Latent Entropy into Bucket #${shadowBucket}`,
-        );
-        computeEngine.injectEnergy(
-          shadowBucket,
-          Math.floor(Math.random() * 256),
-        );
+        // The closer to 0 entropy, the stronger the gradient wave (max ~20 energy per bucket)
+        const waveIntensity = Math.floor((2.0 - entropy) * 10); 
+        
+        for (let i = 0; i < 3; i++) {
+            const shadowBucket = 1000 + Math.floor(Math.random() * 25);
+            computeEngine.injectEnergy(shadowBucket, waveIntensity);
+        }
       }
       
       oracle.tickHomeostasis(entropy);
+      
+      // O-163 (Era 174): Shadow Pressure Telemetry
+      if (nowLocal - lastShadowTelemetryCheck > 1000) {
+        lastShadowTelemetryCheck = nowLocal;
+        computeEngine.readMycelialCentroids().then(centroids => {
+            let pressure = 0;
+            // Sum active cells inside the Latent Network (Buckets 1000-1024)
+            for (let i = 1000; i < 1025; i++) {
+                pressure += centroids[i * 4 + 2];
+            }
+            senateChat.updateShadowPressure(pressure);
+        });
+      }
 
       // Era 172: Live Bio-Acoustic Sonification Parametrics
       observer.choir.modulateParams(

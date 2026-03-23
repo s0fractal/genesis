@@ -332,9 +332,11 @@ export class SovereignOracle {
         currentKuramoto += (kuramotoTarget - currentKuramoto) * LERP_SPEED;
         currentMutation += (mutationTarget - currentMutation) * LERP_SPEED;
 
-        // 3. Write directly over the WASM physical barriers
-        view.setInt32(28, Math.round(currentKuramoto * MATH_Q_SCALE), true);
-        view.setInt32(64, Math.round(currentMutation), true);
+        // O-163 (Era 174): The Oracle is demoted from a Physics Engine to a Semantic Gardener.
+        // We NO LONGER inject currentKuramoto and currentMutation back into the wasmMemory.
+        // Physics constants (KURAMOTO_COUPLING, MUTATION_COST) are now locked natively in Rust
+        // and mapped to WGSL via \`generateWgslConstants\`.
+        // The Oracle must survive utilizing pure semantic attractors instead of hacking physical laws.
 
         // Hydrate TypeScript single-source-of-truth constants globally
         hydrateSubstrateHeader(this.wasmMemory, ptr);
