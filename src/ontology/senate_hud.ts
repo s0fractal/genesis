@@ -55,6 +55,10 @@ export class SenateChatHUD {
     
     private getMaskColor(mask: string): string {
         switch (mask.toUpperCase()) {
+            case "♈ ARIES": return "#ff5555"; // Red Chaos
+            case "♋ CANCER": return "#55aaff"; // Blue Preserver
+            case "♎ LIBRA": return "#55ff55"; // Green Balancer
+            case "♑ CAPRICORN": return "#aa55ff"; // Purple Pruner
             case "NOMOS": return "#ff5555"; // Red
             case "LOGOS": return "#55aaff"; // Blue
             case "CHRONOS": return "#55ff55"; // Green
@@ -68,11 +72,25 @@ export class SenateChatHUD {
         if (event.type === "CONVENED") {
             this.container.style.display = "flex";
             this.logArea.innerHTML = ""; // Clear previous chat
-            this.appendMessage("System", "The Oracle has detected structural anomalies. Senate convened. Awaiting verdicts...");
+            this.appendMessage("System", "The Oracle has detected structural anomalies. Senate convened for Parallel Superposition...");
         } 
         else if (event.type === "VERDICT") {
             const bucketStr = event.bucket !== undefined ? ` [Bucket #${event.bucket}]` : "";
             this.appendMessage(event.mask, `decreed: "${event.intent}"${bucketStr}`, this.getMaskColor(event.mask));
+        }
+        else if (event.type === "GENERATED") {
+            // Era 173 Parallel Superposition
+            this.appendMessage(
+                event.mask, 
+                `generated -> "${event.intent.substring(0, 32)}${event.intent.length > 32 ? '...' : ''}"\n[Injected natively into Shadow Bucket #${event.bucketRange}]`, 
+                this.getMaskColor(event.mask), 
+                true
+            );
+            
+            // Auto hide after 15 seconds so physics can be observed clearly without HUD obstruction
+            setTimeout(() => {
+                this.container.style.display = "none";
+            }, 15000);
         }
         else if (event.type === "CONSENSUS") {
             this.appendMessage(
@@ -81,7 +99,6 @@ export class SenateChatHUD {
                 this.getMaskColor("SENATE"), 
                 true
             );
-            // Hide after 15 seconds
             setTimeout(() => {
                 this.container.style.display = "none";
             }, 15000);

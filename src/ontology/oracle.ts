@@ -3,14 +3,20 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
-import { flushEpochBinary, archiveLedgerChunk } from "./epoch_dumper.ts";
-import { analyzeEpochDumps } from "./analyze_epoch.ts";
 
 export type SenateEvent =
     | { type: "CONVENED" }
     | { type: "VERDICT"; mask: string; intent: string; bucket?: number }
+    | { type: "GENERATED"; mask: string; intent: string; bucketRange: string; tension: number }
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
+
+export interface ChronosSnapshot {
+    ticks: number;
+    entropy: number;
+    energy: number;
+    queue: number;
+}
 
 export interface OracleCompatibleField {
     get_oracle_request_count: () => number;
@@ -65,11 +71,8 @@ export class SovereignOracle {
     public pushLedgerEvent(event: SemanticEvent) {
         this.eventLedger.push(event);
         if (this.eventLedger.length >= this.LEDGER_MAX_EVENTS) {
-            // Asynchronously cast old events to disk, keeping the most recent.
-            const chunk = this.eventLedger.splice(0, this.LEDGER_TRUNCATE_SIZE);
-            archiveLedgerChunk(chunk).catch(e => {
-                console.error("[ORACLE] ❌ Failed to securely archive Semantic Ledger chunk:", e);
-            });
+            // Just truncate to prevent V8 OOM, archiving to disk is deprecated (Era 173)
+            this.eventLedger.splice(0, this.LEDGER_TRUNCATE_SIZE);
         }
     }
     
@@ -78,7 +81,9 @@ export class SovereignOracle {
     
     // O-48 Git-Watchdog Ontology Phase 5
     private epochTicks: number = 0;
-    private lastEpochDumpPath?: string;
+    
+    // Era 173: Semantic Anamnesis
+    private chronosMemory: ChronosSnapshot[] = [];
 
     constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
@@ -382,32 +387,25 @@ export class SovereignOracle {
         }
     }
 
-    private async triggerSenateIntervention(count: number, requests: number[], reason: string) {
+    private triggerSenateIntervention(count: number, requests: number[], reason: string) {
         this.isBusy = true;
-        try {
-            const currentDumpPath = await flushEpochBinary(
-                this.epochTicks,
-                this.globalEnergyPool,
-                0, "0", 0,
-                this.plasmidRegistry
-            );
-            
-            let trajectoryTranscript = "[First Epoch. No Historical Macro-Analysis Available.]";
-            if (this.lastEpochDumpPath) {
-                trajectoryTranscript = await analyzeEpochDumps(this.lastEpochDumpPath, currentDumpPath);
+        
+        let trajectoryTranscript = "Recent Entropy/Energy Trajectory:\n";
+        if (this.chronosMemory.length === 0) {
+            trajectoryTranscript += "Insufficient historical data.\n";
+        } else {
+            for (const snap of this.chronosMemory.slice(-5)) {
+                trajectoryTranscript += `T-${snap.ticks}: ENT=${snap.entropy.toFixed(2)} | NRG=${snap.energy} | Q=${snap.queue}\n`;
             }
-            
-            this.lastEpochDumpPath = currentDumpPath;
-            this.epochTicks = 0;
-            
-            const comprehensiveReason = `${reason}\n\n${trajectoryTranscript}`;
-            
-            this.isBusy = false;
-            await this.processQueue(count, requests, comprehensiveReason);
-        } catch (e) {
-            console.error(`[ORACLE] Epoch transcription failed:`, e);
-            this.isBusy = false;
         }
+        
+        this.epochTicks = 0;
+        const comprehensiveReason = `${reason}\n\n${trajectoryTranscript}`;
+        
+        this.isBusy = false;
+        this.processQueue(count, requests, comprehensiveReason).catch(e => {
+            console.error(`[ORACLE] Senate execution failed:`, e);
+        });
     }
     
     // O-134 Vector C: Topological Lambda Application via Fast Tuples
@@ -681,13 +679,18 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             console.log(`[ORACLE] Senate convened. Awaiting verdicts from NOMOS, LOGOS, CHRONOS, and AION...`);
             if (this.onSenateEvent) this.onSenateEvent({ type: "CONVENED" });
             
-            // O-43 Parallel Execution
+            // O-43 Parallel Execution (Era 173 Superposition)
             const settled = await Promise.allSettled(maskPromises);
             
             let validIntents = 0;
             
-            // O-47 Senate Ledger (Voting Mechanism)
-            const voteTallies: Record<string, { count: number, intent: string, targetBucket: number | undefined }> = {};
+            // Map the four logical masks into parallel Shadow Network bounds
+            const SHADOW_RANGES: Record<string, number> = {
+                "♈ ARIES": 1000,
+                "♋ CANCER": 1006,
+                "♎ LIBRA": 1011,
+                "♑ CAPRICORN": 1016
+            };
 
             for (let i = 0; i < settled.length; i++) {
                 const result = settled[i];
@@ -695,57 +698,41 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     const fullResponse = result.value.response;
                     const maskName = result.value.mask;
                     
-                    // O-139 Vector H.2: Parse Top-Down LLM AST payloads
                     let intentStr = fullResponse.trim();
-                    let targetBucket: number | undefined = undefined;
-                    
                     const match = fullResponse.match(/(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
+                    let targetBucket = SHADOW_RANGES[maskName] || 1000;
                     if (match) {
-                        if (match[1]) targetBucket = parseInt(match[1], 10);
                         intentStr = match[2];
                     }
+                    
+                    // Spread spatially within the 5-bucket domain to prevent strict collisions
+                    targetBucket = targetBucket + Math.floor(Math.random() * 5);
 
                     if (intentStr) {
-                        console.log(`[ORACLE] ${maskName} translated -> "${intentStr}"${targetBucket !== undefined ? ` (Targeting Bucket #${targetBucket})` : ''}`);
+                        console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
                         
-                        // Group identical intents. Lowercase and strip whitespace to generalize semantic similarity slightly.
-                        const voteKey = `${targetBucket !== undefined ? targetBucket : 'global'}_${intentStr.toLowerCase().substring(0,25)}`;
-                        if (!voteTallies[voteKey]) {
-                            voteTallies[voteKey] = { count: 0, intent: intentStr, targetBucket };
+                        try {
+                            parseLambda(intentStr); // Validate AST, throws if malformed
+                            validIntents++;
+                            
+                            // Broadcast raw mathematical generation to the HUD
+                            if (this.onSenateEvent) {
+                                this.onSenateEvent({ type: "GENERATED", mask: maskName, intent: intentStr, bucketRange: `${targetBucket}`, tension: count });
+                            }
+                            // Compile and inject seamlessly
+                            this.fulfillRequests(requests, intentStr, targetBucket);
+                        } catch (e) {
+                            console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
                         }
-                        voteTallies[voteKey].count++;
-                        
-                        // Emit live to HUD
-                        if (this.onSenateEvent) {
-                            this.onSenateEvent({ type: "VERDICT", mask: maskName, intent: intentStr, bucket: targetBucket });
-                        }
-                        
-                        validIntents++;
                     }
                 } else {
-                    console.warn(`[ORACLE] A Mask failed to reach consensus or timed out.`);
+                    console.warn(`[ORACLE] A Mask failed to reach generation or timed out.`);
                 }
             }
 
             if (validIntents === 0) {
-                throw new Error("Complete Senate Failure");
+                throw new Error("Complete Senate Failure - No Valid Plasmids Generated");
             }
-            
-            // O-47 Identify the Plurality Consensus
-            let winningVote = Object.values(voteTallies)[0];
-            for (const vote of Object.values(voteTallies)) {
-                if (vote.count > winningVote.count) {
-                    winningVote = vote;
-                }
-            }
-            
-            // Emit Consensus
-            if (this.onSenateEvent) {
-                this.onSenateEvent({ type: "CONSENSUS", mask: "SENATE", intent: winningVote.intent, count: winningVote.count, bucket: winningVote.targetBucket });
-            }
-            
-            console.log(`[ORACLE] 🏛️ SENATE CONSENSUS ACHIEVED: Executing [${winningVote.count} Votes] -> "${winningVote.intent}"`);
-            this.fulfillRequests(requests, winningVote.intent, winningVote.targetBucket);
 
         } catch (_e) {
             console.warn(`[ORACLE] Entire Senate failed/timeout. Emitting stochastic fallback plasmid.`);
