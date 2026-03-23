@@ -21,6 +21,7 @@ export class PhaseWebGPUObserver {
     public camera: OrbitCamera;
     private isDragging: boolean = false;
     private lastPinchDist = 0;
+    private shadowXRayActive: boolean = false;
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
         this.canvas = canvas;
@@ -151,6 +152,14 @@ export class PhaseWebGPUObserver {
                 { binding: 1, resource: { buffer: this.paramsBuffer } }
             ]
         });
+
+        // Era 171: The Shadow Network X-Ray Trigger
+        globalThis.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'x') {
+                this.shadowXRayActive = !this.shadowXRayActive;
+                console.log(`☢️ [X-RAY] Latent Shadow Network Visibility: ${this.shadowXRayActive ? 'ON' : 'OFF'}`);
+            }
+        });
     }
 
     render(activeFieldBuffer: GPUBuffer) {
@@ -183,6 +192,7 @@ export class PhaseWebGPUObserver {
         viewU32[11] = Math.floor(this.engine.offsets[3] / 4);
         viewU32[12] = Math.floor(this.engine.offsets[4] / 4);
         viewU32[13] = Math.floor(this.engine.offsets[5] / 4);
+        viewU32[14] = this.shadowXRayActive ? 1 : 0; // O-129 X-Ray Toggle
         
         // Compute View and Proj Matrices
         const proj = createMat4();

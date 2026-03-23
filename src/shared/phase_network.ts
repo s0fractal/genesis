@@ -10,11 +10,15 @@ function verifyPayloadSignature(p: ForeignPlasmid): boolean {
 
 export class PhaseNetwork {
     private channel: BroadcastChannel;
+    private meshChannel: BroadcastChannel;
     private rtcConnections: Set<RTCDataChannel> = new Set();
+    private peers: Map<string, RTCPeerConnection> = new Map();
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
+    private nodeId: string;
 
     constructor(onPlasmidReceived: (plasmid: ForeignPlasmid) => void) {
         this.onPlasmidReceived = onPlasmidReceived;
+        this.nodeId = "node_" + Math.random().toString(36).substring(2, 9);
         
         // 🍄 Phase 1: Local Mycelial Fusion (Same-Machine Cross-Tab)
         this.channel = new BroadcastChannel("omega_64_mycelium");
@@ -38,6 +42,81 @@ export class PhaseNetwork {
                 this.onPlasmidReceived(p);
             }
         };
+
+        // 🍄 Phase 2: Automatic Mycelium (WebRTC Auto-Signaling via Mesh)
+        this.meshChannel = new BroadcastChannel("omega64-mesh");
+        this.meshChannel.onmessage = async (e) => await this.handleMeshSignal(e.data);
+        
+        // Announce presence to the local mesh
+        this.meshChannel.postMessage({ type: "HELLO", origin: this.nodeId });
+    }
+
+    private async handleMeshSignal(msg: any) {
+        if (!msg || msg.origin === this.nodeId) return;
+
+        if (msg.type === "HELLO") {
+            // A new peer appeared! We will initiate the connection as the Caller.
+            if (!this.peers.has(msg.origin)) {
+                console.log(`🍄 [Auto-Mycelium] Detected new peer ${msg.origin}. Initiating WebRTC Handshake...`);
+                const pc = this.createPeerConnection(msg.origin);
+                const dc = pc.createDataChannel("mycelium_vector");
+                this.bindDataChannel(dc);
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                this.meshChannel.postMessage({ type: "OFFER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
+            }
+        } 
+        else if (msg.type === "OFFER" && msg.target === this.nodeId) {
+            console.log(`🍄 [Auto-Mycelium] Answering WebRTC Offer from ${msg.origin}...`);
+            const pc = this.createPeerConnection(msg.origin);
+            pc.ondatachannel = (e) => this.bindDataChannel(e.channel);
+            
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            this.meshChannel.postMessage({ type: "ANSWER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
+        }
+        else if (msg.type === "ANSWER" && msg.target === this.nodeId) {
+            const pc = this.peers.get(msg.origin);
+            if (pc) {
+                await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            }
+        }
+        else if (msg.type === "ICE" && msg.target === this.nodeId) {
+            const pc = this.peers.get(msg.origin);
+            if (pc && msg.candidate) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                } catch (e) {
+                    console.error("Error adding ICE candidate:", e);
+                }
+            }
+        }
+    }
+
+    private createPeerConnection(remotePeerId: string): RTCPeerConnection {
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+        this.peers.set(remotePeerId, pc);
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.meshChannel.postMessage({
+                    type: "ICE",
+                    origin: this.nodeId,
+                    target: remotePeerId,
+                    candidate: event.candidate
+                });
+            }
+        };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                this.peers.delete(remotePeerId);
+            }
+        };
+
+        return pc;
     }
 
     // Broadcast a mutated idea to all connected mycelial nodes (Local & Remote)

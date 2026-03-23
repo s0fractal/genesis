@@ -13,7 +13,7 @@ struct Params {
   off_lock: u32,
   off_entanglement: u32,
   off_plasmids: u32,
-  pad1: u32,
+  debug_shadow: u32,
   pad2: u32,
   view: mat4x4<f32>,
   proj: mat4x4<f32>,
@@ -131,6 +131,12 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let sat = 0.6 + entanglement;
   let val = 0.3 + amplitude * 0.7;
   var base_color = hsv2rgb(hue, min(1.0, sat), min(1.0, val));
+
+  // Era 171: X-Ray Debug Override for the Shadow Network
+  if (params.debug_shadow == 1u && out.is_latent > 0.5) {
+      base_color = vec3<f32>(1.0, 0.0, 0.8); // Neon Magenta X-Ray Glow
+      out.is_latent = 0.0; // Intercept discarding
+  }
 
   // O-42 Phase 1: Future Tension Heatmap Rendering ♨️
   if (params.heatmap_toggle == 1u) {
