@@ -1215,4 +1215,15 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
         
         console.log(`[ORACLE] Successfully decoded and unlocked ${success} cells.`);
     }
+
+    // Era 212: Metaphysical Telemetry
+    public getTopSectors(): { topId: number, topHeat: number }[] {
+        const heats = Array.from(this.sectorHeat).map((heat, id) => ({ id, heat }));
+        heats.sort((a, b) => b.heat - a.heat);
+        return [
+            { topId: heats[0].id, topHeat: heats[0].heat },
+            { topId: heats[1].id, topHeat: heats[1].heat },
+            { topId: heats[2].id, topHeat: heats[2].heat }
+        ];
+    }
 }

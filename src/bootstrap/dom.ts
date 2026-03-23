@@ -25,6 +25,7 @@ export const DOM = {
     hEntropyVal: document.getElementById("h-entropy-val") as HTMLSpanElement | null,
     hEnergyVal: document.getElementById("h-energy-val") as HTMLSpanElement | null,
     hEndocrineVal: document.getElementById("h-endocrine-val") as HTMLSpanElement | null,
+    hToposVal: document.getElementById("h-topos-val") as HTMLSpanElement | null,
 
     // O-59 Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
@@ -92,7 +93,13 @@ export function setInputMode(target: "semantic" | "replay") {
 
 let lastDomUpdate = 0;
 
-export function updateHomeostasisHUD(entropy: number, energy: number, kuramoto: number, mutation: number) {
+export function updateHomeostasisHUD(
+    entropy: number, 
+    energy: number, 
+    kuramoto: number, 
+    mutation: number,
+    toposData?: {name: string, heat: number}[]
+) {
     const now = performance.now();
     if (now - lastDomUpdate < 100) return; // Limit to 10 FPS
     lastDomUpdate = now;
@@ -115,5 +122,12 @@ export function updateHomeostasisHUD(entropy: number, energy: number, kuramoto: 
     }
     if (DOM.hEndocrineVal) {
         DOM.hEndocrineVal.replaceChildren(`K: ${kuramoto.toFixed(2)} | M: ${mutation.toFixed(1)}`);
+    }
+    if (DOM.hToposVal && toposData) {
+        const toposStr = toposData
+            .filter(t => t.heat > 0.1)
+            .map(t => `${t.name.split('[')[1].split(']')[0]}: ${t.heat.toFixed(1)}°`)
+            .join(' | ');
+        DOM.hToposVal.replaceChildren(toposStr || "ECOLOGICAL STASIS");
     }
 }

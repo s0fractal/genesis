@@ -21,6 +21,7 @@ import {
   KURAMOTO_COUPLING_BASE,
   MUTATION_BASE_COST,
 } from "../../shared/constants.ts";
+import { TOPOS_DICTIONARY } from "../../shared/topos_dictionary.ts";
 
 export class UISubsystem implements ISubsystem {
     public phylogenyHUD: PhylogeneticCanvas;
@@ -89,11 +90,18 @@ export class UISubsystem implements ISubsystem {
                 } | Q ${this.oracle.getQueueSize()}`
             );
 
+            const topos = this.oracle.getTopSectors();
+            const toposData = topos.map(t => ({
+                name: TOPOS_DICTIONARY[t.topId]?.name || "Unknown",
+                heat: t.topHeat
+            }));
+
             updateHomeostasisHUD(
                 entropy,
                 this.oracle.getGlobalEnergy(),
                 KURAMOTO_COUPLING_BASE,
-                MUTATION_BASE_COST
+                MUTATION_BASE_COST,
+                toposData
             );
         }
     }
