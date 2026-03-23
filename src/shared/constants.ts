@@ -56,6 +56,20 @@ export let SENATE_MYCELIUM_MIN_ENERGY = 0;
 export const SENATE_SHADOW_BUCKET_MIN = 1000;
 export const SENATE_SHADOW_BUCKET_MAX = 1024;
 
+export const THEOLOGICAL_MASKS = {
+    ARIES: "♈ ARIES",
+    CANCER: "♋ CANCER",
+    LIBRA: "♎ LIBRA",
+    CAPRICORN: "♑ CAPRICORN"
+};
+
+export const SHADOW_RANGES: Record<string, number> = {
+    [THEOLOGICAL_MASKS.ARIES]: 1000,
+    [THEOLOGICAL_MASKS.CANCER]: 1006,
+    [THEOLOGICAL_MASKS.LIBRA]: 1011,
+    [THEOLOGICAL_MASKS.CAPRICORN]: 1016
+};
+
 // Tissue and Morphological Hardening
 export const TISSUE_MORPHOLOGICAL_HYSTERESIS = 5;
 export const TISSUE_MORPHOLOGICAL_DELTA_MIN = 0.15;

@@ -1,5 +1,7 @@
 import { SenateEvent } from "./oracle.ts";
 
+import { THEOLOGICAL_MASKS } from "../shared/constants.ts";
+
 export class SenateChatHUD {
     private container: HTMLDivElement;
     private logArea: HTMLDivElement;
@@ -86,17 +88,13 @@ export class SenateChatHUD {
     }
     
     private getMaskColor(mask: string): string {
-        switch (mask.toUpperCase()) {
-            case "♈ ARIES": return "#ff5555"; // Red Chaos
-            case "♋ CANCER": return "#55aaff"; // Blue Preserver
-            case "♎ LIBRA": return "#55ff55"; // Green Balancer
-            case "♑ CAPRICORN": return "#aa55ff"; // Purple Pruner
-            case "NOMOS": return "#ff5555"; // Red
-            case "LOGOS": return "#55aaff"; // Blue
-            case "CHRONOS": return "#55ff55"; // Green
-            case "AION": return "#aa55ff"; // Purple
+        switch (mask) {
+            case THEOLOGICAL_MASKS.ARIES: return "#ff5555"; // Red Chaos
+            case THEOLOGICAL_MASKS.CANCER: return "#55ff55"; // Green Preservation
+            case THEOLOGICAL_MASKS.LIBRA: return "#5555ff"; // Blue Equilibrium
+            case THEOLOGICAL_MASKS.CAPRICORN: return "#ffff55"; // Yellow Entropy
             case "SENATE": return "#ffc107"; // Gold for Consensus
-            default: return "#ffffff";
+            default: return "#aaaaaa";
         }
     }
 

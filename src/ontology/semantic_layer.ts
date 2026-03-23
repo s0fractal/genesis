@@ -1,9 +1,13 @@
 import { fnv1a_64 } from "@wasm";
 
+export interface IPerturbationInjector {
+    inject(x: number, y: number, energy: number, radius: number, phaseShift: number, plasmid: Uint8Array): void;
+}
+
 export class SemanticCoupler {
-    private injector: any; // PerturbationInjector
+    private injector: IPerturbationInjector;
     
-    constructor(injector: any) {
+    constructor(injector: IPerturbationInjector) {
         this.injector = injector;
     }
 

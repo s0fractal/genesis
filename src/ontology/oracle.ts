@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE } from "../shared/constants.ts";
+import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, phenotypeHue, compileMorphology, SomaticNode } from "../compiler/pure_lambda.ts";
 
 export type SenateEvent =
@@ -562,6 +562,10 @@ export class SovereignOracle {
             let totalX = 0;
             let totalY = 0;
             const bucketDetails: string[] = [];
+            // O-46 Shadow Mycelial Clearance
+            for (let i = SENATE_SHADOW_BUCKET_MIN; i < SENATE_SHADOW_BUCKET_MAX; i++) {
+                this.wasmField.clear_oracle_requests(); // Just using the API if it clears all or specific
+            }
             
             for (let i = 0; i < 1024; i++) {
                 const count = centroids[i * 4 + 2];
@@ -622,10 +626,10 @@ export class SovereignOracle {
 
         // O-139 Vector H.1: The Zodiac Quadrant Personas
         const MASKS = [
-            { name: "♈ ARIES", role: "Mutator (Phase 0). Goal: Chaos and Initiation. Inject highly volatile, novel Pure Combinatory Logic (S, K, I, Y) that disrupts the Torus." },
-            { name: "♋ CANCER", role: "Preserver (Phase PI/2). Goal: Retention and Stability. Generate conservative, highly stable AST logic that protects energy and prevents extinction." },
-            { name: "♎ LIBRA", role: "Balancer (Phase PI). Goal: Symmetry. Generate logic that symmetrically merges existing structures or balances execution depths." },
-            { name: "♑ CAPRICORN", role: "Executioner (Phase 3*PI/2). Goal: Pruning. Emit aggressive, reductive ASTs that collapse complexity." }
+            { name: THEOLOGICAL_MASKS.ARIES, role: "Mutator (Phase 0). Goal: Chaos and Initiation. Inject highly volatile, novel Pure Combinatory Logic (S, K, I, Y) that disrupts the Torus." },
+            { name: THEOLOGICAL_MASKS.CANCER, role: "Preserver (Phase PI/2). Goal: Retention and Stability. Generate conservative, highly stable AST logic that protects energy and prevents extinction." },
+            { name: THEOLOGICAL_MASKS.LIBRA, role: "Balancer (Phase PI). Goal: Symmetry. Generate logic that symmetrically merges existing structures or balances execution depths." },
+            { name: THEOLOGICAL_MASKS.CAPRICORN, role: "Executioner (Phase 3*PI/2). Goal: Pruning. Emit aggressive, reductive ASTs that collapse complexity." }
         ];
 
         try {
@@ -686,14 +690,6 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
             
             let validIntents = 0;
             
-            // Map the four logical masks into parallel Shadow Network bounds
-            const SHADOW_RANGES: Record<string, number> = {
-                "♈ ARIES": 1000,
-                "♋ CANCER": 1006,
-                "♎ LIBRA": 1011,
-                "♑ CAPRICORN": 1016
-            };
-
             for (let i = 0; i < settled.length; i++) {
                 const result = settled[i];
                 if (result.status === "fulfilled" && result.value) {
@@ -702,7 +698,7 @@ ${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [
                     
                     let intentStr = fullResponse.trim();
                     const match = fullResponse.match(/(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
-                    let targetBucket = SHADOW_RANGES[maskName] || 1000;
+                    let targetBucket = SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN;
                     if (match) {
                         intentStr = match[2];
                     }
