@@ -7,7 +7,7 @@ struct MycelialBucket {
 
 @group(0) @binding(0) var<storage, read> buffer_a: array<u32>;
 @group(0) @binding(2) var<uniform> params: Params;
-@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
+@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket>;
 
 override PHASE_LUT_SIZE: i32;
 override MAX_AMPLITUDE: i32;
@@ -99,9 +99,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     // If plasmid is non-zero, this cell belongs to a Semantic Mycelial Thread
     if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
-        // Simple hash to find the bucket [0..1023]
+        // Simple hash to find the bucket dynamically based on Max Bounds
         let hash = (me.plasmid_low ^ me.plasmid_high);
-        let bucket_idx = hash & 1023u; // Modulo 1024
+        let buckets = u32(SHADOW_BUCKET_MAX);
+        let bucket_idx = hash % buckets;
         
         // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
         let x_scaled = cos(0u, me.theta);

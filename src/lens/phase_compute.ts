@@ -54,8 +54,8 @@ export class PhaseComputeEngine {
         this.wasmMemory = memory;
         this.startTime = performance.now();
         
-        // deno-lint-ignore no-explicit-any
-        (this.device as any).onuncapturederror = ((event: any) => {
+        // Utilize generic wrapper for Deno WebGPU Type Compatibility bounds
+        (this.device as unknown as { onuncapturederror: (e: { error: Error }) => void }).onuncapturederror = ((event: { error: Error }) => {
             console.error("[O-64 GPU FATAL]", event.error);
             const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
             if (!errDiv.id) {
@@ -64,7 +64,7 @@ export class PhaseComputeEngine {
                 document.body.appendChild(errDiv);
             }
             errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
-            }) as any;
+            });
     }
 
     private getStagingBuffer(size: number): GPUBuffer {

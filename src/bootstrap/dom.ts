@@ -90,7 +90,13 @@ export function setInputMode(target: "semantic" | "replay") {
   DOM.replayControls?.toggleAttribute("hidden", target !== "replay");
 }
 
+let lastDomUpdate = 0;
+
 export function updateHomeostasisHUD(entropy: number, energy: number, kuramoto: number, mutation: number) {
+    const now = performance.now();
+    if (now - lastDomUpdate < 100) return; // Limit to 10 FPS
+    lastDomUpdate = now;
+
     if (DOM.hMarkerEntropy && DOM.hEntropyVal) {
         // Entropy scale: 0 to 6.0
         let ePct = (entropy / 6.0) * 100;

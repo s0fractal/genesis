@@ -100,7 +100,7 @@ export class PhaseWebGPUObserver {
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
         // O-194: High-DPI Accessibility Scaling
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = globalThis.devicePixelRatio || 1;
         const rect = this.canvas.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
             this.canvas.width = rect.width * dpr;

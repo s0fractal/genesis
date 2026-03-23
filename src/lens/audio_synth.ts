@@ -15,7 +15,7 @@ export class BioAcousticChoir {
         if (this.isInitialized) return;
         
         // Native WebAudio Ignition
-        const AudioContextCls = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextCls = globalThis.AudioContext || (globalThis as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (!AudioContextCls) return;
         
         this.ctx = new AudioContextCls();

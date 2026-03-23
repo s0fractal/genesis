@@ -255,15 +255,22 @@ const MACROS: Record<string, string> = {
     "CDR": "(S I (K (K I)))" // Second Element (FALSE selector)
 };
 
+const PARSE_CACHE = new Map<string, Term>();
+
 /**
  * Parses a string representation of an SKI term natively.
  * Supports combinators (S, K, I, Y), variables, application nesting, and Semantic Macros.
+ * Uses an LRU-style O(1) semantic cache map to drastically speed up repetitive LLM emissions.
  */
 export function parseLambda(input: string): Term {
-    const tokens = input
+    const cacheKey = input.trim();
+    if (PARSE_CACHE.has(cacheKey)) {
+        return PARSE_CACHE.get(cacheKey)!;
+    }
+
+    const tokens = cacheKey
         .replace(/\(/g, " ( ")
         .replace(/\)/g, " ) ")
-        .trim()
         .split(/\s+/)
         .filter((t) => t.length > 0);
 
@@ -312,6 +319,10 @@ export function parseLambda(input: string): Term {
     while (tokens.length > 0) {
         result = apply(result, parseTokens());
     }
+
+    // Bound memory explicitly to prevent Senate memory-leaking over 1M epochs
+    if (PARSE_CACHE.size > 10000) PARSE_CACHE.clear();
+    PARSE_CACHE.set(cacheKey, result);
 
     return result;
 }

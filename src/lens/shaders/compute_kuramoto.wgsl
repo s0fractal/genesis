@@ -60,7 +60,7 @@ struct MycelialBucket {
     padding: u32,
 }
 
-@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket, 1024>;
+@group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket>;
 
 struct PhaseAgent {
     theta: u32,
