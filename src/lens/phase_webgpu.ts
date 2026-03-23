@@ -5,6 +5,7 @@ import { PhaseLatticeField } from "../../omega_core/pkg/omega_core.js";
 import { PhaseComputeEngine } from './phase_compute.ts';
 import { generateWgslConstants } from "../shared/constants.ts";
 import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4 } from "./math_3d.ts";
+import { BioAcousticChoir } from "./audio_synth.ts";
 
 export class PhaseWebGPUObserver {
     public heatmapEnabled: boolean = false;
@@ -19,6 +20,7 @@ export class PhaseWebGPUObserver {
     private engine: PhaseComputeEngine;
     private startTime: number;
     public camera: OrbitCamera;
+    public choir: BioAcousticChoir;
     private isDragging: boolean = false;
     private lastPinchDist = 0;
     private shadowXRayActive: boolean = false;
@@ -33,6 +35,7 @@ export class PhaseWebGPUObserver {
         this.camera = new OrbitCamera();
         this.camera.pitch = Math.PI / 4; // 45 degrees
         this.camera.distance = 6.0;
+        this.choir = new BioAcousticChoir();
         
         this.setupInteractions();
     }
@@ -40,6 +43,10 @@ export class PhaseWebGPUObserver {
     private setupInteractions() {
         this.canvas.addEventListener('pointerdown', (e) => {
             if (e.button === 0) this.isDragging = true;
+            try {
+                this.choir.init();
+                this.choir.resume();
+            } catch (err) {}
         });
 
         globalThis.addEventListener('pointerup', () => {

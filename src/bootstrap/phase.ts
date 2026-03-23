@@ -415,6 +415,14 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       
       oracle.tickHomeostasis(entropy);
 
+      // Era 172: Live Bio-Acoustic Sonification Parametrics
+      observer.choir.modulateParams(
+          oracle.getGlobalEnergy() / 100000.0,
+          Math.max(0, 1.0 - (oracle.getQueueSize() / 20.0)),
+          Math.max(0, 1.0 - (entropy / 6.0)),
+          (nowLocal % 5000) / 5000.0
+      );
+
       observer.render(computeEngine.getActiveBuffer());
     }
 
