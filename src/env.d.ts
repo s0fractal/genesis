@@ -239,9 +239,6 @@ interface IPerturbationInjector {
     inject(x: number, y: number, energy: number, radius: number, phaseShift: number, plasmid: Uint8Array): void;
 }
 
-interface ISubsystem {
-    init(): Promise<void> | void;
-    tick(nowLocal: number): void;
-}
+
 
 type ReplayCompareMode = "none" | "seed" | "previous";

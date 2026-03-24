@@ -91,7 +91,6 @@ var<workgroup> local_buckets: array<MycelialBucket, 1024>;
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
-    // Pre-initialize workgroup memory limits (1024 / 64 = 16 ops per thread)
     for (var i = 0u; i < 16u; i = i + 1u) {
         let b_idx = local_id.x * 16u + i;
         atomicStore(&local_buckets[b_idx].x_sum, 0i);
@@ -103,32 +102,25 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invo
     let idx = global_id.x;
     let total_cells = params.sectors * params.radial_bins * params.harmonics;
     
-    // O-171: Evaluate conditionally instead of early-returning to prevent barrier deadlock
     if (idx < total_cells) {
         let me = get_agent(idx);
 
-        // If plasmid is non-zero, this cell belongs to a Semantic Mycelial Thread
         if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
-            // Simple hash to find the bucket dynamically based on Max Bounds
             let hash = (me.plasmid_low ^ me.plasmid_high);
             let buckets = u32(SHADOW_BUCKET_MAX);
             let bucket_idx = hash % buckets;
             
-            // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
             let x_scaled = cos_q10(0u, me.theta);
             let y_scaled = sin_q10(0u, me.theta);
 
-            // Accumulate locally rapidly into L1 cache
             atomicAdd(&local_buckets[bucket_idx].x_sum, x_scaled);
             atomicAdd(&local_buckets[bucket_idx].y_sum, y_scaled);
             atomicAdd(&local_buckets[bucket_idx].count, 1u);
         }
     }
     
-    // Await all 64 threads before flushing to global memory
     workgroupBarrier();
 
-    // Single un-contentious flush pass
     for (var i = 0u; i < 16u; i = i + 1u) {
         let b_idx = local_id.x * 16u + i;
         let count = atomicLoad(&local_buckets[b_idx].count);
