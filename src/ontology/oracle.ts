@@ -478,6 +478,18 @@ export class SovereignOracle {
                 // Era 207 Vector 1: The Akashic Records (Meta-Memory Remembrance)
                 if (node.fitness >= 10.0) {
                     this.akashicRecords.set(hash, formatTerm(node.ast));
+                    
+                    // Era 224: Architectural Polish (GC Strict Bounds)
+                    if (this.akashicRecords.size > 10000) {
+                        const keys = this.akashicRecords.keys();
+                        // Evict oldest 2000 entries to prevent V8 memory leak
+                        for (let i = 0; i < 2000; i++) {
+                            const key = keys.next().value;
+                            if (key !== undefined) {
+                                this.akashicRecords.delete(key);
+                            }
+                        }
+                    }
                 }
 
                 // Era 204 Vector 2: Cellular Autophagy (Scrap Recovery)

@@ -116,12 +116,6 @@ export class PhaseWebGPUObserver {
             alphaMode: 'opaque'
         });
 
-        this.context.configure({
-            device: this.device,
-            format,
-            alphaMode: 'opaque'
-        });
-
         // 192 bytes total structurally (64 default bytes + 64 bytes VIEW + 64 bytes PROJ)
         this.paramsBuffer = this.device.createBuffer({
             size: 192,
