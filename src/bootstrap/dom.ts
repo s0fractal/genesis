@@ -102,7 +102,8 @@ export function updateHomeostasisHUD(
     mutation: number,
     toposData?: {name: string, heat: number}[],
     apexData?: {hash: bigint, ast: string, energy: number}[],
-    fluxData?: {sector: number; heat: number; dilation: number; avgCredit: number}[]
+    fluxData?: {sector: number; heat: number; dilation: number; avgCredit: number}[],
+    hoveredAgent?: {hash: bigint, amp: number, lock: number, ent: number} | null
 ) {
     const now = performance.now();
     if (now - lastDomUpdate < 100) return; // Limit to 10 FPS
@@ -127,12 +128,21 @@ export function updateHomeostasisHUD(
     if (DOM.hEndocrineVal) {
         DOM.hEndocrineVal.replaceChildren(`K: ${kuramoto.toFixed(2)} | M: ${mutation.toFixed(1)}`);
     }
-    if (DOM.hToposVal && toposData) {
-        const toposStr = toposData
-            .filter(t => t.heat > 0.1)
-            .map(t => `${t.name.split('[')[1].split(']')[0]}: ${t.heat.toFixed(1)}°`)
-            .join(' | ');
-        DOM.hToposVal.replaceChildren(toposStr || "ECOLOGICAL STASIS");
+    if (DOM.hToposVal) {
+        if (hoveredAgent) {
+            const hex = hoveredAgent.hash.toString(16).padStart(16, '0');
+            DOM.hToposVal.replaceChildren(`🎯 LATCHED: 0x${hex} [AMP: ${hoveredAgent.amp} | LCK: ${hoveredAgent.lock} | ENT: ${hoveredAgent.ent}]`);
+            DOM.hToposVal.style.color = '#00ffcc';
+            DOM.hToposVal.style.textShadow = '0 0 8px #00ffcc';
+        } else if (toposData) {
+            DOM.hToposVal.style.color = '';
+            DOM.hToposVal.style.textShadow = '';
+            const toposStr = toposData
+                .filter(t => t.heat > 0.1)
+                .map(t => `${t.name.split('[')[1].split(']')[0]}: ${t.heat.toFixed(1)}°`)
+                .join(' | ');
+            DOM.hToposVal.replaceChildren(toposStr || "ECOLOGICAL STASIS");
+        }
     }
     if (DOM.hApexVal && apexData) {
         if (apexData.length === 0) {

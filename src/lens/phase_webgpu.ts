@@ -4,7 +4,7 @@ import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from './phase_compute.ts';
 import * as C from "../shared/constants.ts";
-import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4 } from "./math_3d.ts";
+import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4, vec4TransformMat4, mat4Multiply } from "./math_3d.ts";
 import { BioAcousticChoir } from "./audio_synth.ts";
 
 export class PhaseWebGPUObserver {
@@ -24,6 +24,8 @@ export class PhaseWebGPUObserver {
     private isDragging: boolean = false;
     private lastPinchDist = 0;
     private shadowXRayActive: boolean = false;
+    private mouseNDC: {x: number, y: number} | null = null;
+    private hoveredHash: bigint | null = null;
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
         this.canvas = canvas;
@@ -54,7 +56,9 @@ export class PhaseWebGPUObserver {
             try {
                 this.choir.init();
                 this.choir.resume();
-            } catch (err) {}
+            } catch (_err) {
+                // AudioContext resume might fail before user interaction is trusted
+            }
         });
 
         globalThis.addEventListener('pointerup', () => {
@@ -71,6 +75,22 @@ export class PhaseWebGPUObserver {
             const PITCH_LIMIT = Math.PI / 2 - 0.05;
             if (this.camera.pitch > PITCH_LIMIT) this.camera.pitch = PITCH_LIMIT;
             if (this.camera.pitch < -PITCH_LIMIT) this.camera.pitch = -PITCH_LIMIT;
+        });
+
+        this.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.canvas.getBoundingClientRect();
+            this.mouseNDC = {
+                x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+                y: -(((e.clientY - rect.top) / rect.height) * 2 - 1)
+            };
+        });
+
+        this.canvas.addEventListener('mouseleave', () => {
+            this.mouseNDC = null;
+            if (this.hoveredHash !== null) {
+                this.hoveredHash = null;
+                globalThis.dispatchEvent(new CustomEvent('gridHover', { detail: null }));
+            }
         });
 
         this.canvas.addEventListener('wheel', (e) => {
@@ -237,6 +257,92 @@ export class PhaseWebGPUObserver {
         viewF32.set(proj, 32);  // Float offset 32 = Byte offset 128
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
+
+        const view_proj = createMat4();
+        mat4Multiply(view_proj, proj, view);
+
+        // Topos Raycasting Logic 
+        if (this.mouseNDC) {
+            let closestDist = Infinity;
+            let closestHash: bigint | null = null;
+            let closestAmp = 0;
+            let closestLock = 0;
+            let closestEnt = 0;
+
+            const ptrAgents = this.field.ptr_agents() as number;
+            const dv = new DataView(this.engine.wasmMemory.buffer, ptrAgents, numCells * 16);
+            
+            const vOut = new Float32Array(4);
+            const vPos = new Float32Array(4);
+            vPos[3] = 1.0;
+
+            const current_tau = this.field.get_current_tau();
+            const layer_size = this.field.harmonics * this.field.radial_bins * this.field.sectors;
+            const base_idx = current_tau * layer_size;
+
+            for (let i = 0; i < layer_size; i++) {
+                const idx = base_idx + i;
+                const offset = idx * 16;
+                const plasmid_low = dv.getUint32(offset, true);
+                const plasmid_high = dv.getUint32(offset + 4, true);
+
+                if (plasmid_low === 0 && plasmid_high === 0) continue;
+
+                const harmonic = Math.floor(i / (this.field.radial_bins * this.field.sectors));
+                const rem = i % (this.field.radial_bins * this.field.sectors);
+                const rho = Math.floor(rem / this.field.sectors);
+                const sector = rem % this.field.sectors;
+
+                const _amplitude = dv.getUint8(offset + 13) / 255.0;
+                const lock = dv.getUint8(offset + 14) / 255.0;
+                const entanglement = dv.getUint8(offset + 15) / 255.0;
+                
+                const plasmid_amplitude = (plasmid_low >>> 24) & 0xFF;
+                const plasmid_entanglement = (plasmid_low >>> 16) & 0xFF;
+                const p_amp_norm = Math.max(0, Math.min(1.0, (plasmid_amplitude - 40) / 215));
+                const p_ent_norm = Math.max(0, Math.min(1.0, plasmid_entanglement / 255));
+
+                const angle = (sector / this.field.sectors) * Math.PI * 2;
+                const radius_t = (rho + 1) / (this.field.radial_bins + 1);
+                const major_radius = 2.8 * radius_t;
+                
+                const z = (harmonic - (this.field.harmonics - 1) * 0.5) * 0.6;
+                const chrono_z = z + (p_amp_norm * 0.55);
+                const wobble_z = Math.sin(time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * (entanglement + (p_ent_norm * 2.5));
+
+                vPos[0] = Math.cos(angle) * major_radius;
+                vPos[1] = Math.sin(angle) * major_radius;
+                vPos[2] = chrono_z + wobble_z;
+
+                vec4TransformMat4(vOut, vPos, view_proj);
+                
+                if (vOut[3] > 0) { 
+                    const ndcX = vOut[0] / vOut[3];
+                    const ndcY = vOut[1] / vOut[3];
+                    
+                    const dx = ndcX - this.mouseNDC.x;
+                    const dy = ndcY - this.mouseNDC.y;
+                    const distSq = dx*dx + dy*dy;
+                    
+                    if (distSq < 0.005 && distSq < closestDist) { 
+                        closestDist = distSq;
+                        closestHash = BigInt(plasmid_low) | (BigInt(plasmid_high) << 32n);
+                        closestAmp = plasmid_amplitude;
+                        closestLock = Math.floor(lock * 255);
+                        closestEnt = Math.floor(entanglement * 255);
+                    }
+                }
+            }
+
+            if (closestHash !== this.hoveredHash) {
+                this.hoveredHash = closestHash;
+                if (closestHash !== null) {
+                    globalThis.dispatchEvent(new CustomEvent('gridHover', { detail: { hash: closestHash, amp: closestAmp, lock: closestLock, ent: closestEnt } }));
+                } else {
+                    globalThis.dispatchEvent(new CustomEvent('gridHover', { detail: null }));
+                }
+            }
+        }
 
         const commandEncoder = this.device.createCommandEncoder();
 

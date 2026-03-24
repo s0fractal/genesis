@@ -9,6 +9,15 @@ export function createMat4(): Mat4 {
     return out;
 }
 
+export function vec4TransformMat4(out: Float32Array, v: Float32Array, m: Mat4) {
+    const x = v[0], y = v[1], z = v[2], w = v[3];
+    out[0] = m[0] * x + m[4] * y + m[8] * z + m[12] * w;
+    out[1] = m[1] * x + m[5] * y + m[9] * z + m[13] * w;
+    out[2] = m[2] * x + m[6] * y + m[10] * z + m[14] * w;
+    out[3] = m[3] * x + m[7] * y + m[11] * z + m[15] * w;
+    return out;
+}
+
 export function mat4Multiply(out: Mat4, a: Mat4, b: Mat4) {
     const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
     const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];

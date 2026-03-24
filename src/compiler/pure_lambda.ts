@@ -78,10 +78,9 @@ export function evaluateLambda(term: Term, maxSteps = 1024): Term {
 }
 
 export function evaluateFitness(term: Term, maxSteps = 128): { result: Term; steps: number; timeout: boolean } {
-    const result_id = lambda_evaluate_fitness(term, maxSteps);
-    // WASM evaluate returns the fast-path Index.
-    // If it hit maxSteps theoretically it timed out, but evaluation runs completely instantly native now.
-    return { result: result_id, steps: maxSteps, timeout: false };
+    const res = lambda_evaluate_fitness(term, maxSteps) as unknown as Uint32Array;
+    // WASM evaluate returns [result_idx, steps_taken, timeout_flag]
+    return { result: res[0], steps: res[1], timeout: res[2] === 1 };
 }
 
 export function formatTerm(term: Term): string {

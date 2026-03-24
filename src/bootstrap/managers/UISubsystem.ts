@@ -22,10 +22,10 @@ import {
   MUTATION_BASE_COST,
 } from "../../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../../shared/topos_dictionary.ts";
-
 export class UISubsystem implements ISubsystem {
     public phylogenyHUD: PhylogeneticCanvas;
     private lastPhylogenyCheck = performance.now();
+    private hoveredAgent: any = null;
 
     constructor(
         public field: PhaseLatticeField,
@@ -53,6 +53,10 @@ export class UISubsystem implements ISubsystem {
                     }!`
                 );
             }
+        });
+        
+        globalThis.addEventListener('gridHover', (e: Event) => {
+            this.hoveredAgent = (e as CustomEvent).detail;
         });
         console.log("[TRACE] uiSys.init() SUCCESS");
     }
@@ -106,7 +110,8 @@ export class UISubsystem implements ISubsystem {
                 MUTATION_BASE_COST,
                 toposData,
                 this.oracle.getApexPlasmids(3),
-                this.oracle.getFluxTelemetry(3)
+                this.oracle.getFluxTelemetry(3),
+                this.hoveredAgent
             );
         }
     }

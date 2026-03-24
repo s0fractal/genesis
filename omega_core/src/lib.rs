@@ -12,7 +12,7 @@ use std::cell::RefCell;
 
 thread_local! {
     static ARENA: RefCell<LambdaArena> = RefCell::new(LambdaArena::new());
-    static INDEX_MAP: RefCell<Vec<Index>> = RefCell::new(Vec::new());
+    static INDEX_MAP: RefCell<Vec<Index>> = const { RefCell::new(Vec::new()) };
 }
 
 fn map_index(idx: Index) -> u32 {
@@ -46,14 +46,14 @@ pub fn lambda_parse(input: &str) -> u32 {
 }
 
 #[wasm_bindgen]
-pub fn lambda_evaluate_fitness(id: u32, max_steps: u32) -> u32 {
+pub fn lambda_evaluate_fitness(id: u32, max_steps: u32) -> Vec<u32> {
     if let Some(idx) = get_index(id) {
         ARENA.with(|arena| {
-            let (result_idx, _, _) = arena.borrow_mut().evaluate_fitness(idx, max_steps);
-            map_index(result_idx)
+            let (result_idx, steps, timeout) = arena.borrow_mut().evaluate_fitness(idx, max_steps);
+            vec![map_index(result_idx), steps, if timeout { 1 } else { 0 }]
         })
     } else {
-        id
+        vec![id, 0, 0]
     }
 }
 

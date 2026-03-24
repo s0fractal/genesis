@@ -41,7 +41,7 @@ export class PhaseComputeEngine {
     private mycelialBindGroupB!: GPUBindGroup;
     
     private field: PhaseLatticeField;
-    private wasmMemory: WebAssembly.Memory;
+    public wasmMemory: WebAssembly.Memory;
     private isPingPongA: boolean = true;
     public offsets: number[] = [];
     private startTime: number;

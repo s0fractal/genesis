@@ -1,4 +1,4 @@
-use crate::constants::{MATH_Q_SCALE, PHASE_LUT_SIZE};
+use crate::constants::PHASE_LUT_SIZE;
 
 const MAX_BYTE: i16 = 255;
 
@@ -36,15 +36,6 @@ pub(crate) fn cos(from_theta: u8, to_theta: u8) -> i32 {
     crate::lut::SINE_LUT[index]
 }
 
-#[inline(always)]
-pub(crate) fn q10_round(x: i32) -> i32 {
-    if x >= 0 { (x + (MATH_Q_SCALE / 2)) / MATH_Q_SCALE } else { (x - (MATH_Q_SCALE / 2)) / MATH_Q_SCALE }
-}
-
-#[inline(always)]
-pub(crate) fn q10_round_i64(x: i64) -> i64 {
-    if x >= 0 { (x + (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) } else { (x - (MATH_Q_SCALE as i64 / 2)) / (MATH_Q_SCALE as i64) }
-}
 
 #[inline(always)]
 pub(crate) fn mix_u64(hash: &mut u64, value: u64) {
