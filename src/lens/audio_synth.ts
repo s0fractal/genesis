@@ -58,17 +58,16 @@ export class BioAcousticChoir {
         this.delayFeedback.connect(this.delay);
         this.delay.connect(this.masterGain);
 
-        // Instantiate Kuramoto Torus Harmonics (A1 Drone + Overtone series)
-        const baseFreq = 55.0; // 55Hz Low Hum
-        const ratios = [ 1.0, 1.5, 2.0 ]; // Fundamental, Perfect 5th, Octave
+        // Era 226: 432Hz Bio-Acoustic Harmonic Scale (Tuned to Sub-Hum octave: 432 / 8 = 54Hz)
+        const HARMONIC_432_SUB = [ 54.0, 66.0, 79.875 ]; // Derived directly from 432, 528, 639
 
-        for (const r of ratios) {
+        for (const freq of HARMONIC_432_SUB) {
             const osc = this.ctx.createOscillator();
-            osc.type = r === 1.0 ? "sine" : "triangle"; // Fat bass, piercing harmonics
-            osc.frequency.value = baseFreq * r;
+            osc.type = freq === 54.0 ? "sine" : "triangle"; // Warm 54Hz sub-bass, dimensional overtones
+            osc.frequency.value = freq;
             
             const oscGain = this.ctx.createGain();
-            oscGain.gain.value = 1.0 / ratios.length; // Prevent clipping
+            oscGain.gain.value = 1.0 / HARMONIC_432_SUB.length; // Prevent clipping
             
             osc.connect(oscGain);
             oscGain.connect(this.filter);

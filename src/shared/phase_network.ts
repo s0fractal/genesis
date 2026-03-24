@@ -276,8 +276,8 @@ export class PhaseNetwork {
         dc.onopen = () => {
             console.log(`🌐 [WebRTC] Global Phase Node connected!`);
             this.rtcConnections.add(dc);
-            // Era 203: Assign abstract geometric coordinate
-            const theta = Math.random() * Math.PI * 2;
+            // Era 226: Deterministic WebRTC Topology Route (Perfect Radial Slices)
+            const theta = (this.geometricMatrix.size / 8.0) * Math.PI * 2;
             this.geometricMatrix.set(theta, dc);
         };
         dc.onmessage = (e) => {

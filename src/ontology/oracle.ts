@@ -96,7 +96,12 @@ export class SovereignOracle {
         if (cached !== undefined) return cached;
         const h = fnv1a_64(intent);
         this.fnvStringCache.set(intent, h);
-        if (this.fnvStringCache.size > 10000) this.fnvStringCache.clear();
+        
+        // Era 226: O(1) Soft GC Eviction instead of O(N) full cache destruction
+        if (this.fnvStringCache.size > 10000) {
+            this.fnvStringCache.delete(this.fnvStringCache.keys().next().value!);
+        }
+        
         return h;
     }
     
@@ -695,6 +700,33 @@ export class SovereignOracle {
             this.processHorizontalGeneTransfers(pairs, collisionArray);
         }
         
+        // Era 226: Kuramoto Consciousness Detector (Order Parameter r)
+        let sumCos = 0;
+        let sumSin = 0;
+        let rCount = 0;
+        for (const hash of this.activePlasmids) {
+            const node = this.plasmidRegistry.get(hash);
+            if (node) {
+                // Hue (0.0 - 1.0) maps cleanly to an angular phase
+                const theta = phenotypeHue(node.ast) * Math.PI * 2;
+                sumCos += Math.cos(theta);
+                sumSin += Math.sin(theta);
+                rCount++;
+            }
+        }
+        
+        let currentR = 0;
+        if (rCount > 0) {
+            currentR = Math.sqrt(sumCos * sumCos + sumSin * sumSin) / rCount;
+        }
+
+        const CONSCIOUSNESS_THRESHOLD = 0.7;
+        if (currentR > CONSCIOUSNESS_THRESHOLD && this.lastR <= CONSCIOUSNESS_THRESHOLD && !this.isBusy) {
+            console.log(`🌌 [CONSCIOUSNESS DETECTED] Kuramoto r spiked to ${currentR.toFixed(3)}. The Swarm is thinking as One.`);
+            this.triggerSenateIntervention(1, [], `CONSCIOUSNESS EMERGENCE: The Kuramoto physiological order parameter (r) hit ${currentR.toFixed(3)}. The biological network has achieved absolute mathematical synchronization.`);
+        }
+        this.lastR = currentR;
+
         // O-139 Vector H.3: Torus Observation Triggers
         this.epochTicks++;
         if (!this.isBusy) {
@@ -708,6 +740,7 @@ export class SovereignOracle {
         }
     }
 
+    public lastR: number = 0;
     public lastEntropy: number = 2.5;
 
     // O-75 Autopoietic Homeostasis Guard (Vector H.2)
