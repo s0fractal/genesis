@@ -87,30 +87,57 @@ fn get_agent(idx: u32) -> PhaseAgent {
     return agent;
 }
 
+var<workgroup> local_buckets: array<MycelialBucket, 1024>;
+
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn main(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
+    // Pre-initialize workgroup memory limits (1024 / 64 = 16 ops per thread)
+    for (var i = 0u; i < 16u; i = i + 1u) {
+        let b_idx = local_id.x * 16u + i;
+        atomicStore(&local_buckets[b_idx].x_sum, 0i);
+        atomicStore(&local_buckets[b_idx].y_sum, 0i);
+        atomicStore(&local_buckets[b_idx].count, 0u);
+    }
+    workgroupBarrier();
+
     let idx = global_id.x;
     let total_cells = params.sectors * params.radial_bins * params.harmonics;
-    if (idx >= total_cells) {
-        return;
+    
+    // O-171: Evaluate conditionally instead of early-returning to prevent barrier deadlock
+    if (idx < total_cells) {
+        let me = get_agent(idx);
+
+        // If plasmid is non-zero, this cell belongs to a Semantic Mycelial Thread
+        if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
+            // Simple hash to find the bucket dynamically based on Max Bounds
+            let hash = (me.plasmid_low ^ me.plasmid_high);
+            let buckets = u32(SHADOW_BUCKET_MAX);
+            let bucket_idx = hash % buckets;
+            
+            // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
+            let x_scaled = cos_q10(0u, me.theta);
+            let y_scaled = sin_q10(0u, me.theta);
+
+            // Accumulate locally rapidly into L1 cache
+            atomicAdd(&local_buckets[bucket_idx].x_sum, x_scaled);
+            atomicAdd(&local_buckets[bucket_idx].y_sum, y_scaled);
+            atomicAdd(&local_buckets[bucket_idx].count, 1u);
+        }
     }
+    
+    // Await all 64 threads before flushing to global memory
+    workgroupBarrier();
 
-    let me = get_agent(idx);
-
-    // If plasmid is non-zero, this cell belongs to a Semantic Mycelial Thread
-    if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
-        // Simple hash to find the bucket dynamically based on Max Bounds
-        let hash = (me.plasmid_low ^ me.plasmid_high);
-        let buckets = u32(SHADOW_BUCKET_MAX);
-        let bucket_idx = hash % buckets;
-        
-        // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
-        let x_scaled = cos_q10(0u, me.theta);
-        let y_scaled = sin_q10(0u, me.theta);
-
-        // Atomically accumulate to the global bucket
-        atomicAdd(&mycelial_centroids[bucket_idx].x_sum, x_scaled);
-        atomicAdd(&mycelial_centroids[bucket_idx].y_sum, y_scaled);
-        atomicAdd(&mycelial_centroids[bucket_idx].count, 1u);
+    // Single un-contentious flush pass
+    for (var i = 0u; i < 16u; i = i + 1u) {
+        let b_idx = local_id.x * 16u + i;
+        let count = atomicLoad(&local_buckets[b_idx].count);
+        if (count > 0u) {
+            let x = atomicLoad(&local_buckets[b_idx].x_sum);
+            let y = atomicLoad(&local_buckets[b_idx].y_sum);
+            atomicAdd(&mycelial_centroids[b_idx].x_sum, x);
+            atomicAdd(&mycelial_centroids[b_idx].y_sum, y);
+            atomicAdd(&mycelial_centroids[b_idx].count, count);
+        }
     }
 }
