@@ -103,7 +103,8 @@ export class UISubsystem implements ISubsystem {
                 KURAMOTO_COUPLING_BASE,
                 MUTATION_BASE_COST,
                 toposData,
-                this.oracle.getApexPlasmids(3)
+                this.oracle.getApexPlasmids(3),
+                this.oracle.getFluxTelemetry(3)
             );
         }
     }

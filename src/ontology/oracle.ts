@@ -259,6 +259,34 @@ export class SovereignOracle {
         return sorted.slice(0, count);
     }
 
+    // Era 217: The Kimi Flux (Time Dilation Debugger)
+    public getFluxTelemetry(count: number = 3): { sector: number; heat: number; dilation: number; avgCredit: number }[] {
+        const sectorStats: { [key: number]: { heat: number, count: number, totalCredit: number } } = {};
+        for (let i = 0; i < 64; i++) sectorStats[i] = { heat: this.sectorHeat[i], count: 0, totalCredit: 0 };
+        
+        for (const hash of this.activePlasmids) {
+            const node = this.plasmidRegistry.get(hash);
+            if (node && node.energy !== Infinity) {
+                sectorStats[node.sector].count++;
+                sectorStats[node.sector].totalCredit += node.temporal_credit;
+            }
+        }
+        
+        const sortedSectors = Object.keys(sectorStats)
+            .map(s => Number(s))
+            .filter(s => sectorStats[s].heat > 0 || sectorStats[s].count > 0)
+            .sort((a, b) => sectorStats[b].heat - sectorStats[a].heat)
+            .map(s => {
+                const stat = sectorStats[s];
+                const avgCredit = stat.count > 0 ? stat.totalCredit / stat.count : 0;
+                // Sector clock speed baseline 0.2 + (heat * 0.5)
+                const expectedDilation = 0.2 + (stat.heat * 0.5);
+                return { sector: s, heat: stat.heat, avgCredit, dilation: expectedDilation };
+            });
+            
+        return sortedSectors.slice(0, count);
+    }
+
     // Era 213: Topological Climate Tracker
     public getCurrentClimate(): string {
         const yearTick = this.epochTicks % 4000;

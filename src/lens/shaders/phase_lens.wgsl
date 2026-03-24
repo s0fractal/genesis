@@ -125,7 +125,19 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let chronological_compression = max(0.2, 1.0 - (time_dist * 0.25)); // compress geometry into the past
   let particle_size = base_size * chronological_compression;
   
-  let quad_pos = base_pos + (right * quad[vi].x + up * quad[vi].y) * particle_size;
+  // Era 217 Vector 1: Kuramoto Vector Instancing (Directional Flux)
+  let kuramoto_angle = theta * 6.2831853;
+  let stretch_x = 1.0 + (amplitude * 4.0); // High amplitude means long directional streaks
+  let stretch_y = 0.2 + (entanglement * 0.8); // Visually thinner to look like arrows/flows
+  
+  let q_x = quad[vi].x * stretch_x;
+  let q_y = quad[vi].y * stretch_y;
+  
+  // Rotate the stretched quad to align with the oscillator's thermodynamic phase
+  let rot_x = q_x * cos(kuramoto_angle) - q_y * sin(kuramoto_angle);
+  let rot_y = q_x * sin(kuramoto_angle) + q_y * cos(kuramoto_angle);
+  
+  let quad_pos = base_pos + (right * rot_x + up * rot_y) * particle_size;
 
   var out: VertexOutput;
   out.position = view_proj * vec4<f32>(quad_pos, 1.0);

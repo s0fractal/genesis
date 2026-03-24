@@ -27,6 +27,7 @@ export const DOM = {
     hEndocrineVal: document.getElementById("h-endocrine-val") as HTMLSpanElement | null,
     hToposVal: document.getElementById("h-topos-val") as HTMLSpanElement | null,
     hApexVal: document.getElementById("h-apex-val") as HTMLSpanElement | null,
+    hFluxVal: document.getElementById("h-flux-val") as HTMLSpanElement | null,
 
     // O-59 Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
@@ -100,7 +101,8 @@ export function updateHomeostasisHUD(
     kuramoto: number, 
     mutation: number,
     toposData?: {name: string, heat: number}[],
-    apexData?: {hash: bigint, ast: string, energy: number}[]
+    apexData?: {hash: bigint, ast: string, energy: number}[],
+    fluxData?: {sector: number; heat: number; dilation: number; avgCredit: number}[]
 ) {
     const now = performance.now();
     if (now - lastDomUpdate < 100) return; // Limit to 10 FPS
@@ -138,6 +140,14 @@ export function updateHomeostasisHUD(
         } else {
             const out = apexData.slice(0, 3).map((a, i) => `#${i + 1} ⚡${a.energy.toString().padStart(5, '0')} [${a.hash.toString().substring(0,8)}]\n${a.ast}`).join('\n\n');
             DOM.hApexVal.replaceChildren(out);
+        }
+    }
+    if (DOM.hFluxVal && fluxData) {
+        if (fluxData.length === 0) {
+            DOM.hFluxVal.replaceChildren("Mapping Phase Time...");
+        } else {
+            const out = fluxData.slice(0, 3).map((f) => `S[${f.sector.toString().padStart(2, '0')}] Heat: ${f.heat.toFixed(1)}° | Dilation: ${f.dilation.toFixed(2)}x [${f.avgCredit.toFixed(2)} cred]`).join('\n');
+            DOM.hFluxVal.replaceChildren(out);
         }
     }
 }
