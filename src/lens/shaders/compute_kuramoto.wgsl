@@ -122,6 +122,34 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
     return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
 }
 
+// O-223 Native Phase Coupling via Hardware Hamming Distance (POPCNT Singularity)
+fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
+    let diff = i32(neighbor_theta) - i32(me_theta);
+    var wrapped = diff;
+    if (diff > 128) { wrapped = diff - 256; }
+    else if (diff < -128) { wrapped = diff + 256; }
+    return wrapped * 8; // Triangle wave approximation of Sin(x) * 1024
+}
+
+fn genetic_resonance(me: PhaseAgent, neighbor: PhaseAgent) -> i32 {
+    if (me.plasmid_low == 0u && neighbor.plasmid_low == 0u) {
+        // Pure physics vacuum coherence (Triangle wave Cosine approximation)
+        var diff = abs(i32(neighbor.theta) - i32(me.theta));
+        if (diff > 128) { diff = 256 - diff; }
+        return (64 - diff) * 16; // 0 diff -> 1024, 64 diff -> 0, 128 diff -> -1024
+    }
+    if (me.plasmid_low == 0u || neighbor.plasmid_low == 0u) {
+        return -512; // Empty space repels explicit Biology
+    }
+    // Deep hardware Bit-counting across the AST DNA 
+    let diff_low = me.plasmid_low ^ neighbor.plasmid_low;
+    let diff_high = me.plasmid_high ^ neighbor.plasmid_high;
+    let distance = i32(countOneBits(diff_low) + countOneBits(diff_high));
+    
+    // Scale distance 0-64 exactly into Q10 Math Bounds [1024..-1024]
+    return (32 - distance) * 32; 
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let physical_cells = params.sectors * params.radial_bins;
@@ -152,17 +180,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // O-164 Local Thermodynamic Feedback
     let dynamic_coupling = (params.coupling_base * (i32(me.energy) + 64)) / 128;
 
-    var kuramoto = sin_q10(me.theta, a_l.theta) * i32(dynamic_coupling) +
-                   sin_q10(me.theta, a_r.theta) * i32(dynamic_coupling) +
-                   sin_q10(me.theta, a_i.theta) * i32(dynamic_coupling) +
-                   sin_q10(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                   sin_q10(me.theta, a_h.theta) * params.coupling_harmonic_peer;
+    var kuramoto = phase_torque(me.theta, a_l.theta) * i32(dynamic_coupling) +
+                   phase_torque(me.theta, a_r.theta) * i32(dynamic_coupling) +
+                   phase_torque(me.theta, a_i.theta) * i32(dynamic_coupling) +
+                   phase_torque(me.theta, a_o.theta) * i32(dynamic_coupling) +
+                   phase_torque(me.theta, a_h.theta) * params.coupling_harmonic_peer;
 
-    var coherence = cos_q10(me.theta, a_l.theta) * i32(dynamic_coupling) +
-                    cos_q10(me.theta, a_r.theta) * i32(dynamic_coupling) +
-                    cos_q10(me.theta, a_i.theta) * i32(dynamic_coupling) +
-                    cos_q10(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                    cos_q10(me.theta, a_h.theta) * params.coupling_harmonic_peer;
+    var coherence = genetic_resonance(me, a_l) * i32(dynamic_coupling) +
+                    genetic_resonance(me, a_r) * i32(dynamic_coupling) +
+                    genetic_resonance(me, a_i) * i32(dynamic_coupling) +
+                    genetic_resonance(me, a_o) * i32(dynamic_coupling) +
+                    genetic_resonance(me, a_h) * params.coupling_harmonic_peer;
 
     var next_ent = i32(me.ent);
     if (params.sectors % 2u == 0u) {
@@ -170,10 +198,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
         
         let weight = (i32(me.ent) * params.coupling_antipode) / MAX_ENTANGLEMENT;
-        kuramoto += sin_q10(me.theta, a_anti.theta) * weight;
-        coherence += cos_q10(me.theta, a_anti.theta) * weight;
+        kuramoto += phase_torque(me.theta, a_anti.theta) * weight;
+        coherence += genetic_resonance(me, a_anti) * weight;
 
-        let align = cos_q10(me.theta, a_anti.theta);
+        let align = genetic_resonance(me, a_anti);
         if (align > params.antipode_align && me.energy > 96u) {
             next_ent += 8;
         } else {
@@ -186,8 +214,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
         let target_theta = me.plasmid_low & 0xFFu;
-        kuramoto += sin_q10(me.theta, target_theta) * params.coupling_plasmid;
-        coherence += cos_q10(me.theta, target_theta) * params.coupling_plasmid;
+        kuramoto += phase_torque(me.theta, target_theta) * params.coupling_plasmid;
+        // Self-resonance with implicit DNA target (Torque alignment substitute)
+        var diff = abs(i32(target_theta) - i32(me.theta));
+        if (diff > 128) { diff = 256 - diff; }
+        coherence += ((64 - diff) * 16) * params.coupling_plasmid;
         
         let hash = (me.plasmid_low ^ me.plasmid_high);
         let bucket_idx = hash & 1023u;
@@ -198,8 +229,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var centroid_theta_rad = atan2(m_y, m_x);
             if (centroid_theta_rad < 0.0) { centroid_theta_rad += 6.283185307; }
             let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
-            kuramoto += sin_q10(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
-            coherence += cos_q10(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
+            kuramoto += phase_torque(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
+            
+            var m_diff = abs(i32(centroid) - i32(me.theta));
+            if (m_diff > 128) { m_diff = 256 - m_diff; }
+            coherence += ((64 - m_diff) * 16) * MYCELIAL_COUPLING_WEIGHT;
         }
     }
 
@@ -212,7 +246,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
                 if (n.energy > me.energy) {
                     staking_energy_bonus += i32(n.energy - me.energy) / 4;
-                    kuramoto += sin_q10(me.theta, n.theta) * STAKING_COUPLING_WEIGHT;
+                    kuramoto += phase_torque(me.theta, n.theta) * STAKING_COUPLING_WEIGHT;
                 }
             }
         }
