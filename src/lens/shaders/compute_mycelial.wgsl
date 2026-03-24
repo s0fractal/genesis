@@ -105,8 +105,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let bucket_idx = hash % buckets;
         
         // Convert to Cartesian X/Y mapped directly via Q10 Mathematical SINE_LUT
-        let x_scaled = cos(0u, me.theta);
-        let y_scaled = sin(0u, me.theta);
+        let x_scaled = cos_q10(0u, me.theta);
+        let y_scaled = sin_q10(0u, me.theta);
 
         // Atomically accumulate to the global bucket
         atomicAdd(&mycelial_centroids[bucket_idx].x_sum, x_scaled);

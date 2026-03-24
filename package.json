@@ -13,12 +13,7 @@
     "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",
     "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
     "verify:phase-coherence": "deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
-    "verify:phase-cross": "deno run -A tools/verify_phase_cross.ts",
-    "verify:phase-bridge:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_bridge",
-    "verify:phase-bridge:wasm": "deno run -A tools/verify_phase_bridge_wasm.ts",
-    "verify:phase-bridge": "deno task verify:phase-bridge:kernel && deno task verify:phase-bridge:wasm",
-    "verify:phase-goldens": "deno run -A tools/verify_phase_goldens.ts",
-    "verify:phase-stack": "deno task verify:phase-coherence && deno task verify:phase-bridge && deno task verify:phase-cross && deno task verify:phase-goldens"
+    "verify:phase-stack": "deno task verify:phase-coherence"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",

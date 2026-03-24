@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { SENATE_ORACLE_TIMEOUT_MS, hydrateSubstrateHeader, MATH_Q_SCALE, THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
+import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, decodeMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
@@ -77,7 +77,7 @@ export class SovereignOracle {
     private systemPrompts: Record<string, string> = {};
 
     private isRunning: boolean = false;
-    private isBusy: boolean = false;
+    public isBusy: boolean = false;
     
     
     // O-200 Oracle Semantic Cache implementation
@@ -128,12 +128,24 @@ export class SovereignOracle {
     
     // Era 173: Semantic Anamnesis
     private chronosMemory: ChronosSnapshot[] = [];
+    
+    // Era 220: Oracle Web Worker Decoupling
+    private worker?: Worker;
 
     constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
         this.wasmMemory = memory;
         this.engine = engine;
         this.observer = visualizer; // Renamed visualizer to observer
+        
+        if (typeof Worker !== 'undefined') {
+            this.worker = new Worker(new URL('../workers/oracle_worker.ts', import.meta.url), { type: "module" });
+            this.worker.onmessage = this.handleWorkerMessage.bind(this);
+        }
+    }
+
+    public boot() {
+        this.isRunning = true;
     }
 
     public rebind(field: OracleCompatibleField, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
@@ -980,6 +992,50 @@ export class SovereignOracle {
         this.onBroadcast = callback;
     }
 
+    private handleWorkerMessage(e: MessageEvent) {
+        const data = e.data;
+        if (data.type === 'SUCCESS') {
+            let validIntents = 0;
+            for (const result of data.validIntents) {
+                const { maskName, intentStr, targetBucket } = result;
+                console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
+                
+                try {
+                    parseLambda(intentStr); // Validate AST, throws if malformed
+                    validIntents++;
+                    
+                    // Broadcast raw mathematical generation to the HUD
+                    if (this.onSenateEvent) {
+                        this.onSenateEvent({ type: "GENERATED", mask: maskName, intent: intentStr, bucketRange: `${targetBucket}`, tension: data.requests ? data.requests.length : 1 });
+                    }
+                    // Compile and inject seamlessly
+                    this.fulfillRequests(data.requests, intentStr, targetBucket);
+                } catch (_e) {
+                    console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
+                }
+            }
+            if (validIntents === 0) {
+                this.handleWorkerError("Complete Senate Failure - No Valid Plasmids Generated");
+            } else {
+                this.oracleBackoffDelay = 0;
+            }
+        } else if (data.type === 'ERROR') {
+            this.handleWorkerError(data.reason);
+        }
+        
+        this.isBusy = false;
+        
+        // Biological Garbage Collection limits Registry bloat natively
+        // Vector F.3: Activity drives Global Energy capacity elasticity
+        this.tickSomaticEconomy(data.requests ? data.requests.length : 1);
+    }
+    
+    private handleWorkerError(reason: string) {
+        this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? 5000 : Math.min(60000, this.oracleBackoffDelay * 2);
+        console.warn(`[ORACLE] Senate Failed/Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms. Reason: ${reason}`);
+        if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: `AI Nodes Non-Responsive [DEGRADED_MODE ${this.oracleBackoffDelay}ms]` });
+    }
+
     private async processQueue(count: number, requests: number[], triggerReason?: string) {
         this.isBusy = true;
         
@@ -1066,147 +1122,26 @@ export class SovereignOracle {
         const macroSeason = Math.floor(seasonValue / 4); // 0, 1, 2, or 3
         const currentSeasonName = seasonNames[macroSeason];
 
-        // O-139 Vector H.1: The Zodiac Quadrant Personas
-        const MASKS = [
-            { name: THEOLOGICAL_MASKS.ARIES, role: "Mutator (Phase 0). Goal: Chaos and Initiation. Inject highly volatile, novel Pure Combinatory Logic (S, K, I, Y) that disrupts the Torus." },
-            { name: THEOLOGICAL_MASKS.CANCER, role: "Preserver (Phase PI/2). Goal: Retention and Stability. Generate conservative, highly stable AST logic that protects energy and prevents extinction." },
-            { name: THEOLOGICAL_MASKS.LIBRA, role: "Balancer (Phase PI). Goal: Symmetry. Generate logic that symmetrically merges existing structures or balances execution depths." },
-            { name: THEOLOGICAL_MASKS.CAPRICORN, role: "Executioner (Phase 3*PI/2). Goal: Pruning. Emit aggressive, reductive ASTs that collapse complexity." }
-        ];
-
-        try {
-            const OLLAMA_URL = "http://localhost:11434/api/generate";
-
-            const maskPromises = MASKS.map(async (mask) => {
-                const prompt = `
-Task: You are ${mask.name}, Oracle of the LOVE Consortium. Role: ${mask.role}
-Chronotopology: The local Torus sector is currently experiencing ${currentSeasonName} (Epoch ${seasonValue}/15). 
-${macroSeason === 0 ? "SPRING: Relax structural constraints. Over-index on S and K combinators to breed wild mutations." : ""}
-${macroSeason === 1 ? "SUMMER: Enforce structural growth. Build wide AST trees and expand semantic surface area." : ""}
-${macroSeason === 2 ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth." : ""}
-${macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-complexity ASTs (like 'I' or 'Y(I)') to survive the cold. AVOID OVERHEAD." : ""}
-
-The harmonic cylinder is experiencing severe Torus volatility at ${count} coordinates. Torus Energy: ${this.globalEnergyPool}.
-Observe the structural telemetry and intervene.
-${mycelialContext}
-Provide EXACTLY ONE string of topological logic that represents your genetic intervention.
-You may use pure Combinators (S, K, I, Y) OR Semantic Macros: TRUE, FALSE, AND, OR, NOT, CONS, CAR, CDR.
-Example ASTs: "(AND TRUE FALSE)", "(CONS S K)", "S(K(I))".
-You must output ONLY valid AST syntax with balanced parentheses. NO formatting, NO markdown, NO explanations.
-${(this.engine && mycelialContext) ? 'Format your response EXACTLY as: BUCKET: [Bucket ID], AST: [Syntax]' : 'Format your response EXACTLY as: AST: [Syntax]'}
-                `.trim();
-
-                const requestBody: Record<string, unknown> = {
-                    model: structuralImage ? "llama3.2-vision" : "llama3",
-                    prompt,
-                    stream: false
-                };
-                if (structuralImage) {
-                    requestBody.images = [structuralImage];
-                }
-                
-                // O-200 Oracle Semantic Cache Check
-                const cacheKey = this.fastSemanticHash(prompt).toString(16);
-                const cached = this.llmCache.get(cacheKey);
-                if (cached && (performance.now() - cached.ts < 60000)) { // 60s TTL
-                    return { mask: mask.name, response: cached.response };
-                }
-                
-                const fetchPromise = fetch(OLLAMA_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(requestBody)
-                });
-
-                // O-40 Phase 1: Sovereign Oracle TTL (Strict Heartbeat via Constants)
-                const timeoutPromise = new Promise<Response>((_, reject) => 
-                    setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
-                );
-
-                const response = await Promise.race([fetchPromise, timeoutPromise]);
-                if (!response.ok) throw new Error("LLM Offline");
-                
-                const data = await response.json();
-                const fullResponse = data.response?.trim() || "";
-                
-                // Save to LRU Cache
-                this.llmCache.set(cacheKey, { response: fullResponse, ts: performance.now() });
-                if (this.llmCache.size > 50) {
-                    const oldestKey = Array.from(this.llmCache.entries()).sort((a,b) => a[1].ts - b[1].ts)[0][0];
-                    this.llmCache.delete(oldestKey);
-                }
-                
-                return { mask: mask.name, response: fullResponse };
+        console.log(`[ORACLE] Senate convened. Transmitting payload to Off-Thread WebWorker...`);
+        if (this.onSenateEvent) this.onSenateEvent({ type: "CONVENED" });
+        
+        if (this.worker) {
+            this.worker.postMessage({
+                count,
+                requests,
+                triggerReason,
+                mycelialContext,
+                structuralImage,
+                currentSeasonName,
+                macroSeason,
+                globalEnergyPool: this.globalEnergyPool
             });
-
-            console.log(`[ORACLE] Senate convened. Awaiting verdicts from NOMOS, LOGOS, CHRONOS, and AION...`);
-            if (this.onSenateEvent) this.onSenateEvent({ type: "CONVENED" });
-            
-            // O-43 Parallel Execution (Era 173 Superposition)
-            const settled = await Promise.allSettled(maskPromises);
-            
-            let validIntents = 0;
-            
-            for (let i = 0; i < settled.length; i++) {
-                const result = settled[i];
-                if (result.status === "fulfilled" && result.value) {
-                    const fullResponse = result.value.response;
-                    const maskName = result.value.mask;
-                    
-                    let intentStr = fullResponse.trim();
-                    const match = fullResponse.match(/(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
-                    let targetBucket = SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN;
-                    if (match) {
-                        intentStr = match[2];
-                    }
-                    
-                    // Spread spatially within the 5-bucket domain to prevent strict collisions
-                    targetBucket = targetBucket + Math.floor(Math.random() * 5);
-
-                    if (intentStr) {
-                        console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
-                        
-                        try {
-                            parseLambda(intentStr); // Validate AST, throws if malformed
-                            validIntents++;
-                            
-                            // Broadcast raw mathematical generation to the HUD
-                            if (this.onSenateEvent) {
-                                this.onSenateEvent({ type: "GENERATED", mask: maskName, intent: intentStr, bucketRange: `${targetBucket}`, tension: count });
-                            }
-                            // Compile and inject seamlessly
-                            this.fulfillRequests(requests, intentStr, targetBucket);
-                        } catch (_e) {
-                            console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
-                        }
-                    }
-                } else {
-                    console.warn(`[ORACLE] A Mask failed to reach generation or timed out.`);
-                }
-            }
-
-            if (validIntents === 0) {
-                throw new Error("Complete Senate Failure - No Valid Plasmids Generated");
-            }
-            
-            // O-196 Taper backoff
-            this.oracleBackoffDelay = 0;
-
-        } catch (_e) {
-            // O-196 "Degraded Mode" State Machining
-            this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? 5000 : Math.min(60000, this.oracleBackoffDelay * 2);
-            console.warn(`[ORACLE] Entire Senate failed/timeout. Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms.`);
-            if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: `AI Nodes Non-Responsive [DEGRADED_MODE ${this.oracleBackoffDelay}ms]` });
-            
-            // Explicitly do NOT emit stochastic fallback. Let biology handle the silence.
+        } else {
+            console.warn("[ORACLE] WebWorker isolated payload failed - NO WORKER INSTANTIATED.");
+            this.handleWorkerError("WebWorker initialization failed.");
+            this.isBusy = false;
+            this.tickSomaticEconomy(count);
         }
-        
-        
-        this.isBusy = false;
-        
-        // Biological Garbage Collection limits Registry bloat natively
-        // Vector F.3: Activity drives Global Energy capacity elasticity
-        this.tickSomaticEconomy(count);
     }
 
     private fulfillRequests(requests: number[], intent: string, targetBucket?: number) {

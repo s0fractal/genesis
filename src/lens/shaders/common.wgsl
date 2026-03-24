@@ -3,12 +3,12 @@
 // ==========================================
 // SINE_LUT is injected natively through JS to avoid payload duplication
 
-fn sin(from_theta: u32, to_theta: u32) -> i32 {
+fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
     let index = (to_theta + 256u - from_theta) % 256u;
     return SINE_LUT[index];
 }
 
-fn cos(from_theta: u32, to_theta: u32) -> i32 {
+fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
     let index = (to_theta + 256u - from_theta + 64u) % 256u;
     return SINE_LUT[index];
 }

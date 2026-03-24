@@ -9,7 +9,9 @@ pub(crate) fn wrap_phase(value: i16) -> u8 {
 
 #[inline(always)]
 pub(crate) fn wrap_index(value: i32, modulo: usize) -> usize {
-    value.rem_euclid(modulo as i32) as usize
+    // Era 218: Micro-Optimizations (Power-of-Two Masking)
+    // Assumes `modulo` is strictly a power of 2 (e.g. 256, 512, 1024)
+    (value & (modulo as i32 - 1)) as usize
 }
 
 #[inline(always)]

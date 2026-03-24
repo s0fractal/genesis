@@ -45,7 +45,13 @@ export class PhaseComputeEngine {
     private isPingPongA: boolean = true;
     public offsets: number[] = [];
     private startTime: number;
-    private injections = new Map<number, PendingInjection>();
+    
+    // Era 218: Pre-allocated Object Pool (Zero-GC Injection Queue)
+    private readonly INJECTION_POOL_SIZE = 1024;
+    private injectionPool: PendingInjection[] = [];
+    private injectionHead = 0;
+    private injectionTail = 0;
+
     private stagingPool: GPUBuffer[] = [];
     
     // O-200 Triplex Ring Buffering (Non-Blocking GPU Readbacks)
@@ -69,6 +75,10 @@ export class PhaseComputeEngine {
             }
             errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
             });
+            
+        for (let i = 0; i < this.INJECTION_POOL_SIZE; i++) {
+            this.injectionPool.push({ idx: 0, bucket: 0, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 });
+        }
     }
 
     private getStagingBuffer(size: number): GPUBuffer {
@@ -200,10 +210,9 @@ export class PhaseComputeEngine {
         const viewI32 = new Int32Array(uniformBuffer);
 
         let activeInj: PendingInjection | null = null;
-        for (const [idx, inj] of this.injections.entries()) {
-            activeInj = inj;
-            this.injections.delete(idx);
-            break; // Process one injection per frame mathematically
+        if (this.injectionHead !== this.injectionTail) {
+            activeInj = this.injectionPool[this.injectionHead];
+            this.injectionHead = (this.injectionHead + 1) & (this.INJECTION_POOL_SIZE - 1); // 1024 mask
         }
 
         viewU32[0] = this.field.sectors;
@@ -282,44 +291,56 @@ export class PhaseComputeEngine {
         if (!this.device) return;
         const dec = decomposeHash(hash);
         
-        const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 200, phase: 0, ent: 128 };
+        const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
+        if (nextTail === this.injectionHead) return; // Drop if queue full to preserve homeostasis
+        
+        const inj = this.injectionPool[this.injectionTail];
+        inj.idx = index;
+        inj.bucket = undefined;
         inj.hashLow = dec.low;
         inj.hashHigh = dec.high;
         inj.amp = Math.max(20, dec.amp); 
         inj.phase = dec.phase;
         inj.ent = dec.ent;
-        this.injections.set(index, inj);
+        this.injectionTail = nextTail;
     }
-
-    private nextInjId = -1000;
 
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
         if (!this.device) return;
-        const injId = this.nextInjId--;
         const dec = decomposeHash(hash);
         
-        const inj = { 
-            idx: 0xFFFFFFFF, 
-            bucket: bucketId, 
-            hashLow: dec.low, 
-            hashHigh: dec.high, 
-            amp: Math.max(20, dec.amp), 
-            phase: dec.phase, 
-            ent: dec.ent 
-        };
-        this.injections.set(injId, inj);
+        const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
+        if (nextTail === this.injectionHead) return;
+        
+        const inj = this.injectionPool[this.injectionTail];
+        inj.idx = 0xFFFFFFFF;
+        inj.bucket = bucketId;
+        inj.hashLow = dec.low;
+        inj.hashHigh = dec.high;
+        inj.amp = Math.max(20, dec.amp); 
+        inj.phase = dec.phase;
+        inj.ent = dec.ent;
+        this.injectionTail = nextTail;
     }
 
     injectEnergy(index: number, phaseShift: number) {
         if (!this.device) return;
-        const inj = this.injections.get(index) || { idx: index, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 };
+        
+        const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
+        if (nextTail === this.injectionHead) return;
+        
+        const inj = this.injectionPool[this.injectionTail];
+        inj.idx = index;
+        inj.bucket = undefined;
+        inj.hashLow = 0;
+        inj.hashHigh = 0;
         inj.amp = 255;
         inj.phase = phaseShift;
         inj.ent = 255;
-        this.injections.set(index, inj);
+        this.injectionTail = nextTail;
     }
 
-    async readMycelialCentroids(): Promise<Float32Array | null> {
+    readMycelialCentroids(): Float32Array | null {
         if (!this.device) return null;
         
         const size = 16384; // 1024 buckets * 16 bytes

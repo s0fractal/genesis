@@ -62,7 +62,7 @@ export interface BridgeField {
 }
 
 export function wrapIndex(value: number, modulo: number): number {
-    return ((value % modulo) + modulo) % modulo;
+    return value & (modulo - 1);
 }
 
 export function clamp(value: number, min: number, max: number): number {

@@ -37,16 +37,15 @@ export class ThermodynamicSubsystem implements ISubsystem {
         // O-163 (Era 174): Shadow Pressure Telemetry
         if (nowLocal - this.lastShadowTelemetryCheck > 1000) {
             this.lastShadowTelemetryCheck = nowLocal;
-            this.engine.readMycelialCentroids().then(centroids => {
-                if (!centroids) return;
-                
+            const centroids = this.engine.readMycelialCentroids();
+            if (centroids) {
                 let pressure = 0;
                 // Sum active cells inside the Latent Network (Buckets 1000-1024)
                 for (let i = 1000; i < 1025; i++) {
                     pressure += centroids[i * 4 + 2];
                 }
                 this.senateChat.updateShadowPressure(pressure);
-            });
+            }
         }
     }
 }
