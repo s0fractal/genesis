@@ -131,8 +131,12 @@ export class SovereignOracle {
     
     // Era 220: Oracle Web Worker Decoupling
     private worker?: Worker;
+    
+    // Era 222: Holographic CRDT Vector Time Node ID
+    public oracleId: string;
 
     constructor(field: OracleCompatibleField, memory: WebAssembly.Memory, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
+        this.oracleId = "oracle_" + Math.random().toString(36).substring(2, 9);
         this.wasmField = field;
         this.wasmMemory = memory;
         this.engine = engine;
@@ -867,8 +871,8 @@ export class SovereignOracle {
                  this.reserveEnergyPool -= foreignReward;
                  if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += foreignReward; this.activePlasmids.add(foreign_plasmid); }
 
-                 const hostTerm = hostNode ? hostNode.ast : apply(I, variable("host"));
-                 const foreignTerm = foreignNode ? foreignNode.ast : apply(I, variable("foreign"));
+                 const hostTerm = hostNode ? hostNode.ast : apply(getI(), variable("host"));
+                 const foreignTerm = foreignNode ? foreignNode.ast : apply(getI(), variable("foreign"));
                  
                  // Mathematically bind the two logic boundaries
                  try {
@@ -938,7 +942,9 @@ export class SovereignOracle {
                              fitness: 0, // Must survive tickSomaticEconomy to earn fitness
                              mutualists: new Set([host_plasmid, foreign_plasmid]), // Vector I.1: Edge Binding
                              sector: sector,
-                             temporal_credit: 0.0 // Bootstrapping into the temporal flow
+                             temporal_credit: 0.0, // Bootstrapping into the temporal flow
+                             parents: [host_plasmid.toString(), foreign_plasmid.toString()], // Era 222: Vector Clock Causal History
+                             vectorClock: { [this.oracleId]: this.getEpochTicks() }
                          });
                          // Inject massive localized heat on successful biological reproduction (paradox escape)
                          this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 5.0);
@@ -1239,6 +1245,35 @@ export class SovereignOracle {
         }
         
         console.log(`[ORACLE] Successfully decoded and unlocked ${success} cells.`);
+    }
+
+    // Era 222: Holographic CRDT WebRTC Edge Binding
+    public registerNetworkForeign(plasmid: ForeignPlasmid) {
+        const hash = BigInt(plasmid.hash);
+        if (!this.plasmidRegistry.has(hash)) {
+            const decodedAst = decodeMorphology(hash);
+            const metrics = measureIR(decodedAst);
+            const sector = plasmid.targetBucket !== undefined ? this.getGeographicSector(plasmid.targetBucket) : 0;
+            
+            this.plasmidRegistry.set(hash, {
+                ast: decodedAst,
+                l1_cost: metrics.cost,
+                depth: metrics.depth,
+                nodes: metrics.nodes,
+                attention: 5,
+                age: 0,
+                energy: plasmid.energy,
+                fitness: 0,
+                mutualists: new Set(),
+                sector: sector,
+                temporal_credit: 0.0,
+                parents: plasmid.parents, // Bind external causal topology
+                vectorClock: plasmid.vectorClock
+            });
+            this.activePlasmids.add(hash);
+            this.pushLedgerEvent({ epoch: this.getEpochTicks(), action: "NETWORK_RECEIVE", hash: plasmid.hash });
+            console.log(`[MYCELIUM] 🧬 Decoded Alien Plasmid [${plasmid.hash.substring(0,8)}] and bound explicit causal phylogeny.`);
+        }
     }
 
     // Era 212: Metaphysical Telemetry

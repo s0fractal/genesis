@@ -20,9 +20,12 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const phaseField = new PhaseLatticeField(256, 256, 1);
   hydrateSubstrateHeader(wasmMemory, phaseField.ptr_header());
   
+  console.log("[TRACE] Requesting GPU Adapter...");
   const adapter = await navigator.gpu.requestAdapter();
+  console.log("[TRACE] Adapter returned:", !!adapter);
   if (!adapter) throw new Error("WebGPU adapter not found — check browser/hardware support");
   const device = await adapter.requestDevice();
+  console.log("[TRACE] Device acquired successfully.");
 
   const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
   const observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);
@@ -86,6 +89,9 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       computeEngine.injectEnergy(cellB_bottom, 200);
     }, 100);
   };
+  
+  // ERADICATE T=0 FALSE POSITIVES (Auto-Ignite for visual confirm)
+  setTimeout(() => (globalThis as unknown as { injectMycelialTest: () => void }).injectMycelialTest(), 500);
 
   console.log("[Genesis] Phase lattice running. Use ?mode=phase to revisit this substrate.");
 }

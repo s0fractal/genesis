@@ -44,6 +44,8 @@ export interface SomaticNode {
     mutualists: Set<bigint>; // O-140 Vector I.1: The Mycelial Graph (Σ² Topology)
     sector: number; // Era 206: Geographic Niche (0-63)
     temporal_credit: number; // Era 206: Asynchronous Time Dilation execution counter
+    parents?: string[]; // Era 222: Causal Vector Clock History
+    vectorClock?: Record<string, number>; // Era 222: Cryptographic causal lineage tracking
 }
 
 export function measureIR(term: Term): { cost: number; depth: number; nodes: number } {

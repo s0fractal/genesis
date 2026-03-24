@@ -13,9 +13,14 @@ export class SubstrateOrchestrator {
     }
 
     public async boot() {
-        for (const sys of this.subsystems) {
+        console.log(`[TRACE] Orchestrator booting ${this.subsystems.length} subsystems...`);
+        for (let i = 0; i < this.subsystems.length; i++) {
+            const sys = this.subsystems[i];
+            console.log(`[TRACE] Awaiting subsystem #${i} init...`);
             await sys.init();
+            console.log(`[TRACE] Subsystem #${i} resolved!`);
         }
+        console.log("[TRACE] Orchestrator boot complete.");
     }
 
     public start() {
@@ -29,7 +34,7 @@ export class SubstrateOrchestrator {
             }
             this.rafId = requestAnimationFrame(loop);
         };
-        this.rafId = requestAnimationFrame(loop);
+        loop();
     }
 
     public stop() {

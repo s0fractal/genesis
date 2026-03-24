@@ -36,6 +36,7 @@ export class UISubsystem implements ISubsystem {
     }
 
     init() {
+        console.log("[TRACE] uiSys.init() START");
         DOM.hudTitle?.replaceChildren("Φ Phase Lattice");
         DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");
         setHudStat("a", "SECTORS", "64x10x3");
@@ -53,6 +54,7 @@ export class UISubsystem implements ISubsystem {
                 );
             }
         });
+        console.log("[TRACE] uiSys.init() SUCCESS");
     }
 
     tick(nowLocal: number) {

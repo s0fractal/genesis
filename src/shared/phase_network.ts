@@ -4,7 +4,8 @@ import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY } from "./constan
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
 function verifyPayloadSignature(p: ForeignPlasmid): boolean {
-    const expected = fnv1a_64(`${p.hash}:${p.targetBucket}:${p.origin}:${SYSTEMIC_O56_SALT}`).toString(16);
+    const parentStr = p.parents ? p.parents.join(",") : "";
+    const expected = fnv1a_64(`${p.hash}:${p.targetBucket}:${p.origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
     return expected === p.signature;
 }
 
@@ -23,6 +24,20 @@ export class PhaseNetwork {
     
     // O-196 WebRTC Traffic Shaping
     private originRateLimits: Map<string, { count: number, resetAt: number }> = new Map();
+    
+    // Era 222: Kademlia Spatial DHT Buckets
+    private kBuckets: Map<number, Set<string>> = new Map();
+    private readonly MAX_PEERS_PER_BUCKET = 3;
+
+    private calculateXorDistance(peerId: string): number {
+        // Compute 64-bit FNV1a hash for deterministic logical IDs
+        const localHash = fnv1a_64(this.nodeId);
+        const remoteHash = fnv1a_64(peerId);
+        const distance = localHash ^ remoteHash;
+        
+        const bin = distance.toString(2);
+        return 64 - bin.length; // Bucket index 0 to 63
+    }
     
     private checkRateLimit(origin: string): boolean {
         const nowLocal = performance.now();
@@ -76,9 +91,21 @@ export class PhaseNetwork {
         const msg = msgData as { type?: string, origin?: string, target?: string, sdp?: RTCSessionDescriptionInit, candidate?: RTCIceCandidateInit };
         if (!msg || !msg.origin || msg.origin === this.nodeId) return;
 
+        // Era 222: Kademlia XOR Distance Evaluation
+        const distanceBucket = this.calculateXorDistance(msg.origin);
+        let bucket = this.kBuckets.get(distanceBucket);
+        if (!bucket) {
+            bucket = new Set();
+            this.kBuckets.set(distanceBucket, bucket);
+        }
+
         if (msg.type === "HELLO") {
             // A new peer appeared! We will initiate the connection as the Caller.
             if (!this.peers.has(msg.origin)) {
+                
+                if (bucket.size >= this.MAX_PEERS_PER_BUCKET) {
+                    return; // 🛑 Silently reject to enforce biological sparsity DHT limits
+                }
                 
                 // O-200 Vector 7: Jitter delay to prevent thundering herd when > 3 peers exist
                 const delay = this.peers.size > 3 ? this.backoffMs * Math.random() * 3 : 0;
@@ -87,7 +114,7 @@ export class PhaseNetwork {
                     // Re-verify after backoff
                     if (this.peers.has(msg.origin!)) return;
                     
-                    console.log(`🍄 [Auto-Mycelium] Detected new peer ${msg.origin}. Initiating WebRTC Handshake...`);
+                    console.log(`🍄 [Auto-Mycelium] Detected peer ${msg.origin} at XOR Bucket ${distanceBucket}. Initiating DHT Handshake...`);
                     const pc = this.createPeerConnection(msg.origin!);
                     const dc = pc.createDataChannel("mycelium_vector");
                     this.bindDataChannel(dc);
@@ -99,7 +126,11 @@ export class PhaseNetwork {
             }
         } 
         else if (msg.type === "OFFER" && msg.target === this.nodeId) {
-            console.log(`🍄 [Auto-Mycelium] Answering WebRTC Offer from ${msg.origin}...`);
+            if (!this.peers.has(msg.origin) && bucket.size >= this.MAX_PEERS_PER_BUCKET) {
+                 return; // 🛑 Reject inbound mesh flood
+            }
+            
+            console.log(`🍄 [Auto-Mycelium] Answering WebRTC DHT Offer from ${msg.origin} (Bucket ${distanceBucket})...`);
             const pc = this.createPeerConnection(msg.origin!);
             pc.ondatachannel = (e) => this.bindDataChannel(e.channel);
             
@@ -142,8 +173,16 @@ export class PhaseNetwork {
         };
 
         pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+                const distanceBucket = this.calculateXorDistance(remotePeerId);
+                const bucket = this.kBuckets.get(distanceBucket);
+                if (bucket) bucket.add(remotePeerId);
+            }
             if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                 this.peers.delete(remotePeerId);
+                const distanceBucket = this.calculateXorDistance(remotePeerId);
+                const bucket = this.kBuckets.get(distanceBucket);
+                if (bucket) bucket.delete(remotePeerId);
             }
         };
 
@@ -158,10 +197,11 @@ export class PhaseNetwork {
     }
 
     // Broadcast a mutated idea to all connected mycelial nodes via Holographic Refraction
-    public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number) {
+    public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number, parents?: string[], vectorClock?: Record<string, number>) {
         const origin = "peer_" + Math.random().toString(36).substring(7);
-        const signature = fnv1a_64(`${hash}:${targetBucket}:${origin}:${SYSTEMIC_O56_SALT}`).toString(16);
-        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature };
+        const parentStr = parents ? parents.join(",") : "";
+        const signature = fnv1a_64(`${hash}:${targetBucket}:${origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
+        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock };
         
         // Emitting internally locally ignores geometry
         const localMsg = { type: "FOREIGN_PLASMID", payload };

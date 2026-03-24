@@ -37,6 +37,8 @@ interface SerializedPlasmid {
     fitness: number;
     depth: number;
     nodes: number;
+    parents?: string[];
+    vectorClock?: Record<string, number>;
 }
 
 interface SemanticEvent {
@@ -80,6 +82,8 @@ interface ForeignPlasmid {
     locks: number;
     energy: number;
     signature: string;
+    parents?: string[];
+    vectorClock?: Record<string, number>;
 }
 
 interface PhylogenyRecord {

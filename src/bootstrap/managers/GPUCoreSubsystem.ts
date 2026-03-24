@@ -14,8 +14,11 @@ export class GPUCoreSubsystem implements ISubsystem {
     ) {}
 
     async init() {
+        console.log("[TRACE] gpuSys.init() START");
         await this.engine.init();
+        console.log("[TRACE] gpuSys.engine.init() SUCCESS");
         await this.observer.init();
+        console.log("[TRACE] gpuSys.observer.init() SUCCESS");
     }
 
     tick() {

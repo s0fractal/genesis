@@ -62,7 +62,9 @@ export class OracleNetworkSubsystem implements ISubsystem {
     }
 
     init() {
+        console.log("[TRACE] oracleSys.init() START");
         this.oracle.boot();
+        console.log("[TRACE] oracleSys.init() SUCCESS");
     }
 
     tick() {
