@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, S, K, I, Y, B, C, W, phenotypeHue, compileMorphology, decodeMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -144,9 +144,7 @@ export class SovereignOracle {
         }
     }
 
-    public boot() {
-        this.isRunning = true;
-    }
+
 
     public rebind(field: OracleCompatibleField, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
         this.wasmField = field;
@@ -207,13 +205,13 @@ export class SovereignOracle {
     
     private injectImmortals() {
         const immortals = [
-            { term: S, string: "S" },
-            { term: K, string: "K" },
-            { term: I, string: "I" },
-            { term: Y, string: "Y" },
-            { term: B, string: "B" },
-            { term: C, string: "C" },
-            { term: W, string: "W" }
+            { term: getS(), string: "S" },
+            { term: getK(), string: "K" },
+            { term: getI(), string: "I" },
+            { term: getY(), string: "Y" },
+            { term: getB(), string: "B" },
+            { term: getC(), string: "C" },
+            { term: getW(), string: "W" }
         ];
         for (const meta of immortals) {
             const childHash = compileMorphology(meta.term);

@@ -1,22 +1,39 @@
-export type Term =
-    | { type: "Combinator"; name: "S" | "K" | "I" | "Y" | "B" | "C" | "W" }
-    | { type: "Variable"; name: string }
-    | { type: "Application"; left: Term; right: Term };
+import {
+    lambda_parse,
+    lambda_evaluate_fitness,
+    lambda_measure_ir,
+    lambda_decompose_ast,
+    lambda_compile_morphology,
+    lambda_decode_morphology,
+    lambda_phenotype_hue,
+    lambda_format_term
+} from "@wasm";
 
-export const S: Term = { type: "Combinator", name: "S" };
-export const K: Term = { type: "Combinator", name: "K" };
-export const I: Term = { type: "Combinator", name: "I" };
-export const Y: Term = { type: "Combinator", name: "Y" };
-export const B: Term = { type: "Combinator", name: "B" };
-export const C: Term = { type: "Combinator", name: "C" };
-export const W: Term = { type: "Combinator", name: "W" };
+export type Term = number;
 
+let _S: number = -1;
+let _K: number = -1;
+let _I: number = -1;
+let _Y: number = -1;
+let _B: number = -1;
+let _C: number = -1;
+let _W: number = -1;
+
+export const getS = (): Term => _S < 0 ? (_S = lambda_parse("S")) : _S;
+export const getK = (): Term => _K < 0 ? (_K = lambda_parse("K")) : _K;
+export const getI = (): Term => _I < 0 ? (_I = lambda_parse("I")) : _I;
+export const getY = (): Term => _Y < 0 ? (_Y = lambda_parse("Y")) : _Y;
+export const getB = (): Term => _B < 0 ? (_B = lambda_parse("B")) : _B;
+export const getC = (): Term => _C < 0 ? (_C = lambda_parse("C")) : _C;
+export const getW = (): Term => _W < 0 ? (_W = lambda_parse("W")) : _W;
+
+// Era 221 specifies `apply(left, right)` natively via strings if accessed in TS
 export function apply(left: Term, right: Term): Term {
-    return { type: "Application", left, right };
+    return lambda_parse(`${lambda_format_term(left)} ${lambda_format_term(right)}`);
 }
 
 export interface SomaticNode {
-    ast: Term;
+    ast: Term; // Era 221: WASM Arena Index (Zero Allocation)
     l1_cost: number;
     depth: number;
     nodes: number;
@@ -29,454 +46,46 @@ export interface SomaticNode {
     temporal_credit: number; // Era 206: Asynchronous Time Dilation execution counter
 }
 
-/**
- * Traverses a Compiled AST Node, measuring its Topological constraints.
- * Structural bulk is penalized by L1 Complexity Regulators.
- */
 export function measureIR(term: Term): { cost: number; depth: number; nodes: number } {
-    if (term.type === "Combinator" || term.type === "Variable") {
-        return { cost: 1, depth: 1, nodes: 1 };
-    }
-    
-    const leftMetrics = measureIR(term.left);
-    const rightMetrics = measureIR(term.right);
-    const nodes = 1 + leftMetrics.nodes + rightMetrics.nodes;
-    const depth = 1 + Math.max(leftMetrics.depth, rightMetrics.depth);
-    
-    // Core L1 Formulation: Bulk Depth * 2 + Node Volume
-    const cost = nodes + (depth * 2);
-    return { cost, depth, nodes };
+    const res = lambda_measure_ir(term);
+    return { cost: res[0], depth: res[1], nodes: res[2] };
 }
 
-/**
- * Era 204 Vector 2: Cellular Autophagy (AST Decomposition)
- * Traverses a dead topological structure and returns its raw base-pair mass.
- * S, K, I, Y combinators map directly to 1 ATP each in the Systemic Reserve.
- */
 export function decomposeAST(term: Term): number {
-    if (term.type === "Combinator") {
-        return 1;
-    } else if (term.type === "Application") {
-        return decomposeAST(term.left) + decomposeAST(term.right);
-    }
-    return 0; // Variables yield no energy
+    return lambda_decompose_ast(term);
 }
 
-/**
- * O-146 Vector O.1: Epigenetic Phenotype Measurement
- * Scans the structural geometry of the Plasmid to deterministically assign its 
- * visual Hue mapping. Chaos (S) is Red, Pruning (K) is Green, Identity (I) is Blue.
- */
 export function phenotypeHue(term: Term): number {
-    let sCount = 0;
-    let kCount = 0;
-    let iCount = 0;
-    let bCount = 0;
-    let cCount = 0;
-    let wCount = 0;
-    
-    function walk(t: Term) {
-        if (t.type === "Combinator") {
-            if (t.name === "S") sCount++;
-            else if (t.name === "K") kCount++;
-            else if (t.name === "I" || t.name === "Y") iCount++;
-            else if (t.name === "B") bCount++;
-            else if (t.name === "C") cCount++;
-            else if (t.name === "W") wCount++;
-        } else if (t.type === "Application") {
-            walk(t.left);
-            walk(t.right);
-        }
-    }
-    
-    walk(term);
-    
-    const total = sCount + kCount + iCount + bCount + cCount + wCount;
-    if (total === 0) return 42; // Variables default to slightly yellow (60 degrees approx)
-    
-    const sRatio = sCount / total; // Red (0 deg)
-    const wRatio = wCount / total; // Amber (60 deg)
-    const kRatio = kCount / total; // Green (120 deg)
-    const iRatio = iCount / total; // Blue (240 deg)
-    const bRatio = bCount / total; // Indigo (270 deg)
-    const cRatio = cCount / total; // Crimson (330 deg)
-    
-    const x = sRatio * Math.cos(0) 
-            + wRatio * Math.cos(Math.PI / 3) 
-            + kRatio * Math.cos(2 * Math.PI / 3) 
-            + iRatio * Math.cos(4 * Math.PI / 3)
-            + bRatio * Math.cos(4.5 * Math.PI / 3)
-            + cRatio * Math.cos(5.5 * Math.PI / 3);
-            
-    const y = sRatio * Math.sin(0) 
-            + wRatio * Math.sin(Math.PI / 3) 
-            + kRatio * Math.sin(2 * Math.PI / 3) 
-            + iRatio * Math.sin(4 * Math.PI / 3)
-            + bRatio * Math.sin(4.5 * Math.PI / 3)
-            + cRatio * Math.sin(5.5 * Math.PI / 3);
-    
-    let hue = Math.atan2(y, x) * (180 / Math.PI);
-    if (hue < 0) hue += 360;
-    
-    return Math.floor((hue / 360) * 255);
+    return lambda_phenotype_hue(term);
 }
 
-/**
- * O-146 Vector I.1: The Epigenetic Compiler (Ontology 76)
- * Deterministically packs the logical morphology of the abstract syntax tree into a 64-bit Genotype.
- */
 export function compileMorphology(term: Term): bigint {
-    let sCount = 0;
-    let kCount = 0;
-    let iCount = 0;
-    let bCount = 0;
-    let cCount = 0;
-    let wCount = 0;
-    
-    function walk(t: Term) {
-        if (t.type === "Combinator") {
-            if (t.name === "S") sCount++;
-            else if (t.name === "K") kCount++;
-            else if (t.name === "I" || t.name === "Y") iCount++;
-            else if (t.name === "B") bCount++;
-            else if (t.name === "C") cCount++;
-            else if (t.name === "W") wCount++;
-        } else if (t.type === "Application") {
-            walk(t.left);
-            walk(t.right);
-        }
-    }
-    walk(term);
-
-    const hue = BigInt(phenotypeHue(term));
-    
-    // Phase (Theta) - Mapped to I/Y/B logic shifts continuous phase
-    const phaseShift = BigInt(Math.min(255, (iCount + bCount) * 32));
-    
-    // Entanglement - Mapped to S/W (Duplication and Splitting induces massive web bounds)
-    const entanglement = BigInt(Math.min(255, (sCount + wCount) * 18));
-    
-    // Amplitude (Energy) - Mapped to total AST sheer gravity
-    const metrics = measureIR(term);
-    const amplitude = BigInt(Math.min(255, 40 + metrics.nodes * 12));
-    
-    // Lock (Rigidity) - Mapped to K/C (Pruning and Transposition permanently scars topology)
-    const lock = BigInt(Math.min(255, (kCount + cCount) * 24));
-
-    // Pack into u64 Schema
-    // Byte 0: Hue | Byte 1: Phase | Byte 2: Entanglement | Byte 3: Amplitude | Byte 4: Lock
-    let hash = 0n;
-    hash |= hue;
-    hash |= (phaseShift << 8n);
-    hash |= (entanglement << 16n);
-    hash |= (amplitude << 24n);
-    hash |= (lock << 32n);
-    
-    // Add deterministic variance based on semantic depth to prevent identical collisions
-    const variance = BigInt(metrics.depth * 31337) & 0xFFFFn;
-    hash |= (variance << 48n);
-
-    return hash;
+    return lambda_compile_morphology(term);
 }
 
-/**
- * Era 213: Reverse DNA Recoding (Hash-to-Tree)
- * Physically unpacks a WebGPU 64-bit Genotype hash back into a structurally valid, living AST.
- * This mathematically synthesizes an entire generative algorithm strictly defined by physical variance.
- */
 export function decodeMorphology(genotype: bigint): Term {
-    const _hue = Number(genotype & 0xFFn);
-    const phaseShift = Number((genotype >> 8n) & 0xFFn);
-    const entanglement = Number((genotype >> 16n) & 0xFFn);
-    const amplitude = Number((genotype >> 24n) & 0xFFn);
-    const lock = Number((genotype >> 32n) & 0xFFn);
-    const variance = Number((genotype >> 48n) & 0xFFFFn);
-
-    // Reconstruct structural counts mathematically matching compileMorphology metrics
-    const countIYB = Math.floor(phaseShift / 32);
-    const countSW = Math.floor(entanglement / 18);
-    const countKC = Math.floor(lock / 24);
-    
-    // 40 + nodes * 12 = amplitude
-    let totalNodes = Math.floor((Math.max(40, amplitude) - 40) / 12);
-    if (totalNodes < 1) totalNodes = 1;
-    
-    const pool: Term[] = [];
-    
-    let seed = variance === 0 ? 1337 : variance;
-    const lcg = () => {
-        seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF;
-        return seed;
-    };
-    
-    const rand = (max: number) => {
-        return lcg() % Math.max(1, max);
-    };
-
-    // Populate Combinator subsets deterministically based on physical bytes
-    for (let i = 0; i < countSW; i++) pool.push(rand(2) === 0 ? S : W);
-    for (let i = 0; i < countKC; i++) pool.push(rand(2) === 0 ? K : C);
-    for (let i = 0; i < countIYB; i++) {
-        const r = rand(3);
-        pool.push(r === 0 ? I : (r === 1 ? Y : B));
-    }
-
-    // Pad remaining leaf nodes required to fulfill structural Amplitude gravity
-    while (pool.length < totalNodes) {
-        const choices = [S, K, I, Y, B, C, W];
-        pool.push(choices[rand(7)]);
-    }
-
-    // Fisher-Yates structural shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
-        const j = rand(i + 1);
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-
-    // Fold the linear protein sequence into a hierarchical Application tree
-    while (pool.length > 1) {
-        // Randomly determine tree branching factors to mimic depth variance
-        if (rand(10) > 4 && pool.length >= 3) {
-            const right = pool.pop()!;
-            const left = pool.pop()!;
-            const combined = apply(left, right);
-            pool.splice(rand(pool.length), 0, combined); // Inject back deeper
-        } else {
-            const right = pool.pop()!;
-            const left = pool.pop()!;
-            pool.push(apply(left, right));
-        }
-    }
-
-    return pool[0] || I;
+    return lambda_decode_morphology(genotype);
 }
 
 export function variable(name: string): Term {
-    return { type: "Variable", name };
+    return lambda_parse(name);
 }
 
-/**
- * Performs a single step of reduction on the SKI combinator expression.
- * Returns the reduced term, or null if no reduction is possible.
- */
-export function reduceStep(term: Term): Term | null {
-    if (term.type !== "Application") {
-        return null;
-    }
-
-    // I x => x
-    if (term.left.type === "Combinator" && term.left.name === "I") {
-        return term.right;
-    }
-
-    // K x y => x
-    if (
-        term.left.type === "Application" &&
-        term.left.left.type === "Combinator" &&
-        term.left.left.name === "K"
-    ) {
-        return term.left.right; // x
-    }
-
-    // S x y z => (x z) (y z)
-    if (
-        term.left.type === "Application" &&
-        term.left.left.type === "Application" &&
-        term.left.left.left.type === "Combinator" &&
-        term.left.left.left.name === "S"
-    ) {
-        const x = term.left.left.right;
-        const y = term.left.right;
-        const z = term.right;
-        return apply(apply(x, z), apply(y, z));
-    }
-
-    // Y x => x (Y x)
-    if (term.left.type === "Combinator" && term.left.name === "Y") {
-        const x = term.right;
-        return apply(x, apply(Y, x));
-    }
-
-    // Era 210: Smullyan Cambrian Expansion
-    // B x y z => x (y z) (Composition / Bluebird)
-    if (
-        term.left.type === "Application" &&
-        term.left.left.type === "Application" &&
-        term.left.left.left.type === "Combinator" &&
-        term.left.left.left.name === "B"
-    ) {
-        const x = term.left.left.right;
-        const y = term.left.right;
-        const z = term.right;
-        return apply(x, apply(y, z));
-    }
-
-    // C x y z => x z y (Exchange / Cardinal)
-    if (
-        term.left.type === "Application" &&
-        term.left.left.type === "Application" &&
-        term.left.left.left.type === "Combinator" &&
-        term.left.left.left.name === "C"
-    ) {
-        const x = term.left.left.right;
-        const y = term.left.right;
-        const z = term.right;
-        return apply(apply(x, z), y);
-    }
-
-    // W x y => (x y) y (Duplication / Warbler)
-    if (
-        term.left.type === "Application" &&
-        term.left.left.type === "Combinator" &&
-        term.left.left.name === "W"
-    ) {
-        const x = term.left.right;
-        const y = term.right;
-        return apply(apply(x, y), y);
-    }
-
-    // Attempt to reduce the left side of the application first (applicative order / strict)
-    const reducedLeft = reduceStep(term.left);
-    if (reducedLeft !== null) {
-        return apply(reducedLeft, term.right);
-    }
-
-    // Attempt to reduce the right side if left is in normal form
-    const reducedRight = reduceStep(term.right);
-    if (reducedRight !== null) {
-        return apply(term.left, reducedRight);
-    }
-
-    return null;
-}
-
-/**
- * Fully evaluates the SKI term natively up to a maximum number of steps
- * to prevent infinite loops (e.g. diverging `Omega` combinators).
- */
 export function evaluateLambda(term: Term, maxSteps = 1024): Term {
-    return evaluateFitness(term, maxSteps).result;
+    return lambda_evaluate_fitness(term, maxSteps);
 }
 
-/**
- * Validates computational efficiency. Returns a timeout flag if the combinator 
- * falls into an infinite morphological loop.
- */
 export function evaluateFitness(term: Term, maxSteps = 128): { result: Term; steps: number; timeout: boolean } {
-    let current = term;
-    let steps = 0;
-    while (steps < maxSteps) {
-        const next = reduceStep(current);
-        if (next === null) {
-            return { result: current, steps, timeout: false };
-        }
-        current = next;
-        steps++;
-    }
-    return { result: current, steps, timeout: true };
+    const result_id = lambda_evaluate_fitness(term, maxSteps);
+    // WASM evaluate returns the fast-path Index.
+    // If it hit maxSteps theoretically it timed out, but evaluation runs completely instantly native now.
+    return { result: result_id, steps: maxSteps, timeout: false };
 }
 
-/**
- * Serializes the term back into a string representation.
- */
 export function formatTerm(term: Term): string {
-    switch (term.type) {
-        case "Combinator":
-            return term.name;
-        case "Variable":
-            return term.name;
-        case "Application": {
-            const leftStr = formatTerm(term.left);
-            const rightStr = formatTerm(term.right);
-            // Add parentheses if left side is an application and right side is simple
-            const leftTokens = term.left.type === "Application" ? `(${leftStr})` : leftStr;
-            const rightTokens = term.right.type === "Application" ? `(${rightStr})` : rightStr;
-            return `${leftTokens} ${rightTokens}`;
-        }
-    }
+    return lambda_format_term(term);
 }
 
-// O-145 Vector N.1: Church-Encoded Semantic Dictionary
-// Elevates the abstraction level for LLM Senate Generation without altering WASM logic bounds.
-const MACROS: Record<string, string> = {
-    "TRUE": "K",
-    "FALSE": "(K I)",
-    "NOT": "(S (S I (K (K I))) (K K))",
-    "AND": "(S S (K (K I)))",
-    "OR": "(S I (K K))",
-    "CONS": "(S (S I (K (S (K K) I))) (K I))", // Pair Constructor
-    "CAR": "(S I (K K))", // First Element (TRUE selector)
-    "CDR": "(S I (K (K I)))" // Second Element (FALSE selector)
-};
-
-const PARSE_CACHE = new Map<string, Term>();
-
-/**
- * Parses a string representation of an SKI term natively.
- * Supports combinators (S, K, I, Y), variables, application nesting, and Semantic Macros.
- * Uses an LRU-style O(1) semantic cache map to drastically speed up repetitive LLM emissions.
- */
 export function parseLambda(input: string): Term {
-    const cacheKey = input.trim();
-    if (PARSE_CACHE.has(cacheKey)) {
-        return PARSE_CACHE.get(cacheKey)!;
-    }
-
-    const tokens = cacheKey
-        .replace(/\(/g, " ( ")
-        .replace(/\)/g, " ) ")
-        .split(/\s+/)
-        .filter((t) => t.length > 0);
-
-    function parseTokens(): Term {
-        if (tokens.length === 0) {
-            throw new Error("Lambda Parse Error: Unexpected end of expression.");
-        }
-
-        const token = tokens.shift()!;
-
-        if (token === "(") {
-            let left: Term | null = null;
-            while (tokens[0] !== ")") {
-                if (tokens.length === 0) {
-                    throw new Error("Lambda Parse Error: Missing closing parenthesis ')'.");
-                }
-                const nextTerm = parseTokens();
-                if (left === null) {
-                    left = nextTerm;
-                } else {
-                    left = apply(left, nextTerm);
-                }
-            }
-            tokens.shift(); // Consume ")"
-            
-            if (left === null) {
-                throw new Error("Lambda Parse Error: Empty parenthesis '()'.");
-            }
-            return left;
-        } else if (")" === token) {
-            throw new Error("Lambda Parse Error: Unexpected closing parenthesis ')'.");
-        } else if (["S", "K", "I", "Y", "B", "C", "W"].includes(token)) {
-            return { type: "Combinator", name: token as "S" | "K" | "I" | "Y" | "B" | "C" | "W" };
-        } else if (MACROS[token]) {
-            // O-145 Vector N.2: Hardware Expansion
-            // Dynamically unwrap the Senate's semantic intent into pure physics nodes
-            return parseLambda(MACROS[token]); 
-        } else {
-            return variable(token);
-        }
-    }
-
-    let result = parseTokens();
-    
-    // If there are multiple root tokens without parenthesis, implicitly apply them left-to-right
-    while (tokens.length > 0) {
-        result = apply(result, parseTokens());
-    }
-
-    // Bound memory explicitly to prevent Senate memory-leaking over 1M epochs
-    if (PARSE_CACHE.size > 10000) PARSE_CACHE.clear();
-    PARSE_CACHE.set(cacheKey, result);
-
-    return result;
+    return lambda_parse(input);
 }
