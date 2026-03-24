@@ -128,6 +128,7 @@ export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset:
 
 // O-77 Native Rust Synchronization Hook
 // Executes instantly after initWasm() completes
+// deno-lint-ignore no-explicit-any
 export function bindNativeConstants(wasm: any) {
     if (wasm.get_math_q_scale) MATH_Q_SCALE = wasm.get_math_q_scale();
     if (wasm.get_senate_oracle_timeout) SENATE_ORACLE_TIMEOUT_MS = wasm.get_senate_oracle_timeout();

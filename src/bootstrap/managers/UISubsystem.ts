@@ -1,4 +1,4 @@
-import { ISubsystem } from "./orchestrator.ts";
+
 import { 
     PhaseLatticeField, 
     phase_lattice_shannon_entropy,
@@ -25,7 +25,7 @@ import { TOPOS_DICTIONARY } from "../../shared/topos_dictionary.ts";
 export class UISubsystem implements ISubsystem {
     public phylogenyHUD: PhylogeneticCanvas;
     private lastPhylogenyCheck = performance.now();
-    private hoveredAgent: any = null;
+    private hoveredAgent: { hash: bigint; amp: number; lock: number; ent: number; } | null = null;
 
     constructor(
         public field: PhaseLatticeField,

@@ -1,12 +1,10 @@
 import { PhaseReplayObserver } from "../lens/phase_replay_view.ts";
 import {
-  buildDiffSummary,
   getReplayComparison,
   getReplaySnapshot,
-  loadPhaseReplayDataset,
-  summarizeReplayDiff,
+  loadPhaseReplayDataset,  summarizeReplayDiff,
 } from "../replay/phase_replay.ts";
-import type { ReplayCompareMode, PhaseField } from "../replay/phase_replay.ts";
+
 import {
   configureCanvas,
   DOM,
@@ -57,25 +55,17 @@ export async function bootstrapReplay(replayStack: string) {
 
   const render = () => {
     const boundedTick = Math.max(0, Math.min(totalTicks, currentTick));
-    let current: PhaseField;
-    let compare: PhaseField | null;
-    let title: string;
-    let statusLine: string;
-    let leftLabel: string;
-    let rightLabel: string;
-    let summary;
-
-      current = getReplaySnapshot(phaseDataset, boundedTick);
-      compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
-      summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
+      const current = getReplaySnapshot(phaseDataset, boundedTick);
+      const compare = getReplayComparison(phaseDataset, boundedTick, compareMode);
+      const summary = summarizeReplayDiff(phaseDataset, boundedTick, compareMode);
       const referenceTrace = phaseDataset.golden.referenceTrace[boundedTick];
       const wasmTrace = phaseDataset.golden.wasmTrace[boundedTick];
-      title = "phase replay";
-      statusLine = `compare ${compareMode} | parity ${
+      const title = "phase replay";
+      const statusLine = `compare ${compareMode} | parity ${
         summary.parityLocked ? "locked" : "drift"
       }`;
-      leftLabel = "ref";
-      rightLabel = "wasm";
+      const leftLabel = "ref";
+      const rightLabel = "wasm";
       setHudStat("c", "PARITY", summary.parityLocked ? "LOCKED" : "DRIFT");
       DOM.statusLabel?.replaceChildren(
         `${compareMode.toUpperCase()} Δ${summary.changedCells} | REF ${

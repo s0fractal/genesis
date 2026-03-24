@@ -4,61 +4,11 @@ import {
     structuralSignature,
     sumAmplitude,
     sumEntanglement,
-    type PhaseField, // NEW
     phaseDistance,   // FUSED
 } from "../shared/topology_core.ts";
-export type { PhaseField };
 import { hydrateSubstrateHeader, SUBSTRATE_VERSION } from "../shared/constants.ts";
 
-export type ReplayCompareMode = "none" | "seed" | "previous";
 
-export interface ReplayReferenceTraceEntry {
-    tick: number;
-    legacySignature: string;
-    structuralSignature: string;
-    totalAmplitude: number;
-    totalEntanglement: number;
-}
-
-export interface ReplayWasmTraceEntry {
-    tick: number;
-    legacySignature: string;
-    structuralSignature: string;
-    totalAmplitude: number;
-    totalEntanglement: number;
-    omegaSpan: string;
-}
-
-export interface PhaseReplayGolden {
-    schemaVersion: 1;
-    shape: PhaseFieldShape;
-    ticks: number;
-    referenceTrace: ReplayReferenceTraceEntry[];
-    wasmTrace: ReplayWasmTraceEntry[];
-    invariants: {
-        referenceSeedLegacySignature: string;
-        referenceSeedStructuralSignature: string;
-        wasmSeedStructuralSignature: string;
-        rotatedPhaseStructuralSignature: string;
-        rotatedAddressStructuralSignature: string;
-    };
-}
-
-export interface PhaseReplayDataset {
-    golden: PhaseReplayGolden;
-    snapshots: PhaseField[];
-}
-
-export interface PhaseReplayDiffSummary {
-    changedCells: number;
-    totalAmplitudeDelta: number;
-    totalLockDelta: number;
-    totalEntanglementDelta: number;
-    maxPhaseDistance: number;
-    parityLocked: boolean;
-    referenceStructuralSignature: string;
-    wasmStructuralSignature: string;
-}
 
 const phaseCoherenceGoldenUrl = new URL("../../tools/goldens/phase_coherence_golden.json", import.meta.url);
 
@@ -94,6 +44,7 @@ export async function loadPhaseReplayDataset(): Promise<PhaseReplayDataset> {
     };
 }
 
+// deno-lint-ignore no-explicit-any
 export function snapshotWasmPhaseField(field: PhaseLatticeField, wasm: any, shape: PhaseFieldShape): PhaseField {
     const memory = wasm.memory;
     if (!(memory instanceof WebAssembly.Memory)) {
@@ -227,7 +178,7 @@ function clampTick(value: number, maxTick: number): number {
     return Math.max(0, Math.min(maxTick, Math.trunc(value)));
 }
 
-function validateReferenceSnapshot(field: PhaseField, trace: ReplayReferenceTraceEntry): void {
+function _validateReferenceSnapshot(field: PhaseField, trace: ReplayReferenceTraceEntry): void {
     const signature = structuralSignature(field);
     const amplitude = sumAmplitude(field);
     const entanglement = sumEntanglement(field);

@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, Term, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, SomaticNode, decomposeAST } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -19,30 +19,6 @@ export type SenateEvent =
     | { type: "GENERATED"; mask: string; intent: string; bucketRange: string; tension: number }
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
-
-export interface ChronosSnapshot {
-    ticks: number;
-    entropy: number;
-    energy: number;
-    queue: number;
-}
-
-export interface OracleCompatibleField {
-    get_oracle_request_count: () => number;
-    ptr_oracle_requests: () => number;
-    clear_oracle_requests: () => void;
-    get_collision_count?: () => number;
-    ptr_plasmid_collisions?: () => number;
-    clear_collisions?: () => void;
-    ptr_header?: () => number;
-    width?: number;
-    height?: number;
-    cell_count?: () => number;
-    ptr_plasmids?: () => number;
-    ptr_cell_status?: () => number;
-    ptr_theta?: () => number;
-    ptr_omega?: () => number;
-}
 
 const SOMATIC_COMPLEXITY_ALPHA = 1.5;
 const SOMATIC_DECAY_RATE = 0.05;

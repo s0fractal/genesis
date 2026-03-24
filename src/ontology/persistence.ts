@@ -1,5 +1,5 @@
 import { encode, decode } from "@msgpack/msgpack";
-import { formatTerm, SomaticNode } from "../compiler/pure_lambda.ts";
+import { formatTerm } from "../compiler/pure_lambda.ts";
 
 export function exportGenesisState(
     epochTicks: number,

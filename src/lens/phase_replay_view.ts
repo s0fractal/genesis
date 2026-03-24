@@ -1,6 +1,6 @@
 import { projectCellToCartesian } from "../shared/topology_core.ts";
 import { phaseDistance } from "../shared/topology_core.ts";
-import type { PhaseReplayDiffSummary, ReplayCompareMode } from "../replay/phase_replay.ts";
+
 
 function hsv2rgb(h: number, s: number, v: number): [number, number, number] {
     const i = Math.floor(h * 6);

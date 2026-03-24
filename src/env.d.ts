@@ -3,8 +3,10 @@
 
 interface LatticeConfig {
     sectors: number;
-    radial_bins: number;
+    radialBins: number;
     harmonics: number;
+    wrapSectors: boolean;
+    hasAntipode: boolean;
 }
 
 interface PhaseFieldShape {
@@ -12,6 +14,16 @@ interface PhaseFieldShape {
     sectors: number;
     radialBins: number;
     harmonics: number;
+}
+
+interface PhaseCell {
+    theta: number;
+    omega: number;
+    amplitude: number;
+    lock: number;
+    entanglement: number;
+    cellStatus?: number;
+    plasmids?: bigint;
 }
 
 interface PhaseField {
@@ -24,6 +36,40 @@ interface PhaseField {
     entanglement: Uint8Array;
     cellStatus: Uint8Array;
     plasmids: BigUint64Array;
+}
+
+interface BridgeField {
+    width: number;
+    height: number;
+    thetaNow: Uint8Array;
+    thetaF1: Uint8Array;
+    thetaF2: Uint8Array;
+    thetaF3: Uint8Array;
+    omega: Uint8Array;
+    energy: Uint8Array;
+    plasmids: BigUint64Array;
+    hebbianLocks: Uint8Array;
+    oracleRequests: Uint32Array;
+    oracleRequestCount: number;
+    cellStatus: Uint8Array;
+}
+
+type Term = number;
+
+interface SomaticNode {
+    ast: Term;
+    l1_cost: number;
+    depth: number;
+    nodes: number;
+    attention: number;
+    age: number;
+    energy: number;
+    fitness: number;
+    mutualists: Set<bigint>;
+    sector: number;
+    temporal_credit: number;
+    parents?: string[];
+    vectorClock?: Record<string, number>;
 }
 
 interface SerializedPlasmid {
@@ -87,24 +133,20 @@ interface ForeignPlasmid {
 }
 
 interface PhylogenyRecord {
-    id: string; // Unique combination of hash and timestamp, or just hash if immortal
+    t: number;
+    alias: string;
     hash: string;
-    ast: string;
-    birth_epoch: number;
-    death_epoch: number | null;
-    peak_energy: number;
-    peak_attention: number;
-    generations_survived: number;
-    parents: string[]; 
-    children: string[]; 
+    parents: string[];
+    energy: number;
+    stability: number;
 }
 
 interface OracleCompatibleField {
     get_oracle_request_count(): number;
     ptr_oracle_requests(): number;
     clear_oracle_requests(): void;
-    ptr_plasmids(): number;
-    ptr_cell_status(): number;
+    ptr_plasmids?(): number;
+    ptr_cell_status?(): number;
     ptr_theta?(): number;
     ptr_omega?(): number;
     ptr_plasmid_collisions?(): number;
@@ -113,4 +155,93 @@ interface OracleCompatibleField {
     cell_count?(): number;
     width?: number;
     height?: number;
+    ptr_header?(): number;
 }
+
+interface ReplayReferenceTraceEntry {
+    tick: number;
+    legacySignature: string;
+    structuralSignature: string;
+    totalAmplitude: number;
+    totalEntanglement: number;
+}
+
+interface ReplayWasmTraceEntry {
+    tick: number;
+    legacySignature: string;
+    structuralSignature: string;
+    totalAmplitude: number;
+    totalEntanglement: number;
+    omegaSpan: string;
+}
+
+interface PhaseReplayGolden {
+    schemaVersion: 1;
+    shape: PhaseFieldShape;
+    ticks: number;
+    referenceTrace: ReplayReferenceTraceEntry[];
+    wasmTrace: ReplayWasmTraceEntry[];
+    invariants: {
+        referenceSeedLegacySignature: string;
+        referenceSeedStructuralSignature: string;
+        wasmSeedStructuralSignature: string;
+        rotatedPhaseStructuralSignature: string;
+        rotatedAddressStructuralSignature: string;
+    };
+}
+
+interface PhaseReplayDataset {
+    golden: PhaseReplayGolden;
+    snapshots: PhaseField[];
+}
+
+interface PhaseReplayDiffSummary {
+    changedCells: number;
+    totalAmplitudeDelta: number;
+    totalLockDelta: number;
+    totalEntanglementDelta: number;
+    maxPhaseDistance: number;
+    parityLocked: boolean;
+    referenceStructuralSignature: string;
+    wasmStructuralSignature: string;
+}
+
+interface OracleWorkerRequest {
+    count: number;
+    requests: number[];
+    triggerReason?: string;
+    mycelialContext: string;
+    structuralImage: string | null;
+    currentSeasonName: string;
+    macroSeason: number;
+    globalEnergyPool: number;
+}
+
+interface OracleWorkerResponse {
+    maskName: string;
+    intentStr: string;
+    targetBucket: number;
+}
+
+interface ChronosSnapshot {
+    ticks: number;
+    entropy: number;
+    energy: number;
+    queue: number;
+}
+
+interface PhaseVector {
+    angle: number;
+    radius: number;
+}
+
+interface IPerturbationInjector {
+    inject(x: number, y: number, energy: number, radius: number, phaseShift: number, plasmid: Uint8Array): void;
+}
+
+interface ISubsystem {
+    init(): Promise<void> | void;
+    tick(nowLocal: number): void;
+}
+
+type ReplayCompareMode = "none" | "seed" | "previous";

@@ -1,9 +1,5 @@
 import { fnv1a_64 } from "@wasm";
 
-export interface IPerturbationInjector {
-    inject(x: number, y: number, energy: number, radius: number, phaseShift: number, plasmid: Uint8Array): void;
-}
-
 export class SemanticCoupler {
     private injector: IPerturbationInjector;
     

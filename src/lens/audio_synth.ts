@@ -84,7 +84,7 @@ export class BioAcousticChoir {
             try {
                 await this.ctx.resume();
                 console.log("🔊 [CHOIR] Audio Context Resumed.");
-            } catch (err) {
+            } catch (_err) {
                 console.warn("🔇 [CHOIR] Safari AudioContext auto-play blocked bounds.");
             }
         }

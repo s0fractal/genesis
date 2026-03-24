@@ -1,7 +1,3 @@
-export interface ISubsystem {
-    init(): Promise<void> | void;
-    tick(nowLocal: number): void;
-}
 
 export class SubstrateOrchestrator {
     private subsystems: ISubsystem[] = [];

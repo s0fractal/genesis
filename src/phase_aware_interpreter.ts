@@ -7,11 +7,6 @@
  * Math operations are phase translations and interference alignments.
  */
 
-export interface PhaseVector {
-    angle: number;   // 0..255 (Position on the cyclic LUT)
-    radius: number;  // Floor(Value / 256) (Energy Cycle / Ring Magnitude)
-}
-
 /**
  * Transforms a linear value (i32) into a Geometric Phase Vector.
  */
@@ -65,6 +60,7 @@ export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
  * AST Execution Engine (Phase Shift Simulator).
  * Recursively runs an expression tree geometry within the Phase Space constraints.
  */
+// deno-lint-ignore no-explicit-any
 export function executePhaseGeometricAST(ir: any, env: Record<string, PhaseVector>): PhaseVector {
     if (ir.kind === "const") {
         return linearToPhase(ir.value);

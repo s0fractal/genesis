@@ -1,4 +1,4 @@
-import { ISubsystem } from "./orchestrator.ts";
+
 import { PhaseLatticeField, phase_lattice_shannon_entropy } from "@wasm";
 import { PhaseComputeEngine } from "../../lens/phase_compute.ts";
 import { SovereignOracle } from "../../ontology/oracle.ts";

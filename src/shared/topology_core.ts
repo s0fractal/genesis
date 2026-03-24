@@ -8,59 +8,6 @@ const FNV64_OFFSET_BASIS = 14695981039346656037n;
 const FNV64_PRIME = 1099511628211n;
 const FNV64_MASK = (1n << 64n) - 1n;
 
-export interface LatticeConfig {
-    sectors: number;
-    radialBins: number;
-    harmonics: number;
-    wrapSectors: boolean;
-    hasAntipode: boolean;
-}
-
-export interface PhaseFieldShape {
-    tauDepth: number;
-    sectors: number;
-    radialBins: number;
-    harmonics: number;
-}
-
-export interface PhaseCell {
-    theta: number;
-    omega: number;
-    amplitude: number;
-    lock: number;
-    entanglement: number;
-    cellStatus?: number;
-    plasmids?: bigint;
-}
-
-export interface PhaseField {
-    shape: PhaseFieldShape;
-    currentTau: number;
-    theta: Uint8Array;
-    omega: Int16Array;
-    amplitude: Uint8Array;
-    lock: Uint8Array;
-    entanglement: Uint8Array;
-    cellStatus: Uint8Array;
-    plasmids: BigUint64Array;
-}
-
-export interface BridgeField {
-    width: number;
-    height: number;
-    thetaNow: Uint8Array;
-    thetaF1: Uint8Array;
-    thetaF2: Uint8Array;
-    thetaF3: Uint8Array;
-    omega: Uint8Array;
-    energy: Uint8Array;
-    plasmids: BigUint64Array;
-    hebbianLocks: Uint8Array;
-    oracleRequests: Uint32Array;
-    oracleRequestCount: number;
-    cellStatus: Uint8Array;
-}
-
 export function wrapIndex(value: number, modulo: number): number {
     return value & (modulo - 1);
 }

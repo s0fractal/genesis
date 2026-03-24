@@ -1,11 +1,3 @@
-export interface PhylogenyRecord {
-    t: number;
-    alias: string;
-    hash: string;
-    parents: string[];
-    energy: number;
-    stability: number;
-}
 
 class PhylogenyVault {
     private db: IDBDatabase | null = null;

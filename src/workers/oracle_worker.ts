@@ -1,22 +1,5 @@
 import { THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS } from "../shared/constants.ts";
 
-export interface OracleWorkerRequest {
-    count: number;
-    requests: number[];
-    triggerReason?: string;
-    mycelialContext: string;
-    structuralImage: string | null;
-    currentSeasonName: string;
-    macroSeason: number;
-    globalEnergyPool: number;
-}
-
-export interface OracleWorkerResponse {
-    maskName: string;
-    intentStr: string;
-    targetBucket: number;
-}
-
 // O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
 const llmCache = new Map<string, { response: string, ts: number }>();
 
