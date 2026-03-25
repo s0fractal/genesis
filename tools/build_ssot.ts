@@ -60,15 +60,27 @@ rsData += "\n// --- MACROS ---\n";
 wgslData += "\n// --- MACROS ---\n";
 
 for (const [key, macro] of Object.entries(MACROS)) {
-    const tsArgs = macro.args.map((a: any) => a.name + ": number").join(", ");
+    const tsArgMap = (a: any) => a.name + ": " + (a.type === "u64" ? "bigint" : "number");
+    const tsArgs = macro.args.map(tsArgMap).join(", ");
     const rsArgs = macro.args.map((a: any) => a.name + ": " + a.type).join(", ");
-    const wgslArgs = macro.args.map((a: any) => a.name + ": " + a.type).join(", ");
 
-    const tsRet = macro.returns === "void" ? "void" : "number";
+    const tsRet = macro.returns === "void" ? "void" : (macro.returns === "u64" ? "bigint" : "number");
     
     tsData += "export function " + key + "(" + tsArgs + "): " + tsRet + " {\n" + macro.ts.split('\n').map(l => '    ' + l).join('\n') + "\n}\n\n";
     rsData += "#[inline(always)]\npub fn " + key + "(" + rsArgs + ") -> " + macro.returns + " {\n" + macro.rust.split('\n').map(l => '    ' + l).join('\n') + "\n}\n\n";
-    wgslData += "fn " + key + "(" + wgslArgs + ") -> " + macro.returns + " {\n" + macro.wgsl.split('\n').map(l => '    ' + l).join('\n') + "\n}\n\n";
+    
+    if (macro.wgsl) {
+        const wgslArgMap = (a: any) => {
+            let t = a.type;
+            if (t === "i32" || t === "i16" || t === "u8") t = "i32";
+            if (t === "f32") t = "f32";
+            return a.name + ": " + t;
+        };
+        const wgslArgs = macro.args.map(wgslArgMap).join(", ");
+        let wgslRet = macro.returns;
+        if (wgslRet === "i32" || wgslRet === "i16" || wgslRet === "u8") wgslRet = "i32";
+        wgslData += "fn " + key + "(" + wgslArgs + ") -> " + wgslRet + " {\n" + macro.wgsl.split('\n').map(l => '    ' + l).join('\n') + "\n}\n\n";
+    }
 }
 
 // 3. Process LUTs

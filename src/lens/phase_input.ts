@@ -1,10 +1,7 @@
 import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from "./phase_compute.ts";
 import { SovereignOracle } from "../ontology/oracle.ts";
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
-}
+import { clamp_i32 } from "../shared/constants.ts";
 
 export class PhasePerturbationInjector {
     private canvas: HTMLCanvasElement;
@@ -38,7 +35,7 @@ export class PhasePerturbationInjector {
             const sector = Math.floor(normalizedAngle / (Math.PI * 2) * this.field.sectors);
             const maxRadius = Math.min(rect.width, rect.height) * 0.42;
             const distance = Math.hypot(dx, dy);
-            const rho = Math.floor(clamp(distance / Math.max(1, maxRadius), 0, 0.999) * this.field.radial_bins);
+            const rho = Math.floor(clamp_i32(distance / Math.max(1, maxRadius), 0, 0.999) * this.field.radial_bins);
 
             this.inject(
                 sector,
@@ -83,13 +80,13 @@ export class PhasePerturbationInjector {
         memoryView.setUint8(agentOffset, (currentTheta + phaseShift) & 0xFF);
 
         const currentOmega = memoryView.getInt16(agentOffset + 2, true);
-        memoryView.setInt16(agentOffset + 2, clamp(currentOmega + ((plasmid[1] % 5) - 2), -16, 16), true);
+        memoryView.setInt16(agentOffset + 2, clamp_i32(currentOmega + ((plasmid[1] % 5) - 2), -16, 16), true);
 
         const currentAmplitude = memoryView.getUint8(agentOffset + 4);
-        memoryView.setUint8(agentOffset + 4, clamp(currentAmplitude + Math.floor(energy / Math.max(1, radius + 1)), 0, 255));
+        memoryView.setUint8(agentOffset + 4, clamp_i32(currentAmplitude + Math.floor(energy / Math.max(1, radius + 1)), 0, 255));
 
         const currentLock = memoryView.getUint8(agentOffset + 5);
-        memoryView.setUint8(agentOffset + 5, clamp(currentLock + 12, 0, 255));
+        memoryView.setUint8(agentOffset + 5, clamp_i32(currentLock + 12, 0, 255));
 
         const currentEntanglement = memoryView.getUint8(agentOffset + 6);
         memoryView.setUint8(agentOffset + 6, Math.max(currentEntanglement, plasmid[6]));

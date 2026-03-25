@@ -30,9 +30,9 @@ fn get_index(id: u32) -> Option<Index> {
 
 #[wasm_bindgen]
 pub fn fnv1a_64(s: &str) -> u64 {
-    let mut hash = 14695981039346656037u64;
+    let mut hash = crate::constants::FNV64_OFFSET_BASIS;
     for code_unit in s.encode_utf16() {
-        utils::mix_u64(&mut hash, code_unit as u64);
+        hash = crate::constants::mix_u64(hash, code_unit as u64);
     }
     hash
 }

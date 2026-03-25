@@ -2,19 +2,14 @@ import {
     PHASE_LUT_SIZE, PHASE_HALF_PHASE,
     PHASE_MIN_OMEGA, PHASE_MAX_OMEGA,
     PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT,
-    FNV64_OFFSET_BASIS, FNV64_PRIME, FNV64_MASK
+    FNV64_OFFSET_BASIS,
+    wrap_index, clamp_i32, mix_u64
 } from "./constants.ts";
 
-export function wrapIndex(value: number, modulo: number): number {
-    return value & (modulo - 1);
-}
 
-export function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
-}
 
 export function signedPhaseDelta(fromTheta: number, toTheta: number): number {
-    const delta = wrapIndex(toTheta - fromTheta, PHASE_LUT_SIZE);
+    const delta = wrap_index(toTheta - fromTheta, PHASE_LUT_SIZE);
     return delta > PHASE_HALF_PHASE ? delta - PHASE_LUT_SIZE : delta;
 }
 
@@ -30,7 +25,7 @@ export function createTopology(config: LatticeConfig) {
     return {
         config,
         getIndex: (sector: number, rho: number, harmonic: number) => {
-            const s = wrapSectors ? wrapIndex(sector, sectors) : clamp(sector, 0, sectors - 1);
+            const s = wrapSectors ? wrap_index(sector, sectors) : clamp_i32(sector, 0, sectors - 1);
             return getOffset(rho) + s + harmonic * sectors;
         }
     };
@@ -41,7 +36,7 @@ export function createTopology(config: LatticeConfig) {
 // -------------------------------------------------------------------------------- //
 
 export function wrapTheta(theta: number): number {
-    return wrapIndex(theta, 256);
+    return wrap_index(theta, 256);
 }
 
 export function fieldIndex(shape: PhaseFieldShape, tau: number, sector: number, rho: number, harmonic: number): number {
@@ -52,10 +47,10 @@ export function fieldIndex(shape: PhaseFieldShape, tau: number, sector: number, 
 export function getCellIndex(shape: PhaseFieldShape, tau: number, sector: number, rho: number, harmonic: number): number {
     return fieldIndex(
         shape,
-        wrapIndex(tau, shape.tauDepth),
-        wrapIndex(sector, shape.sectors),
-        clamp(rho, 0, shape.radialBins - 1),
-        wrapIndex(harmonic, shape.harmonics),
+        wrap_index(tau, shape.tauDepth),
+        wrap_index(sector, shape.sectors),
+        clamp_i32(rho, 0, shape.radialBins - 1),
+        wrap_index(harmonic, shape.harmonics),
     );
 }
 
@@ -96,10 +91,10 @@ export function createPhaseField(
                     const state = initializer(tau, sector, rho, harmonic);
                     const idx = fieldIndex(shape, tau, sector, rho, harmonic);
                     field.theta[idx] = wrapTheta(state.theta);
-                    field.omega[idx] = clamp(Math.trunc(state.omega), PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
-                    field.amplitude[idx] = clamp(Math.trunc(state.amplitude), 0, PHASE_MAX_AMPLITUDE);
-                    field.lock[idx] = clamp(Math.trunc(state.lock), 0, PHASE_MAX_LOCK);
-                    field.entanglement[idx] = clamp(Math.trunc(state.entanglement), 0, PHASE_MAX_ENTANGLEMENT);
+                    field.omega[idx] = clamp_i32(Math.trunc(state.omega), PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
+                    field.amplitude[idx] = clamp_i32(Math.trunc(state.amplitude), 0, PHASE_MAX_AMPLITUDE);
+                    field.lock[idx] = clamp_i32(Math.trunc(state.lock), 0, PHASE_MAX_LOCK);
+                    field.entanglement[idx] = clamp_i32(Math.trunc(state.entanglement), 0, PHASE_MAX_ENTANGLEMENT);
                     field.cellStatus[idx] = state.cellStatus !== undefined ? state.cellStatus : 0;
                     field.plasmids[idx] = state.plasmids !== undefined ? state.plasmids : 0n;
                 }
@@ -164,26 +159,21 @@ export function structuralSignature(field: PhaseField): string {
         for (let rho = 0; rho < field.shape.radialBins; rho++) {
             for (let sector = 0; sector < field.shape.sectors; sector++) {
                 const idx = getCellIndex(field.shape, field.currentTau, sector, rho, harmonic);
-                mixU64(hashValue(sector));
-                mixU64(hashValue(rho));
-                mixU64(hashValue(harmonic));
-                mixU64(hashValue(field.theta[idx]));
-                mixU64(hashSignedValue(field.omega[idx]));
-                mixU64(hashValue(field.amplitude[idx]));
-                mixU64(hashValue(field.lock[idx]));
-                mixU64(hashValue(field.entanglement[idx]));
-                mixU64(hashValue(field.cellStatus[idx]));
-                mixU64(field.plasmids[idx]);
+                hash = mix_u64(hash, hashValue(sector));
+                hash = mix_u64(hash, hashValue(rho));
+                hash = mix_u64(hash, hashValue(harmonic));
+                hash = mix_u64(hash, hashValue(field.theta[idx]));
+                hash = mix_u64(hash, hashSignedValue(field.omega[idx]));
+                hash = mix_u64(hash, hashValue(field.amplitude[idx]));
+                hash = mix_u64(hash, hashValue(field.lock[idx]));
+                hash = mix_u64(hash, hashValue(field.entanglement[idx]));
+                hash = mix_u64(hash, hashValue(field.cellStatus[idx]));
+                hash = mix_u64(hash, field.plasmids[idx]);
             }
         }
     }
 
     return hash.toString(16).padStart(16, "0");
-
-    function mixU64(value: bigint): void {
-        hash ^= value;
-        hash = (hash * FNV64_PRIME) & FNV64_MASK;
-    }
 }
 
 export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {

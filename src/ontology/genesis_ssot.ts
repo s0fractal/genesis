@@ -86,6 +86,27 @@ export const MACROS = {
         wgsl: "let index = (to_theta + 256u - from_theta + 64u) % 256u;\nreturn SINE_LUT[index];",
         rust: "let index = (to_theta as u32 + 256 - from_theta as u32 + 64) % 256;\nSINE_LUT[index as usize]",
         ts: "const index = (to_theta + 256 - from_theta + 64) % 256;\nreturn SINE_LUT[index];"
+    },
+    mix_u64: {
+        args: [ { name: "hash", type: "u64" }, { name: "value", type: "u64" } ],
+        returns: "u64",
+        wgsl: null,
+        rust: "let h = hash ^ value;\nh.wrapping_mul(FNV64_PRIME)",
+        ts: "const h = hash ^ value;\nreturn BigInt.asUintN(64, h * FNV64_PRIME);"
+    },
+    wrap_index: {
+        args: [ { name: "value", type: "i32" }, { name: "modulo", type: "i32" } ],
+        returns: "i32",
+        wgsl: "return value & (modulo - 1);",
+        rust: "value & (modulo - 1)",
+        ts: "return value & (modulo - 1);"
+    },
+    clamp_i32: {
+        args: [ { name: "value", type: "i32" }, { name: "min_val", type: "i32" }, { name: "max_val", type: "i32" } ],
+        returns: "i32",
+        wgsl: "return clamp(value, min_val, max_val);",
+        rust: "value.clamp(min_val, max_val)",
+        ts: "return Math.min(max_val, Math.max(min_val, value));"
     }
 };
 

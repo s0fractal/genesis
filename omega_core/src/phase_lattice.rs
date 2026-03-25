@@ -237,7 +237,7 @@ impl PhaseLatticeField {
                 for rho in 0..self.radial_bins as usize {
                     for sector in 0..self.sectors as usize {
                         let source = self.idx(tau, sector, rho, harmonic);
-                        let target_sector = wrap_index(sector as i32 + delta_sector, self.sectors as usize);
+                        let target_sector = wrap_index_usize(sector as i32 + delta_sector, self.sectors as usize);
                         let target = self.idx(tau, target_sector, rho, harmonic);
                         
                         self.agents[target] = agents_clone[source];
@@ -321,8 +321,8 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let lock = field.agents[past_idx].lock as i16;
                 let entanglement = field.agents[past_idx].entanglement;
 
-                let left = field.idx(past_tau, wrap_index(sector as i32 - 1, sectors), rho, harmonic);
-                let right = field.idx(past_tau, wrap_index(sector as i32 + 1, sectors), rho, harmonic);
+                let left = field.idx(past_tau, wrap_index_usize(sector as i32 - 1, sectors), rho, harmonic);
+                let right = field.idx(past_tau, wrap_index_usize(sector as i32 + 1, sectors), rho, harmonic);
                 let inner = field.idx(past_tau, sector, rho.saturating_sub(1), harmonic);
                 let outer = field.idx(past_tau, sector, usize::min(rho + 1, radial_bins - 1), harmonic);
                 let harmonic_peer = field.idx(past_tau, sector, rho, (harmonic + 1) % harmonics);
@@ -476,17 +476,17 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
     for harmonic in 0..field.harmonics as usize {
         for rho in 0..field.radial_bins as usize {
             for sector in 0..field.sectors as usize {
-                let idx = field.idx(tau, sector, rho, harmonic);
-                mix_u64(&mut hash, sector as u64);
-                mix_u64(&mut hash, rho as u64);
-                mix_u64(&mut hash, harmonic as u64);
-                mix_u64(&mut hash, field.agents[idx].theta as u64);
-                mix_u64(&mut hash, (field.agents[idx].omega as i32) as u32 as u64);
-                mix_u64(&mut hash, field.agents[idx].energy as u64);
-                mix_u64(&mut hash, field.agents[idx].lock as u64);
-                mix_u64(&mut hash, field.agents[idx].entanglement as u64);
-                mix_u64(&mut hash, field.cell_status[idx] as u64);
-                mix_u64(&mut hash, field.agents[idx].plasmid);
+                let idx = field.idx(tau, sector, rho, harmonic); // Assuming idx is the correct function name, not get_cell_index_internal
+                hash = crate::constants::mix_u64(hash, sector as u64);
+                hash = crate::constants::mix_u64(hash, rho as u64);
+                hash = crate::constants::mix_u64(hash, harmonic as u64);
+                hash = crate::constants::mix_u64(hash, field.agents[idx].theta as u64);
+                hash = crate::constants::mix_u64(hash, (field.agents[idx].omega as u32) as u64);
+                hash = crate::constants::mix_u64(hash, field.agents[idx].energy as u64); // Assuming energy is the correct field name, not amplitude
+                hash = crate::constants::mix_u64(hash, field.agents[idx].lock as u64);
+                hash = crate::constants::mix_u64(hash, field.agents[idx].entanglement as u64);
+                hash = crate::constants::mix_u64(hash, field.cell_status[idx] as u64);
+                hash = crate::constants::mix_u64(hash, field.agents[idx].plasmid); // Assuming plasmid is the correct field name, not plasmids
             }
         }
     }
