@@ -331,12 +331,15 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
-                let mut kuramoto = sin(theta, field.agents[left].theta)
-                    + sin(theta, field.agents[right].theta)
-                    + sin(theta, field.agents[inner].theta)
-                    + sin(theta, field.agents[outer].theta)
-                    + (sin(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
-                    + ((sin(theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
+                let frustration_offset = (KURAMOTO_SAKAGUCHI_ALPHA * 256.0) as i16;
+                let effective_theta = wrap_phase(theta as i16 + frustration_offset) as u8;
+
+                let mut kuramoto = sin(effective_theta, field.agents[left].theta)
+                    + sin(effective_theta, field.agents[right].theta)
+                    + sin(effective_theta, field.agents[inner].theta)
+                    + sin(effective_theta, field.agents[outer].theta)
+                    + (sin(effective_theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + ((sin(effective_theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
 
                 let mut coherence = cos(theta, field.agents[left].theta)
                     + cos(theta, field.agents[right].theta)

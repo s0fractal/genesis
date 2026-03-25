@@ -109,8 +109,11 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
 }
 
 // O-223 Native Phase Coupling via Hardware Hamming Distance (POPCNT Singularity)
+// O-247 Sakaguchi Phase Frustration (Breaks uniform crystalline sync to allow biological niches)
 fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
-    return signed_phase_delta(i32(me_theta), i32(neighbor_theta)) * 8; // Triangle wave approximation of Sin(x) * 1024
+    let frustration_offset = i32(KURAMOTO_SAKAGUCHI_ALPHA * 256.0);
+    let effective_me_theta = u32(wrap_index(i32(me_theta) + frustration_offset, 256));
+    return signed_phase_delta(i32(effective_me_theta), i32(neighbor_theta)) * 8; // Triangle wave approximation of Sin(x) * 1024
 }
 
 fn genetic_resonance(me: PhaseAgent, neighbor: PhaseAgent) -> i32 {

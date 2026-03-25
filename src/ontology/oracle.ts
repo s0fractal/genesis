@@ -3,6 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY, ORACLE_BACKOFF_BASE_MS, ORACLE_BACKOFF_MAX_MS, ORACLE_AKASHIC_GC_THRESHOLD, ORACLE_AKASHIC_GC_TARGET, BIOLOGY_EXTINCTION_THRESHOLD } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
+import { WasmMemoryProxy } from "../shared/memory_proxy.ts";
 import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
@@ -126,6 +127,7 @@ export class SovereignOracle {
         this.oracleId = "oracle_" + Math.random().toString(36).substring(2, 9);
         this.wasmField = field;
         this.wasmMemory = memory;
+        this.memoryProxy = new WasmMemoryProxy(memory);
         this.engine = engine;
         this.observer = visualizer; // Renamed visualizer to observer
         
@@ -813,7 +815,7 @@ export class SovereignOracle {
         
         const ptr = this.wasmField.ptr_header();
         if (ptr === 0) return;
-        const view = new DataView(this.wasmMemory.buffer, ptr, 256);
+        const view = new DataView(this.memoryProxy.buffer, ptr, 256);
         
         // 1. Read true native thermodynamic coefficients (Q10 logic applied for Kuramoto)
         let currentKuramoto = view.getInt32(28, true) / MATH_Q_SCALE;
@@ -883,7 +885,7 @@ export class SovereignOracle {
             count = this.wasmField.get_oracle_request_count();
             if (count > 0) {
                 const requestPtr = this.wasmField.ptr_oracle_requests();
-                const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
+                const requestArray = new Uint32Array(this.memoryProxy.buffer, requestPtr, count);
                 
                 // Era 245: Synchronized Memory Boundaries (Atomics API)
                 const rawRequests: number[] = [];
@@ -907,7 +909,7 @@ export class SovereignOracle {
                 if (collisionCount > 0 && this.wasmField.ptr_plasmid_collisions && this.wasmField.clear_collisions) {
                     const ptr = this.wasmField.ptr_plasmid_collisions();
                     // Note: BigUint64Array Atomics requires JS runtime flag or modern browser, but is supported natively in ES2020
-                    const collisionsTupleArray = new BigUint64Array(this.wasmMemory.buffer, ptr, collisionCount * 3);
+                    const collisionsTupleArray = new BigUint64Array(this.memoryProxy.buffer, ptr, collisionCount * 3);
                     const safeArray = new BigUint64Array(collisionCount * 3);
                     for (let i = 0; i < collisionCount * 3; i++) {
                         safeArray[i] = Atomics.load(collisionsTupleArray, i);
@@ -977,7 +979,7 @@ export class SovereignOracle {
         const ptr = this.wasmField.ptr_plasmids ? this.wasmField.ptr_plasmids() : 0;
         if (ptr === 0) return;
 
-        const plasmids = new BigUint64Array(this.wasmMemory.buffer, ptr, size);
+        const plasmids = new BigUint64Array(this.memoryProxy.buffer, ptr, size);
         
         // Verify this specific cell actually still belongs to this species
         if (plasmids[node.last_known_idx] !== hash) return;
@@ -1026,9 +1028,9 @@ export class SovereignOracle {
         if (!this.wasmField.ptr_plasmids || !this.wasmField.ptr_cell_status) return;
         
         const plasmidPtr = this.wasmField.ptr_plasmids!();
-        const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
+        const plasmids = new BigUint64Array(this.memoryProxy.buffer, plasmidPtr, size);
         const statusPtr = this.wasmField.ptr_cell_status!();
-        const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
+        const status = new Uint8Array(this.memoryProxy.buffer, statusPtr, size);
 
         for (let i = 0; i < count; i++) {
              const idx = Number(collisions[i * 3]);
@@ -1171,8 +1173,8 @@ export class SovereignOracle {
                          const omegaPtr = this.wasmField.ptr_omega();
                          
                          if (thetaPtr > 0 && omegaPtr > 0) {
-                             const thetaArray = new Uint8Array(this.wasmMemory.buffer, thetaPtr, size);
-                             const omegaArray = new Int16Array(this.wasmMemory.buffer, omegaPtr, size);
+                             const thetaArray = new Uint8Array(this.memoryProxy.buffer, thetaPtr, size);
+                             const omegaArray = new Int16Array(this.memoryProxy.buffer, omegaPtr, size);
                              
                              thetaArray[idx] = Number((childHash >> 8n) & 0xFFn);
                              omegaArray[idx] = Number((childHash >> 16n) & 0x07n) - 3;
@@ -1311,7 +1313,7 @@ export class SovereignOracle {
             // O-148: Read local High Nibble directly from physical phase memory
             const ptr = this.wasmField.ptr_theta ? this.wasmField.ptr_theta() : 0;
             if (ptr > 0) {
-                const thetaArray = new Uint8Array(this.wasmMemory.buffer, ptr, firstIdx + 1);
+                const thetaArray = new Uint8Array(this.memoryProxy.buffer, ptr, firstIdx + 1);
                 const cellTheta = thetaArray[firstIdx];
                 seasonValue = cellTheta >> 4; // 0 to 15 macroscopic seasons
             }
@@ -1426,10 +1428,10 @@ export class SovereignOracle {
         if (!this.wasmField.ptr_plasmids || !this.wasmField.ptr_cell_status) return;
 
         const plasmidPtr = this.wasmField.ptr_plasmids!();
-        const plasmids = new BigUint64Array(this.wasmMemory.buffer, plasmidPtr, size);
+        const plasmids = new BigUint64Array(this.memoryProxy.buffer, plasmidPtr, size);
         
         const statusPtr = this.wasmField.ptr_cell_status!();
-        const status = new Uint8Array(this.wasmMemory.buffer, statusPtr, size);
+        const status = new Uint8Array(this.memoryProxy.buffer, statusPtr, size);
         
         let success = 0;
         for (const idx of requests) {
