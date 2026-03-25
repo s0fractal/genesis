@@ -123,7 +123,6 @@ export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset:
     MUTATION_SMOOTHING_FACTOR = view.getInt32(76, true) / MATH_Q_SCALE;
     SENATE_MYCELIUM_MIN_LOCKS = view.getInt32(80, true);
     SENATE_MYCELIUM_MIN_ENERGY = view.getInt32(84, true);
-    SENATE_MYCELIUM_MIN_ENERGY = view.getInt32(84, true);
 }
 
 // O-77 Native Rust Synchronization Hook

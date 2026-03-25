@@ -475,11 +475,11 @@ export class SovereignOracle {
                 if (node.fitness >= 10.0) {
                     this.akashicRecords.set(hash, formatTerm(node.ast));
                     
-                    // Era 224: Architectural Polish (GC Strict Bounds)
-                    if (this.akashicRecords.size > 10000) {
+                    // Era 240: Kimi's Emergency GC (O(1) bounds protection during Mass Extinctions)
+                    if (this.akashicRecords.size > 15000) {
                         const keys = this.akashicRecords.keys();
-                        // Evict oldest 2000 entries to prevent V8 memory leak
-                        for (let i = 0; i < 2000; i++) {
+                        const toRemove = this.akashicRecords.size - 8000;
+                        for (let i = 0; i < toRemove; i++) {
                             const key = keys.next().value;
                             if (key !== undefined) {
                                 this.akashicRecords.delete(key);

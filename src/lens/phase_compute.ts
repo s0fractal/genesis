@@ -289,12 +289,16 @@ export class PhaseComputeEngine {
 
     injectPlasmid(index: number, hash: bigint) {
         if (!this.device) return;
-        const dec = decomposeHash(hash);
         
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return; // Drop if queue full to preserve homeostasis
         
-        const inj = this.injectionPool[this.injectionTail];
+        // Era 240.3: Atomically secure the local pointer before async resolution (Kimi Audit)
+        const currentTail = this.injectionTail;
+        this.injectionTail = nextTail;
+
+        const dec = decomposeHash(hash);
+        const inj = this.injectionPool[currentTail];
         inj.idx = index;
         inj.bucket = undefined;
         inj.hashLow = dec.low;
@@ -302,17 +306,20 @@ export class PhaseComputeEngine {
         inj.amp = Math.max(20, dec.amp); 
         inj.phase = dec.phase;
         inj.ent = dec.ent;
-        this.injectionTail = nextTail;
     }
 
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
         if (!this.device) return;
-        const dec = decomposeHash(hash);
-        
+
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return;
         
-        const inj = this.injectionPool[this.injectionTail];
+        // Era 240.3: Atomically secure the local pointer before async resolution (Kimi Audit)
+        const currentTail = this.injectionTail;
+        this.injectionTail = nextTail;
+
+        const dec = decomposeHash(hash);
+        const inj = this.injectionPool[currentTail];
         inj.idx = 0xFFFFFFFF;
         inj.bucket = bucketId;
         inj.hashLow = dec.low;
@@ -320,7 +327,6 @@ export class PhaseComputeEngine {
         inj.amp = Math.max(20, dec.amp); 
         inj.phase = dec.phase;
         inj.ent = dec.ent;
-        this.injectionTail = nextTail;
     }
 
     injectEnergy(index: number, phaseShift: number) {
@@ -329,7 +335,11 @@ export class PhaseComputeEngine {
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return;
         
-        const inj = this.injectionPool[this.injectionTail];
+        // Era 240.3: Secure pointer synchronously
+        const currentTail = this.injectionTail;
+        this.injectionTail = nextTail;
+        
+        const inj = this.injectionPool[currentTail];
         inj.idx = index;
         inj.bucket = undefined;
         inj.hashLow = 0;
@@ -337,7 +347,6 @@ export class PhaseComputeEngine {
         inj.amp = 255;
         inj.phase = phaseShift;
         inj.ent = 255;
-        this.injectionTail = nextTail;
     }
 
     readMycelialCentroids(): Float32Array | null {

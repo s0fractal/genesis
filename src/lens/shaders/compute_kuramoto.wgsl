@@ -1,11 +1,11 @@
 // O-176 Native Metal Kuramoto Physics Compute Shader (Granite Core AoS)
 
-override PHASE_LUT_SIZE: i32;
-override MAX_AMPLITUDE: i32;
-override MAX_ENTANGLEMENT: i32;
-override MAX_OMEGA: i32;
-override SHADOW_BUCKET_MIN: i32;
-override SHADOW_BUCKET_MAX: i32;
+override PHASE_LUT_SIZE: i32 = 256;
+override MAX_AMPLITUDE: i32 = 255;
+override MAX_ENTANGLEMENT: i32 = 255;
+override MAX_OMEGA: i32 = 16;
+override SHADOW_BUCKET_MIN: i32 = 1000;
+override SHADOW_BUCKET_MAX: i32 = 1023;
 // WGSL WebGPU Semantic Thresholds
 const COHERENCE_LOCK_THRESHOLD: i32 = 3145728; // Q20 representation of 3.0
 const COHERENCE_HIGH_THRESHOLD: i32 = 4404019; // Q20 representation of 4.2

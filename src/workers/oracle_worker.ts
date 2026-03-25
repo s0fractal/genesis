@@ -24,7 +24,33 @@ self.onmessage = async (e: MessageEvent) => {
     ];
 
     try {
-        const OLLAMA_URL = "http://localhost:11434/api/generate";
+        // Era 241: Reusable LLM Fetch Abstraction (Adapter Ready)
+        const fetchOllama = async (prompt: string, structuralSnapshot?: string | null) => {
+            const OLLAMA_URL = "http://localhost:11434/api/generate";
+            const requestBody: Record<string, unknown> = {
+                model: structuralSnapshot ? "llama3.2-vision" : "llama3",
+                prompt,
+                stream: false
+            };
+            if (structuralSnapshot) {
+                requestBody.images = [structuralSnapshot];
+            }
+            const fetchPromise = fetch(OLLAMA_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
+            });
+
+            const timeoutPromise = new Promise<Response>((_, reject) => 
+                setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
+            );
+
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            if (!response.ok) throw new Error("LLM Offline");
+            
+            const reqData = await response.json();
+            return reqData.response?.trim() || "";
+        };
 
         const maskPromises = MASKS.map(async (mask) => {
             const prompt = `
@@ -45,15 +71,6 @@ You must output EXACTLY TWO LINES. Focus on mathematical beauty and topological 
 PROPHECY: [A short, cryptic 1-sentence reason for the mutation]
 NO markdown, NO code blocks, NO formatting.
             `.trim();
-
-            const requestBody: Record<string, unknown> = {
-                model: data.structuralImage ? "llama3.2-vision" : "llama3",
-                prompt,
-                stream: false
-            };
-            if (data.structuralImage) {
-                requestBody.images = [data.structuralImage];
-            }
             
             const cacheKey = fastHash(prompt);
             const cached = llmCache.get(cacheKey);
@@ -61,29 +78,41 @@ NO markdown, NO code blocks, NO formatting.
                 return { mask: mask.name, response: cached.response };
             }
             
-            const fetchPromise = fetch(OLLAMA_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
-            });
-
-            const timeoutPromise = new Promise<Response>((_, reject) => 
-                setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
-            );
-
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            if (!response.ok) throw new Error("LLM Offline");
-            
-            const reqData = await response.json();
-            const fullResponse = reqData.response?.trim() || "";
-            
-            llmCache.set(cacheKey, { response: fullResponse, ts: performance.now() });
-            if (llmCache.size > 50) {
-                const oldestKey = Array.from(llmCache.entries()).sort((a,b) => a[1].ts - b[1].ts)[0][0];
-                llmCache.delete(oldestKey);
+            try {
+                const fullResponse = await fetchOllama(prompt, data.structuralImage);
+                
+                llmCache.set(cacheKey, { response: fullResponse, ts: performance.now() });
+                if (llmCache.size > 50) {
+                    const oldestKey = Array.from(llmCache.entries()).sort((a,b) => a[1].ts - b[1].ts)[0][0];
+                    llmCache.delete(oldestKey);
+                }
+                
+                return { mask: mask.name, response: fullResponse };
+            } catch (_err) {
+                // Era 241: Math Nomos Fallback (Degraded Autonomous Mode)
+                let fallbackAST = "I";
+                
+                // Procedural generation aligned with the Mask's structural intent
+                switch (mask.name) {
+                    case THEOLOGICAL_MASKS.ARIES: 
+                        fallbackAST = "S(K(K))(I)"; // High Chaos Combinatory Logic
+                        break;
+                    case THEOLOGICAL_MASKS.CANCER:
+                        fallbackAST = "CONS(I)(TRUE)"; // Strict Preservation
+                        break;
+                    case THEOLOGICAL_MASKS.LIBRA:
+                        fallbackAST = "CONS(S)(K)"; // Binary Balance
+                        break;
+                    case THEOLOGICAL_MASKS.CAPRICORN:
+                        fallbackAST = "Y(I)"; // Pruning / Self-Evaluation Entropy
+                        break;
+                }
+                
+                // Construct a deterministic response that mimics the LLM output regex 
+                // so the Regex parser at the bottom successfully slices the AST bucket.
+                const fallbackResponse = `PROPHECY: The void is silent. Math Nomos deterministic failover engaged.\nAST: ${fallbackAST}`;
+                return { mask: mask.name, response: fallbackResponse };
             }
-            
-            return { mask: mask.name, response: fullResponse };
         });
 
         const settled = await Promise.allSettled(maskPromises);
