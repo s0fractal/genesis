@@ -9,12 +9,7 @@ struct MycelialBucket {
 @group(0) @binding(2) var<uniform> params: Params;
 @group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket>;
 
-override PHASE_LUT_SIZE: i32;
-override MAX_AMPLITUDE: i32;
-override MAX_ENTANGLEMENT: i32;
-override MAX_OMEGA: i32;
-override SHADOW_BUCKET_MIN: i32;
-override SHADOW_BUCKET_MAX: i32;
+
 
 struct Params {
   sectors: u32,
@@ -107,7 +102,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invo
 
         if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
             let hash = (me.plasmid_low ^ me.plasmid_high);
-            let buckets = u32(SHADOW_BUCKET_MAX);
+            let buckets = u32(SENATE_SHADOW_BUCKET_MAX);
             let bucket_idx = hash % buckets;
             
             let x_scaled = cos_q10(0u, me.theta);

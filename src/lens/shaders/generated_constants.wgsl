@@ -56,6 +56,35 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
     return SINE_LUT[index];
 }
 
+fn wrap_index(value: i32, modulo: i32) -> i32 {
+    return value & (modulo - 1);
+}
+
+fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 {
+    return clamp(value, min_val, max_val);
+}
+
+fn atan2_u8(y: i32, x: i32) -> i32 {
+    if (x == 0 && y == 0) { return 0i; }
+        let abs_y = abs(y);
+        let abs_x = abs(x);
+        let a = min(abs_y, abs_x);
+        let b = max(abs_y, abs_x);
+        var ratio = 0i;
+        if (b != 0) { ratio = (a * 128) / b; }
+        if (ratio > 128) { ratio = 128; }
+        let octant_angle = i32(ATAN_LUT[ratio]);
+        var quadrant_angle = octant_angle;
+        if (abs_y > abs_x) { quadrant_angle = 64 - octant_angle; }
+        if (x < 0) {
+            if (y < 0) { return (128 + quadrant_angle) & 255; }
+            else { return (128 - quadrant_angle) & 255; }
+        } else {
+            if (y < 0) { return (256 - quadrant_angle) & 255; }
+            else { return quadrant_angle & 255; }
+        }
+}
+
 // --- HARDCODED LUTS ---
 const SINE_LUT = array<i32, 256>(
     0, 25, 50, 75, 100, 125, 150, 175, 200, 224, 249, 273, 297, 321, 345, 369,

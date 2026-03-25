@@ -58,6 +58,38 @@ export function cos_q10(from_theta: number, to_theta: number): number {
     return SINE_LUT[index];
 }
 
+export function mix_u64(hash: bigint, value: bigint): bigint {
+    const h = hash ^ value;
+    return BigInt.asUintN(64, h * FNV64_PRIME);
+}
+
+export function wrap_index(value: number, modulo: number): number {
+    return value & (modulo - 1);
+}
+
+export function clamp_i32(value: number, min_val: number, max_val: number): number {
+    return Math.min(max_val, Math.max(min_val, value));
+}
+
+export function atan2_u8(y: number, x: number): number {
+    if (x === 0 && y === 0) { return 0; }
+        const abs_y = Math.abs(y);
+        const abs_x = Math.abs(x);
+        const a = Math.min(abs_y, abs_x);
+        const b = Math.max(abs_y, abs_x);
+        let ratio = b === 0 ? 0 : Math.floor((a * 128) / b);
+        if (ratio > 128) { ratio = 128; }
+        const octant_angle = ATAN_LUT[ratio];
+        const quadrant_angle = abs_y > abs_x ? 64 - octant_angle : octant_angle;
+        if (x < 0) {
+            if (y < 0) { return (128 + quadrant_angle) & 255; } 
+            else { return (128 - quadrant_angle) & 255; }
+        } else {
+            if (y < 0) { return (256 - quadrant_angle) & 255; } 
+            else { return quadrant_angle & 255; }
+        }
+}
+
 // --- HARDCODED LUTS ---
 export const SINE_LUT = new Int32Array([
     0, 25, 50, 75, 100, 125, 150, 175, 200, 224, 249, 273, 297, 321, 345, 369,
