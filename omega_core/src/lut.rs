@@ -1,8 +1,6 @@
 // O-147 Vector P.1: Integer Q-Format Trigonometry
 // Fixed-point sine look-up table (Q10 format). Scaled by 1024.
-// Allows 100% cryptographic determinism across distributed node GPUs and CPUs.
-
-include!("generated/lut_data.rs");
+use crate::constants::ATAN_LUT;
 
 /// Cryptographically deterministic i32 replacement for `f64::atan2(y, x)` returning 0-255 phase.
 pub fn atan2_u8(y: i32, x: i32) -> u8 {

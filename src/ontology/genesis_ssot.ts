@@ -1,0 +1,153 @@
+/**
+ * OMEGA-64 | GENESIS SINGLE SOURCE OF TRUTH (SSoT)
+ * 
+ * This file governs all physical limits, memory offsets, and compile-time constants.
+ * It strictly adheres to Deterministic Mathematics (Integers only).
+ * 
+ * Any changes here will automatically re-compile into Rust, WGSL, and TypeScript via \`tools/build_ssot.ts\`.
+ */
+
+export const CONSTANTS = {
+    // Math & Hashing
+    MATH_Q_BITS: { type: "i32", value: 10 },
+    MATH_Q_SCALE: { type: "i32", expr: "1 << MATH_Q_BITS" },
+    NATIVE_GRAVITY: { type: "f32", value: -0.05 },
+    
+    FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },
+    FNV64_PRIME: { type: "u64", value: 1099511628211n },
+    // FNV64_MASK: { type: "u64", value: 0xFFFFFFFFFFFFFFFFn }, // Handled explicitly in Rust if needed
+
+    // Core Lattice and Phase Mathematics
+    PHASE_TAU_DEPTH: { type: "i32", value: 4 },
+    PHASE_LUT_SIZE: { type: "i32", value: 256 },
+    PHASE_MAX_AMPLITUDE: { type: "u8", value: 255 },
+    PHASE_MAX_LOCK: { type: "u8", value: 255 },
+    PHASE_MAX_ENTANGLEMENT: { type: "u8", value: 255 },
+    PHASE_HALF_PHASE: { type: "i32", value: 128 },
+    PHASE_MIN_OMEGA: { type: "i16", value: -16 },
+    PHASE_MAX_OMEGA: { type: "i16", value: 16 },
+    PHASE_MAX_OMEGA_BRIDGE: { type: "i16", value: 32 },
+    PHASE_FOSSILIZATION_PULSE_TICKS: { type: "i32", value: 24 },
+
+    // Kuramoto Thermodynamics (Q10 Format)
+    KURAMOTO_COUPLING_BASE: { type: "i32", value: 1024 }, 
+    KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", value: 512 }, 
+    KURAMOTO_COUPLING_ANTIPODE: { type: "i32", value: 358 }, 
+    KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", value: 3072 }, 
+    KURAMOTO_COHERENCE_THRESHOLD_HIGH: { type: "i32", value: 4301 }, 
+    KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: { type: "i32", value: 614 }, 
+    KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: { type: "i32", value: 942 }, 
+    KURAMOTO_COUPLING_PLASMID: { type: "i32", value: 768 }, 
+    KURAMOTO_PLASMID_DIFFUSION_RATE: { type: "i32", value: 51 },
+
+    // Evolutionary Parameters
+    MUTATION_BASE_COST: { type: "i32", value: 50 },
+    MUTATION_MIN_COST: { type: "i32", value: 5 },
+    MUTATION_MAX_COST: { type: "i32", value: 500 },
+    MUTATION_SMOOTHING_FACTOR: { type: "i32", value: 102 }, 
+    
+    // Senate & Shadow Network Governance
+    SENATE_ORACLE_TIMEOUT_MS: { type: "i32", value: 16 },
+    SENATE_MYCELIUM_MIN_LOCKS: { type: "i32", value: 1000 },
+    SENATE_MYCELIUM_MIN_ENERGY: { type: "i32", value: 220 },
+    SENATE_SHADOW_BUCKET_MIN: { type: "i32", value: 1000 },
+    SENATE_SHADOW_BUCKET_MAX: { type: "i32", value: 1024 },
+
+    // Tissue and Morphological Hardening
+    TISSUE_MORPHOLOGICAL_HYSTERESIS: { type: "i32", value: 5 },
+    TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", value: 154 }
+};
+
+export const MACROS = {
+    fast_abs: {
+        args: [ { name: "v", type: "i32" } ],
+        returns: "i32",
+        wgsl: "let mask = v >> 31u;\nreturn (v ^ mask) - mask;",
+        rust: "let mask = v >> 31;\n(v ^ mask) - mask",
+        ts: "const mask = v >> 31;\nreturn (v ^ mask) - mask;"
+    },
+    q20_round: {
+        args: [ { name: "x", type: "i32" } ],
+        returns: "i32",
+        wgsl: "if (x >= 0) { return (x + 524288) / 1048576; }\nreturn (x - 524288) / 1048576;",
+        rust: "if x >= 0 { (x + 524288) / 1048576 } else { (x - 524288) / 1048576 }",
+        ts: "return x >= 0 ? Math.floor((x + 524288) / 1048576) : Math.ceil((x - 524288) / 1048576);"
+    },
+    sin_q10: {
+        args: [ { name: "from_theta", type: "u32" }, { name: "to_theta", type: "u32" } ],
+        returns: "i32",
+        wgsl: "let index = (to_theta + 256u - from_theta) % 256u;\nreturn SINE_LUT[index];",
+        rust: "let index = (to_theta as u32 + 256 - from_theta as u32) % 256;\nSINE_LUT[index as usize]",
+        ts: "const index = (to_theta + 256 - from_theta) % 256;\nreturn SINE_LUT[index];"
+    },
+    cos_q10: {
+        args: [ { name: "from_theta", type: "u32" }, { name: "to_theta", type: "u32" } ],
+        returns: "i32",
+        wgsl: "let index = (to_theta + 256u - from_theta + 64u) % 256u;\nreturn SINE_LUT[index];",
+        rust: "let index = (to_theta as u32 + 256 - from_theta as u32 + 64) % 256;\nSINE_LUT[index as usize]",
+        ts: "const index = (to_theta + 256 - from_theta + 64) % 256;\nreturn SINE_LUT[index];"
+    }
+};
+
+// HARDCODED DETERMINISTIC LUTS (0% Transcendent Drift)
+export const LUTS = {
+    // SINE_LUT: [i32; 256] -> Math.sin(x) in Q10 format (-1024 to +1024)
+    SINE_LUT: {
+        type: "i32", len: 256,
+        data: [
+            0, 25, 50, 75, 100, 125, 150, 175, 200, 224, 249, 273, 297, 321, 345, 369,
+            392, 415, 438, 460, 483, 505, 526, 548, 569, 590, 610, 630, 650, 669, 688, 706,
+            724, 742, 759, 775, 792, 807, 822, 837, 851, 865, 878, 891, 903, 915, 926, 936,
+            946, 955, 964, 972, 980, 987, 993, 999, 1004, 1009, 1013, 1016, 1019, 1021, 1023, 1024,
+            1024, 1024, 1023, 1021, 1019, 1016, 1013, 1009, 1004, 999, 993, 987, 980, 972, 964, 955,
+            946, 936, 926, 915, 903, 891, 878, 865, 851, 837, 822, 807, 792, 775, 759, 742,
+            724, 706, 688, 669, 650, 630, 610, 590, 569, 548, 526, 505, 483, 460, 438, 415,
+            392, 369, 345, 321, 297, 273, 249, 224, 200, 175, 150, 125, 100, 75, 50, 25,
+            0, -25, -50, -75, -100, -125, -150, -175, -200, -224, -249, -273, -297, -321, -345, -369,
+            -392, -415, -438, -460, -483, -505, -526, -548, -569, -590, -610, -630, -650, -669, -688, -706,
+            -724, -742, -759, -775, -792, -807, -822, -837, -851, -865, -878, -891, -903, -915, -926, -936,
+            -946, -955, -964, -972, -980, -987, -993, -999, -1004, -1009, -1013, -1016, -1019, -1021, -1023, -1024,
+            -1024, -1024, -1023, -1021, -1019, -1016, -1013, -1009, -1004, -999, -993, -987, -980, -972, -964, -955,
+            -946, -936, -926, -915, -903, -891, -878, -865, -851, -837, -822, -807, -792, -775, -759, -742,
+            -724, -706, -688, -669, -650, -630, -610, -590, -569, -548, -526, -505, -483, -460, -438, -415,
+            -392, -369, -345, -321, -297, -273, -249, -224, -200, -175, -150, -125, -100, -75, -50, -25
+        ]
+    },
+    // ENTROPY_LUT: [i32; 256] -> -P(x) * log2(P(x)) * 1024 
+    ENTROPY_LUT: {
+        type: "i32", len: 256,
+        data: [
+            0, 32, 56, 77, 96, 114, 130, 145, 160, 174, 187, 200, 212, 224, 235, 246,
+            256, 266, 276, 285, 294, 303, 312, 320, 328, 336, 343, 350, 358, 364, 371, 378,
+            384, 390, 396, 402, 408, 413, 418, 423, 428, 433, 438, 443, 447, 451, 456, 460,
+            464, 468, 471, 475, 478, 482, 485, 488, 491, 494, 497, 500, 502, 505, 507, 510,
+            512, 514, 516, 518, 520, 522, 524, 525, 527, 529, 530, 531, 533, 534, 535, 536,
+            537, 538, 539, 539, 540, 541, 541, 542, 542, 543, 543, 543, 543, 543, 543, 543,
+            543, 543, 543, 543, 542, 542, 542, 541, 541, 540, 539, 539, 538, 537, 536, 535,
+            534, 533, 532, 531, 530, 529, 527, 526, 525, 523, 522, 520, 519, 517, 515, 514,
+            512, 510, 508, 506, 505, 503, 501, 499, 496, 494, 492, 490, 488, 485, 483, 481,
+            478, 476, 473, 471, 468, 465, 463, 460, 457, 454, 452, 449, 446, 443, 440, 437,
+            434, 431, 428, 425, 421, 418, 415, 412, 408, 405, 402, 398, 395, 391, 388, 384,
+            381, 377, 373, 370, 366, 362, 358, 355, 351, 347, 343, 339, 335, 331, 327, 323,
+            319, 315, 310, 306, 302, 298, 294, 289, 285, 281, 276, 272, 267, 263, 258, 254,
+            249, 245, 240, 235, 231, 226, 221, 217, 212, 207, 202, 197, 192, 187, 183, 178,
+            173, 168, 163, 157, 152, 147, 142, 137, 132, 127, 121, 116, 111, 105, 100, 95,
+            89, 84, 79, 73, 68, 62, 57, 51, 45, 40, 34, 29, 23, 17, 11, 6
+        ]
+    },
+    // ATAN_LUT: [u8; 129] -> Octant angles (0..32) for atan2 ratios (0..128)
+    ATAN_LUT: {
+        type: "u8", len: 129,
+        data: [
+            0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5,
+            5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 10,
+            10, 10, 11, 11, 11, 11, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14,
+            15, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19,
+            19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23,
+            23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 25, 26, 26, 26,
+            26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 29, 29, 29, 29,
+            29, 29, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 32, 32, 32,
+            32
+        ]
+    }
+};

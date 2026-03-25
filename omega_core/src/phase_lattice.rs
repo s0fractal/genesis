@@ -545,7 +545,7 @@ pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> f32 {
     let mut sum_q10 = 0i32;
     for amp in field.agents.iter().map(|a| a.energy) {
         if amp > 0 {
-            sum_q10 += crate::lut::ENTROPY_LUT[amp as usize];
+            sum_q10 += crate::constants::ENTROPY_LUT[amp as usize];
         }
     }
     (sum_q10 as f32) / 1024.0

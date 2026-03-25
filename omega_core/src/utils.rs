@@ -27,13 +27,13 @@ pub(crate) fn clamp_byte(value: i16) -> u8 {
 #[inline(always)]
 pub(crate) fn sin(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta) as usize;
-    crate::lut::SINE_LUT[index]
+    crate::constants::SINE_LUT[index]
 }
 
 #[inline(always)]
 pub(crate) fn cos(from_theta: u8, to_theta: u8) -> i32 {
     let index = to_theta.wrapping_sub(from_theta).wrapping_add(64) as usize;
-    crate::lut::SINE_LUT[index]
+    crate::constants::SINE_LUT[index]
 }
 
 
