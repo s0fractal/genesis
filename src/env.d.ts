@@ -109,6 +109,29 @@ interface SubstrateState {
     event_ledger: SemanticEvent[]; // Historian chronological record
 }
 
+// Era 247: Event Sourcing & Structural Sharing
+interface PlasmidMutationRecord {
+    hash: string;
+    parentHashes: string[];
+    sector: number;
+    ast: string;
+}
+
+interface GenesisDelta {
+    parentHash: string;
+    tickRange: [number, number];
+    mutations: {
+        plasmidBirths: PlasmidMutationRecord[];
+        plasmidDeaths: string[];
+        energyTransfers: { from: string; to: string; amount: number }[];
+    };
+    thermodynamicSnapshot: {
+        entropy: number; // Q10 scalar
+        totalEnergy: number; // Joules
+        kuramotoR: number; // Coupling coherence
+    };
+}
+
 interface EpochDump {
     timestamp: number;
     epochTicks: number;

@@ -9,8 +9,16 @@ export class BioAcousticChoir {
     private delayFeedback!: GainNode;
     private isInitialized = false;
 
-    // Era 234.1: Dynamic Plasmid Voices
-    private activeVoices: Map<string, { oscs: OscillatorNode[], gainNode: GainNode }> = new Map();
+    // Era 247: Resonant Choir (Coupled Harmonic Oscillators)
+    private activeVoices: Map<string, { 
+        oscs: OscillatorNode[], 
+        naturalFreqs: number[],
+        virtualPhases: number[],
+        gainNode: GainNode,
+        coupling: number
+    }> = new Map();
+    
+    private kuramotoInterval = 0;
 
     constructor() {}
 
@@ -64,7 +72,50 @@ export class BioAcousticChoir {
         // The ecosystem is now entirely silent until Plasmids sing.
 
         this.isInitialized = true;
+        
+        // Era 247: Start the Kuramoto Coupled Oscillator Loop
+        // Runs at approximately 60Hz to seamlessly bend WebAudio frequencies
+        this.kuramotoInterval = setInterval(() => this.tickCoupledOscillators(), 16) as unknown as number;
+        
         console.log("🔊 [CHOIR] Ontological Audio Matrix Initialized.");
+    }
+    
+    // Era 247: Model Predictive Sonification (Coupled Kuramoto Output)
+    private tickCoupledOscillators() {
+        if (!this.ctx || this.activeVoices.size === 0) return;
+        
+        const voices = Array.from(this.activeVoices.values());
+        const SAKAGUCHI_FRUSTRATION = 0.15; // From Phase 2 Physics SSoT
+        
+        for (const v1 of voices) {
+            for (let i = 0; i < v1.oscs.length; i++) {
+                let couplingSum = 0;
+                
+                // Compare this oscillator against every other oscillator in the choir
+                for (const v2 of voices) {
+                    if (v1 === v2) continue;
+                    
+                    for (let j = 0; j < v2.oscs.length; j++) {
+                        const freqDistance = Math.abs(v1.naturalFreqs[i] - v2.naturalFreqs[j]);
+                        // Only couple oscillators that are harmonically close (within 10%)
+                        if (freqDistance < v1.naturalFreqs[i] * 0.1) {
+                            const phaseDiff = v2.virtualPhases[j] - v1.virtualPhases[i] - SAKAGUCHI_FRUSTRATION;
+                            couplingSum += v2.coupling * Math.sin(phaseDiff);
+                        }
+                    }
+                }
+                
+                // Effective frequency = Natural + Coupling Force
+                const effectiveFreq = v1.naturalFreqs[i] + (couplingSum * 5.0); // Scalar multiplier for audible bending
+                
+                // Update mathematical phase simulation
+                // Converting frequency (Hz) to radians per tick (16ms)
+                v1.virtualPhases[i] = (v1.virtualPhases[i] + (effectiveFreq * Math.PI * 2 * 0.016)) % (Math.PI * 2);
+                
+                // Stream the coupled frequency to the WebAudio API smoothly
+                v1.oscs[i].frequency.setTargetAtTime(effectiveFreq, this.ctx.currentTime, 0.05);
+            }
+        }
     }
 
     public async resume() {
@@ -107,13 +158,8 @@ export class BioAcousticChoir {
         this.delayFeedback.gain.linearRampToValueAtTime(targetFeedback, time);
 
         // 4. Theta (Phase offsets)
-        for (const voice of this.activeVoices.values()) {
-            if (voice.oscs.length >= 2) {
-                const detuneAmount = (thetaNorm - 0.5) * 35; // -17.5 to +17.5 cents beating
-                voice.oscs[0].detune.linearRampToValueAtTime(detuneAmount, time);
-                voice.oscs[1].detune.linearRampToValueAtTime(-detuneAmount, time);
-            }
-        }
+        // Era 247: Pitch Detune is now handled via the tickCoupledOscillators dynamic frequency modulation.
+        // We no longer blindly detune based on visual Theta because the physics engine drives the harmony directly.
 
         // 5. Era 204: True 3D Spatial coordinates
         const radius = 10.0;
@@ -193,6 +239,9 @@ export class BioAcousticChoir {
         
         voiceGain.connect(this.filter);
         
+        const virtualPhases: number[] = [];
+        const naturalFreqs: number[] = [];
+        
         for (const freq of freqs) {
             const osc = this.ctx.createOscillator();
             // Massive trees generate physical sawtooth buzz; concise trees produce pure sine waves
@@ -200,9 +249,19 @@ export class BioAcousticChoir {
             osc.frequency.setValueAtTime(freq, time);
             osc.connect(voiceGain);
             osc.start(time);
+            
             oscs.push(osc);
+            naturalFreqs.push(freq);
+            virtualPhases.push(Math.random() * Math.PI * 2); // Initial stochastic phase
         }
-        this.activeVoices.set(hashStr, { oscs, gainNode: voiceGain });
+        
+        this.activeVoices.set(hashStr, { 
+            oscs, 
+            naturalFreqs, 
+            virtualPhases, 
+            gainNode: voiceGain,
+            coupling: energyNorm // Louder/bigger plasmids exert more gravitational pull on the melody
+        });
     }
 
     public stopPlasmid(hashStr: string) {

@@ -44,6 +44,36 @@ export function exportGenesisState(
     return encode(payload);
 }
 
+// Era 247: Event Sourcing Differential Persistence
+// Serializes only the structural changes (deltas), enabling O(1) network and disk I/O.
+export function exportGenesisDelta(
+    parentStateHash: string,
+    startTick: number,
+    endTick: number,
+    births: PlasmidMutationRecord[],
+    deaths: string[],
+    transfers: { from: string; to: string; amount: number }[],
+    entropy: number,
+    totalEnergy: number,
+    kuramotoR: number
+): Uint8Array {
+    const delta: GenesisDelta = {
+        parentHash: parentStateHash,
+        tickRange: [startTick, endTick],
+        mutations: {
+            plasmidBirths: births,
+            plasmidDeaths: deaths,
+            energyTransfers: transfers
+        },
+        thermodynamicSnapshot: {
+            entropy,
+            totalEnergy,
+            kuramotoR
+        }
+    };
+    return encode(delta);
+}
+
 export function parseGenesisState(buffer: ArrayBuffer): SubstrateState {
     const decoded = decode(new Uint8Array(buffer)) as SubstrateState;
     if (!decoded.manifest || decoded.manifest.version < 4200) {
