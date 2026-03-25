@@ -1,11 +1,19 @@
 /// <reference types="@webgpu/types" />
 
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
-import { PhaseLatticeField } from "@wasm";
-import { PhaseComputeEngine } from './phase_compute.ts';
 import * as C from "../shared/constants.ts";
 import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4, vec4TransformMat4, mat4Multiply } from "./math_3d.ts";
 import { BioAcousticChoir } from "./audio_synth.ts";
+
+export interface TopologyMetadata {
+    sectors: number;
+    radial_bins: number;
+    harmonics: number;
+    tau_depth: number;
+    cell_count: number;
+    ptr_agents: number;
+    ptr_header: number;
+}
 
 export class PhaseWebGPUObserver {
     public heatmapEnabled: boolean = false;
@@ -13,11 +21,10 @@ export class PhaseWebGPUObserver {
     private device: GPUDevice | null;
     private context!: GPUCanvasContext | CanvasRenderingContext2D;
     private pipeline!: GPURenderPipeline;
-    private bindGroupA!: GPUBindGroup;
-    private bindGroupB!: GPUBindGroup;
+    private bindGroup!: GPUBindGroup;
+    private latticeBuffer!: GPUBuffer;
     private paramsBuffer!: GPUBuffer;
-    private field: PhaseLatticeField;
-    private engine: PhaseComputeEngine;
+    private metadata: TopologyMetadata;
     private startTime: number;
     public camera: OrbitCamera;
     public choir: BioAcousticChoir;
@@ -31,13 +38,15 @@ export class PhaseWebGPUObserver {
     // Era 238: The Canvas Pool (Zero-Copy Observer)
     private snapshotCanvas?: HTMLCanvasElement;
     private snapshotCtx?: CanvasRenderingContext2D;
+    
+    // Inbound messaging port to relay God Hand actions back to worker
+    public workerPort?: MessagePort;
 
-    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice | null) {
+    constructor(canvas: HTMLCanvasElement, metadata: TopologyMetadata, device: GPUDevice | null) {
         this.canvas = canvas;
         this.canvas.tabIndex = 0; // O-194: Accessibility Focus
         this.canvas.style.outline = "none";
-        this.field = field;
-        this.engine = engine;
+        this.metadata = metadata;
         this.device = device;
         this.startTime = performance.now();
         
@@ -61,13 +70,13 @@ export class PhaseWebGPUObserver {
         this.canvas.addEventListener('pointerdown', (e) => {
             if (e.button === 0) this.isDragging = true;
             
-            // Era 249: God Hand Immediate Injection
-            if (this.hoveredIdx !== null) {
+            // Era 249: God Hand Immediate Injection via Worker
+            if (this.hoveredIdx !== null && this.workerPort) {
                 if (e.shiftKey) {
-                    this.engine.injectEnergy(this.hoveredIdx, Math.floor(Math.random() * 255));
+                    this.workerPort.postMessage({ type: 'GOD_HAND_ENERGY', idx: this.hoveredIdx, energy: Math.floor(Math.random() * 255) });
                     this.choir.triggerNoiseBurst(0, 0);
                 } else if (e.altKey) {
-                    this.engine.injectPlasmid(this.hoveredIdx, 0x0111_2222_3333_4444n);
+                    this.workerPort.postMessage({ type: 'GOD_HAND_PLASMID', idx: this.hoveredIdx, hash: "0x0111222233334444" });
                     this.choir.triggerSineBell(0, 0);
                 }
             }
@@ -104,11 +113,11 @@ export class PhaseWebGPUObserver {
             };
             
             // Era 249: God Hand Drag Injection
-            if (this.hoveredIdx !== null && e.buttons === 1) {
+            if (this.hoveredIdx !== null && e.buttons === 1 && this.workerPort) {
                 if (e.shiftKey) {
-                    this.engine.injectEnergy(this.hoveredIdx, Math.floor(Math.random() * 255));
+                    this.workerPort.postMessage({ type: 'GOD_HAND_ENERGY', idx: this.hoveredIdx, energy: Math.floor(Math.random() * 255) });
                 } else if (e.altKey) {
-                    this.engine.injectPlasmid(this.hoveredIdx, 0x0111_2222_3333_4444n);
+                    this.workerPort.postMessage({ type: 'GOD_HAND_PLASMID', idx: this.hoveredIdx, hash: "0x0111222233334444" });
                 }
             }
         });
@@ -161,13 +170,19 @@ export class PhaseWebGPUObserver {
 
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
-        const _numCells = this.field.cell_count();
+        const numCells = this.metadata.cell_count;
+        const totalSize = numCells * 16;
         
         const format = navigator.gpu.getPreferredCanvasFormat();
         (this.context as GPUCanvasContext).configure({
             device: this.device,
             format,
             alphaMode: 'opaque'
+        });
+
+        this.latticeBuffer = this.device.createBuffer({
+            size: totalSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
         // Era 239: The Quantum Eye (Observer Effect) - 448 bytes total
@@ -215,18 +230,10 @@ export class PhaseWebGPUObserver {
             primitive: { topology: 'triangle-strip' }
         });
 
-        this.bindGroupA = this.device.createBindGroup({
+        this.bindGroup = this.device.createBindGroup({
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.engine.bufferA } },
-                { binding: 1, resource: { buffer: this.paramsBuffer } }
-            ]
-        });
-        
-        this.bindGroupB = this.device.createBindGroup({
-            layout: this.pipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this.engine.bufferB } },
+                { binding: 0, resource: { buffer: this.latticeBuffer } },
                 { binding: 1, resource: { buffer: this.paramsBuffer } }
             ]
         });
@@ -240,10 +247,10 @@ export class PhaseWebGPUObserver {
         });
     }
 
-    render(activeFieldBuffer: GPUBuffer) {
+    render(sab: ArrayBufferLike, current_tau: number, sectorHeatArray?: Float32Array) {
         if (!this.context) return;
         
-        const numCells = this.field.cell_count();
+        const numCells = this.metadata.cell_count;
 
         // Era 243.3: CPU Render Boundary
         if (!this.device) {
@@ -258,8 +265,8 @@ export class PhaseWebGPUObserver {
             ctx.fillStyle = '#05080f';
             ctx.fillRect(0, 0, w, h);
             
-            const ptrAgents = this.field.ptr_agents() as number;
-            const dv = new DataView(this.engine.wasmMemory.buffer, ptrAgents, numCells * 16);
+            const ptrAgents = this.metadata.ptr_agents;
+            const dv = new DataView(sab, ptrAgents, numCells * 16);
             
             for (let i = 0; i < numCells; i++) {
                 const offset = i * 16;
@@ -280,7 +287,9 @@ export class PhaseWebGPUObserver {
             return;
         }
 
-        const activeBindGroup = activeFieldBuffer === this.engine.bufferA ? this.bindGroupA : this.bindGroupB;
+        // Upload new array buffer slice onto VRAM
+        const byteSize = numCells * 16;
+        this.device.queue.writeBuffer(this.latticeBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_agents, byteSize);
 
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
@@ -289,22 +298,22 @@ export class PhaseWebGPUObserver {
         const viewU32 = new Uint32Array(uniformBuffer);
         const viewF32 = new Float32Array(uniformBuffer);
 
-        viewU32[0] = this.field.sectors;
-        viewU32[1] = this.field.radial_bins;
-        viewU32[2] = this.field.harmonics;
-        viewU32[3] = this.field.tau_depth;
-        viewU32[4] = this.field.get_current_tau();
+        viewU32[0] = this.metadata.sectors;
+        viewU32[1] = this.metadata.radial_bins;
+        viewU32[2] = this.metadata.harmonics;
+        viewU32[3] = this.metadata.tau_depth;
+        viewU32[4] = current_tau;
         
         viewF32[5] = time;
         viewF32[6] = aspect;
         viewU32[7] = this.heatmapEnabled ? 1 : 0;
         
-        viewU32[8] = Math.floor(this.engine.offsets[0] / 4);
-        viewU32[9] = Math.floor(this.engine.offsets[1] / 4);
-        viewU32[10] = Math.floor(this.engine.offsets[2] / 4);
-        viewU32[11] = Math.floor(this.engine.offsets[3] / 4);
-        viewU32[12] = Math.floor(this.engine.offsets[4] / 4);
-        viewU32[13] = Math.floor(this.engine.offsets[5] / 4);
+        viewU32[8] = 0;
+        viewU32[9] = 0;
+        viewU32[10] = 0;
+        viewU32[11] = 0;
+        viewU32[12] = 0;
+        viewU32[13] = 0;
         viewU32[14] = this.shadowXRayActive ? 1 : 0; // O-129 X-Ray Toggle
         
         // Compute View and Proj Matrices
@@ -328,10 +337,8 @@ export class PhaseWebGPUObserver {
         
         // Era 239.2: Torus Sector Heat (The Topos Panopticon Array mapping)
         // 64 Float32s packed sequentially starting at float offset 48
-        // deno-lint-ignore no-explicit-any
-        const oracle = (this.engine as any).oracle;
-        if (oracle && oracle.sectorHeat) {
-            viewF32.set(oracle.sectorHeat, 48);
+        if (sectorHeatArray) {
+            viewF32.set(sectorHeatArray, 48);
         }
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
@@ -348,15 +355,13 @@ export class PhaseWebGPUObserver {
             let closestLock = 0;
             let closestEnt = 0;
 
-            const ptrAgents = this.field.ptr_agents() as number;
-            const dv = new DataView(this.engine.wasmMemory.buffer, ptrAgents, numCells * 16);
+            const dv = new DataView(sab, this.metadata.ptr_agents, numCells * 16);
             
             const vOut = new Float32Array(4);
             const vPos = new Float32Array(4);
             vPos[3] = 1.0;
 
-            const current_tau = this.field.get_current_tau();
-            const layer_size = this.field.harmonics * this.field.radial_bins * this.field.sectors;
+            const layer_size = this.metadata.harmonics * this.metadata.radial_bins * this.metadata.sectors;
             const base_idx = current_tau * layer_size;
 
             for (let i = 0; i < layer_size; i++) {
@@ -367,10 +372,10 @@ export class PhaseWebGPUObserver {
 
                 if (plasmid_low === 0 && plasmid_high === 0) continue;
 
-                const harmonic = Math.floor(i / (this.field.radial_bins * this.field.sectors));
-                const rem = i % (this.field.radial_bins * this.field.sectors);
-                const rho = Math.floor(rem / this.field.sectors);
-                const sector = rem % this.field.sectors;
+                const harmonic = Math.floor(i / (this.metadata.radial_bins * this.metadata.sectors));
+                const rem = i % (this.metadata.radial_bins * this.metadata.sectors);
+                const rho = Math.floor(rem / this.metadata.sectors);
+                const sector = rem % this.metadata.sectors;
 
                 const _amplitude = dv.getUint8(offset + 13) / 255.0;
                 const lock = dv.getUint8(offset + 14) / 255.0;
@@ -381,11 +386,11 @@ export class PhaseWebGPUObserver {
                 const p_amp_norm = Math.max(0, Math.min(1.0, (plasmid_amplitude - 40) / 215));
                 const p_ent_norm = Math.max(0, Math.min(1.0, plasmid_entanglement / 255));
 
-                const angle = (sector / this.field.sectors) * Math.PI * 2;
-                const radius_t = (rho + 1) / (this.field.radial_bins + 1);
+                const angle = (sector / this.metadata.sectors) * Math.PI * 2;
+                const radius_t = (rho + 1) / (this.metadata.radial_bins + 1);
                 const major_radius = 2.8 * radius_t;
                 
-                const z = (harmonic - (this.field.harmonics - 1) * 0.5) * 0.6;
+                const z = (harmonic - (this.metadata.harmonics - 1) * 0.5) * 0.6;
                 const chrono_z = z + (p_amp_norm * 0.55);
                 const wobble_z = Math.sin(time * 2.0 + angle * 4.0 + radius_t * 8.0) * 0.05 * (entanglement + (p_ent_norm * 2.5));
 
@@ -437,7 +442,7 @@ export class PhaseWebGPUObserver {
         });
 
         pass.setPipeline(this.pipeline);
-        pass.setBindGroup(0, activeBindGroup);
+        pass.setBindGroup(0, this.bindGroup);
         pass.draw(4, numCells); 
         pass.end();
 

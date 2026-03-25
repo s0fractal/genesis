@@ -28,6 +28,7 @@ export type SenateEvent =
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
+    private memoryProxy: WasmMemoryProxy;
     private engine?: PhaseComputeEngine;
     private observer?: PhaseWebGPUObserver;
     

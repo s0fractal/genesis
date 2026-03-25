@@ -1,8 +1,6 @@
 import { bootstrapPhase } from "./bootstrap/phase.ts";
 import { bootstrapReplay } from "./bootstrap/replay.ts";
 
-import initWasm from "@wasm";
-
 export const START_MS = performance.now();
 
 const mode = new URLSearchParams(globalThis.location.search).get("mode") || "classic";
@@ -15,8 +13,9 @@ async function boot() {
         if (mode === "replay") {
             await bootstrapReplay(replayStack);
         } else {
-            const wasm = await initWasm();
-            await bootstrapPhase(wasm.memory as WebAssembly.Memory);
+            // Era 250: WASM Instantiation is now exclusively handled by the SharedWorker
+            // The Main Thread acts purely as a Dumb Terminal
+            await bootstrapPhase();
         }
     } catch (e) {
         console.error("[Genesis] Master routing collapse:", e);
