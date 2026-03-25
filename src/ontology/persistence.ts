@@ -1,5 +1,5 @@
 import { encode, decode } from "@msgpack/msgpack";
-import { formatTerm } from "../compiler/pure_lambda.ts";
+import { lambda_format_term } from "../compiler/pure_lambda.ts";
 
 export function exportGenesisState(
     epochTicks: number,
@@ -12,7 +12,7 @@ export function exportGenesisState(
 ): Uint8Array {
     const population = Array.from(registry.entries()).map(([hash, node]) => ({
         hash: hash.toString(),
-        ast: formatTerm(node.ast),
+        ast: lambda_format_term(node.ast),
         energy: node.energy === Infinity ? -1 : node.energy, // msgpack/json inf handling
         attention: node.attention,
         l1_cost: node.l1_cost,

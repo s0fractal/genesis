@@ -6,14 +6,13 @@ import {
 } from "@wasm";
 
 export {
-    lambda_decompose_ast as decomposeAST,
-    lambda_phenotype_hue as phenotypeHue,
-    lambda_compile_morphology as compileMorphology,
-    lambda_decode_morphology as decodeMorphology,
-    lambda_parse as variable,
-    lambda_parse as parseLambda,
-    lambda_format_term as formatTerm,
-    lambda_evaluate_fitness as evaluateLambda
+    lambda_decompose_ast,
+    lambda_phenotype_hue,
+    lambda_compile_morphology,
+    lambda_decode_morphology,
+    lambda_parse,
+    lambda_format_term,
+    lambda_evaluate_fitness
 } from "@wasm";
 
 let _S: number = -1;

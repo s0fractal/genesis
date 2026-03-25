@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
+import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -206,7 +206,7 @@ export class SovereignOracle {
             { term: getW(), string: "W" }
         ];
         for (const meta of immortals) {
-            const childHash = compileMorphology(meta.term);
+            const childHash = lambda_compile_morphology(meta.term);
             
             if (!this.plasmidRegistry.has(childHash)) {
                 this.plasmidRegistry.set(childHash, {
@@ -253,7 +253,7 @@ export class SovereignOracle {
         const sorted = Array.from(this.activePlasmids)
             .map(hash => {
                 const node = this.plasmidRegistry.get(hash);
-                return { hash, energy: node ? Math.floor(node.energy) : 0, ast: node ? formatTerm(node.ast) : "", nodes: node ? node.nodes : 1 };
+                return { hash, energy: node ? Math.floor(node.energy) : 0, ast: node ? lambda_format_term(node.ast) : "", nodes: node ? node.nodes : 1 };
             })
             .filter(n => n.energy > 0 && n.energy !== Infinity)
             .sort((a, b) => b.energy - a.energy);
@@ -321,7 +321,7 @@ export class SovereignOracle {
         
         for (const node of registryPayload) {
             const hash = BigInt(node.hash);
-            const astTerm = parseLambda(node.ast);
+            const astTerm = lambda_parse(node.ast);
             this.plasmidRegistry.set(hash, {
                 ast: astTerm,
                 energy: node.energy === -1 ? Infinity : node.energy,
@@ -473,7 +473,7 @@ export class SovereignOracle {
             if (node.energy <= 0) {
                 // Era 207 Vector 1: The Akashic Records (Meta-Memory Remembrance)
                 if (node.fitness >= 10.0) {
-                    this.akashicRecords.set(hash, formatTerm(node.ast));
+                    this.akashicRecords.set(hash, lambda_format_term(node.ast));
                     
                     // Era 240: Kimi's Emergency GC (O(1) bounds protection during Mass Extinctions)
                     if (this.akashicRecords.size > 15000) {
@@ -489,7 +489,7 @@ export class SovereignOracle {
                 }
 
                 // Era 204 Vector 2: Cellular Autophagy (Scrap Recovery)
-                const scrapATP = decomposeAST(node.ast);
+                const scrapATP = lambda_decompose_ast(node.ast);
                 this.reserveEnergyPool += scrapATP;
                 if (scrapATP > 5) {
                      console.log(`♻️ [AUTOPHAGY] Decomposed extinct plasmid ${hash.toString().substring(0, 8)}. Refunded ${scrapATP} ATP to Reserve.`);
@@ -570,7 +570,7 @@ export class SovereignOracle {
                  node.temporal_credit -= 1.0;
                  
                  try {
-                     const testTerm = apply(node.ast, variable("target"));
+                     const testTerm = apply(node.ast, lambda_parse("target"));
                      
                      // Era 208: Zodiac Computational Limits
                      let baseLimit = Math.max(10, Math.floor(node.energy));
@@ -615,7 +615,7 @@ export class SovereignOracle {
                          node.fitness += (physical_fitness * intent_multiplier);
                          
                          // Era 234.2: Consonance Fitness
-                         const astStr = formatTerm(testTerm);
+                         const astStr = lambda_format_term(testTerm);
                          const harmonyBonus = calculateConsonanceBonus(astStr);
                          if (harmonyBonus > 0 && this.reserveEnergyPool >= harmonyBonus) {
                              this.reserveEnergyPool -= harmonyBonus;
@@ -713,7 +713,7 @@ export class SovereignOracle {
                     console.log(`👁️ [AKASHIC RECALL] Sector ${i} is BOILING (Heat: ${this.sectorHeat[i].toFixed(2)}). Resurrecting ancient logic: [${ghostHash.toString().substring(0,8)}]`);
                     
                     try {
-                        const ghostTerm = parseLambda(ghostASTString);
+                        const ghostTerm = lambda_parse(ghostASTString);
                         const metrics = measureIR(ghostTerm);
                         const seedEnergy = 500;
                         this.reserveEnergyPool -= seedEnergy;
@@ -772,7 +772,7 @@ export class SovereignOracle {
             const node = this.plasmidRegistry.get(hash);
             if (node) {
                 // Hue (0.0 - 1.0) maps cleanly to an angular phase
-                const theta = phenotypeHue(node.ast) * Math.PI * 2;
+                const theta = lambda_phenotype_hue(node.ast) * Math.PI * 2;
                 sumCos += Math.cos(theta);
                 sumSin += Math.sin(theta);
                 rCount++;
@@ -955,7 +955,7 @@ export class SovereignOracle {
 
     // Era 233.1: Phenotypic Locomotion Vector Extraction
     private compilePhenotypeVector(term: Term): { dx: number, dy: number, cost: number } {
-        const astStr = formatTerm(term);
+        const astStr = lambda_format_term(term);
         let dx = 0; let dy = 0;
         
         // Primitive AST geometric sensing based on sub-trees
@@ -1051,8 +1051,8 @@ export class SovereignOracle {
                  this.reserveEnergyPool -= foreignReward;
                  if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += foreignReward; this.activePlasmids.add(foreign_plasmid); }
 
-                 const hostTerm = hostNode ? hostNode.ast : apply(getI(), variable("host"));
-                 let foreignTerm = foreignNode ? foreignNode.ast : apply(getI(), variable("foreign"));
+                 const hostTerm = hostNode ? hostNode.ast : apply(getI(), lambda_parse("host"));
+                 let foreignTerm = foreignNode ? foreignNode.ast : apply(getI(), lambda_parse("foreign"));
                  
                  // Era 231.2: Deep Memory Crossover (Temporal Exhumation)
                  // If the host is suffering from critical low fitness and age, pull a fossil from the Akashic Records
@@ -1061,7 +1061,7 @@ export class SovereignOracle {
                      const ghostHash = memoryHashes[Math.floor(Math.random() * memoryHashes.length)];
                      const ghostASTString = this.akashicRecords.get(ghostHash)!;
                      try {
-                         foreignTerm = parseLambda(ghostASTString);
+                         foreignTerm = lambda_parse(ghostASTString);
                          console.log(`⏳ [TEMPORAL EXHUMATION] Plasmid [${host_plasmid.toString().substring(0,8)}] (Fitness: ${hostNode.fitness.toFixed(1)}) summoned ancestral memory [${ghostHash.toString().substring(0,8)}] for crossover!`);
                      } catch (_e) {
                          // Corrupt fossil, ignore
@@ -1086,10 +1086,10 @@ export class SovereignOracle {
                          childTerm = hostTerm;
                      }
                      
-                     const childStr = formatTerm(childTerm);
+                     const childStr = lambda_format_term(childTerm);
                      let childHash = this.fastSemanticHash(childStr);
                      
-                     const hue = phenotypeHue(childTerm);
+                     const hue = lambda_phenotype_hue(childTerm);
                      childHash = (childHash & 0xFFFFFFFFFFFFFF00n) | BigInt(hue);
                      
                      // Era 211: Metaphysical Topology (Geographic Genesis)
@@ -1103,9 +1103,9 @@ export class SovereignOracle {
                          childHash ^= corruptBit;
                          
                          // Instantly reverse-recode the damaged struct back into a living logical tree
-                         childTerm = decodeMorphology(childHash);
+                         childTerm = lambda_decode_morphology(childHash);
                          metrics = measureIR(childTerm); // Recalculate physical stress of new alien architecture
-                         console.log(`☢️ [REVERSE RECODING] Sector ${sector} Heat violently mutated a logical sequence into an Alien Genotype: ${formatTerm(childTerm)}`);
+                         console.log(`☢️ [REVERSE RECODING] Sector ${sector} Heat violently mutated a logical sequence into an Alien Genotype: ${lambda_format_term(childTerm)}`);
                      }
 
                      if (!this.plasmidRegistry.has(childHash)) {
@@ -1201,7 +1201,7 @@ export class SovereignOracle {
                 console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
                 
                 try {
-                    parseLambda(intentStr); // Validate AST, throws if malformed
+                    lambda_parse(intentStr); // Validate AST, throws if malformed
                     validIntents++;
                     
                     // Broadcast raw mathematical generation to the HUD
@@ -1350,9 +1350,9 @@ export class SovereignOracle {
         // We now rigorously compile the intent through pure_lambda.ts instead of regex stripping
         let hash = 0n;
         try {
-            const astTerm = parseLambda(intent);
-            const astStr = formatTerm(astTerm); // Normalize spacing and validation
-            hash = compileMorphology(astTerm);
+            const astTerm = lambda_parse(intent);
+            const astStr = lambda_format_term(astTerm); // Normalize spacing and validation
+            hash = lambda_compile_morphology(astTerm);
             if (!this.plasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);
                 const seedEnergy = Math.min(10000, this.reserveEnergyPool);
@@ -1451,7 +1451,7 @@ export class SovereignOracle {
     public registerNetworkForeign(plasmid: ForeignPlasmid) {
         const hash = BigInt(plasmid.hash);
         if (!this.plasmidRegistry.has(hash)) {
-            const decodedAst = decodeMorphology(hash);
+            const decodedAst = lambda_decode_morphology(hash);
             const metrics = measureIR(decodedAst);
             const sector = plasmid.targetBucket !== undefined ? this.getGeographicSector(plasmid.targetBucket) : 0;
             
