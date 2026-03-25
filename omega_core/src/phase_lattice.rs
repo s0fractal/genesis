@@ -3,6 +3,20 @@ use crate::constants::*;
 use crate::utils::*;
 
 
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct WasmPhysicsGenome {
+    pub id: u64,
+    pub coupling_k: i32,
+    pub mutation_rate: i32,
+    pub diffusion_rate: i32,
+    pub scope_radius: i32,
+    pub center_sector: u32,
+    pub center_rho: u32,
+    pub ttl: u32,
+    pub active: u8,
+    pub padding: [u8; 3], // 40-byte aligned
+}
 
 #[repr(C)]
 #[derive(Clone)]
@@ -97,6 +111,7 @@ pub struct PhaseLatticeField {
     pub(crate) cell_status: Vec<u8>,
     pub(crate) plasmid_collisions: Vec<u64>,
     pub(crate) collision_count: u32,
+    pub(crate) active_genomes: [WasmPhysicsGenome; 16],
     pub(crate) canary_end: u32,
     pub(crate) internal_tick: u64,
 }
@@ -150,6 +165,7 @@ impl PhaseLatticeField {
             cell_status: vec![0; max_elements],
             plasmid_collisions: vec![0; 1024 * 3],
             collision_count: 0,
+            active_genomes: [WasmPhysicsGenome::default(); 16],
             canary_end: 0xDEADBEEF,
             internal_tick: 0,
         };
@@ -191,6 +207,10 @@ impl PhaseLatticeField {
 
     pub fn ptr_agents(&self) -> *const u8 {
         self.agents.as_ptr() as *const u8
+    }
+
+    pub fn ptr_active_genomes(&self) -> *const u8 {
+        self.active_genomes.as_ptr() as *const u8
     }
 
     pub fn ptr_oracle_requests(&self) -> *const u32 {
@@ -244,6 +264,7 @@ impl PhaseLatticeField {
     pub fn rotate_global_phase(&mut self, delta: i16) {
         for agent in &mut self.agents {
             agent.theta = wrap_phase(agent.theta as i16 + delta);
+            agent.preferred_theta = wrap_phase(agent.preferred_theta as i16 + delta);
         }
     }
 
@@ -280,6 +301,51 @@ impl PhaseLatticeField {
     pub fn check_memory_canary(&self) -> bool {
         self.canary_1 == 0xDEADBEEF && self.canary_2 == 0xDEADBEEF && self.canary_end == 0xDEADBEEF
     }
+
+    pub fn evaluate_genome_resonance(&self, genome_idx: u32) -> f64 {
+        if genome_idx >= 16 { return 0.0; }
+        let genome = &self.active_genomes[genome_idx as usize];
+        if genome.active == 0 { return 0.0; }
+
+        let sectors = self.sectors as usize;
+        let radial_bins = self.radial_bins as usize;
+        let tau = self.current_tau as usize;
+
+        let mut total_coherence: i64 = 0;
+        let mut count = 0;
+
+        for rho in 0..radial_bins {
+            for sector in 0..sectors {
+                let sec_dist = fast_abs(sector as i32 - genome.center_sector as i32);
+                let sec_dist = if sec_dist > (sectors / 2) as i32 { sectors as i32 - sec_dist } else { sec_dist };
+                let rho_dist = fast_abs(rho as i32 - genome.center_rho as i32);
+
+                if genome.scope_radius == 0 || (sec_dist + rho_dist) <= genome.scope_radius {
+                    let idx = self.idx(tau, sector, rho, 0); // Primary harmonic
+                    
+                    let left = self.idx(tau, wrap_index_usize(sector as i32 - 1, sectors), rho, 0);
+                    let right = self.idx(tau, wrap_index_usize(sector as i32 + 1, sectors), rho, 0);
+                    let inner = self.idx(tau, sector, rho.saturating_sub(1), 0);
+                    let outer = self.idx(tau, sector, usize::min(rho + 1, radial_bins - 1), 0);
+                    
+                    let theta = self.agents[idx].theta;
+                    
+                    let local_coherence = cos(theta, self.agents[left].theta)
+                        + cos(theta, self.agents[right].theta)
+                        + cos(theta, self.agents[inner].theta)
+                        + cos(theta, self.agents[outer].theta);
+                        
+                    total_coherence += local_coherence as i64;
+                    count += 1;
+                }
+            }
+        }
+
+        if count == 0 { return 0.0; }
+        
+        let normalized = (total_coherence as f64) / (count as f64 * 4096.0);
+        normalized
+    }
 }
 
 #[wasm_bindgen]
@@ -289,6 +355,17 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
         panic!("[O-64 FATAL] OMEGA CORE MEMORY CORRUPTION DETECTED AT TICK {}", field.internal_tick);
     }
     field.internal_tick = field.internal_tick.wrapping_add(1);
+
+    // Phase 14: ESP Genome Expiration Lifecycle
+    for genome in field.active_genomes.iter_mut() {
+        if genome.active == 1 {
+            if genome.ttl > 0 {
+                genome.ttl -= 1;
+            } else {
+                genome.active = 0;
+            }
+        }
+    }
 
     let sectors = field.sectors as usize;
     let radial_bins = field.radial_bins as usize;
@@ -356,6 +433,24 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
+                // --- Phase 14: Evolutionary Sandbox Physics (ESP) Overrides ---
+                let mut local_kuramoto_base = field.header.kuramoto_base;
+                let mut local_diffusion_rate = field.header.kuramoto_diffusion_rate;
+                
+                for genome in &field.active_genomes {
+                    if genome.active == 1 {
+                        let sec_dist = fast_abs(sector as i32 - genome.center_sector as i32);
+                        let sec_dist = if sec_dist > (sectors / 2) as i32 { sectors as i32 - sec_dist } else { sec_dist };
+                        let rho_dist = fast_abs(rho as i32 - genome.center_rho as i32);
+                        
+                        if genome.scope_radius == 0 || (sec_dist + rho_dist) <= genome.scope_radius {
+                            local_kuramoto_base = genome.coupling_k;
+                            local_diffusion_rate = genome.diffusion_rate;
+                        }
+                    }
+                }
+                if local_kuramoto_base == 0 { local_kuramoto_base = 1024; }
+
                 let frustration_offset = KURAMOTO_SAKAGUCHI_ALPHA as i16;
                 let effective_theta = wrap_phase(theta as i16 + frustration_offset) as u8;
 
@@ -363,21 +458,21 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     + sin(effective_theta, field.agents[right].theta)
                     + sin(effective_theta, field.agents[inner].theta)
                     + sin(effective_theta, field.agents[outer].theta)
-                    + (sin(effective_theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + (sin(effective_theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / local_kuramoto_base)
                     + ((sin(effective_theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
 
                 let mut coherence = cos(theta, field.agents[left].theta)
                     + cos(theta, field.agents[right].theta)
                     + cos(theta, field.agents[inner].theta)
                     + cos(theta, field.agents[outer].theta)
-                    + (cos(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / field.header.kuramoto_base)
+                    + (cos(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / local_kuramoto_base)
                     + ((cos(theta, field.agents[historical_peer].theta) * 3) / 10);
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.agents[past_idx].plasmid != 0 {
                     let target_theta = (field.agents[past_idx].plasmid & 0xFF) as u8;
-                    kuramoto += (sin(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
-                    coherence += (cos(theta, target_theta) * field.header.kuramoto_plasmid) / field.header.kuramoto_base;
+                    kuramoto += (sin(theta, target_theta) * field.header.kuramoto_plasmid) / local_kuramoto_base;
+                    coherence += (cos(theta, target_theta) * field.header.kuramoto_plasmid) / local_kuramoto_base;
                 }
 
                 let mut next_ent_val = entanglement;
@@ -388,8 +483,8 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     let sin_anti = sin(theta, field.agents[antipode].theta);
                     let cos_anti = cos(theta, field.agents[antipode].theta);
                     
-                    kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
-                    coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (field.header.kuramoto_base * 25);
+                    kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (local_kuramoto_base * 25);
+                    coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (local_kuramoto_base * 25);
 
                     let antipode_alignment = cos_anti;
                     next_ent_val = if antipode_alignment > field.header.kuramoto_antipode_alignment && amplitude > 96 { // 0.92 * 1024
@@ -406,13 +501,13 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let memory_pull = (sin(effective_theta, preferred_theta) * memory_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
                 kuramoto += memory_pull;
 
-                let omega_delta = (kuramoto / field.header.kuramoto_base) as i16;
+                let omega_delta = (kuramoto / local_kuramoto_base) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
                 
                 // Metabolic Cost of Adaptation
                 let adaptation_cost = (fast_abs(omega_delta as i32) * field.header.biology_apa_decision_cost / 1024) as i16;
-                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock / 64) - adaptation_cost;
+                let amplitude_delta = (((coherence as i64 * 6) / local_kuramoto_base as i64) as i16) - (lock / 64) - adaptation_cost;
                 let lock_delta = if coherence >= field.header.kuramoto_threshold_lock { 8 } else { -4 };
 
                 // Phase Memory Learning & Decay
@@ -456,7 +551,9 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     }
 
                     // Since candidate_resonance was multiplied by Amplitude (0-255), we must scale the threshold
-                    let adoption_threshold = field.header.kuramoto_adoption_resonance * 100;
+                    // Local diffusion rate directly scales the leniency of structural adoption
+                    let safe_diffusion_rate = local_diffusion_rate.max(1);
+                    let adoption_threshold = (field.header.kuramoto_adoption_resonance * 1024 * 100) / safe_diffusion_rate;
                     if donor_plasmid != 0 && best_resonance > adoption_threshold {
                         local_next_theta = (donor_plasmid & 0xFF) as u8;
                         let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
@@ -597,6 +694,7 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
     }
     format!("{min}..{max}")
 }
+
 
 #[wasm_bindgen]
 pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> i32 {

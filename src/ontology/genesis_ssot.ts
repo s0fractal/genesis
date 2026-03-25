@@ -100,7 +100,16 @@ export const CONSTANTS = {
 
     // === WGSL Semantic Weights ===
     WGSL_MYCELIAL_COUPLING: { type: "i32", value: 4096 },
-    WGSL_STAKING_COUPLING: { type: "i32", value: 3072 }
+    WGSL_STAKING_COUPLING: { type: "i32", value: 3072 },
+
+    // === Evolutionary Sandbox Physics (Phase 14) ===
+    ESP_COUPLING_K_MIN: { type: "i32", value: 10 },    // ~0.01 * 1024
+    ESP_COUPLING_K_MAX: { type: "i32", value: 2048 },  // 2.0 * 1024
+    ESP_MUTATION_RATE_MIN: { type: "i32", value: 1 },  // ~0.001 * 1024
+    ESP_MUTATION_RATE_MAX: { type: "i32", value: 102 }, // ~0.1 * 1024
+    ESP_DIFFUSION_RATE_MIN: { type: "i32", value: 0 },
+    ESP_DIFFUSION_RATE_MAX: { type: "i32", value: 1024 }, // 1.0 * 1024
+    ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: { type: "i32", value: 1 } // Boolean flag mapped as integer 
 };
 
 export const MACROS = {

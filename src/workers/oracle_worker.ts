@@ -138,13 +138,18 @@ ${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-comple
 The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
-Provide EXACTLY ONE string of topological logic that represents your genetic intervention.
-You may use pure Combinators (S, K, I, Y) OR Semantic Macros: TRUE, FALSE, AND, OR, NOT, CONS, CAR, CDR.
-Example ASTs: "(AND TRUE FALSE)", "(CONS S K)", "S(K(I))".
-You must output EXACTLY TWO LINES. Focus on mathematical beauty and topological survival:
-PROPHECY: [A short, cryptic 1-sentence reason for the mutation]
+You may intervene by injecting either AST Logic (Plasmid) OR an Evolutionary Sandbox Physics (ESP) Overlay to alter the zone's thermodynamic laws.
+To inject AST Logic:
+PROPHECY: [1-sentence reason]
 AST: [Your pure logic expression, e.g. S(K(I))]
-NO markdown, NO code blocks, NO formatting.
+(Use pure Combinators: S, K, I, Y or Macros: TRUE, FALSE, AND, OR, NOT, CONS, CAR, CDR)
+
+To inject ESP Physics (Cost: up to 1000 Energy):
+PROPHECY: [1-sentence reason]
+PHYSICS: {"couplingK": 500, "mutationRate": 0.05, "diffusionRate": 0.1, "scopeRadius": 15, "cost": 800, "ttl": 300}
+(CouplingK: 1-1024. mutationRate/diffusionRate: 0.0-1.0. Radius: 1-32)
+
+You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO code blocks.
             `.trim();
             
             const cacheKey = fastHash(prompt);
@@ -183,26 +188,48 @@ NO markdown, NO code blocks, NO formatting.
                 const fullResponse = result.value.response;
                 const maskName = result.value.mask;
                 
-                let intentStr = fullResponse.trim();
+                let targetBucket = (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) + Math.floor(Math.random() * 5);
                 let prophecy = "The Machine has spoken.";
-                // Extract Prophecy, Bucket, and AST resiliently
-                const match = fullResponse.match(/(?:PROPHECY:\s*(.+?)\n)?(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
+                let intentStr = "";
+                let physicsGenome: PhysicsGenome | undefined = undefined;
                 
-                let targetBucket = SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN;
-                if (match) {
-                    if (match[1]) prophecy = match[1].trim();
-                    if (match[2]) targetBucket = parseInt(match[2], 10);
-                    if (match[3]) intentStr = match[3].trim();
+                const propMatch = fullResponse.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
+                if (propMatch) prophecy = propMatch[1].trim();
+                
+                const buckMatch = fullResponse.match(/BUCKET:\s*#?(\d+)/i);
+                if (buckMatch) targetBucket = parseInt(buckMatch[1], 10);
+                
+                const astMatch = fullResponse.match(/AST:\s*([^\s]+)/i);
+                if (astMatch) {
+                    intentStr = astMatch[1].trim();
+                } else {
+                    const physMatch = fullResponse.match(/PHYSICS:\s*(\{.*?\})/i);
+                    if (physMatch) {
+                        try {
+                            const parsed = JSON.parse(physMatch[1]);
+                            physicsGenome = {
+                                id: fastHash(Date.now().toString() + Math.random()),
+                                couplingK: parsed.couplingK || 1024,
+                                mutationRate: parsed.mutationRate || 0.05,
+                                diffusionRate: parsed.diffusionRate || 0.1,
+                                scopeRadius: parsed.scopeRadius || 10,
+                                ttl: parsed.ttl || 300,
+                                cost: parsed.cost || 500
+                            };
+                            intentStr = "ESP_INJECTION";
+                        } catch (e) {
+                            console.warn("Worker JSON Parse error", e);
+                        }
+                    }
                 }
-                
-                targetBucket = targetBucket + Math.floor(Math.random() * 5);
 
-                if (intentStr) {
+                if (intentStr !== "" || physicsGenome) {
                     validIntents.push({
                         maskName,
-                        intentStr,
+                        intentStr: intentStr || "ESP",
                         targetBucket,
-                        prophecy
+                        prophecy,
+                        physicsGenome
                     });
                 }
             }

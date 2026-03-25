@@ -58,6 +58,9 @@ export class SovereignOracle {
     // as we transition to Ontology 43 (Four Masks)
     private systemPrompts: Record<string, string> = {};
 
+    // Era 255: Evolutionary Sandbox Physics (ESP) Genomes
+    public activeGenomes: PhysicsGenome[] = [];
+
     // Era 231: The Intent Field (Macro-Alignment Vector)
     public globalIntentField: "PARSIMONY" | "COMPLEXITY" = "PARSIMONY";
 
@@ -138,6 +141,68 @@ export class SovereignOracle {
         }
     }
 
+    public tryInjectGenome(genome: PhysicsGenome): boolean {
+        // Evaluate energy thresholds
+        if (this.globalEnergyPool < genome.cost) {
+            console.log(`[ORACLE/ESP] Insufficient planetary ATP (${this.globalEnergyPool} < ${genome.cost}) to spawn genome ${genome.id.substring(0, 8)}`);
+            return false;
+        }
+
+        // Deduct thermodynamics 
+        this.globalEnergyPool -= genome.cost;
+
+        // Evict oldest genome if slots are full (max 16 struct alignment in WASM)
+        if (this.activeGenomes.length >= 16) {
+            this.activeGenomes.shift();
+        }
+
+        this.activeGenomes.push({
+            ...genome,
+            createdAt: this.epochTicks
+        });
+
+        this.syncGenomesToWasm();
+        
+        console.log(`[ORACLE/ESP] 🧬 Physics Genome Transcended: Radius=${genome.scopeRadius}, Coupling=${genome.couplingK}, Diffusion=${genome.diffusionRate}`);
+        return true;
+    }
+
+    private syncGenomesToWasm() {
+        if (!this.wasmField.ptr_active_genomes) return;
+        const ptr = this.wasmField.ptr_active_genomes();
+        const memory = new DataView(this.wasmMemory.buffer);
+
+        // Max 16 genomes, 40 bytes each:
+        // u64 id (8), i32 coupling_k (4), i32 mutation_rate (4), i32 diffusion_rate (4),
+        // i32 scope_radius (4), u32 center_sector (4), u32 center_rho (4), u32 ttl (4),
+        // u8 active (1), padding (3)
+
+        for (let i = 0; i < 16; i++) {
+            const offset = ptr + (i * 40);
+            if (i < this.activeGenomes.length) {
+                const g = this.activeGenomes[i];
+                // Using BigInt for ID (FNV64 hash parsed, or 0n if invalid)
+                let idNum = 0n;
+                try { idNum = BigInt("0x" + g.id); } catch (e) { idNum = BigInt(g.id.replace(/\D/g, "") || "0"); }
+                
+                memory.setBigUint64(offset, idNum, true);
+                memory.setInt32(offset + 8, g.couplingK, true);
+                memory.setInt32(offset + 12, g.mutationRate, true);
+                memory.setInt32(offset + 16, g.diffusionRate, true);
+                memory.setInt32(offset + 20, g.scopeRadius, true);
+                
+                // Decode Topos coordinates roughly or map properly. We default to global origin for now.
+                // Assuming `scopeRadius` will originate based on Senate intent triggers later.
+                memory.setUint32(offset + 24, 0, true); // sector
+                memory.setUint32(offset + 28, 0, true); // rho
+                
+                memory.setUint32(offset + 32, g.ttl, true);
+                memory.setUint8(offset + 36, 1); // active flag
+            } else {
+                memory.setUint8(offset + 36, 0); // nullify inactive variants
+            }
+        }
+    }
 
 
     public rebind(field: OracleCompatibleField, engine?: PhaseComputeEngine, visualizer?: PhaseWebGPUObserver) {
@@ -423,6 +488,40 @@ export class SovereignOracle {
         } else if (season === 2) { // AUTUMN
             climateEnergyMod = 0.5;
             climateDecayMod = 1.0; 
+        }
+
+        // --- Phase 14 Evolutionary Sandbox Physics (ESP) PSP Loop ---
+        if (this.wasmField.ptr_active_genomes) {
+            let activeChanged = false;
+            for (let i = 0; i < this.activeGenomes.length; i++) {
+                const genome = this.activeGenomes[i];
+                genome.ttl -= 1;
+                
+                if (genome.ttl > 0) {
+                    // Evaluate native C-struct WASM geometry resonance
+                    const resonance = typeof this.wasmField.evaluate_genome_resonance === 'function' ? this.wasmField.evaluate_genome_resonance(i) : 0;
+                    genome.stabilityScore = resonance;
+                    
+                    if (resonance < 0.1) {
+                        // Extinction
+                        genome.ttl = 0;
+                    } else if (resonance > 0.6) {
+                        // Resonance ROI Loop
+                        const roi = Math.floor(genome.cost * 0.1);
+                        this.globalEnergyPool += roi;
+                        distributedEnergy += roi;
+                    }
+                }
+                
+                if (genome.ttl <= 0) {
+                    activeChanged = true;
+                }
+            }
+            
+            if (activeChanged) {
+                this.activeGenomes = this.activeGenomes.filter(g => g.ttl > 0);
+                this.syncGenomesToWasm();
+            }
         }
         
         // SOLAR ACTIVE PHASES (Spring, Summer, Autumn)
@@ -1253,21 +1352,41 @@ export class SovereignOracle {
             const optimalPolicies = this.applyModelPredictiveControl(data.validIntents);
             
             for (const result of optimalPolicies) {
-                const { maskName, intentStr, targetBucket } = result;
-                console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
+                const { maskName, intentStr, targetBucket, physicsGenome } = result;
                 
-                try {
-                    lambda_parse(intentStr); // Validate AST, throws if malformed
-                    validIntents++;
-                    
-                    // Broadcast raw mathematical generation to the HUD
-                    if (this.onSenateEvent) {
-                        this.onSenateEvent({ type: "GENERATED", mask: maskName, intent: intentStr, bucketRange: `${targetBucket}`, tension: data.requests ? data.requests.length : 1 });
+                if (intentStr === "ESP_INJECTION" && physicsGenome) {
+                    console.log(`[ORACLE] ${maskName} mapped -> ESP PHYSICS GENOME. Intervening with Cost: ${physicsGenome.cost} ATP...`);
+                    const success = this.tryInjectGenome(physicsGenome);
+                    if (success) {
+                        validIntents++;
+                        if (this.onSenateEvent) {
+                            this.onSenateEvent({
+                                type: "GENERATED", 
+                                mask: maskName, 
+                                intent: `ESP_PHYSICS { k: ${physicsGenome.couplingK.toFixed(0)}, d: ${physicsGenome.diffusionRate.toFixed(2)}, ttl: ${physicsGenome.ttl} }`, 
+                                bucketRange: `Sector ${physicsGenome.scopeRadius}`, 
+                                tension: data.requests ? data.requests.length : 1 
+                            });
+                        }
+                    } else {
+                        console.warn(`[ORACLE] Senate ESP INJECTION REJECTED: Insufficient Global ATP.`);
                     }
-                    // Compile and inject seamlessly
-                    this.fulfillRequests(data.requests, intentStr, targetBucket);
-                } catch (_e) {
-                    console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
+                } else {
+                    console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
+                    
+                    try {
+                        lambda_parse(intentStr); // Validate AST, throws if malformed
+                        validIntents++;
+                        
+                        // Broadcast raw mathematical generation to the HUD
+                        if (this.onSenateEvent) {
+                            this.onSenateEvent({ type: "GENERATED", mask: maskName, intent: intentStr, bucketRange: `${targetBucket}`, tension: data.requests ? data.requests.length : 1 });
+                        }
+                        // Compile and inject seamlessly
+                        this.fulfillRequests(data.requests, intentStr, targetBucket);
+                    } catch (_e) {
+                        console.warn(`[ORACLE] ${maskName} AST compilation failed: ${intentStr}`);
+                    }
                 }
             }
             if (validIntents === 0) {

@@ -66,6 +66,13 @@ export const NETWORK_WEBRTC_RECONNECT_CAP = 30000;
 export const NETWORK_MAX_PEERS_BUCKET = 3;
 export const WGSL_MYCELIAL_COUPLING = 4096;
 export const WGSL_STAKING_COUPLING = 3072;
+export const ESP_COUPLING_K_MIN = 10;
+export const ESP_COUPLING_K_MAX = 2048;
+export const ESP_MUTATION_RATE_MIN = 1;
+export const ESP_MUTATION_RATE_MAX = 102;
+export const ESP_DIFFUSION_RATE_MIN = 0;
+export const ESP_DIFFUSION_RATE_MAX = 1024;
+export const ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED = 1;
 
 // --- MACROS ---
 export function fast_abs(v: number): number {

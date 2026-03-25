@@ -186,6 +186,8 @@ interface OracleCompatibleField {
     ptr_cell_status?(): number;
     ptr_theta?(): number;
     ptr_omega?(): number;
+    ptr_active_genomes?(): number;
+    evaluate_genome_resonance?(idx: number): number;
     ptr_plasmid_collisions?(): number;
     get_collision_count?(): number;
     clear_collisions?(): void;
@@ -261,6 +263,7 @@ interface OracleWorkerResponse {
     intentStr: string;
     targetBucket: number;
     prophecy?: string;
+    physicsGenome?: PhysicsGenome;
 }
 
 interface ChronosSnapshot {
@@ -280,5 +283,19 @@ interface IPerturbationInjector {
 }
 
 
+
+
+// Era 255: Evolutionary Sandbox Physics (ESP)
+interface PhysicsGenome {
+    id: string;
+    couplingK: number; // Q10 Format (1024 = 1.0)
+    mutationRate: number; // Q10 Format
+    diffusionRate: number; // Q10 Format
+    scopeRadius: number; // Topos distance
+    ttl: number; // Phase lattice ticks to live
+    cost: number; // Thermodynamic ATP cost
+    stabilityScore?: number; // Phase Selection Pressure (PSP) resonance
+    createdAt?: number; // Injection timestamp
+}
 
 type ReplayCompareMode = "none" | "seed" | "previous";
