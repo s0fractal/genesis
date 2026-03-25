@@ -1,4 +1,4 @@
-import { THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS } from "../shared/constants.ts";
+import { THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS, FNV64_OFFSET_BASIS, FNV64_PRIME } from "../shared/constants.ts";
 
 // O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
 // Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
@@ -58,10 +58,10 @@ async function setCachedResponse(hash: string, response: string, ts: number) {
 
 // FNV1a Hash implementation locally for cache keys
 function fastHash(str: string): string {
-    let hash = 14695981039346656037n;
+    let hash = FNV64_OFFSET_BASIS;
     for (let i = 0; i < str.length; i++) {
         hash ^= BigInt(str.charCodeAt(i));
-        hash *= 1099511628211n;
+        hash = BigInt.asUintN(64, hash * FNV64_PRIME);
     }
     return hash.toString(16);
 }

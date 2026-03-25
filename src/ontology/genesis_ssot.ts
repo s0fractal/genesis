@@ -15,7 +15,7 @@ export const CONSTANTS = {
     
     FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },
     FNV64_PRIME: { type: "u64", value: 1099511628211n },
-    // FNV64_MASK: { type: "u64", value: 0xFFFFFFFFFFFFFFFFn }, // Handled explicitly in Rust if needed
+    FNV64_MASK: { type: "u64", value: 0xFFFFFFFFFFFFFFFFn },
 
     // Core Lattice and Phase Mathematics
     PHASE_TAU_DEPTH: { type: "i32", value: 4 },

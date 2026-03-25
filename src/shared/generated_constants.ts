@@ -6,6 +6,7 @@ export const MATH_Q_SCALE = 1024;
 export const NATIVE_GRAVITY = -0.05;
 export const FNV64_OFFSET_BASIS = 14695981039346656037n;
 export const FNV64_PRIME = 1099511628211n;
+export const FNV64_MASK = 18446744073709551615n;
 export const PHASE_TAU_DEPTH = 4;
 export const PHASE_LUT_SIZE = 256;
 export const PHASE_MAX_AMPLITUDE = 255;

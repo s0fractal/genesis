@@ -1,12 +1,9 @@
 import { 
     PHASE_LUT_SIZE, PHASE_HALF_PHASE,
     PHASE_MIN_OMEGA, PHASE_MAX_OMEGA,
-    PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT
+    PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT,
+    FNV64_OFFSET_BASIS, FNV64_PRIME, FNV64_MASK
 } from "./constants.ts";
-
-const FNV64_OFFSET_BASIS = 14695981039346656037n;
-const FNV64_PRIME = 1099511628211n;
-const FNV64_MASK = (1n << 64n) - 1n;
 
 export function wrapIndex(value: number, modulo: number): number {
     return value & (modulo - 1);

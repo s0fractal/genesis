@@ -2,8 +2,7 @@ use wasm_bindgen::prelude::*;
 
 include!("generated_constants.rs");
 
-// FNV64 Mask is handled natively
-pub const FNV64_MASK: u64 = 0xFFFFFFFFFFFFFFFF;
+
 
 // O-80 The Mycelial Lattice: Homotopy Type Theory (HoTT) ∞-groupoid 
 // Tau-buffer is a physical realization of a 4-level groupoid:
