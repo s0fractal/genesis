@@ -22,6 +22,8 @@ interface PhaseCell {
     amplitude: number;
     lock: number;
     entanglement: number;
+    preferredTheta?: number;
+    memoryStrength?: number;
     cellStatus?: number;
     plasmids?: bigint;
 }
@@ -34,6 +36,8 @@ interface PhaseField {
     amplitude: Uint8Array;
     lock: Uint8Array;
     entanglement: Uint8Array;
+    preferredTheta: Uint8Array;
+    memoryStrength: Uint8Array;
     cellStatus: Uint8Array;
     plasmids: BigUint64Array;
 }

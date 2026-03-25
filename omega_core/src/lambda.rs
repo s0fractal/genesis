@@ -24,6 +24,7 @@ impl SimpleRng {
 pub struct LambdaArena {
     pub arena: Arena<Term>,
     pub parse_cache: HashMap<String, Index>,
+    pub memo: HashMap<(Index, Index), Index>,
 }
 
 impl Default for LambdaArena {
@@ -37,6 +38,7 @@ impl LambdaArena {
         Self {
             arena: Arena::with_capacity(100_000),
             parse_cache: HashMap::new(),
+            memo: HashMap::new(),
         }
     }
 
@@ -45,7 +47,12 @@ impl LambdaArena {
     }
 
     pub fn apply(&mut self, left: Index, right: Index) -> Index {
-        self.alloc(Term::App(left, right))
+        if let Some(&idx) = self.memo.get(&(left, right)) {
+            return idx;
+        }
+        let idx = self.alloc(Term::App(left, right));
+        self.memo.insert((left, right), idx);
+        idx
     }
 
     pub fn reduce_step(&mut self, root: Index) -> Option<Index> {

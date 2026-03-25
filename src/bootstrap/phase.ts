@@ -144,7 +144,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       const nowLocal = performance.now();
 
       // Thermodynamic Tick
-      const entropy = phase_lattice_shannon_entropy(phaseField);
+      const entropy = phase_lattice_shannon_entropy(phaseField) / 1024.0;
       oracle.tickHomeostasis(entropy);
 
       if (nowLocal - lastShadowTelemetryCheck > 1000) {

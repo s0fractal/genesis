@@ -1,7 +1,7 @@
 // @polyfill
 const MATH_Q_BITS: i32 = 10;
 const MATH_Q_SCALE: i32 = 1024;
-const NATIVE_GRAVITY: f32 = -0.05f;
+const NATIVE_GRAVITY: i32 = -51;
 const PHASE_TAU_DEPTH: i32 = 4;
 const PHASE_LUT_SIZE: i32 = 256;
 const PHASE_MAX_AMPLITUDE: i32 = 255;
@@ -13,7 +13,7 @@ const PHASE_MAX_OMEGA: i32 = 16;
 const PHASE_MAX_OMEGA_BRIDGE: i32 = 32;
 const PHASE_FOSSILIZATION_PULSE_TICKS: i32 = 24;
 const KURAMOTO_COUPLING_BASE: i32 = 1024;
-const KURAMOTO_SAKAGUCHI_ALPHA: f32 = 0.15f;
+const KURAMOTO_SAKAGUCHI_ALPHA: i32 = 38;
 const KURAMOTO_COUPLING_HARMONIC_PEER: i32 = 512;
 const KURAMOTO_COUPLING_ANTIPODE: i32 = 358;
 const KURAMOTO_COHERENCE_THRESHOLD_LOCK: i32 = 3072;
@@ -33,16 +33,16 @@ const SENATE_SHADOW_BUCKET_MIN: i32 = 1000;
 const SENATE_SHADOW_BUCKET_MAX: i32 = 1024;
 const TISSUE_MORPHOLOGICAL_HYSTERESIS: i32 = 5;
 const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 154;
-const BIOLOGY_SOMATIC_ALPHA: f32 = 1.5f;
-const BIOLOGY_SOMATIC_DECAY_RATE: f32 = 0.05f;
+const BIOLOGY_SOMATIC_ALPHA: i32 = 1536;
+const BIOLOGY_SOMATIC_DECAY_RATE: i32 = 51;
 const BIOLOGY_SOMATIC_BASE_COST: i32 = 5;
 const BIOLOGY_EXTINCTION_THRESHOLD: i32 = 0;
-const ADA_HODLER_BRAKE: f32 = 0.95f;
+const ADA_HODLER_BRAKE: i32 = 972;
 const ADA_QE_STIMULUS_MAX: i32 = 500;
 const ADA_QE_STIMULUS_MIN: i32 = 100;
-const ADA_MASS_DILATION_MIN: f32 = 0.05f;
-const ADA_MASS_DILATION_MAX: f32 = 1.0f;
-const ADA_MASS_DILATION_NUM: f32 = 3.0f;
+const ADA_MASS_DILATION_MIN: i32 = 51;
+const ADA_MASS_DILATION_MAX: i32 = 1024;
+const ADA_MASS_DILATION_NUM: i32 = 3072;
 const ORACLE_INVOCATION_COST: i32 = 10000;
 const ORACLE_LEDGER_MAX_EVENTS: i32 = 1000;
 const ORACLE_LEDGER_TRUNCATE: i32 = 800;
@@ -84,7 +84,7 @@ struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
-  time: f32,
+  time_ms: u32,
   
   coupling_base: i32,
   coupling_antipode: i32,
@@ -96,7 +96,7 @@ struct Params {
   antipode_align: i32,
   coupling_plasmid: i32,
   
-  aspect_ratio: f32,
+  aspect_ratio_q10: u32,
   inj_idx: u32,
   inj_hash_low: u32,
   inj_hash_high: u32,
@@ -124,14 +124,18 @@ struct PhaseAgent {
     ent: u32,
     plasmid_low: u32,
     plasmid_high: u32,
+    time_dilation: u32,
+    preferred_theta: u32,
+    memory_strength: u32,
 }
 
 fn get_agent(idx: u32) -> PhaseAgent {
-    let offset = idx * 4u;
+    let offset = idx * 6u;
     let t0 = buffer_a[offset];
     let t1 = buffer_a[offset + 1u];
     let t2 = buffer_a[offset + 2u];
     let t3 = buffer_a[offset + 3u];
+    let t4 = buffer_a[offset + 4u];
 
     var agent: PhaseAgent;
     agent.plasmid_low = t0;
@@ -144,10 +148,15 @@ fn get_agent(idx: u32) -> PhaseAgent {
         agent.omega = i32(omega_raw);
     }
     
+    agent.time_dilation = (t2 >> 16u) & 0xFFu;
+    agent.preferred_theta = (t2 >> 24u) & 0xFFu;
+    
     agent.theta = t3 & 0xFFu;
     agent.energy = (t3 >> 8u) & 0xFFu;
     agent.lock = (t3 >> 16u) & 0xFFu;
     agent.ent = (t3 >> 24u) & 0xFFu;
+    
+    agent.memory_strength = t4 & 0xFFu;
     return agent;
 }
 

@@ -73,6 +73,8 @@ export function createPhaseField(
         amplitude: new Uint8Array(size),
         lock: new Uint8Array(size),
         entanglement: new Uint8Array(size),
+        preferredTheta: new Uint8Array(size),
+        memoryStrength: new Uint8Array(size),
         cellStatus: new Uint8Array(size),
         plasmids: new BigUint64Array(size),
     };
@@ -88,6 +90,8 @@ export function createPhaseField(
                     field.amplitude[idx] = clamp_i32(Math.trunc(state.amplitude), 0, PHASE_MAX_AMPLITUDE);
                     field.lock[idx] = clamp_i32(Math.trunc(state.lock), 0, PHASE_MAX_LOCK);
                     field.entanglement[idx] = clamp_i32(Math.trunc(state.entanglement), 0, PHASE_MAX_ENTANGLEMENT);
+                    field.preferredTheta[idx] = state.preferredTheta !== undefined ? wrapTheta(state.preferredTheta) : 0;
+                    field.memoryStrength[idx] = state.memoryStrength !== undefined ? clamp_i32(Math.trunc(state.memoryStrength), 0, 255) : 0;
                     field.cellStatus[idx] = state.cellStatus !== undefined ? state.cellStatus : 0;
                     field.plasmids[idx] = state.plasmids !== undefined ? state.plasmids : 0n;
                 }
@@ -106,6 +110,8 @@ export function clonePhaseField(field: PhaseField): PhaseField {
         amplitude: new Uint8Array(field.amplitude),
         lock: new Uint8Array(field.lock),
         entanglement: new Uint8Array(field.entanglement),
+        preferredTheta: new Uint8Array(field.preferredTheta),
+        memoryStrength: new Uint8Array(field.memoryStrength),
         cellStatus: new Uint8Array(field.cellStatus),
         plasmids: new BigUint64Array(field.plasmids),
     };
@@ -160,6 +166,8 @@ export function structuralSignature(field: PhaseField): string {
                 hash = mix_u64(hash, hashValue(field.amplitude[idx]));
                 hash = mix_u64(hash, hashValue(field.lock[idx]));
                 hash = mix_u64(hash, hashValue(field.entanglement[idx]));
+                hash = mix_u64(hash, hashValue(field.preferredTheta[idx]));
+                hash = mix_u64(hash, hashValue(field.memoryStrength[idx]));
                 hash = mix_u64(hash, hashValue(field.cellStatus[idx]));
                 hash = mix_u64(hash, field.plasmids[idx]);
             }
@@ -191,6 +199,8 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
                     a.amplitude[aIdx] !== b.amplitude[bIdx] ||
                     a.lock[aIdx] !== b.lock[bIdx] ||
                     a.entanglement[aIdx] !== b.entanglement[bIdx] ||
+                    a.preferredTheta[aIdx] !== b.preferredTheta[bIdx] ||
+                    a.memoryStrength[aIdx] !== b.memoryStrength[bIdx] ||
                     a.cellStatus[aIdx] !== b.cellStatus[bIdx] ||
                     a.plasmids[aIdx] !== b.plasmids[bIdx]
                 ) {

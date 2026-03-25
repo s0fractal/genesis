@@ -34,7 +34,14 @@ pub struct SubstrateHeader {
     pub senate_min_locks: i32,
     pub senate_min_energy: i32,
     
-    pub padding: [u8; 168], // Exactly 256 bytes total (28 base + 60 traits + 168 padding)
+    // Adaptive Phase Biology (Phase 12 ESP)
+    pub biology_apa_learning_rate: i32,
+    pub biology_apa_memory_gain: i32,
+    pub biology_apa_decision_cost: i32,
+    pub biology_apa_coherence_reward: i32,
+    pub biology_apa_memory_decay: i32,
+    
+    pub padding: [u8; 148], // Adjusted padding to maintain exactly 256 bytes total
 }
 
 impl Default for SubstrateHeader {
@@ -62,7 +69,12 @@ impl Default for SubstrateHeader {
             mutation_smoothing_factor: 0,
             senate_min_locks: 0,
             senate_min_energy: 0,
-            padding: [0; 168],
+            biology_apa_learning_rate: 0,
+            biology_apa_memory_gain: 0,
+            biology_apa_decision_cost: 0,
+            biology_apa_coherence_reward: 0,
+            biology_apa_memory_decay: 0,
+            padding: [0; 148],
         }
     }
 }
@@ -123,6 +135,11 @@ impl PhaseLatticeField {
                 mutation_smoothing_factor: MUTATION_SMOOTHING_FACTOR,
                 senate_min_locks: SENATE_MYCELIUM_MIN_LOCKS,
                 senate_min_energy: SENATE_MYCELIUM_MIN_ENERGY,
+                biology_apa_learning_rate: BIOLOGY_APA_LEARNING_RATE,
+                biology_apa_memory_gain: BIOLOGY_APA_MEMORY_GAIN,
+                biology_apa_decision_cost: BIOLOGY_APA_DECISION_COST,
+                biology_apa_coherence_reward: BIOLOGY_APA_COHERENCE_REWARD,
+                biology_apa_memory_decay: BIOLOGY_APA_MEMORY_DECAY,
                 ..Default::default()
             },
             agents: vec![crate::granite::PhaseAgent::default(); max_elements],
@@ -339,7 +356,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
                 let historical_peer = field.idx(historical_tau, sector, rho, harmonic);
 
-                let frustration_offset = (KURAMOTO_SAKAGUCHI_ALPHA * 256.0) as i16;
+                let frustration_offset = KURAMOTO_SAKAGUCHI_ALPHA as i16;
                 let effective_theta = wrap_phase(theta as i16 + frustration_offset) as u8;
 
                 let mut kuramoto = sin(effective_theta, field.agents[left].theta)
@@ -382,11 +399,32 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     };
                 }
 
+                // --- Phase 12: Adaptive Phase Biology (Ghost Neighbor Memory) ---
+                let mut preferred_theta = field.agents[past_idx].preferred_theta;
+                let mut memory_strength = field.agents[past_idx].memory_strength;
+
+                let memory_pull = (sin(effective_theta, preferred_theta) * memory_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
+                kuramoto += memory_pull;
+
                 let omega_delta = (kuramoto / field.header.kuramoto_base) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
-                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock / 64);
+                
+                // Metabolic Cost of Adaptation
+                let adaptation_cost = (fast_abs(omega_delta as i32) * field.header.biology_apa_decision_cost / 1024) as i16;
+                let amplitude_delta = (((coherence as i64 * 6) / field.header.kuramoto_base as i64) as i16) - (lock / 64) - adaptation_cost;
                 let lock_delta = if coherence >= field.header.kuramoto_threshold_lock { 8 } else { -4 };
+
+                // Phase Memory Learning & Decay
+                if coherence >= field.header.biology_apa_coherence_reward {
+                    let diff = signed_phase_delta(preferred_theta as i32, next_theta_val as i32);
+                    let shift = (diff * field.header.biology_apa_learning_rate) / 1024;
+                    preferred_theta = wrap_phase(preferred_theta as i16 + shift as i16);
+                    
+                    let memory_gain_byte = (field.header.biology_apa_memory_gain * 255) / 1024;
+                    memory_strength = clamp_byte(memory_strength as i16 + memory_gain_byte as i16);
+                }
+                memory_strength = ((memory_strength as u32 * field.header.biology_apa_memory_decay as u32) / 1024) as u8;
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
                 let next_lock_val = clamp_byte(lock + lock_delta);
@@ -409,14 +447,17 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     for &neighbor_idx in &neighbors {
                         let candidate_plasmid = field.agents[neighbor_idx].plasmid;
                         if candidate_plasmid == 0 { continue; }
-                        let candidate_resonance = cos(theta, field.agents[neighbor_idx].theta);
+                        // Phase 12: Phase Attraction Gradient Ascent (Resonance * Amplitude)
+                        let candidate_resonance = cos(theta, field.agents[neighbor_idx].theta) * field.agents[neighbor_idx].energy as i32;
                         if candidate_resonance > best_resonance {
                             best_resonance = candidate_resonance;
                             donor_plasmid = candidate_plasmid;
                         }
                     }
 
-                    if donor_plasmid != 0 && best_resonance > field.header.kuramoto_adoption_resonance {
+                    // Since candidate_resonance was multiplied by Amplitude (0-255), we must scale the threshold
+                    let adoption_threshold = field.header.kuramoto_adoption_resonance * 100;
+                    if donor_plasmid != 0 && best_resonance > adoption_threshold {
                         local_next_theta = (donor_plasmid & 0xFF) as u8;
                         let donor_omega = ((donor_plasmid >> 8) & 0xFF) as i16 - 128;
                         local_next_omega = clamp_i16(donor_omega, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
@@ -444,11 +485,14 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 // Resolve execution into Native Next Cache
                 field.agents[next_idx].theta = local_next_theta;
                 field.agents[next_idx].omega = local_next_omega;
+                field.agents[next_idx].time_dilation = field.agents[past_idx].time_dilation;
+                field.agents[next_idx].preferred_theta = preferred_theta;
                 field.agents[next_idx].energy = next_amplitude_val;
                 field.agents[next_idx].lock = next_lock_val;
                 field.agents[next_idx].entanglement = next_ent_val;
-                field.cell_status[next_idx] = next_status_val;
+                field.agents[next_idx].memory_strength = memory_strength;
                 field.agents[next_idx].plasmid = next_plasmid;
+                field.cell_status[next_idx] = next_status_val;
                 
                 // O-230.2: Local Heat Generation -> Time Dilation
                 // Extreme torque friction causes relativistic mass increase, slowing local execution speed
@@ -555,14 +599,14 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
 }
 
 #[wasm_bindgen]
-pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> f32 {
+pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> i32 {
     let mut sum_q10 = 0i32;
     for amp in field.agents.iter().map(|a| a.energy) {
         if amp > 0 {
             sum_q10 += crate::constants::ENTROPY_LUT[amp as usize];
         }
     }
-    (sum_q10 as f32) / 1024.0
+    sum_q10
 }
 
 impl PhaseLatticeField {
@@ -669,7 +713,7 @@ mod proptests {
         ) {
             let field = PhaseLatticeField::new(sectors, radial_bins, harmonics);
             let entropy = phase_lattice_shannon_entropy(&field);
-            prop_assert!(entropy >= 0.0, "Entropy violated thermodynamic bounds: {}", entropy);
+            prop_assert!(entropy >= 0, "Entropy violated thermodynamic bounds: {}", entropy);
         }
     }
 }

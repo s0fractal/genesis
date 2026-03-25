@@ -55,7 +55,7 @@ export function snapshotWasmPhaseField(field: PhaseLatticeField, wasm: any, shap
     const offsetElements = field.get_current_tau() * field.cell_count();
 
     const ptrAgents = field.ptr_agents();
-    const baseOffsetBytes = ptrAgents + offsetElements * 16;
+    const baseOffsetBytes = ptrAgents + offsetElements * 24;
     const view = new DataView(memory.buffer);
 
     const cellStatusArr = new Uint8Array(memory.buffer, field.ptr_cell_status() + offsetElements * 1, field.cell_count());
@@ -64,15 +64,18 @@ export function snapshotWasmPhaseField(field: PhaseLatticeField, wasm: any, shap
         shape,
         (_tau, sector, rho, harmonic) => {
             const index = harmonic * shape.radialBins * shape.sectors + rho * shape.sectors + sector;
-            const agentOffset = baseOffsetBytes + index * 16;
+            const agentOffset = baseOffsetBytes + index * 24;
             return {
-                theta: view.getUint8(agentOffset),
-                omega: view.getInt16(agentOffset + 2, true),
-                amplitude: view.getUint8(agentOffset + 4),
-                lock: view.getUint8(agentOffset + 5),
-                entanglement: view.getUint8(agentOffset + 6),
+                plasmids: view.getBigUint64(agentOffset + 0, true),
+                omega: view.getInt16(agentOffset + 8, true),
+                // +10 is time_dilation
+                preferredTheta: view.getUint8(agentOffset + 11),
+                theta: view.getUint8(agentOffset + 12),
+                amplitude: view.getUint8(agentOffset + 13),
+                lock: view.getUint8(agentOffset + 14),
+                entanglement: view.getUint8(agentOffset + 15),
+                memoryStrength: view.getUint8(agentOffset + 16),
                 cellStatus: cellStatusArr[index],
-                plasmids: view.getBigUint64(agentOffset + 8, true),
             };
         },
     );

@@ -240,7 +240,7 @@ export class PhaseComputeEngine {
         viewU32[0] = this.field.sectors;
         viewU32[1] = this.field.radial_bins;
         viewU32[2] = this.field.harmonics;
-        viewF32[3] = time;
+        viewU32[3] = Math.floor(time * 1000);
 
         viewI32[4] = Math.round(C.KURAMOTO_COUPLING_BASE * C.MATH_Q_SCALE);
         viewI32[5] = Math.round(C.KURAMOTO_COUPLING_ANTIPODE * C.MATH_Q_SCALE);
@@ -251,7 +251,7 @@ export class PhaseComputeEngine {
         viewI32[10] = Math.round(C.KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD * C.MATH_Q_SCALE);
         viewI32[11] = Math.round(C.KURAMOTO_COUPLING_PLASMID * C.MATH_Q_SCALE);
 
-        viewF32[12] = 16.0 / 9.0;
+        viewU32[12] = 1820; // 16/9 in Q10 (1.777 * 1024)
         viewU32[13] = activeInj ? activeInj.idx : 0xFFFFFFFF;
         viewU32[14] = activeInj ? activeInj.hashLow : 0;
         viewU32[15] = activeInj ? activeInj.hashHigh : 0;

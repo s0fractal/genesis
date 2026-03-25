@@ -1,7 +1,7 @@
 // @polyfill
 const MATH_Q_BITS: i32 = 10;
 const MATH_Q_SCALE: i32 = 1024;
-const NATIVE_GRAVITY: f32 = -0.05f;
+const NATIVE_GRAVITY: i32 = -51;
 const PHASE_TAU_DEPTH: i32 = 4;
 const PHASE_LUT_SIZE: i32 = 256;
 const PHASE_MAX_AMPLITUDE: i32 = 255;
@@ -13,7 +13,7 @@ const PHASE_MAX_OMEGA: i32 = 16;
 const PHASE_MAX_OMEGA_BRIDGE: i32 = 32;
 const PHASE_FOSSILIZATION_PULSE_TICKS: i32 = 24;
 const KURAMOTO_COUPLING_BASE: i32 = 1024;
-const KURAMOTO_SAKAGUCHI_ALPHA: f32 = 0.15f;
+const KURAMOTO_SAKAGUCHI_ALPHA: i32 = 38;
 const KURAMOTO_COUPLING_HARMONIC_PEER: i32 = 512;
 const KURAMOTO_COUPLING_ANTIPODE: i32 = 358;
 const KURAMOTO_COHERENCE_THRESHOLD_LOCK: i32 = 3072;
@@ -33,16 +33,21 @@ const SENATE_SHADOW_BUCKET_MIN: i32 = 1000;
 const SENATE_SHADOW_BUCKET_MAX: i32 = 1024;
 const TISSUE_MORPHOLOGICAL_HYSTERESIS: i32 = 5;
 const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 154;
-const BIOLOGY_SOMATIC_ALPHA: f32 = 1.5f;
-const BIOLOGY_SOMATIC_DECAY_RATE: f32 = 0.05f;
+const BIOLOGY_SOMATIC_ALPHA: i32 = 1536;
+const BIOLOGY_SOMATIC_DECAY_RATE: i32 = 51;
 const BIOLOGY_SOMATIC_BASE_COST: i32 = 5;
 const BIOLOGY_EXTINCTION_THRESHOLD: i32 = 0;
-const ADA_HODLER_BRAKE: f32 = 0.95f;
+const BIOLOGY_APA_LEARNING_RATE: i32 = 51;
+const BIOLOGY_APA_MEMORY_GAIN: i32 = 102;
+const BIOLOGY_APA_DECISION_COST: i32 = 2;
+const BIOLOGY_APA_COHERENCE_REWARD: i32 = 614;
+const BIOLOGY_APA_MEMORY_DECAY: i32 = 1023;
+const ADA_HODLER_BRAKE: i32 = 972;
 const ADA_QE_STIMULUS_MAX: i32 = 500;
 const ADA_QE_STIMULUS_MIN: i32 = 100;
-const ADA_MASS_DILATION_MIN: f32 = 0.05f;
-const ADA_MASS_DILATION_MAX: f32 = 1.0f;
-const ADA_MASS_DILATION_NUM: f32 = 3.0f;
+const ADA_MASS_DILATION_MIN: i32 = 51;
+const ADA_MASS_DILATION_MAX: i32 = 1024;
+const ADA_MASS_DILATION_NUM: i32 = 3072;
 const ORACLE_INVOCATION_COST: i32 = 10000;
 const ORACLE_LEDGER_MAX_EVENTS: i32 = 1000;
 const ORACLE_LEDGER_TRUNCATE: i32 = 800;
@@ -79,7 +84,7 @@ struct Params {
   sectors: u32,
   radial_bins: u32,
   harmonics: u32,
-  time: f32,
+  time_ms: u32,
   
   coupling_base: i32,
   coupling_antipode: i32,
@@ -91,7 +96,7 @@ struct Params {
   antipode_align: i32,
   coupling_plasmid: i32,
   
-  aspect_ratio: f32,
+  aspect_ratio_q10: u32,
   inj_idx: u32,
   inj_hash_low: u32,
   inj_hash_high: u32,
@@ -132,14 +137,18 @@ struct PhaseAgent {
     ent: u32,
     plasmid_low: u32,
     plasmid_high: u32,
+    time_dilation: u32,
+    preferred_theta: u32,
+    memory_strength: u32,
 }
 
 fn get_agent(idx: u32) -> PhaseAgent {
-    let offset = idx * 4u;
+    let offset = idx * 6u;
     let t0 = field_in[offset];
     let t1 = field_in[offset + 1u];
     let t2 = field_in[offset + 2u];
     let t3 = field_in[offset + 3u];
+    let t4 = field_in[offset + 4u];
 
     var agent: PhaseAgent;
     agent.plasmid_low = t0;
@@ -152,24 +161,32 @@ fn get_agent(idx: u32) -> PhaseAgent {
         agent.omega = i32(omega_raw);
     }
     
+    agent.time_dilation = (t2 >> 16u) & 0xFFu;
+    agent.preferred_theta = (t2 >> 24u) & 0xFFu;
+    
     agent.theta = t3 & 0xFFu;
     agent.energy = (t3 >> 8u) & 0xFFu;
     agent.lock = (t3 >> 16u) & 0xFFu;
     agent.ent = (t3 >> 24u) & 0xFFu;
+    
+    agent.memory_strength = t4 & 0xFFu;
     return agent;
 }
 
 fn set_agent(idx: u32, agent: PhaseAgent) {
-    let offset = idx * 4u;
+    let offset = idx * 6u;
     let omega_u16 = u32(agent.omega) & 0xFFFFu;
     
-    let t2 = omega_u16; 
+    let t2 = omega_u16 | ((agent.time_dilation & 0xFFu) << 16u) | ((agent.preferred_theta & 0xFFu) << 24u); 
     let t3 = (agent.theta & 0xFFu) | ((agent.energy & 0xFFu) << 8u) | ((agent.lock & 0xFFu) << 16u) | ((agent.ent & 0xFFu) << 24u);
+    let t4 = agent.memory_strength & 0xFFu;
     
     field_out[offset] = agent.plasmid_low;
     field_out[offset + 1u] = agent.plasmid_high;
     field_out[offset + 2u] = t2;
     field_out[offset + 3u] = t3;
+    field_out[offset + 4u] = t4;
+    field_out[offset + 5u] = 0u;
 }
 
 
@@ -180,8 +197,7 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
 // O-223 Native Phase Coupling via Hardware Hamming Distance (POPCNT Singularity)
 // O-247 Sakaguchi Phase Frustration (Breaks uniform crystalline sync to allow biological niches)
 fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
-    let frustration_offset = i32(KURAMOTO_SAKAGUCHI_ALPHA * 256.0);
-    let effective_me_theta = u32(wrap_index(i32(me_theta) + frustration_offset, 256));
+    let effective_me_theta = u32(wrap_index(i32(me_theta) + KURAMOTO_SAKAGUCHI_ALPHA, 256));
     return signed_phase_delta(i32(effective_me_theta), i32(neighbor_theta)) * 8; // Triangle wave approximation of Sin(x) * 1024
 }
 
@@ -301,25 +317,44 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
+    // --- Phase 12: Adaptive Phase Biology (Ghost Neighbor Memory) ---
+    let memory_pull_q20 = (phase_torque(me.theta, me.preferred_theta) * i32(me.memory_strength) * BIOLOGY_APA_MEMORY_GAIN) / 255;
+    kuramoto += memory_pull_q20;
+
     // Kinematics
-    var omega_delta = q20_round(kuramoto);
-    omega_delta = fast_abs(omega_delta);
+    let raw_omega_delta = q20_round(kuramoto);
+    var omega_delta = fast_abs(raw_omega_delta);
     let next_omega = clamp(me.omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(me.theta) + next_omega, 256));
 
     // O-230.1: Exogenous Friction (The Blind Oracle)
-    // Absolute Kuramoto torque measures local topological friction.
-    // If torque is extreme, the vacuum spontaneously generates thermal energy (amplitude).
     let topological_friction = fast_abs(q20_round(kuramoto));
     var exogenous_energy = 0i;
     if (topological_friction > 10) {
         exogenous_energy = topological_friction / 4;
     }
 
-    var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus + exogenous_energy;
+    let adaptation_cost = (fast_abs(raw_omega_delta) * BIOLOGY_APA_DECISION_COST) / 1024;
+    var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus + exogenous_energy - adaptation_cost;
     if (coherence > COHERENCE_HIGH_THRESHOLD) { amp_delta += 2; }
 
     let lock_delta = select(-4, 8, coherence >= COHERENCE_LOCK_THRESHOLD);
+    
+    // --- Phase Memory Learning & Decay ---
+    var next_preferred_theta = me.preferred_theta;
+    var next_memory_strength = me.memory_strength;
+
+    let coherence_q10 = q20_round(coherence); 
+    if (coherence_q10 >= BIOLOGY_APA_COHERENCE_REWARD) {
+        let diff = signed_phase_delta(i32(next_preferred_theta), i32(next_theta));
+        let shift = (diff * BIOLOGY_APA_LEARNING_RATE) / 1024;
+        next_preferred_theta = u32(wrap_index(i32(next_preferred_theta) + shift, 256));
+
+        let memory_gain_byte = u32((BIOLOGY_APA_MEMORY_GAIN * 255) / 1024);
+        next_memory_strength = u32(clamp_i32(i32(next_memory_strength + memory_gain_byte), 0, 255));
+    }
+    
+    next_memory_strength = min(255u, (next_memory_strength * u32(BIOLOGY_APA_MEMORY_DECAY)) / 1024u);
 
     var next_amp = clamp(i32(me.energy) + amp_delta, 0, 255);
     var next_lock = clamp(i32(me.lock) + lock_delta, 0, 255);
@@ -359,6 +394,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     next_agent.ent = target_ent;
     next_agent.plasmid_low = next_plasmid_low;
     next_agent.plasmid_high = next_plasmid_high;
+    next_agent.time_dilation = me.time_dilation;
+    next_agent.preferred_theta = next_preferred_theta;
+    next_agent.memory_strength = next_memory_strength;
 
     set_agent(idx, next_agent);
 }

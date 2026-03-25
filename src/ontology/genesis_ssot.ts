@@ -11,7 +11,7 @@ export const CONSTANTS = {
     // Math & Hashing
     MATH_Q_BITS: { type: "i32", value: 10 },
     MATH_Q_SCALE: { type: "i32", expr: "1 << MATH_Q_BITS" },
-    NATIVE_GRAVITY: { type: "f32", value: -0.05 },
+    NATIVE_GRAVITY: { type: "i32", value: -51 },
     
     FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },
     FNV64_PRIME: { type: "u64", value: 1099511628211n },
@@ -35,7 +35,7 @@ export const CONSTANTS = {
 
     // Kuramoto Thermodynamics (Q10 Format)
     KURAMOTO_COUPLING_BASE: { type: "i32", value: 1024 }, 
-    KURAMOTO_SAKAGUCHI_ALPHA: { type: "f32", value: 0.15 }, 
+    KURAMOTO_SAKAGUCHI_ALPHA: { type: "i32", value: 38 }, 
     KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", value: 512 }, 
     KURAMOTO_COUPLING_ANTIPODE: { type: "i32", value: 358 }, 
     KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", value: 3072 }, 
@@ -63,18 +63,25 @@ export const CONSTANTS = {
     TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", value: 154 },
 
     // === Biological Economy ===
-    BIOLOGY_SOMATIC_ALPHA: { type: "f32", value: 1.5 },
-    BIOLOGY_SOMATIC_DECAY_RATE: { type: "f32", value: 0.05 },
+    BIOLOGY_SOMATIC_ALPHA: { type: "i32", value: 1536 },
+    BIOLOGY_SOMATIC_DECAY_RATE: { type: "i32", value: 51 },
     BIOLOGY_SOMATIC_BASE_COST: { type: "i32", value: 5 },
     BIOLOGY_EXTINCTION_THRESHOLD: { type: "i32", value: 0 },
 
+    // === Adaptive Phase Biology (Phase 12) ===
+    BIOLOGY_APA_LEARNING_RATE: { type: "i32", value: 51 }, // 0.05 * 1024
+    BIOLOGY_APA_MEMORY_GAIN: { type: "i32", value: 102 }, // 0.1 * 1024
+    BIOLOGY_APA_DECISION_COST: { type: "i32", value: 2 },
+    BIOLOGY_APA_COHERENCE_REWARD: { type: "i32", value: 614 }, // 0.6 * 1024
+    BIOLOGY_APA_MEMORY_DECAY: { type: "i32", value: 1023 }, // 0.999 * 1024
+
     // === ADA Relativity & Recovery ===
-    ADA_HODLER_BRAKE: { type: "f32", value: 0.95 },
+    ADA_HODLER_BRAKE: { type: "i32", value: 972 },
     ADA_QE_STIMULUS_MAX: { type: "i32", value: 500 },
     ADA_QE_STIMULUS_MIN: { type: "i32", value: 100 },
-    ADA_MASS_DILATION_MIN: { type: "f32", value: 0.05 },
-    ADA_MASS_DILATION_MAX: { type: "f32", value: 1.0 },
-    ADA_MASS_DILATION_NUM: { type: "f32", value: 3.0 },
+    ADA_MASS_DILATION_MIN: { type: "i32", value: 51 },
+    ADA_MASS_DILATION_MAX: { type: "i32", value: 1024 },
+    ADA_MASS_DILATION_NUM: { type: "i32", value: 3072 },
 
     // === Cognitive Oracle ===
     ORACLE_INVOCATION_COST: { type: "i32", value: 10000 },

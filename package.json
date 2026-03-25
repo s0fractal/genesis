@@ -9,7 +9,7 @@
     "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
     "build": "npm run build:wasm && vite build",
     "serve": "vite preview",
-    "generate:phase-goldens": "deno run -A tools/generate_phase_goldens.ts",
+    "generate:phase-goldens": "deno run -A tools/generate_golden.ts",
     "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",
     "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
     "verify:phase-coherence": "deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
