@@ -1,11 +1,6 @@
 // O-176 Native Metal Kuramoto Physics Compute Shader (Granite Core AoS)
 
-override PHASE_LUT_SIZE: i32 = 256;
-override MAX_AMPLITUDE: i32 = 255;
-override MAX_ENTANGLEMENT: i32 = 255;
-override MAX_OMEGA: i32 = 16;
-override SHADOW_BUCKET_MIN: i32 = 1000;
-override SHADOW_BUCKET_MAX: i32 = 1023;
+
 // WGSL WebGPU Semantic Thresholds
 const COHERENCE_LOCK_THRESHOLD: i32 = 3145728; // Q20 representation of 3.0
 const COHERENCE_HIGH_THRESHOLD: i32 = 4404019; // Q20 representation of 4.2
@@ -110,13 +105,6 @@ fn set_agent(idx: u32, agent: PhaseAgent) {
     field_out[offset + 3u] = t3;
 }
 
-fn wrap_index(val: i32, modulo: i32) -> u32 {
-    let rem = val % modulo;
-    if (rem < 0) {
-        return u32(rem + modulo);
-    }
-    return u32(rem);
-}
 
 fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
     return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
@@ -165,11 +153,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let me = get_agent(idx);
 
-    let left_sec = wrap_index(i32(sector) - 1, i32(params.sectors));
-    let right_sec = wrap_index(i32(sector) + 1, i32(params.sectors));
+    let left_sec = u32(wrap_index(i32(sector) - 1, i32(params.sectors)));
+    let right_sec = u32(wrap_index(i32(sector) + 1, i32(params.sectors)));
     let inner_rho = max(0u, rho - 1u);
     let outer_rho = min(params.radial_bins - 1u, rho + 1u);
-    let harm_peer = wrap_index(i32(harmonic) + 1, i32(params.harmonics));
+    let harm_peer = u32(wrap_index(i32(harmonic) + 1, i32(params.harmonics)));
 
     let a_l = get_agent(get_idx(left_sec, rho, harmonic));
     let a_r = get_agent(get_idx(right_sec, rho, harmonic));
@@ -197,7 +185,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
         
-        let weight = (i32(me.ent) * params.coupling_antipode) / MAX_ENTANGLEMENT;
+        let weight = (i32(me.ent) * params.coupling_antipode) / PHASE_MAX_ENTANGLEMENT;
         kuramoto += phase_torque(me.theta, a_anti.theta) * weight;
         coherence += genetic_resonance(me, a_anti) * weight;
 
