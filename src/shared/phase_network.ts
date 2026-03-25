@@ -19,6 +19,12 @@ export class PhaseNetwork {
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     private nodeId: string;
     
+    // Era 247: Plasmid Delta-State CRDT (LWW-Element Set)
+    private addSet: Map<string, ForeignPlasmid> = new Map();
+    private removeSet: Map<string, number> = new Map();
+    private localVectorClock: Record<string, number> = {};
+    private gossipIntervalId: number;
+    
     // O-200 Vector 7: WebRTC Jitter Initialization Backoff
     private backoffMs: number;
     
@@ -88,6 +94,89 @@ export class PhaseNetwork {
         
         // Announce presence to the local mesh
         this.meshChannel.postMessage({ type: "HELLO", origin: this.nodeId });
+        
+        // Era 247: Anti-Entropy CRDT Gossip Protocol
+        this.gossipIntervalId = setInterval(() => this.gossipCRDTState(), 8000) as unknown as number;
+    }
+
+    // Era 247: Delta-State CRDT Merge Logic (LWW-Element Set)
+    private mergeCRDTPlasmid(p: ForeignPlasmid) {
+        const hash = p.hash;
+        const removeTimestamp = this.removeSet.get(hash) || 0;
+        
+        // Logical Clock parsing: find highest causal tick across all recorded origins
+        let incomingClockMax = 0;
+        if (p.vectorClock) {
+            for (const val of Object.values(p.vectorClock)) {
+                if (val > incomingClockMax) incomingClockMax = val;
+            }
+        } else {
+            incomingClockMax = performance.now(); 
+        }
+
+        // LWW (Last-Writer-Wins) Resolution against Tombstones
+        if (incomingClockMax > removeTimestamp) {
+            const existing = this.addSet.get(hash);
+            // If novel or causally newer than what we have, integrate it
+            if (!existing || incomingClockMax > this.getPlasmidClockMax(existing)) {
+                this.addSet.set(hash, p);
+                
+                // Track our clock
+                this.localVectorClock[this.nodeId] = performance.now();
+                
+                // Expose to biological abstraction layer
+                this.onPlasmidReceived(p);
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Purge a plasmid using a CRDT Tombstone
+    public obliteratePlasmid(hash: string) {
+        if (this.addSet.has(hash)) {
+            this.addSet.delete(hash);
+            this.removeSet.set(hash, performance.now());
+            this.localVectorClock[this.nodeId] = performance.now();
+        }
+    }
+    
+    private getPlasmidClockMax(p: ForeignPlasmid): number {
+        if (!p.vectorClock) return 0;
+        let max = 0;
+        for (const val of Object.values(p.vectorClock)) {
+             if (val > max) max = val;
+        }
+        return max;
+    }
+
+    private gossipCRDTState() {
+        if (this.rtcConnections.size === 0) return;
+        
+        // Select 5 most recent plasmids to gossip (optimistic bounding for bandwidth overhead)
+        const sortedAdded = Array.from(this.addSet.values())
+            .sort((a, b) => this.getPlasmidClockMax(b) - this.getPlasmidClockMax(a))
+            .slice(0, 5);
+            
+        // Select 10 most recent tombstones
+        const sortedRemoved = Array.from(this.removeSet.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+
+        const deltaPayload = {
+            type: "CRDT_SYNC",
+            origin: this.nodeId,
+            addSet: sortedAdded,
+            removeSet: Object.fromEntries(sortedRemoved),
+            clock: this.localVectorClock
+        };
+        
+        const msgStr = JSON.stringify(deltaPayload);
+        for(const dc of this.rtcConnections) {
+            if(dc.readyState === "open") {
+                dc.send(msgStr);
+            }
+        }
     }
 
     private async handleMeshSignal(msgData: unknown) {
@@ -222,6 +311,10 @@ export class PhaseNetwork {
         const seedClock = vectorClock || { [this.nodeId]: performance.now() };
         const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock: seedClock, phenotype };
         
+        // CRDT Registration
+        this.addSet.set(hash, payload);
+        this.localVectorClock[this.nodeId] = performance.now();
+
         // Emitting internally locally ignores geometry
         const localMsg = { type: "FOREIGN_PLASMID", payload };
         this.channel.postMessage(localMsg);
@@ -367,14 +460,44 @@ export class PhaseNetwork {
                     }
 
                     // 🍄 Era 203 & 230: Holographic CRDT & Phenotypic Resonance
-                    // Even as the wave passes through us, we attempt to biologically absorb it
-                    if (p.phenotype) {
-                        console.log(`🧬 [Phenotype] Encountered ${p.phenotype.behavior} intent targeting ${p.phenotype.target_alignment || "Torus Core"}`);
-                        // Simulate exogenous network latency per phenotype rules
-                        setTimeout(() => this.onPlasmidReceived(p), p.phenotype.latency);
-                    } else {
-                        console.log(`📡 [Holo-CRDT] Attempting to resonate with naked plasmid: ${p.hash}`);
-                        this.onPlasmidReceived(p);
+                    // State integration
+                    const wasNovel = this.mergeCRDTPlasmid(p);
+                    
+                    if (wasNovel) {
+                        if (p.phenotype) {
+                            console.log(`🧬 [Phenotype] Encountered ${p.phenotype.behavior} intent targeting ${p.phenotype.target_alignment || "Torus Core"}`);
+                        } else {
+                            console.log(`📡 [Holo-CRDT] Attempting to resonate with naked plasmid: ${p.hash}`);
+                        }
+                    }
+                } else if (data && data.type === "CRDT_SYNC") {
+                    // Era 247: Anti-Entropy Merge
+                    const remoteRemoveSet = data.removeSet as Record<string, number>;
+                    const remoteAddSet = data.addSet as ForeignPlasmid[];
+                    
+                    let mergedCount = 0;
+                    
+                    // Merge Tombstones (LWW by highest timestamp)
+                    for (const [hash, timestamp] of Object.entries(remoteRemoveSet)) {
+                        const localTS = this.removeSet.get(hash) || 0;
+                        if (timestamp > localTS) {
+                            this.removeSet.set(hash, timestamp);
+                            this.addSet.delete(hash); // Instantly drop from local view
+                        }
+                    }
+                    
+                    // Merge Additions via causal logic check
+                    for (const plasmid of remoteAddSet) {
+                        if (this.mergeCRDTPlasmid(plasmid)) mergedCount++;
+                    }
+                    
+                    if (mergedCount > 0) {
+                        console.log(`🧬 [CRDT_SYNC] Merged ${mergedCount} causal plasmids from ${data.origin}`);
+                        // Update local vector clock tracking with remote causality peak
+                        this.localVectorClock[data.origin] = Math.max(
+                            this.localVectorClock[data.origin] || 0, 
+                            (data.clock && data.clock[data.origin]) ? data.clock[data.origin] : 0
+                        );
                     }
                 }
             } catch (_err) {

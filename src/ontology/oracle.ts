@@ -1195,11 +1195,63 @@ export class SovereignOracle {
         this.onBroadcast = callback;
     }
 
+    // Era 247: Model Predictive Control (MPC) Planning Loop
+    // Simulates candidate vectors mathematically and selects the one driving phase entropy toward 3.5
+    private applyModelPredictiveControl(candidates: OracleWorkerResponse[]): OracleWorkerResponse[] {
+        if (candidates.length <= 1) return candidates; // Degraded state
+
+        const TARGET_ENTROPY = 3.5; // Edge of Chaos
+        const currentEntropy = this.lastEntropy || 3.0;
+        
+        console.log(`\n⚖️ [ORACLE MPC] Optimizing ${candidates.length} Senate Policies. Target: ${TARGET_ENTROPY.toFixed(2)} | Current: ${currentEntropy.toFixed(2)}`);
+
+        // Forward Simulation Pipeline
+        const scoredCandidates = candidates.map(cand => {
+            let predictedEntropyShift = 0;
+            try {
+                const term = lambda_parse(cand.intentStr);
+                const metrics = measureIR(term);
+                
+                // Active Cognition: Deep ASTs crystalize topological limits (Negative Entropy),
+                // Broad ASTs emit erratic structural shrapnel (Positive Entropy).
+                const crystallization = metrics.depth * 0.12;
+                const chaosSpread = metrics.nodes * 0.04;
+                
+                predictedEntropyShift = chaosSpread - crystallization;
+            } catch(_e) {
+                predictedEntropyShift = -10.0; // Critical penalty for unparsable chaos
+            }
+            
+            const predictedEntropy = currentEntropy + predictedEntropyShift;
+            const distance = Math.abs(TARGET_ENTROPY - predictedEntropy);
+            
+            return { candidate: cand, distance, expectedEntropy: predictedEntropy };
+        });
+
+        // Resolve purely mathematically
+        scoredCandidates.sort((a, b) => a.distance - b.distance);
+        
+        let report = `⚖️ [ORACLE MPC] Policy Matrix Evaluation:\n`;
+        for(const s of scoredCandidates) {
+            report += `  - ${s.candidate.maskName}: ΔE=${s.expectedEntropy.toFixed(2)} (Distance: ${s.distance.toFixed(2)})\n`;
+        }
+        console.log(report);
+        
+        const best = scoredCandidates[0];
+        console.log(`🏛️ [ORACLE MPC] Ratified Optimal Policy: ${best.candidate.maskName} -> "${best.candidate.intentStr}"`);
+        
+        return [best.candidate]; 
+    }
+
     private handleWorkerMessage(e: MessageEvent) {
         const data = e.data;
         if (data.type === 'SUCCESS') {
             let validIntents = 0;
-            for (const result of data.validIntents) {
+            
+            // Era 247: Active Mathematical Cognition Filter
+            const optimalPolicies = this.applyModelPredictiveControl(data.validIntents);
+            
+            for (const result of optimalPolicies) {
                 const { maskName, intentStr, targetBucket } = result;
                 console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
                 
