@@ -67,11 +67,3 @@ export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset:
     // Bytes 64-87: Evolutionary Parameters
     // Era 244: SSoT statically guarantees determinism.
 }
-
-// O-77 Native Rust Synchronization Hook
-// Executes instantly after initWasm() completes
-// Era 244: Native binding is rendered obsolete by SSoT compilation.
-// deno-lint-ignore no-explicit-any
-export function bindNativeConstants(_wasm: any) {
-    console.log(`[AXIOM] 🧬 Era 244: Native Universal Constants securely verified via SSoT Static Compilation.`);
-}
