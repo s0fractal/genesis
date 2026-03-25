@@ -10,8 +10,8 @@ import { BioAcousticChoir } from "./audio_synth.ts";
 export class PhaseWebGPUObserver {
     public heatmapEnabled: boolean = false;
     private canvas: HTMLCanvasElement;
-    private device: GPUDevice;
-    private context!: GPUCanvasContext;
+    private device: GPUDevice | null;
+    private context!: GPUCanvasContext | CanvasRenderingContext2D;
     private pipeline!: GPURenderPipeline;
     private bindGroupA!: GPUBindGroup;
     private bindGroupB!: GPUBindGroup;
@@ -31,7 +31,7 @@ export class PhaseWebGPUObserver {
     private snapshotCanvas?: HTMLCanvasElement;
     private snapshotCtx?: CanvasRenderingContext2D;
 
-    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
+    constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice | null) {
         this.canvas = canvas;
         this.canvas.tabIndex = 0; // O-194: Accessibility Focus
         this.canvas.style.outline = "none";
@@ -45,11 +45,13 @@ export class PhaseWebGPUObserver {
         this.camera.distance = 6.0;
         this.choir = new BioAcousticChoir();
         
-        this.device.lost.then((info) => {
-            console.warn(`[AION] WebGPU device lost: ${info.reason}`, info.message);
-            // Broadcast collapse to trigger hard reload from Genesis Checkpoint
-            globalThis.dispatchEvent(new CustomEvent("substrateCollapse", { detail: { reason: info.reason } }));
-        });
+        if (this.device) {
+            this.device.lost.then((info) => {
+                console.warn(`[AION] WebGPU device lost: ${info.reason}`, info.message);
+                // Broadcast collapse to trigger hard reload from Genesis Checkpoint
+                globalThis.dispatchEvent(new CustomEvent("substrateCollapse", { detail: { reason: info.reason } }));
+            });
+        }
         
         this.setupInteractions();
     }
@@ -121,8 +123,6 @@ export class PhaseWebGPUObserver {
 
     // deno-lint-ignore require-await
     async init() {
-        this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
-        
         // O-194: High-DPI Accessibility Scaling
         const dpr = globalThis.devicePixelRatio || 1;
         const rect = this.canvas.getBoundingClientRect();
@@ -131,10 +131,17 @@ export class PhaseWebGPUObserver {
             this.canvas.height = rect.height * dpr;
         }
 
+        if (!this.device) {
+            this.context = this.canvas.getContext('2d', { alpha: false, desynchronized: true }) as CanvasRenderingContext2D;
+            return;
+        }
+
+        this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
+        
         const _numCells = this.field.cell_count();
         
         const format = navigator.gpu.getPreferredCanvasFormat();
-        this.context.configure({
+        (this.context as GPUCanvasContext).configure({
             device: this.device,
             format,
             alphaMode: 'opaque'
@@ -211,11 +218,46 @@ export class PhaseWebGPUObserver {
     }
 
     render(activeFieldBuffer: GPUBuffer) {
-        if (!this.device || !this.context) return;
+        if (!this.context) return;
         
-        const activeBindGroup = activeFieldBuffer === this.engine.bufferA ? this.bindGroupA : this.bindGroupB;
-
         const numCells = this.field.cell_count();
+
+        // Era 243.3: CPU Render Boundary
+        if (!this.device) {
+            const ctx = this.context as CanvasRenderingContext2D;
+            
+            const side = Math.ceil(Math.sqrt(numCells));
+            const w = this.canvas.width;
+            const h = this.canvas.height;
+            const cellW = w / side;
+            const cellH = h / side;
+            
+            ctx.fillStyle = '#05080f';
+            ctx.fillRect(0, 0, w, h);
+            
+            const ptrAgents = this.field.ptr_agents() as number;
+            const dv = new DataView(this.engine.wasmMemory.buffer, ptrAgents, numCells * 16);
+            
+            for (let i = 0; i < numCells; i++) {
+                const offset = i * 16;
+                const plasmidLow = dv.getUint32(offset, true);
+                const plasmidHigh = dv.getUint32(offset + 4, true);
+                if (plasmidLow !== 0 || plasmidHigh !== 0) {
+                    const cx = (i % side) * cellW;
+                    const cy = Math.floor(i / side) * cellH;
+                    
+                    const r = (plasmidLow & 0xFF);
+                    const g = ((plasmidLow >> 8) & 0xFF);
+                    const b = ((plasmidLow >> 16) & 0xFF);
+                    
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(cx, cy, cellW, cellH);
+                }
+            }
+            return;
+        }
+
+        const activeBindGroup = activeFieldBuffer === this.engine.bufferA ? this.bindGroupA : this.bindGroupB;
 
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
@@ -263,6 +305,7 @@ export class PhaseWebGPUObserver {
         
         // Era 239.2: Torus Sector Heat (The Topos Panopticon Array mapping)
         // 64 Float32s packed sequentially starting at float offset 48
+        // deno-lint-ignore no-explicit-any
         const oracle = (this.engine as any).oracle;
         if (oracle && oracle.sectorHeat) {
             viewF32.set(oracle.sectorHeat, 48);
@@ -360,7 +403,7 @@ export class PhaseWebGPUObserver {
 
         const pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
-                view: this.context.getCurrentTexture().createView(),
+                view: (this.context as GPUCanvasContext).getCurrentTexture().createView(),
                 loadOp: 'clear',
                 clearValue: { r: 0.02, g: 0.03, b: 0.06, a: 1 },
                 storeOp: 'store'

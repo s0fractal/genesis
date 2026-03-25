@@ -28,6 +28,9 @@ export class PhaseNetwork {
     // Era 222: Kademlia Spatial DHT Buckets
     private kBuckets: Map<number, Set<string>> = new Map();
     private readonly MAX_PEERS_PER_BUCKET = 3;
+    
+    // Era 242.1: Exponential Backoff tracking for WebRTC Thundering Herd DDoS prevention
+    private reconnectionAttempts: Map<string, number> = new Map();
 
     private calculateXorDistance(peerId: string): number {
         // Compute 64-bit FNV1a hash for deterministic logical IDs
@@ -188,8 +191,23 @@ export class PhaseNetwork {
 
         pc.oniceconnectionstatechange = () => {
             if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                console.warn(`🍄 [Auto-Mycelium] WebRTC ICE connection failed with ${remotePeerId}. Triggering ICE Restart...`);
-                pc.restartIce();
+                const attempts = this.reconnectionAttempts.get(remotePeerId) || 0;
+                
+                // Era 242.1: CRDT Thundering Herd DDoS Prevention
+                // Exponential backoff capped at 30 seconds, plus 10-20% stochastic jitter
+                const jitter = 0.8 + Math.random() * 0.4;
+                const delayMs = Math.min(1000 * (2 ** attempts), 30000) * jitter;
+                
+                this.reconnectionAttempts.set(remotePeerId, attempts + 1);
+                console.warn(`🍄 [Auto-Mycelium] WebRTC ICE connection failed with ${remotePeerId} (Attempt ${attempts + 1}). Retrying in ${Math.round(delayMs)}ms...`);
+                
+                setTimeout(() => {
+                    if (this.peers.has(remotePeerId)) {
+                        pc.restartIce();
+                    }
+                }, delayMs);
+            } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                this.reconnectionAttempts.delete(remotePeerId); // Reset on topological stability
             }
         };
 
@@ -201,7 +219,8 @@ export class PhaseNetwork {
         const origin = "peer_" + Math.random().toString(36).substring(7);
         const parentStr = parents ? parents.join(",") : "";
         const signature = fnv1a_64(`${hash}:${targetBucket}:${origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
-        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock, phenotype };
+        const seedClock = vectorClock || { [this.nodeId]: performance.now() };
+        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock: seedClock, phenotype };
         
         // Emitting internally locally ignores geometry
         const localMsg = { type: "FOREIGN_PLASMID", payload };
@@ -234,6 +253,16 @@ export class PhaseNetwork {
         }
         
         if (bestDc && bestDc.readyState === "open") {
+            // Era 242.2: Vector Clock Gossip Tracking & Truncation
+            p.vectorClock = p.vectorClock || {};
+            p.vectorClock[this.nodeId] = performance.now();
+            
+            const clockKeys = Object.keys(p.vectorClock);
+            if (clockKeys.length > 10) {
+                const oldest = clockKeys.sort((a, b) => p.vectorClock![a] - p.vectorClock![b])[0];
+                delete p.vectorClock[oldest];
+            }
+
             const msg = { type: "FOREIGN_PLASMID", payload: p, theta: thetaOut, amplitude };
             bestDc.send(JSON.stringify(msg));
         }

@@ -21,9 +21,18 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   const phaseField = new PhaseLatticeField(256, 256, 1);
   hydrateSubstrateHeader(wasmMemory, phaseField.ptr_header());
   
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) throw new Error("WebGPU adapter not found");
-  const device = await adapter.requestDevice();
+  let device: GPUDevice | null = null;
+  
+  // Era 243: CPU Hardware Fallback Boundary
+  try {
+      if (!navigator.gpu) throw new Error("WebGPU API missing");
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) throw new Error("WebGPU adapter unavailable");
+      device = await adapter.requestDevice();
+  } catch (err) {
+      console.error("🛑 [O-243 FATAL] WebGPU Initialization Failed! Engaging WASM CPU-Fallback Mode.", err);
+      // Let device remain null, engines will detect IS_CPU_FALLBACK implicitly.
+  }
 
   const computeEngine = new PhaseComputeEngine(device, phaseField, wasmMemory);
   const observer = new PhaseWebGPUObserver(canvas, phaseField, computeEngine, device);

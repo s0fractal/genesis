@@ -2,7 +2,7 @@ import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import commonWgsl from './shaders/common.wgsl?raw';
 import generatedWgslLut from './shaders/generated/lut_data.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';
-import { PhaseLatticeField } from "@wasm";
+import { PhaseLatticeField, execute_phase_lattice_tick } from "@wasm";
 import * as C from "../shared/constants.ts";
 
 interface PendingInjection {
@@ -26,7 +26,7 @@ function decomposeHash(hash: bigint) {
 }
 
 export class PhaseComputeEngine {
-    public device: GPUDevice;
+    public device: GPUDevice | null;
     public bufferA!: GPUBuffer;
     public bufferB!: GPUBuffer;
     public paramsBuffer!: GPUBuffer;
@@ -58,23 +58,25 @@ export class PhaseComputeEngine {
     private readbackRing: GPUBuffer[] = [];
     private ringIndex = 0;
 
-    constructor(device: GPUDevice, field: PhaseLatticeField, memory: WebAssembly.Memory) {
+    constructor(device: GPUDevice | null, field: PhaseLatticeField, memory: WebAssembly.Memory) {
         this.device = device;
         this.field = field;
         this.wasmMemory = memory;
         this.startTime = performance.now();
         
-        // Utilize generic wrapper for Deno WebGPU Type Compatibility bounds
-        (this.device as unknown as { onuncapturederror: (e: { error: Error }) => void }).onuncapturederror = ((event: { error: Error }) => {
-            console.error("[O-64 GPU FATAL]", event.error);
-            const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
-            if (!errDiv.id) {
-                errDiv.id = 'wgsl-err';
-                errDiv.style.cssText = 'position:fixed;top:50px;left:10px;color:#ff3333;z-index:9999;font-size:12px;background:rgba(0,0,0,0.9);padding:10px;font-family:monospace;max-width:80vw;';
-                document.body.appendChild(errDiv);
-            }
-            errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
+        if (this.device) {
+            // Utilize generic wrapper for Deno WebGPU Type Compatibility bounds
+            (this.device as unknown as { onuncapturederror: (e: { error: Error }) => void }).onuncapturederror = ((event: { error: Error }) => {
+                console.error("[O-64 GPU FATAL]", event.error);
+                const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
+                if (!errDiv.id) {
+                    errDiv.id = 'wgsl-err';
+                    errDiv.style.cssText = 'position:fixed;top:50px;left:10px;color:#ff3333;z-index:9999;font-size:12px;background:rgba(0,0,0,0.9);padding:10px;font-family:monospace;max-width:80vw;';
+                    document.body.appendChild(errDiv);
+                }
+                errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
             });
+        }
             
         for (let i = 0; i < this.INJECTION_POOL_SIZE; i++) {
             this.injectionPool.push({ idx: 0, bucket: 0, hashLow: 0, hashHigh: 0, amp: 0, phase: 0, ent: 0 });
@@ -82,6 +84,8 @@ export class PhaseComputeEngine {
     }
 
     private getStagingBuffer(size: number): GPUBuffer {
+        if (!this.device) return {} as GPUBuffer;
+        
         const existing = this.stagingPool.find(b => b.size >= size && b.size <= size * 2 && b.mapState === 'unmapped');
         if (existing) return existing;
         const newBuf = this.device.createBuffer({
@@ -94,6 +98,8 @@ export class PhaseComputeEngine {
 
     // deno-lint-ignore require-await
     async init() {
+        if (!this.device) return;
+        
         const numCells = this.field.cell_count();
         const AGENT_BYTES = 16;
         const totalSize = numCells * AGENT_BYTES;
@@ -201,7 +207,31 @@ export class PhaseComputeEngine {
     }
 
     tick() {
-        if (!this.device) return;
+        if (!this.device) {
+            // Era 243.2: CPU Fallback Execution
+            const numCells = this.field.cell_count();
+            const ptrAgents = this.field.ptr_agents() as number;
+            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 16);
+            
+            while (this.injectionHead !== this.injectionTail) {
+                const inj = this.injectionPool[this.injectionHead];
+                this.injectionHead = (this.injectionHead + 1) & (this.INJECTION_POOL_SIZE - 1);
+                
+                let targetIdx = inj.idx;
+                if (inj.bucket !== undefined) {
+                    targetIdx = Math.floor(Math.random() * numCells); 
+                }
+                
+                const offset = targetIdx * 16;
+                dv.setUint8(offset + 12, 255); // max amp
+                dv.setUint8(offset + 13, inj.ent); // max lock
+                dv.setUint32(offset, inj.hashLow, true);     // plasmid low
+                dv.setUint32(offset + 4, inj.hashHigh, true); // plasmid high
+            }
+            
+            execute_phase_lattice_tick(this.field);
+            return;
+        }
 
         const time = (performance.now() - this.startTime) / 1000.0;
         const uniformBuffer = new ArrayBuffer(112);
