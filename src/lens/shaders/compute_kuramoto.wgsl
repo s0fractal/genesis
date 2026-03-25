@@ -212,11 +212,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let bucket_idx = hash & 1023u;
         let m_count = atomicLoad(&mycelial_centroids[bucket_idx].count);
         if (m_count > 1u) {
-            let m_x = f32(atomicLoad(&mycelial_centroids[bucket_idx].x_sum));
-            let m_y = f32(atomicLoad(&mycelial_centroids[bucket_idx].y_sum));
-            var centroid_theta_rad = atan2(m_y, m_x);
-            if (centroid_theta_rad < 0.0) { centroid_theta_rad += 6.283185307; }
-            let centroid = u32(centroid_theta_rad * 255.0 / 6.283185307) % 256u;
+            let m_x = atomicLoad(&mycelial_centroids[bucket_idx].x_sum);
+            let m_y = atomicLoad(&mycelial_centroids[bucket_idx].y_sum);
+            let centroid = u32(atan2_u8(m_y, m_x));
             kuramoto += phase_torque(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
             
             var m_diff = abs(i32(centroid) - i32(me.theta));

@@ -1,7 +1,7 @@
 import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from "./phase_compute.ts";
 import { SovereignOracle } from "../ontology/oracle.ts";
-import { clamp_i32 } from "../shared/constants.ts";
+import { clamp_i32, atan2_u8 } from "../shared/constants.ts";
 
 export class PhasePerturbationInjector {
     private canvas: HTMLCanvasElement;
@@ -30,9 +30,8 @@ export class PhasePerturbationInjector {
             const cy = rect.top + rect.height / 2;
             const dx = event.clientX - cx;
             const dy = event.clientY - cy;
-            const angle = Math.atan2(dy, dx);
-            const normalizedAngle = angle < 0 ? angle + Math.PI * 2 : angle;
-            const sector = Math.floor(normalizedAngle / (Math.PI * 2) * this.field.sectors);
+            const phase = atan2_u8(Math.floor(dy), Math.floor(dx));
+            const sector = Math.floor((phase / 256) * this.field.sectors);
             const maxRadius = Math.min(rect.width, rect.height) * 0.42;
             const distance = Math.hypot(dx, dy);
             const rho = Math.floor(clamp_i32(distance / Math.max(1, maxRadius), 0, 0.999) * this.field.radial_bins);
@@ -42,7 +41,7 @@ export class PhasePerturbationInjector {
                 rho,
                 160,
                 1,
-                Math.floor(normalizedAngle / (Math.PI * 2) * 255),
+                phase,
                 new Uint8Array([0, 0, 0, 0, 0, 0, 180, 0]),
             );
         });

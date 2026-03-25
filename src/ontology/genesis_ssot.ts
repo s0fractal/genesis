@@ -107,6 +107,64 @@ export const MACROS = {
         wgsl: "return clamp(value, min_val, max_val);",
         rust: "value.clamp(min_val, max_val)",
         ts: "return Math.min(max_val, Math.max(min_val, value));"
+    },
+    atan2_u8: {
+        args: [ { name: "y", type: "i32" }, { name: "x", type: "i32" } ],
+        returns: "u8",
+        wgsl: `
+    if (x == 0 && y == 0) { return 0i; }
+    let abs_y = abs(y);
+    let abs_x = abs(x);
+    let a = min(abs_y, abs_x);
+    let b = max(abs_y, abs_x);
+    var ratio = 0i;
+    if (b != 0) { ratio = (a * 128) / b; }
+    if (ratio > 128) { ratio = 128; }
+    let octant_angle = i32(ATAN_LUT[ratio]);
+    var quadrant_angle = octant_angle;
+    if (abs_y > abs_x) { quadrant_angle = 64 - octant_angle; }
+    if (x < 0) {
+        if (y < 0) { return (128 + quadrant_angle) & 255; }
+        else { return (128 - quadrant_angle) & 255; }
+    } else {
+        if (y < 0) { return (256 - quadrant_angle) & 255; }
+        else { return quadrant_angle & 255; }
+    }
+        `.trim(),
+        rust: `
+    if x == 0 && y == 0 { return 0; }
+    let abs_y = y.abs();
+    let abs_x = x.abs();
+    let a = abs_y.min(abs_x);
+    let b = abs_y.max(abs_x);
+    let mut ratio = if b == 0 { 0 } else { (a * 128) / b };
+    if ratio > 128 { ratio = 128; }
+    let octant_angle = ATAN_LUT[ratio as usize];
+    let quadrant_angle = if abs_y > abs_x { 64 - octant_angle } else { octant_angle };
+    if x < 0 {
+        if y < 0 { 128u8.wrapping_add(quadrant_angle) } else { 128u8.wrapping_sub(quadrant_angle) }
+    } else {
+        if y < 0 { 256u16.wrapping_sub(quadrant_angle as u16) as u8 } else { quadrant_angle }
+    }
+        `.trim(),
+        ts: `
+    if (x === 0 && y === 0) { return 0; }
+    const abs_y = Math.abs(y);
+    const abs_x = Math.abs(x);
+    const a = Math.min(abs_y, abs_x);
+    const b = Math.max(abs_y, abs_x);
+    let ratio = b === 0 ? 0 : Math.floor((a * 128) / b);
+    if (ratio > 128) { ratio = 128; }
+    const octant_angle = ATAN_LUT[ratio];
+    const quadrant_angle = abs_y > abs_x ? 64 - octant_angle : octant_angle;
+    if (x < 0) {
+        if (y < 0) { return (128 + quadrant_angle) & 255; } 
+        else { return (128 - quadrant_angle) & 255; }
+    } else {
+        if (y < 0) { return (256 - quadrant_angle) & 255; } 
+        else { return quadrant_angle & 255; }
+    }
+        `.trim()
     }
 };
 
