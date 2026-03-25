@@ -471,7 +471,7 @@ pub fn execute_phase_lattice_fossilization(field: &mut PhaseLatticeField) {
 
 #[wasm_bindgen]
 pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
-    let mut hash = 14695981039346656037u64;
+    let mut hash = crate::constants::FNV64_OFFSET_BASIS;
     let tau = field.current_tau as usize;
     for harmonic in 0..field.harmonics as usize {
         for rho in 0..field.radial_bins as usize {

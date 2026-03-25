@@ -40,5 +40,5 @@ pub(crate) fn cos(from_theta: u8, to_theta: u8) -> i32 {
 #[inline(always)]
 pub(crate) fn mix_u64(hash: &mut u64, value: u64) {
     *hash ^= value;
-    *hash = hash.wrapping_mul(1099511628211u64);
+    *hash = hash.wrapping_mul(crate::constants::FNV64_PRIME);
 }
