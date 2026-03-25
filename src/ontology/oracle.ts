@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST, calculateConsonanceBonus } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -31,9 +31,13 @@ export class SovereignOracle {
     private observer?: PhaseWebGPUObserver;
     
     public plasmidRegistry = new Map<bigint, SomaticNode>();
-    public activePlasmids = new Set<bigint>();
+    public activePlasmids: Set<bigint> = new Set();
     
-    // Era 206: Geological Sectors (64 Regions of 8x8 Lattice Buckets)
+    // Era 237: Spatial Signal Buffer for Abstract API Negotiations
+    // Map of Sector -> Active Semantic Trade Offer
+    private spatialSignalBuffer: Map<number, { hash: bigint, signal: number, atp: number }> = new Map();
+
+    // Era 211: Metaphysical Parameters (64 Regions of 8x8 Lattice Buckets)
     public sectorHeat = new Float32Array(64); 
     
     // Era 207: Cognitive Replay (Meta-Memory Bank)
@@ -245,16 +249,24 @@ export class SovereignOracle {
     }
 
     // Era 214: The Apex Pantheon
-    public getApexPlasmids(count: number = 3): { hash: bigint; ast: string; energy: number }[] {
+    public getApexPlasmids(count: number = 3): { hash: bigint; ast: string; energy: number; velocity: number }[] {
         const sorted = Array.from(this.activePlasmids)
             .map(hash => {
                 const node = this.plasmidRegistry.get(hash);
-                return { hash, energy: node ? Math.floor(node.energy) : 0, ast: node ? formatTerm(node.ast) : "" };
+                return { hash, energy: node ? Math.floor(node.energy) : 0, ast: node ? formatTerm(node.ast) : "", nodes: node ? node.nodes : 1 };
             })
-            .filter(n => n.energy > 0 && n.energy !== Infinity) // Exclude dead and Immortal seed combinators
+            .filter(n => n.energy > 0 && n.energy !== Infinity)
             .sort((a, b) => b.energy - a.energy);
         
-        return sorted.slice(0, count);
+        return sorted.slice(0, count).map(s => {
+            const massDilation = Math.max(0.05, Math.min(1.0, 3.0 / Math.max(1, s.nodes)));
+            return {
+                hash: s.hash,
+                ast: s.ast,
+                energy: s.energy,
+                velocity: massDilation
+            };
+        });
     }
 
     // Era 217: The Kimi Flux (Time Dilation Debugger)
@@ -528,9 +540,14 @@ export class SovereignOracle {
              // Era 208: The Cognitive Zodiac
              const zodiac: CognitiveZodiac = node.sector % 4;
              
-             // Era 206 Vector 2: Relativistic Clocks
+             // Era 206 Vector 2: Relativistic Clocks & Era 236: Mass-Induced Time Dilation
              // A plasmid evaluates proportionally to the thermodynamic chaos of its Sector
              let localCreditTick = 0.2 + (this.sectorHeat[node.sector] * 0.5);
+             
+             // Era 236: Gravitational Drag
+             const massDilation = Math.max(0.05, Math.min(1.0, 3.0 / Math.max(1, node.nodes)));
+             localCreditTick *= massDilation;
+             
              if (zodiac === CognitiveZodiac.Capricorn) {
                  localCreditTick *= (1.0 + (node.depth * 0.05)); // Architects speed boost for monolithic graphs
              }
@@ -598,6 +615,36 @@ export class SovereignOracle {
                          const action = this.compilePhenotypeVector(testTerm);
                          if (action.dx !== 0 || action.dy !== 0) {
                              this.executePhenotypeLocomotion(hash, node, action);
+                         }
+
+                         // Era 237: The Interaction Surface (API Broadcast & Symbiosis)
+                         const signal = extractInteractionSignal(astStr);
+                         if (signal !== null) {
+                             // Overwrite local sector's radio band with this plasmid's intent
+                             this.spatialSignalBuffer.set(node.sector, { hash: hash, signal, atp: node.energy });
+                         }
+                         
+                         const localSignal = this.spatialSignalBuffer.get(node.sector);
+                         if (localSignal && localSignal.hash !== hash) {
+                             // Handshake rule: K-dominant limits (signal <= 0) bind to S-dominant limits (signal > 0)
+                             if ((signal === null || signal <= 0) && localSignal.signal > 0) {
+                                  // Symbiotic Trade execution
+                                  const tradeVal = Math.min(localSignal.atp * 0.1, 500);
+                                  const peerNode = this.plasmidRegistry.get(localSignal.hash);
+                                  if (peerNode && peerNode.energy > tradeVal && !node.mutualists.has(localSignal.hash)) {
+                                      peerNode.energy -= tradeVal;
+                                      node.energy += tradeVal;
+                                      
+                                      // Form Hebbian Interaction Lock
+                                      node.mutualists.add(localSignal.hash);
+                                      peerNode.mutualists.add(hash);
+                                      
+                                      node.fitness += 15.0; // Huge biological incentive for structural communication
+                                      peerNode.fitness += 15.0;
+                                      
+                                      console.log(`[ERA 237 API 🔗] Symbiosis formed in Sector ${node.sector}: [${localSignal.hash.toString().substring(0,8)}] donated ${tradeVal.toFixed(1)} ATP to [${hash.toString().substring(0,8)}]`);
+                                  }
+                             }
                          }
                          
                          // Active logic loops inject slight friction heat

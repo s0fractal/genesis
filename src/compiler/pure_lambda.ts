@@ -103,3 +103,22 @@ export function calculateConsonanceBonus(astStr: string): number {
     }
     return bonus;
 }
+
+// Era 237: The Interaction Surface (Mycelial API)
+// Extracts an explicit conversational vector from a pure Lambda Calculus term structure.
+export function extractInteractionSignal(astStr: string): number | null {
+    const sCount = (astStr.match(/S/g) || []).length;
+    const kCount = (astStr.match(/K/g) || []).length;
+    
+    // Abstract Signal Delta: 
+    // Highly entangled (S-dominant) Genomes broadcast a Positive Signal (Expansion / Offer)
+    // Highly rigid (K-dominant) Genomes broadcast a Negative Signal (Contraction / Request)
+    const delta = sCount - kCount;
+    
+    // Filter noise: A differential of 5 is required to break the semantic threshold and emit a true Signal.
+    if (Math.abs(delta) >= 5) {
+        return delta;
+    }
+    
+    return null; // Silent Entity
+}

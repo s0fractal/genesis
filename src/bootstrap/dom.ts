@@ -101,7 +101,7 @@ export function updateHomeostasisHUD(
     kuramoto: number, 
     mutation: number,
     toposData?: {name: string, heat: number}[],
-    apexData?: {hash: bigint, ast: string, energy: number}[],
+    apexData?: {hash: bigint, ast: string, energy: number, velocity: number}[],
     fluxData?: {sector: number; heat: number; dilation: number; avgCredit: number}[],
     hoveredAgent?: {hash: bigint, amp: number, lock: number, ent: number} | null
 ) {
@@ -148,7 +148,7 @@ export function updateHomeostasisHUD(
         if (apexData.length === 0) {
             DOM.hApexVal.replaceChildren("Genetics Formatting...");
         } else {
-            const out = apexData.slice(0, 3).map((a, i) => `#${i + 1} ⚡${a.energy.toString().padStart(5, '0')} [${a.hash.toString().substring(0,8)}]\n${a.ast}`).join('\n\n');
+            const out = apexData.slice(0, 3).map((a, i) => `#${i + 1} ⚡${a.energy.toString().padStart(5, '0')} v${a.velocity.toFixed(2)} [${a.hash.toString().substring(0,8)}]\n${a.ast}`).join('\n\n');
             DOM.hApexVal.replaceChildren(out);
         }
     }
