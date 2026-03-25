@@ -578,7 +578,9 @@ export class SovereignOracle {
                      if (zodiac === CognitiveZodiac.Aries) baseLimit = Math.max(5, Math.floor(baseLimit * 0.5));
                      if (zodiac === CognitiveZodiac.Cancer) baseLimit = Math.max(20, Math.floor(baseLimit * 2.0));
                      
-                     const { timeout } = evaluateFitness(testTerm, baseLimit);
+                     // Era 247: Real thermodynamic entropy creates genetic drift in the interpreter
+                     const entropySeed = Math.floor(this.epochTicks + this.reserveEnergyPool) ^ node.sector;
+                     const { timeout } = evaluateFitness(testTerm, baseLimit, entropySeed);
                      
                      if (timeout) {
                          // Era 208: Zodiac Stalemate Divergence

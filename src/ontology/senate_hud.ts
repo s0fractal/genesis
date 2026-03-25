@@ -1,6 +1,6 @@
 import { SenateEvent } from "./oracle.ts";
 
-import { THEOLOGICAL_MASKS } from "../shared/constants.ts";
+import { DIPOLE_POLES } from "../shared/constants.ts";
 
 export class SenateChatHUD {
     private container: HTMLDivElement;
@@ -89,10 +89,8 @@ export class SenateChatHUD {
     
     private getMaskColor(mask: string): string {
         switch (mask) {
-            case THEOLOGICAL_MASKS.ARIES: return "#ff5555"; // Red Chaos
-            case THEOLOGICAL_MASKS.CANCER: return "#55ff55"; // Green Preservation
-            case THEOLOGICAL_MASKS.LIBRA: return "#5555ff"; // Blue Equilibrium
-            case THEOLOGICAL_MASKS.CAPRICORN: return "#ffff55"; // Yellow Entropy
+            case DIPOLE_POLES.ALPHA: return "#ff5555"; // Alpha (Chaos/Preservation)
+            case DIPOLE_POLES.OMEGA: return "#55ff55"; // Omega (Symmetry/Execution)
             case "SENATE": return "#ffc107"; // Gold for Consensus
             default: return "#aaaaaa";
         }

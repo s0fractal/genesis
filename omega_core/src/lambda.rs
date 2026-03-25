@@ -13,6 +13,14 @@ pub enum Term {
     App(Index, Index),
 }
 
+pub struct SimpleRng { pub state: u64 }
+impl SimpleRng {
+    pub fn next(&mut self) -> u32 {
+        self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (self.state >> 32) as u32
+    }
+}
+
 pub struct LambdaArena {
     pub arena: Arena<Term>,
     pub parse_cache: HashMap<String, Index>,
@@ -128,6 +136,93 @@ impl LambdaArena {
         let mut steps = 0;
         while steps < max_steps {
             if let Some(next) = self.reduce_step(current) {
+                current = next;
+                steps += 1;
+            } else {
+                return (current, steps, false);
+            }
+        }
+        (current, steps, true)
+    }
+
+    
+    pub fn reduce_step_stochastic(&mut self, root: Index, rng: &mut SimpleRng) -> Option<Index> {
+        let term = match self.arena.get(root) {
+            Some(t) => t.clone(),
+            None => return None,
+        };
+
+        if rng.next() % 100 < 5 {
+             if let Term::App(left_idx, right_idx) = term {
+                 if let Some(reduced_left) = self.reduce_step_stochastic(left_idx, rng) {
+                     return Some(self.apply(reduced_left, right_idx));
+                 }
+             }
+        }
+
+        if let Term::App(left_idx, right_idx) = term {
+            let left_term = self.arena.get(left_idx).cloned();
+
+            if let Some(Term::Comb(c)) = left_term {
+                if c == Combinator::I { return Some(right_idx); }
+                if c == Combinator::Y {
+                    let y_comb = self.alloc(Term::Comb(Combinator::Y));
+                    let y_x = self.apply(y_comb, right_idx);
+                    return Some(self.apply(right_idx, y_x));
+                }
+            }
+
+            if let Some(Term::App(ll_idx, lr_idx)) = left_term {
+                let ll_term = self.arena.get(ll_idx).cloned();
+                if let Some(Term::Comb(Combinator::K)) = ll_term { return Some(lr_idx); }
+                if let Some(Term::Comb(Combinator::W)) = ll_term {
+                    let x_y = self.apply(lr_idx, right_idx);
+                    return Some(self.apply(x_y, right_idx));
+                }
+
+                if let Some(Term::App(lll_idx, llr_idx)) = ll_term {
+                    let lll_term = self.arena.get(lll_idx).cloned();
+                    if let Some(Term::Comb(Combinator::S)) = lll_term {
+                        let x = llr_idx; let y = lr_idx; let z = right_idx;
+                        let x_z = self.apply(x, z);
+                        let y_z = self.apply(y, z);
+                        return Some(self.apply(x_z, y_z));
+                    }
+                    if let Some(Term::Comb(Combinator::B)) = lll_term {
+                        let x = llr_idx; let y = lr_idx; let z = right_idx;
+                        let y_z = self.apply(y, z);
+                        return Some(self.apply(x, y_z));
+                    }
+                    if let Some(Term::Comb(Combinator::C)) = lll_term {
+                        let x = llr_idx; let y = lr_idx; let z = right_idx;
+                        let x_z = self.apply(x, z);
+                        return Some(self.apply(x_z, y));
+                    }
+                }
+            }
+
+            if let Some(reduced_left) = self.reduce_step_stochastic(left_idx, rng) {
+                return Some(self.apply(reduced_left, right_idx));
+            }
+            if let Some(reduced_right) = self.reduce_step_stochastic(right_idx, rng) {
+                return Some(self.apply(left_idx, reduced_right));
+            }
+        }
+        None
+    }
+
+    pub fn evaluate_fitness_stochastic(&mut self, root: Index, max_steps: u32, entropy_seed: u32) -> (Index, u32, bool) {
+        let mut current = root;
+        let mut steps = 0;
+        
+        let root_u64 = root.into_raw_parts().0 as u64;
+        let mut rng = SimpleRng { state: (entropy_seed as u64) ^ root_u64 ^ 0xDEADBEEFCAFEBABE };
+        
+        let jitter = (rng.next() % 21) as i32 - 10;
+        let effective_max_steps = (max_steps as i32 + jitter).max(1) as u32;
+
+        while steps < effective_max_steps {
+            if let Some(next) = self.reduce_step_stochastic(current, &mut rng) {
                 current = next;
                 steps += 1;
             } else {

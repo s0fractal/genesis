@@ -45,6 +45,18 @@ pub fn lambda_parse(input: &str) -> u32 {
 }
 
 #[wasm_bindgen]
+pub fn lambda_evaluate_fitness_stochastic(id: u32, max_steps: u32, entropy_seed: u32) -> Vec<u32> {
+    if let Some(idx) = get_index(id) {
+        ARENA.with(|arena| {
+            let (result_idx, steps, timeout) = arena.borrow_mut().evaluate_fitness_stochastic(idx, max_steps, entropy_seed);
+            vec![map_index(result_idx), steps, if timeout { 1 } else { 0 }]
+        })
+    } else {
+        vec![id, 0, 0]
+    }
+}
+
+#[wasm_bindgen]
 pub fn lambda_evaluate_fitness(id: u32, max_steps: u32) -> Vec<u32> {
     if let Some(idx) = get_index(id) {
         ARENA.with(|arena| {

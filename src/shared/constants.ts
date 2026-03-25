@@ -13,18 +13,15 @@ export const SENATE_MASK_LOGOS = "LOGOS";
 export const SENATE_MASK_CHRONOS = "CHRONOS";
 export const SENATE_MASK_AION = "AION";
 
-export const THEOLOGICAL_MASKS = {
-    ARIES: "♈ ARIES",
-    CANCER: "♋ CANCER",
-    LIBRA: "♎ LIBRA",
-    CAPRICORN: "♑ CAPRICORN"
+// The Semantic Dipoles (Era 247 Quaternionic Senate)
+export const DIPOLE_POLES = {
+    ALPHA: "ALPHA (Chaos/Preservation)",
+    OMEGA: "OMEGA (Symmetry/Execution)"
 };
 
 export const SHADOW_RANGES: Record<string, number> = {
-    [THEOLOGICAL_MASKS.ARIES]: 1000,
-    [THEOLOGICAL_MASKS.CANCER]: 1006,
-    [THEOLOGICAL_MASKS.LIBRA]: 1011,
-    [THEOLOGICAL_MASKS.CAPRICORN]: 1016
+    [DIPOLE_POLES.ALPHA]: 1000,
+    [DIPOLE_POLES.OMEGA]: 1012
 };
 
 // ===============================================

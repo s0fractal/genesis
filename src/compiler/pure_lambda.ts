@@ -1,6 +1,7 @@
 import {
     lambda_parse,
     lambda_evaluate_fitness,
+    lambda_evaluate_fitness_stochastic,
     lambda_measure_ir,
     lambda_format_term
 } from "@wasm";
@@ -12,7 +13,8 @@ export {
     lambda_decode_morphology,
     lambda_parse,
     lambda_format_term,
-    lambda_evaluate_fitness
+    lambda_evaluate_fitness,
+    lambda_evaluate_fitness_stochastic
 } from "@wasm";
 
 let _S: number = -1;
@@ -41,8 +43,8 @@ export function measureIR(term: Term): { cost: number; depth: number; nodes: num
     return { cost: res[0], depth: res[1], nodes: res[2] };
 }
 
-export function evaluateFitness(term: Term, maxSteps = 128): { result: Term; steps: number; timeout: boolean } {
-    const res = lambda_evaluate_fitness(term, maxSteps) as unknown as Uint32Array;
+export function evaluateFitness(term: Term, maxSteps = 128, entropySeed = 0): { result: Term; steps: number; timeout: boolean } {
+    const res = lambda_evaluate_fitness_stochastic(term, maxSteps, entropySeed) as unknown as Uint32Array;
     // WASM evaluate returns [result_idx, steps_taken, timeout_flag]
     return { result: res[0], steps: res[1], timeout: res[2] === 1 };
 }
