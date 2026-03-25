@@ -26,6 +26,10 @@ export class PhaseWebGPUObserver {
     private shadowXRayActive: boolean = false;
     private mouseNDC: {x: number, y: number} | null = null;
     private hoveredHash: bigint | null = null;
+    
+    // Era 238: The Canvas Pool (Zero-Copy Observer)
+    private snapshotCanvas?: HTMLCanvasElement;
+    private snapshotCtx?: CanvasRenderingContext2D;
 
     constructor(canvas: HTMLCanvasElement, field: PhaseLatticeField, engine: PhaseComputeEngine, device: GPUDevice) {
         this.canvas = canvas;
@@ -136,9 +140,10 @@ export class PhaseWebGPUObserver {
             alphaMode: 'opaque'
         });
 
-        // 192 bytes total structurally (64 default bytes + 64 bytes VIEW + 64 bytes PROJ)
+        // Era 239: The Quantum Eye (Observer Effect) - 448 bytes total
+        // 64 default bytes + 64 bytes VIEW + 64 bytes PROJ + 256 bytes (64 floats of sectorHeat)
         this.paramsBuffer = this.device.createBuffer({
-            size: 192,
+            size: 448,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
         
@@ -215,7 +220,7 @@ export class PhaseWebGPUObserver {
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
 
-        const uniformBuffer = new ArrayBuffer(192);
+        const uniformBuffer = new ArrayBuffer(448);
         const viewU32 = new Uint32Array(uniformBuffer);
         const viewF32 = new Float32Array(uniformBuffer);
 
@@ -255,6 +260,13 @@ export class PhaseWebGPUObserver {
         // Inject Matrices sequentially into the single continuous Uniform Buffer
         viewF32.set(view, 16);  // Float offset 16 = Byte offset 64
         viewF32.set(proj, 32);  // Float offset 32 = Byte offset 128
+        
+        // Era 239.2: Torus Sector Heat (The Topos Panopticon Array mapping)
+        // 64 Float32s packed sequentially starting at float offset 48
+        const oracle = (this.engine as any).oracle;
+        if (oracle && oracle.sectorHeat) {
+            viewF32.set(oracle.sectorHeat, 48);
+        }
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, uniformBuffer);
 
@@ -364,16 +376,19 @@ export class PhaseWebGPUObserver {
     }
 
     extractImageBase64(downscaleSize = 512): string {
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = downscaleSize;
-        tempCanvas.height = downscaleSize;
-        const ctx = tempCanvas.getContext("2d");
-        if (ctx) {
-            ctx.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, downscaleSize, downscaleSize);
-            // Slice off the "data:image/png;base64," header correctly for direct Ollama ingestion
-            const dataUrl = tempCanvas.toDataURL("image/png");
-            return dataUrl.substring(dataUrl.indexOf(",") + 1);
+        if (!this.snapshotCanvas || !this.snapshotCtx) {
+            this.snapshotCanvas = document.createElement("canvas");
+            this.snapshotCtx = this.snapshotCanvas.getContext("2d") as CanvasRenderingContext2D;
         }
-        return "";
+        
+        if (this.snapshotCanvas.width !== downscaleSize) {
+            this.snapshotCanvas.width = downscaleSize;
+            this.snapshotCanvas.height = downscaleSize;
+        }
+
+        this.snapshotCtx.drawImage(this.canvas, 0, 0, this.canvas.width, this.canvas.height, 0, 0, downscaleSize, downscaleSize);
+        // Era 238: Slicing the JPEG buffer correctly for direct Ollama ingestion and reducing visual context bandwith
+        const dataUrl = this.snapshotCanvas.toDataURL("image/jpeg", 0.7);
+        return dataUrl.substring(dataUrl.indexOf(",") + 1);
     }
 }

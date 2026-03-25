@@ -257,6 +257,10 @@ impl PhaseLatticeField {
             self.cell_status.swap(a, b);
         }
     }
+
+    pub fn check_memory_canary(&self) -> bool {
+        self.canary_1 == 0xDEADBEEF && self.canary_2 == 0xDEADBEEF && self.canary_end == 0xDEADBEEF
+    }
 }
 
 #[wasm_bindgen]

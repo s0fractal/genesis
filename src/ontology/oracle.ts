@@ -510,6 +510,18 @@ export class SovereignOracle {
             }
         }
         
+        // Era 238: The 0xDEADBEEF Canary (Memory Hardening)
+        // Verify Structural Integrity of the WASM Field before any DOM operations
+        if (this.wasmField.check_memory_canary && !this.wasmField.check_memory_canary()) {
+             console.error("[AION] 🚨 FATAL: WASM Memory Canary Died! Suspected topological pointer overflow.");
+             console.error("[AION] 🛡️ Initiating Metabolic Lockdown. Halting Oracle execution to preserve Grid state.");
+             
+             // Panic logic: Clear all active plasmids to forcefully stop the leak
+             this.activePlasmids.clear();
+             globalThis.dispatchEvent(new CustomEvent("substrateCollapse", { detail: { reason: "WASM_OOB_CANARY_FAILURE" } }));
+             return; // Abort tick entirely
+        }
+        
         // Era 202 Vector 3: The SUPERSCHEDULER (Biological Execution Priority)
         const candidates = Array.from(this.activePlasmids).filter(h => {
              const n = this.plasmidRegistry.get(h);
@@ -1349,7 +1361,11 @@ export class SovereignOracle {
                     sector: sector,
                     temporal_credit: 0.0
                 });
-                this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 5.0);
+                
+                // Era 239: The Quantum Eye (Observer Effect)
+                // Semantic insertion by the LLM natively maximizes Toroidal friction
+                this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 10.0);
+                
                 this.activePlasmids.add(hash);
                 console.log(`[SENATE] 🏛️ Top-Down Gene Injection: [${hash}] successfully compiled ${astStr}`);
             } else {

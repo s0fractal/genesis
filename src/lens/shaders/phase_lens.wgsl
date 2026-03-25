@@ -20,6 +20,7 @@ struct Params {
   pad2: u32,
   view: mat4x4<f32>,
   proj: mat4x4<f32>,
+  sector_heat: array<vec4<f32>, 16>,
 };
 
 @group(0) @binding(0) var<storage, read> field: array<u32>;
@@ -193,10 +194,25 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
       let frost = clamp(time_dilation, 0.0, 1.0);
       let frost_color = vec3<f32>(0.5, 0.9, 1.0);
       base_color = mix(base_color, frost_color, frost * 0.8);
+  }  // Era 239.3: The Quantum Eye (Observer Gaze Topology)
+  // When the LLM views the Torus or explicitly mutates a sector, thermodynamic heat spikes 
+  let heat_vec_idx = sector / 4u;
+  let sub_idx = sector % 4u;
+  let local_heat = params.sector_heat[heat_vec_idx][sub_idx]; 
+  
+  var final_glow = (0.25 + min(0.75, lock * 0.5 + amplitude * 0.5)) * history_fade;
+
+  if (local_heat > 0.5) {
+      let gaze_intensity = clamp(local_heat / 10.0, 0.0, 1.0);
+      let eye_color = vec3<f32>(1.0, 0.0, 0.35); // Neural Magenta "Gaze"
+      base_color = mix(base_color, eye_color, gaze_intensity * 0.85);
+      
+      // Intense Gaze excites particle visual entropy
+      final_glow = final_glow * (1.0 + gaze_intensity);
   }
 
   out.color = base_color;
-  out.glow = (0.25 + min(0.75, lock * 0.5 + amplitude * 0.5)) * history_fade;
+  out.glow = final_glow;
   return out;
 }
 

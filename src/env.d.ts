@@ -167,6 +167,7 @@ interface OracleCompatibleField {
     height?: number;
     ptr_header?(): number;
     swap_agents?(idx_a: number, idx_b: number): void;
+    check_memory_canary?(): boolean;
 }
 
 interface ReplayReferenceTraceEntry {
