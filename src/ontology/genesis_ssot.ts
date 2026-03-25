@@ -113,8 +113,8 @@ export const MACROS = {
         returns: "u8",
         wgsl: `
     if (x == 0 && y == 0) { return 0i; }
-    let abs_y = abs(y);
-    let abs_x = abs(x);
+    let abs_y = fast_abs(y);
+    let abs_x = fast_abs(x);
     let a = min(abs_y, abs_x);
     let b = max(abs_y, abs_x);
     var ratio = 0i;
@@ -133,8 +133,8 @@ export const MACROS = {
         `.trim(),
         rust: `
     if x == 0 && y == 0 { return 0; }
-    let abs_y = y.abs();
-    let abs_x = x.abs();
+    let abs_y = fast_abs(y);
+    let abs_x = fast_abs(x);
     let a = abs_y.min(abs_x);
     let b = abs_y.max(abs_x);
     let mut ratio = if b == 0 { 0 } else { (a * 128) / b };
@@ -149,8 +149,8 @@ export const MACROS = {
         `.trim(),
         ts: `
     if (x === 0 && y === 0) { return 0; }
-    const abs_y = Math.abs(y);
-    const abs_x = Math.abs(x);
+    const abs_y = fast_abs(y);
+    const abs_x = fast_abs(x);
     const a = Math.min(abs_y, abs_x);
     const b = Math.max(abs_y, abs_x);
     let ratio = b === 0 ? 0 : Math.floor((a * 128) / b);

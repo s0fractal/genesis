@@ -1,3 +1,5 @@
+import { fast_abs } from "./shared/constants.ts";
+
 /**
  * OMEGA-64 | Ontology 7.0
  * The Polar Phase-Aware Computing Medium (LUT-256)
@@ -47,7 +49,7 @@ export function phaseShiftAdd(a: PhaseVector, b: PhaseVector): PhaseVector {
  * A score of -1.0 means complete destructive interference (opposite sides of the circle).
  */
 export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
-    const phaseDiff = Math.abs(a.angle - b.angle);
+    const phaseDiff = fast_abs(a.angle - b.angle);
     
     // Map the 0-255 difference into a radian value (0 - PI)
     const radians = (phaseDiff / 256) * Math.PI * 2;

@@ -73,8 +73,8 @@ export function clamp_i32(value: number, min_val: number, max_val: number): numb
 
 export function atan2_u8(y: number, x: number): number {
     if (x === 0 && y === 0) { return 0; }
-        const abs_y = Math.abs(y);
-        const abs_x = Math.abs(x);
+        const abs_y = fast_abs(y);
+        const abs_x = fast_abs(x);
         const a = Math.min(abs_y, abs_x);
         const b = Math.max(abs_y, abs_x);
         let ratio = b === 0 ? 0 : Math.floor((a * 128) / b);

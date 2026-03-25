@@ -3,7 +3,7 @@ import {
     PHASE_MIN_OMEGA, PHASE_MAX_OMEGA,
     PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT,
     FNV64_OFFSET_BASIS,
-    wrap_index, clamp_i32, mix_u64
+    wrap_index, clamp_i32, mix_u64, fast_abs
 } from "./constants.ts";
 
 
@@ -14,7 +14,7 @@ export function signedPhaseDelta(fromTheta: number, toTheta: number): number {
 }
 
 export function phaseDistance(a: number, b: number): number {
-    return Math.abs(signedPhaseDelta(a, b));
+    return fast_abs(signedPhaseDelta(a, b));
 }
 
 export function createTopology(config: LatticeConfig) {

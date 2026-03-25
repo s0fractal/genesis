@@ -122,7 +122,7 @@ fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
 fn genetic_resonance(me: PhaseAgent, neighbor: PhaseAgent) -> i32 {
     if (me.plasmid_low == 0u && neighbor.plasmid_low == 0u) {
         // Pure physics vacuum coherence (Triangle wave Cosine approximation)
-        var diff = abs(i32(neighbor.theta) - i32(me.theta));
+        var diff = fast_abs(i32(neighbor.theta) - i32(me.theta));
         if (diff > 128) { diff = 256 - diff; }
         return (64 - diff) * 16; // 0 diff -> 1024, 64 diff -> 0, 128 diff -> -1024
     }
@@ -204,7 +204,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let target_theta = me.plasmid_low & 0xFFu;
         kuramoto += phase_torque(me.theta, target_theta) * params.coupling_plasmid;
         // Self-resonance with implicit DNA target (Torque alignment substitute)
-        var diff = abs(i32(target_theta) - i32(me.theta));
+        var diff = fast_abs(i32(target_theta) - i32(me.theta));
         if (diff > 128) { diff = 256 - diff; }
         coherence += ((64 - diff) * 16) * params.coupling_plasmid;
         
@@ -217,7 +217,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let centroid = u32(atan2_u8(m_y, m_x));
             kuramoto += phase_torque(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
             
-            var m_diff = abs(i32(centroid) - i32(me.theta));
+            var m_diff = fast_abs(i32(centroid) - i32(me.theta));
             if (m_diff > 128) { m_diff = 256 - m_diff; }
             coherence += ((64 - m_diff) * 16) * MYCELIAL_COUPLING_WEIGHT;
         }

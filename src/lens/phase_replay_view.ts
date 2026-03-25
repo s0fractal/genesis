@@ -1,5 +1,6 @@
 import { projectCellToCartesian } from "../shared/topology_core.ts";
 import { phaseDistance } from "../shared/topology_core.ts";
+import { fast_abs } from "../shared/constants.ts";
 
 
 function hsv2rgb(h: number, s: number, v: number): [number, number, number] {
@@ -154,9 +155,9 @@ function drawDiffField(
                 const index = harmonic * current.shape.radialBins * current.shape.sectors + rho * current.shape.sectors + sector;
                 
                 const thetaDelta = phaseDistance(current.theta[index], compare.theta[index]) / 128;
-                const amplitudeDelta = Math.abs(current.amplitude[index] - compare.amplitude[index]) / 255;
-                const lockDelta = Math.abs(current.lock[index] - compare.lock[index]) / 255;
-                const entanglementDelta = Math.abs(current.entanglement[index] - compare.entanglement[index]) / 255;
+                const amplitudeDelta = fast_abs(current.amplitude[index] - compare.amplitude[index]) / 255;
+                const lockDelta = fast_abs(current.lock[index] - compare.lock[index]) / 255;
+                const entanglementDelta = fast_abs(current.entanglement[index] - compare.entanglement[index]) / 255;
                 const delta = Math.max(thetaDelta, amplitudeDelta, lockDelta, entanglementDelta);
 
                 if (delta < 0.03) {
@@ -213,7 +214,7 @@ function drawField(
                 ctx.fill();
 
                 if (compare) {
-                    const omegaDelta = Math.abs(current.omega[index] - compare.omega[index]);
+                    const omegaDelta = fast_abs(current.omega[index] - compare.omega[index]);
                     if (omegaDelta > 0) {
                         ctx.beginPath();
                         ctx.arc(x, y, size + 1.6, 0, Math.PI * 2);

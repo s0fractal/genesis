@@ -66,8 +66,8 @@ fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 {
 
 fn atan2_u8(y: i32, x: i32) -> i32 {
     if (x == 0 && y == 0) { return 0i; }
-        let abs_y = abs(y);
-        let abs_x = abs(x);
+        let abs_y = fast_abs(y);
+        let abs_x = fast_abs(x);
         let a = min(abs_y, abs_x);
         let b = max(abs_y, abs_x);
         var ratio = 0i;

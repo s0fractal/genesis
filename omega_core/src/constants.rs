@@ -81,8 +81,8 @@ pub fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 {
 #[inline(always)]
 pub fn atan2_u8(y: i32, x: i32) -> u8 {
     if x == 0 && y == 0 { return 0; }
-        let abs_y = y.abs();
-        let abs_x = x.abs();
+        let abs_y = fast_abs(y);
+        let abs_x = fast_abs(x);
         let a = abs_y.min(abs_x);
         let b = abs_y.max(abs_x);
         let mut ratio = if b == 0 { 0 } else { (a * 128) / b };
