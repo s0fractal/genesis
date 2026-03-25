@@ -60,6 +60,18 @@ fn wrap_index(value: i32, modulo: i32) -> i32 {
     return value & (modulo - 1);
 }
 
+fn signed_phase_delta(from_theta: i32, to_theta: i32) -> i32 {
+    let delta = (to_theta - from_theta) & 255;
+    if (delta > 128) { return delta - 256; }
+    return delta;
+}
+
+fn phase_distance(a: i32, b: i32) -> i32 {
+    let diff = fast_abs(a - b) & 255;
+    if (diff > 128) { return 256 - diff; }
+    return diff;
+}
+
 fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 {
     return clamp(value, min_val, max_val);
 }

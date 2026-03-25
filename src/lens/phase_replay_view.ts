@@ -1,5 +1,5 @@
 import { projectCellToCartesian } from "../shared/topology_core.ts";
-import { phaseDistance } from "../shared/topology_core.ts";
+import { phase_distance } from "../shared/topology_core.ts";
 import { fast_abs } from "../shared/constants.ts";
 
 
@@ -154,7 +154,7 @@ function drawDiffField(
             for (let sector = 0; sector < current.shape.sectors; sector++) {
                 const index = harmonic * current.shape.radialBins * current.shape.sectors + rho * current.shape.sectors + sector;
                 
-                const thetaDelta = phaseDistance(current.theta[index], compare.theta[index]) / 128;
+                const thetaDelta = phase_distance(current.theta[index], compare.theta[index]) / 128;
                 const amplitudeDelta = fast_abs(current.amplitude[index] - compare.amplitude[index]) / 255;
                 const lockDelta = fast_abs(current.lock[index] - compare.lock[index]) / 255;
                 const entanglementDelta = fast_abs(current.entanglement[index] - compare.entanglement[index]) / 255;

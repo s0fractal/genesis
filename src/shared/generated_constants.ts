@@ -67,6 +67,16 @@ export function wrap_index(value: number, modulo: number): number {
     return value & (modulo - 1);
 }
 
+export function signed_phase_delta(from_theta: number, to_theta: number): number {
+    const delta = (to_theta - from_theta) & 255;
+    return delta > 128 ? delta - 256 : delta;
+}
+
+export function phase_distance(a: number, b: number): number {
+    const diff = fast_abs(a - b) & 255;
+    return diff > 128 ? 256 - diff : diff;
+}
+
 export function clamp_i32(value: number, min_val: number, max_val: number): number {
     return Math.min(max_val, Math.max(min_val, value));
 }

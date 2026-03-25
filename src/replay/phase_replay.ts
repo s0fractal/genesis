@@ -4,7 +4,7 @@ import {
     structuralSignature,
     sumAmplitude,
     sumEntanglement,
-    phaseDistance,   // FUSED
+    phase_distance,   // FUSED
 } from "../shared/topology_core.ts";
 import { hydrateSubstrateHeader, SUBSTRATE_VERSION } from "../shared/constants.ts";
 
@@ -142,7 +142,7 @@ export function buildDiffSummary(
                     const amplitudeDelta = current.amplitude[index] - compare.amplitude[index];
                     const lockDelta = current.lock[index] - compare.lock[index];
                     const entanglementDelta = current.entanglement[index] - compare.entanglement[index];
-                    const thetaDelta = phaseDistance(current.theta[index], compare.theta[index]);
+                    const thetaDelta = phase_distance(current.theta[index], compare.theta[index]);
         
                     if (
                         amplitudeDelta !== 0 ||

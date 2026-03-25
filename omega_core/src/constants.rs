@@ -74,6 +74,18 @@ pub fn wrap_index(value: i32, modulo: i32) -> i32 {
 }
 
 #[inline(always)]
+pub fn signed_phase_delta(from_theta: i32, to_theta: i32) -> i32 {
+    let delta = (to_theta - from_theta) & 255;
+    if delta > 128 { delta - 256 } else { delta }
+}
+
+#[inline(always)]
+pub fn phase_distance(a: i32, b: i32) -> i32 {
+    let diff = fast_abs(a - b) & 255;
+    if diff > 128 { 256 - diff } else { diff }
+}
+
+#[inline(always)]
 pub fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 {
     value.clamp(min_val, max_val)
 }

@@ -19,6 +19,10 @@ export const CONSTANTS = {
 
     // Core Lattice and Phase Mathematics
     PHASE_TAU_DEPTH: { type: "i32", value: 4 },
+    // PHASE_LUT_SIZE defines the minimum discrete angular unit (360° / 256).
+    // By strictly enforcing a power of 2 (2^8 = 256), the polyglot generators can 
+    // bypass expensive modulo hardware pipelines in favor of zero-branch bitwise masking (& 255)
+    // for continuous deterministic phase wrapping (128 = 180°, 64 = 90°).
     PHASE_LUT_SIZE: { type: "i32", value: 256 },
     PHASE_MAX_AMPLITUDE: { type: "u8", value: 255 },
     PHASE_MAX_LOCK: { type: "u8", value: 255 },
@@ -100,6 +104,20 @@ export const MACROS = {
         wgsl: "return value & (modulo - 1);",
         rust: "value & (modulo - 1)",
         ts: "return value & (modulo - 1);"
+    },
+    signed_phase_delta: {
+        args: [ { name: "from_theta", type: "i32" }, { name: "to_theta", type: "i32" } ],
+        returns: "i32",
+        wgsl: "let delta = (to_theta - from_theta) & 255;\nif (delta > 128) { return delta - 256; }\nreturn delta;",
+        rust: "let delta = (to_theta - from_theta) & 255;\nif delta > 128 { delta - 256 } else { delta }",
+        ts: "const delta = (to_theta - from_theta) & 255;\nreturn delta > 128 ? delta - 256 : delta;"
+    },
+    phase_distance: {
+        args: [ { name: "a", type: "i32" }, { name: "b", type: "i32" } ],
+        returns: "i32",
+        wgsl: "let diff = fast_abs(a - b) & 255;\nif (diff > 128) { return 256 - diff; }\nreturn diff;",
+        rust: "let diff = fast_abs(a - b) & 255;\nif diff > 128 { 256 - diff } else { diff }",
+        ts: "const diff = fast_abs(a - b) & 255;\nreturn diff > 128 ? 256 - diff : diff;"
     },
     clamp_i32: {
         args: [ { name: "value", type: "i32" }, { name: "min_val", type: "i32" }, { name: "max_val", type: "i32" } ],

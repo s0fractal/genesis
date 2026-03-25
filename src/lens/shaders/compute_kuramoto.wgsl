@@ -112,18 +112,13 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
 
 // O-223 Native Phase Coupling via Hardware Hamming Distance (POPCNT Singularity)
 fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
-    let diff = i32(neighbor_theta) - i32(me_theta);
-    var wrapped = diff;
-    if (diff > 128) { wrapped = diff - 256; }
-    else if (diff < -128) { wrapped = diff + 256; }
-    return wrapped * 8; // Triangle wave approximation of Sin(x) * 1024
+    return signed_phase_delta(i32(me_theta), i32(neighbor_theta)) * 8; // Triangle wave approximation of Sin(x) * 1024
 }
 
 fn genetic_resonance(me: PhaseAgent, neighbor: PhaseAgent) -> i32 {
     if (me.plasmid_low == 0u && neighbor.plasmid_low == 0u) {
         // Pure physics vacuum coherence (Triangle wave Cosine approximation)
-        var diff = fast_abs(i32(neighbor.theta) - i32(me.theta));
-        if (diff > 128) { diff = 256 - diff; }
+        let diff = phase_distance(i32(neighbor.theta), i32(me.theta));
         return (64 - diff) * 16; // 0 diff -> 1024, 64 diff -> 0, 128 diff -> -1024
     }
     if (me.plasmid_low == 0u || neighbor.plasmid_low == 0u) {
@@ -204,8 +199,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let target_theta = me.plasmid_low & 0xFFu;
         kuramoto += phase_torque(me.theta, target_theta) * params.coupling_plasmid;
         // Self-resonance with implicit DNA target (Torque alignment substitute)
-        var diff = fast_abs(i32(target_theta) - i32(me.theta));
-        if (diff > 128) { diff = 256 - diff; }
+        let diff = phase_distance(i32(target_theta), i32(me.theta));
         coherence += ((64 - diff) * 16) * params.coupling_plasmid;
         
         let hash = (me.plasmid_low ^ me.plasmid_high);
@@ -217,8 +211,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let centroid = u32(atan2_u8(m_y, m_x));
             kuramoto += phase_torque(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
             
-            var m_diff = fast_abs(i32(centroid) - i32(me.theta));
-            if (m_diff > 128) { m_diff = 256 - m_diff; }
+            let m_diff = phase_distance(i32(centroid), i32(me.theta));
             coherence += ((64 - m_diff) * 16) * MYCELIAL_COUPLING_WEIGHT;
         }
     }
