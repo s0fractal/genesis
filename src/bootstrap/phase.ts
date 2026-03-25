@@ -45,6 +45,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice");
   DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");
+  console.log("[DIAGNOSTIC] DOM manipulated directly");
   setHudStat("a", "SECTORS", "64x10x3");
   setHudStat("b", "FPS", "0");
   setHudStat("c", "SIGNATURE", "warming");
@@ -92,6 +93,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
   const injector = new PhasePerturbationInjector(canvas, phaseField, wasmMemory, computeEngine, oracle);
   injector.attach();
+  
   const coupler = new SemanticCoupler(injector);
   wireSemanticInput(coupler, "Inject phase attractor...");
 

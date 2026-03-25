@@ -139,7 +139,7 @@ export function updateHomeostasisHUD(
             DOM.hToposVal.style.textShadow = '';
             const toposStr = toposData
                 .filter(t => t.heat > 0.1)
-                .map(t => `${t.name.split('[')[1].split(']')[0]}: ${t.heat.toFixed(1)}°`)
+                .map(t => `${t.name}: ${t.heat.toFixed(1)}°`)
                 .join(' | ');
             DOM.hToposVal.replaceChildren(toposStr || "ECOLOGICAL STASIS");
         }

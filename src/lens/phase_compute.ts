@@ -138,30 +138,21 @@ export class PhaseComputeEngine {
         const shaderModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + computeKuramotoWgsl });
         const mycelialModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + computeMycelialWgsl });
 
-        const pipelineConstants = {
-            PHASE_LUT_SIZE: C.PHASE_LUT_SIZE,
-            MAX_AMPLITUDE: C.PHASE_MAX_AMPLITUDE,
-            MAX_ENTANGLEMENT: C.PHASE_MAX_ENTANGLEMENT,
-            MAX_OMEGA: C.PHASE_MAX_OMEGA,
-            SHADOW_BUCKET_MIN: C.SENATE_SHADOW_BUCKET_MIN,
-            SHADOW_BUCKET_MAX: C.SENATE_SHADOW_BUCKET_MAX,
-        };
-
         this.pipeline = this.device.createComputePipeline({
+            label: "Kuramoto Thermodynamic Physics Matrix",
             layout: 'auto',
             compute: {
                 module: shaderModule,
                 entryPoint: 'main',
-                constants: pipelineConstants
             }
         });
 
         this.mycelialPipeline = this.device.createComputePipeline({
+            label: "Mycelial Centroid Matrix",
             layout: 'auto',
             compute: {
                 module: mycelialModule,
                 entryPoint: 'main',
-                constants: pipelineConstants
             }
         });
 
