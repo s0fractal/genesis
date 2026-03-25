@@ -65,6 +65,7 @@ export const CONSTANTS = {
     BIOLOGY_SOMATIC_ALPHA: { type: "f32", value: 1.5 },
     BIOLOGY_SOMATIC_DECAY_RATE: { type: "f32", value: 0.05 },
     BIOLOGY_SOMATIC_BASE_COST: { type: "i32", value: 5 },
+    BIOLOGY_EXTINCTION_THRESHOLD: { type: "i32", value: 0 },
 
     // === ADA Relativity & Recovery ===
     ADA_HODLER_BRAKE: { type: "f32", value: 0.95 },
@@ -79,6 +80,10 @@ export const CONSTANTS = {
     ORACLE_LEDGER_MAX_EVENTS: { type: "i32", value: 1000 },
     ORACLE_LEDGER_TRUNCATE: { type: "i32", value: 800 },
     ORACLE_MAX_SYSTEM_ENERGY: { type: "i32", value: 21000000 },
+    ORACLE_BACKOFF_BASE_MS: { type: "i32", value: 5000 },
+    ORACLE_BACKOFF_MAX_MS: { type: "i32", value: 60000 },
+    ORACLE_AKASHIC_GC_THRESHOLD: { type: "i32", value: 15000 },
+    ORACLE_AKASHIC_GC_TARGET: { type: "i32", value: 8000 },
 
     // === Mycelial Network (Kademlia) ===
     NETWORK_MYCELIUM_RATE_LIMIT: { type: "i32", value: 50 },

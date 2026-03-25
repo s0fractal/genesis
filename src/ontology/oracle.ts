@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY } from "../shared/constants.ts";
+import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY, ORACLE_BACKOFF_BASE_MS, ORACLE_BACKOFF_MAX_MS, ORACLE_AKASHIC_GC_THRESHOLD, ORACLE_AKASHIC_GC_TARGET, BIOLOGY_EXTINCTION_THRESHOLD } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
@@ -469,15 +469,15 @@ export class SovereignOracle {
             }
 
             // Extinction threshold
-            if (node.energy <= 0) {
+            if (node.energy <= BIOLOGY_EXTINCTION_THRESHOLD) {
                 // Era 207 Vector 1: The Akashic Records (Meta-Memory Remembrance)
                 if (node.fitness >= 10.0) {
                     this.akashicRecords.set(hash, lambda_format_term(node.ast));
                     
                     // Era 240: Kimi's Emergency GC (O(1) bounds protection during Mass Extinctions)
-                    if (this.akashicRecords.size > 15000) {
+                    if (this.akashicRecords.size > ORACLE_AKASHIC_GC_THRESHOLD) {
                         const keys = this.akashicRecords.keys();
-                        const toRemove = this.akashicRecords.size - 8000;
+                        const toRemove = this.akashicRecords.size - ORACLE_AKASHIC_GC_TARGET;
                         for (let i = 0; i < toRemove; i++) {
                             const key = keys.next().value;
                             if (key !== undefined) {
@@ -1230,7 +1230,7 @@ export class SovereignOracle {
     }
     
     private handleWorkerError(reason: string) {
-        this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? 5000 : Math.min(60000, this.oracleBackoffDelay * 2);
+        this.oracleBackoffDelay = this.oracleBackoffDelay === 0 ? ORACLE_BACKOFF_BASE_MS : Math.min(ORACLE_BACKOFF_MAX_MS, this.oracleBackoffDelay * 2);
         console.warn(`[ORACLE] Senate Failed/Degraded Mode engaged. Sleeping for ${this.oracleBackoffDelay}ms. Reason: ${reason}`);
         if (this.onSenateEvent) this.onSenateEvent({ type: "ERROR", reason: `AI Nodes Non-Responsive [DEGRADED_MODE ${this.oracleBackoffDelay}ms]` });
     }
