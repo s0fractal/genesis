@@ -70,6 +70,7 @@ interface SomaticNode {
     temporal_credit: number;
     parents?: string[];
     vectorClock?: Record<string, number>;
+    last_known_idx?: number; // Era 233.2: Tracking physical memory locus for migration
 }
 
 interface SerializedPlasmid {
@@ -165,6 +166,7 @@ interface OracleCompatibleField {
     width?: number;
     height?: number;
     ptr_header?(): number;
+    swap_agents?(idx_a: number, idx_b: number): void;
 }
 
 interface ReplayReferenceTraceEntry {
@@ -230,6 +232,7 @@ interface OracleWorkerResponse {
     maskName: string;
     intentStr: string;
     targetBucket: number;
+    prophecy?: string;
 }
 
 interface ChronosSnapshot {

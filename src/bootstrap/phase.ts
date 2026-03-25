@@ -12,6 +12,7 @@ import { SenateChatHUD } from "../ontology/senate_hud.ts";
 import { PhylogeneticCanvas } from "../ontology/phylogeny.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 
+
 export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   console.log("[Genesis] Bootstrapping flattened phase lattice (Era 229: OOP Decapitation)...");
 
@@ -150,6 +151,15 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
       if (nowLocal - lastPhylogenyCheck > 1000) {
           lastPhylogenyCheck = nowLocal;
           phylogenyHUD.tick();
+          
+          // Era 234.3: The Voice of the Grid
+          const apex = oracle.getApexPlasmids(3);
+          const apexAudioArgs = apex.map(p => ({
+              hash: p.hash.toString(),
+              astStr: p.ast,
+              energy: p.energy
+          }));
+          observer.choir.syncEcosystemVoices(apexAudioArgs);
       }
 
       observer.choir.modulateParams(

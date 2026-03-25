@@ -247,6 +247,16 @@ impl PhaseLatticeField {
             }
         }
     }
+
+    pub fn swap_agents(&mut self, idx_a: u32, idx_b: u32) {
+        let a = idx_a as usize;
+        let b = idx_b as usize;
+        if a < self.agents.len() && b < self.agents.len() {
+            // Era 233.2: Biophysics Migration (Native AST Locomotion)
+            self.agents.swap(a, b);
+            self.cell_status.swap(a, b);
+        }
+    }
 }
 
 #[wasm_bindgen]

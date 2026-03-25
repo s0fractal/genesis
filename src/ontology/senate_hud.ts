@@ -109,6 +109,16 @@ export class SenateChatHUD {
             this.appendMessage(event.mask, `decreed: "${event.intent}"${bucketStr}`, this.getMaskColor(event.mask));
         }
         else if (event.type === "GENERATED") {
+            // Era 235: Telepathic Prophecy Output
+            if (event.prophecy) {
+                this.appendMessage(
+                    event.mask,
+                    `prophesied: "${event.prophecy}"`,
+                    "#00ffff", // Cyan oracle text
+                    true
+                );
+            }
+            
             // Era 173 Parallel Superposition
             this.appendMessage(
                 event.mask, 

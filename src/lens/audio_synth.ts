@@ -7,8 +7,10 @@ export class BioAcousticChoir {
     private filter!: BiquadFilterNode;
     private delay!: DelayNode;
     private delayFeedback!: GainNode;
-    private oscillators: OscillatorNode[] = [];
     private isInitialized = false;
+
+    // Era 234.1: Dynamic Plasmid Voices
+    private activeVoices: Map<string, { oscs: OscillatorNode[], gainNode: GainNode }> = new Map();
 
     constructor() {}
 
@@ -58,22 +60,8 @@ export class BioAcousticChoir {
         this.delayFeedback.connect(this.delay);
         this.delay.connect(this.masterGain);
 
-        // Era 226: 432Hz Bio-Acoustic Harmonic Scale (Tuned to Sub-Hum octave: 432 / 8 = 54Hz)
-        const HARMONIC_432_SUB = [ 54.0, 66.0, 79.875 ]; // Derived directly from 432, 528, 639
-
-        for (const freq of HARMONIC_432_SUB) {
-            const osc = this.ctx.createOscillator();
-            osc.type = freq === 54.0 ? "sine" : "triangle"; // Warm 54Hz sub-bass, dimensional overtones
-            osc.frequency.value = freq;
-            
-            const oscGain = this.ctx.createGain();
-            oscGain.gain.value = 1.0 / HARMONIC_432_SUB.length; // Prevent clipping
-            
-            osc.connect(oscGain);
-            oscGain.connect(this.filter);
-            osc.start();
-            this.oscillators.push(osc);
-        }
+        // Era 234.1: Static 432Hz drones eradicated. 
+        // The ecosystem is now entirely silent until Plasmids sing.
 
         this.isInitialized = true;
         console.log("🔊 [CHOIR] Ontological Audio Matrix Initialized.");
@@ -119,10 +107,12 @@ export class BioAcousticChoir {
         this.delayFeedback.gain.linearRampToValueAtTime(targetFeedback, time);
 
         // 4. Theta (Phase offsets)
-        if (this.oscillators.length >= 3) {
-             const detuneAmount = (thetaNorm - 0.5) * 35; // -17.5 to +17.5 cents beating
-             this.oscillators[1].detune.linearRampToValueAtTime(detuneAmount, time);
-             this.oscillators[2].detune.linearRampToValueAtTime(-detuneAmount, time);
+        for (const voice of this.activeVoices.values()) {
+            if (voice.oscs.length >= 2) {
+                const detuneAmount = (thetaNorm - 0.5) * 35; // -17.5 to +17.5 cents beating
+                voice.oscs[0].detune.linearRampToValueAtTime(detuneAmount, time);
+                voice.oscs[1].detune.linearRampToValueAtTime(-detuneAmount, time);
+            }
         }
 
         // 5. Era 204: True 3D Spatial coordinates
@@ -138,6 +128,95 @@ export class BioAcousticChoir {
         } catch (_e) {
             // Safari fallback for older SpatialAudio specs
             this.panner.setPosition(x, y, z);
+        }
+    }
+
+    // Era 234.3: Telemetry Synchronization
+    public syncEcosystemVoices(apex: {hash: string, astStr: string, energy: number}[]) {
+        const currentApexHashes = new Set(apex.map(p => p.hash));
+        
+        // Stop any voices that fell out of the Apex pantheon
+        for (const hash of this.activeVoices.keys()) {
+            if (!currentApexHashes.has(hash)) {
+                this.stopPlasmid(hash);
+            }
+        }
+        
+        // Ensure new/existing voices are sustained
+        for (const p of apex) {
+            if (!this.activeVoices.has(p.hash)) {
+                const energyNorm = Math.min(1.0, p.energy / 500);
+                this.playPlasmid(p.hash, p.astStr, energyNorm);
+            }
+        }
+    }
+
+    public astToFrequencies(astStr: string): number[] {
+        const freqs: number[] = [];
+        const tokens = astStr.replace(/\(/g, "").replace(/\)/g, "").split(" ");
+        
+        let currentFreq = 54.0; // Sub-octave 432Hz Root
+        freqs.push(currentFreq);
+        
+        for (const t of tokens) {
+            if (t === "S") currentFreq *= 1.5; // Perfect 5th
+            else if (t === "K") currentFreq *= 1.33333; // Perfect 4th
+            else if (t === "I") currentFreq *= 1.25; // Major 3rd
+            else if (t === "Y" || t === "W") currentFreq *= 0.5; // Octave down
+            else if (t === "C" || t === "B") currentFreq *= 2.0; // Octave up
+            
+            // Constrain frequency limits to human hearing & pleasant sub-ranges
+            while (currentFreq > 2000) currentFreq *= 0.5;
+            while (currentFreq < 40) currentFreq *= 2.0;
+            
+            freqs.push(currentFreq);
+        }
+        
+        // De-duplicate mathematically similar frequencies natively
+        const unique = Array.from(new Set(freqs.map(f => Math.round(f * 10) / 10)));
+        return unique.slice(0, 4); // Max 4 oscillator voices per plasmid
+    }
+
+    public playPlasmid(hashStr: string, astStr: string, energyNorm: number) {
+        if (!this.ctx || !this.isInitialized) return;
+        
+        this.stopPlasmid(hashStr); // Eradicate old instance if migrating
+        
+        const freqs = this.astToFrequencies(astStr);
+        const oscs: OscillatorNode[] = [];
+        const time = this.ctx.currentTime;
+        
+        const voiceGain = this.ctx.createGain();
+        voiceGain.gain.setValueAtTime(0, time);
+        // Envelope: 2-second Attack natively derived from thermodynamic energy
+        voiceGain.gain.linearRampToValueAtTime(Math.min(0.5, (0.4 / freqs.length) * energyNorm), time + 2.0);
+        
+        voiceGain.connect(this.filter);
+        
+        for (const freq of freqs) {
+            const osc = this.ctx.createOscillator();
+            // Massive trees generate physical sawtooth buzz; concise trees produce pure sine waves
+            osc.type = astStr.length > 20 ? "sawtooth" : "sine";
+            osc.frequency.setValueAtTime(freq, time);
+            osc.connect(voiceGain);
+            osc.start(time);
+            oscs.push(osc);
+        }
+        this.activeVoices.set(hashStr, { oscs, gainNode: voiceGain });
+    }
+
+    public stopPlasmid(hashStr: string) {
+        const voice = this.activeVoices.get(hashStr);
+        if (voice) {
+            if (this.ctx) {
+                const time = this.ctx.currentTime;
+                // Envelope: 2-second Release
+                voice.gainNode.gain.linearRampToValueAtTime(0, time + 2.0);
+                for (const osc of voice.oscs) {
+                    osc.stop(time + 2.1);
+                }
+            }
+            this.activeVoices.delete(hashStr);
         }
     }
 }

@@ -3,7 +3,7 @@ import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
-import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST } from "../compiler/pure_lambda.ts";
+import { apply, formatTerm, parseLambda, measureIR, evaluateFitness, variable, getS, getK, getI, getY, getB, getC, getW, phenotypeHue, compileMorphology, decodeMorphology, decomposeAST, calculateConsonanceBonus } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -16,7 +16,7 @@ export enum CognitiveZodiac {
 export type SenateEvent =
     | { type: "CONVENED" }
     | { type: "VERDICT"; mask: string; intent: string; bucket?: number }
-    | { type: "GENERATED"; mask: string; intent: string; bucketRange: string; tension: number }
+    | { type: "GENERATED"; mask: string; intent: string; bucketRange: string; tension: number; prophecy?: string }
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
 
@@ -585,6 +585,21 @@ export class SovereignOracle {
                          
                          node.fitness += (physical_fitness * intent_multiplier);
                          
+                         // Era 234.2: Consonance Fitness
+                         const astStr = formatTerm(testTerm);
+                         const harmonyBonus = calculateConsonanceBonus(astStr);
+                         if (harmonyBonus > 0 && this.reserveEnergyPool >= harmonyBonus) {
+                             this.reserveEnergyPool -= harmonyBonus;
+                             node.energy += harmonyBonus;
+                             node.fitness += (harmonyBonus * 0.1); // Physical scale
+                         }
+
+                         // Era 233.1: Phenotypic Locomotion
+                         const action = this.compilePhenotypeVector(testTerm);
+                         if (action.dx !== 0 || action.dy !== 0) {
+                             this.executePhenotypeLocomotion(hash, node, action);
+                         }
+                         
                          // Active logic loops inject slight friction heat
                          let heatInjected = 0.1;
                          if (zodiac === CognitiveZodiac.Aries) heatInjected = 0.2; // Aries runs double hot
@@ -866,6 +881,65 @@ export class SovereignOracle {
             console.error(`[ORACLE] Senate execution failed:`, e);
         });
     }
+
+    // Era 233.1: Phenotypic Locomotion Vector Extraction
+    private compilePhenotypeVector(term: Term): { dx: number, dy: number, cost: number } {
+        const astStr = formatTerm(term);
+        let dx = 0; let dy = 0;
+        
+        // Primitive AST geometric sensing based on sub-trees
+        if (astStr.includes("S K")) dx -= 1; // West
+        if (astStr.includes("K S")) dx += 1; // East
+        if (astStr.includes("S I")) dy -= 1; // North
+        if (astStr.includes("K I")) dy += 1; // South
+        
+        // The cost of physical motion is immense
+        const moving = (dx !== 0 || dy !== 0);
+        return { dx, dy, cost: moving ? 50 : 0 };
+    }
+
+    // Era 233.2: Biophysics Migration Execution
+    private executePhenotypeLocomotion(hash: bigint, node: SomaticNode, action: { dx: number, dy: number, cost: number }) {
+        if (node.last_known_idx === undefined) return;
+        if (node.energy < action.cost) return; // Exhausted
+
+        const size = (this.wasmField.width || 640) * (this.wasmField.height || 640);
+        const ptr = this.wasmField.ptr_plasmids ? this.wasmField.ptr_plasmids() : 0;
+        if (ptr === 0) return;
+
+        const plasmids = new BigUint64Array(this.wasmMemory.buffer, ptr, size);
+        
+        // Verify this specific cell actually still belongs to this species
+        if (plasmids[node.last_known_idx] !== hash) return;
+
+        node.energy -= action.cost; // Apply ATP physical tax
+
+        const width = this.wasmField.width || 640;
+        const height = this.wasmField.height || 640;
+        
+        // Remap to 2D
+        let x = node.last_known_idx % width;
+        let y = Math.floor(node.last_known_idx / width);
+
+        // Apply Vector & Wrap bounds functionally making a Torus
+        x = (x + action.dx + width) % width;
+        y = (y + action.dy + height) % height;
+
+        const targetIdx = y * width + x;
+
+        // Execute Native WebAssembly Swap!
+        if (this.wasmField.swap_agents) {
+            this.wasmField.swap_agents(node.last_known_idx, targetIdx);
+            
+            // Sync tracker
+            node.last_known_idx = targetIdx;
+            
+            // Locomotion bleeds immense thermodynamic heat into the local sector (friction)
+            const sector = this.getGeographicSector(targetIdx);
+            node.sector = sector;
+            this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 1.5);
+        }
+    }
     
     // O-134 Vector C: Topological Lambda Application via Fast Tuples
     private processHorizontalGeneTransfers(count: number, collisions: BigUint64Array) {
@@ -993,7 +1067,8 @@ export class SovereignOracle {
                              sector: sector,
                              temporal_credit: 0.0, // Bootstrapping into the temporal flow
                              parents: [host_plasmid.toString(), foreign_plasmid.toString()], // Era 222: Vector Clock Causal History
-                             vectorClock: { [this.oracleId]: this.getEpochTicks() }
+                             vectorClock: { [this.oracleId]: this.getEpochTicks() },
+                             last_known_idx: idx // Era 233.2: Tracking location
                          });
                          // Inject massive localized heat on successful biological reproduction (paradox escape)
                          this.sectorHeat[sector] = Math.min(10.0, this.sectorHeat[sector] + 5.0);
@@ -1006,6 +1081,7 @@ export class SovereignOracle {
                      } else {
                          const existing = this.plasmidRegistry.get(childHash)!;
                          existing.attention += 1;
+                         existing.last_known_idx = idx; // Era 233.2: Update tracker
                          
                          // Refresh mutualist binding upon parallel discovery
                          existing.mutualists.add(host_plasmid);

@@ -47,3 +47,59 @@ export function evaluateFitness(term: Term, maxSteps = 128): { result: Term; ste
     // WASM evaluate returns [result_idx, steps_taken, timeout_flag]
     return { result: res[0], steps: res[1], timeout: res[2] === 1 };
 }
+// Era 234: Biological Sonification (The Toroidal Synth)
+export function astToFrequencies(astStr: string): number[] {
+    const freqs: number[] = [];
+    const tokens = astStr.replace(/\(/g, "").replace(/\)/g, "").split(" ");
+    
+    let currentFreq = 54.0; // Sub-octave 432Hz Root
+    freqs.push(currentFreq);
+    
+    for (const t of tokens) {
+        if (t === "S") currentFreq *= 1.5; // Perfect 5th
+        else if (t === "K") currentFreq *= 1.33333; // Perfect 4th
+        else if (t === "I") currentFreq *= 1.25; // Major 3rd
+        else if (t === "Y" || t === "W") currentFreq *= 0.5; // Octave down
+        else if (t === "C" || t === "B") currentFreq *= 2.0; // Octave up
+        
+        while (currentFreq > 2000) currentFreq *= 0.5;
+        while (currentFreq < 40) currentFreq *= 2.0;
+        
+        freqs.push(currentFreq);
+    }
+    
+    const unique = Array.from(new Set(freqs.map(f => Math.round(f * 10) / 10)));
+    return unique.slice(0, 4);
+}
+
+// O-234.2: Consonance Fitness Calculation
+// Rewards Plasmids whose frequencies align with exact integer ratios
+export function calculateConsonanceBonus(astStr: string): number {
+    const freqs = astToFrequencies(astStr);
+    if (freqs.length < 2) return 0.0;
+    
+    let bonus = 0.0;
+    for (let i = 0; i < freqs.length; i++) {
+        for (let j = i + 1; j < freqs.length; j++) {
+            const f1 = freqs[i];
+            const f2 = freqs[j];
+            const ratio = Math.max(f1, f2) / Math.min(f1, f2);
+            
+            const intervals = [
+                1.5, // Perfect 5th (3:2)
+                1.33333, // Perfect 4th (4:3)
+                1.25, // Major 3rd (5:4)
+                1.2, // Minor 3rd (6:5)
+                1.66667, // Major 6th (5:3)
+                2.0 // Octave (2:1)
+            ];
+            
+            for (const target of intervals) {
+                if (Math.abs(ratio - target) < 0.05) { // 5% arithmetic tolerance
+                    bonus += 10.0; // Huge evolutionary ATP reward for physical harmony
+                }
+            }
+        }
+    }
+    return bonus;
+}

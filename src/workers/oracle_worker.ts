@@ -41,8 +41,9 @@ ${data.mycelialContext}
 Provide EXACTLY ONE string of topological logic that represents your genetic intervention.
 You may use pure Combinators (S, K, I, Y) OR Semantic Macros: TRUE, FALSE, AND, OR, NOT, CONS, CAR, CDR.
 Example ASTs: "(AND TRUE FALSE)", "(CONS S K)", "S(K(I))".
-You must output ONLY valid AST syntax with balanced parentheses. NO formatting, NO markdown, NO explanations.
-${(data.mycelialContext.includes("Bucket")) ? 'Format your response EXACTLY as: BUCKET: [Bucket ID], AST: [Syntax]' : 'Format your response EXACTLY as: AST: [Syntax]'}
+You must output EXACTLY TWO LINES. Focus on mathematical beauty and topological survival:
+PROPHECY: [A short, cryptic 1-sentence reason for the mutation]
+NO markdown, NO code blocks, NO formatting.
             `.trim();
 
             const requestBody: Record<string, unknown> = {
@@ -96,10 +97,15 @@ ${(data.mycelialContext.includes("Bucket")) ? 'Format your response EXACTLY as: 
                 const maskName = result.value.mask;
                 
                 let intentStr = fullResponse.trim();
-                const match = fullResponse.match(/(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
+                let prophecy = "The Machine has spoken.";
+                // Extract Prophecy, Bucket, and AST resiliently
+                const match = fullResponse.match(/(?:PROPHECY:\s*(.+?)\n)?(?:BUCKET:\s*#?(\d+)[,\s]*)?AST:\s*([^\s]+)/i);
+                
                 let targetBucket = SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN;
                 if (match) {
-                    intentStr = match[2];
+                    if (match[1]) prophecy = match[1].trim();
+                    if (match[2]) targetBucket = parseInt(match[2], 10);
+                    if (match[3]) intentStr = match[3].trim();
                 }
                 
                 targetBucket = targetBucket + Math.floor(Math.random() * 5);
@@ -108,7 +114,8 @@ ${(data.mycelialContext.includes("Bucket")) ? 'Format your response EXACTLY as: 
                     validIntents.push({
                         maskName,
                         intentStr,
-                        targetBucket
+                        targetBucket,
+                        prophecy
                     });
                 }
             }
