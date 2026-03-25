@@ -4,8 +4,6 @@
 // WGSL WebGPU Semantic Thresholds
 const COHERENCE_LOCK_THRESHOLD: i32 = 3145728; // Q20 representation of 3.0
 const COHERENCE_HIGH_THRESHOLD: i32 = 4404019; // Q20 representation of 4.2
-const MYCELIAL_COUPLING_WEIGHT: i32 = 4096;    // Base multiplier (4.0)
-const STAKING_COUPLING_WEIGHT: i32 = 3072;     // Base multiplier (3.0)
 
 // Semantic Buffers
 struct Params {
@@ -209,10 +207,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let m_x = atomicLoad(&mycelial_centroids[bucket_idx].x_sum);
             let m_y = atomicLoad(&mycelial_centroids[bucket_idx].y_sum);
             let centroid = u32(atan2_u8(m_y, m_x));
-            kuramoto += phase_torque(me.theta, centroid) * MYCELIAL_COUPLING_WEIGHT;
+            kuramoto += phase_torque(me.theta, centroid) * WGSL_MYCELIAL_COUPLING;
             
             let m_diff = phase_distance(i32(centroid), i32(me.theta));
-            coherence += ((64 - m_diff) * 16) * MYCELIAL_COUPLING_WEIGHT;
+            coherence += ((64 - m_diff) * 16) * WGSL_MYCELIAL_COUPLING;
         }
     }
 
@@ -225,7 +223,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
                 if (n.energy > me.energy) {
                     staking_energy_bonus += i32(n.energy - me.energy) / 4;
-                    kuramoto += phase_torque(me.theta, n.theta) * STAKING_COUPLING_WEIGHT;
+                    kuramoto += phase_torque(me.theta, n.theta) * WGSL_STAKING_COUPLING;
                 }
             }
         }

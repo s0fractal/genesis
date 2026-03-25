@@ -1,5 +1,5 @@
 import { fnv1a_64 } from "@wasm";
-import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY } from "./constants.ts";
+import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, NETWORK_MAX_PEERS_BUCKET, NETWORK_MYCELIUM_RATE_LIMIT, NETWORK_WEBRTC_RECONNECT_CAP } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
@@ -27,7 +27,7 @@ export class PhaseNetwork {
     
     // Era 222: Kademlia Spatial DHT Buckets
     private kBuckets: Map<number, Set<string>> = new Map();
-    private readonly MAX_PEERS_PER_BUCKET = 3;
+    
     
     // Era 242.1: Exponential Backoff tracking for WebRTC Thundering Herd DDoS prevention
     private reconnectionAttempts: Map<string, number> = new Map();
@@ -50,7 +50,7 @@ export class PhaseNetwork {
             this.originRateLimits.set(origin, tracker);
         }
         tracker.count++;
-        if (tracker.count > 50) return false;
+        if (tracker.count > NETWORK_MYCELIUM_RATE_LIMIT) return false;
         return true;
     }
 
@@ -106,7 +106,7 @@ export class PhaseNetwork {
             // A new peer appeared! We will initiate the connection as the Caller.
             if (!this.peers.has(msg.origin)) {
                 
-                if (bucket.size >= this.MAX_PEERS_PER_BUCKET) {
+                if (bucket.size >= NETWORK_MAX_PEERS_BUCKET) {
                     return; // 🛑 Silently reject to enforce biological sparsity DHT limits
                 }
                 
@@ -129,7 +129,7 @@ export class PhaseNetwork {
             }
         } 
         else if (msg.type === "OFFER" && msg.target === this.nodeId) {
-            if (!this.peers.has(msg.origin) && bucket.size >= this.MAX_PEERS_PER_BUCKET) {
+            if (!this.peers.has(msg.origin) && bucket.size >= NETWORK_MAX_PEERS_BUCKET) {
                  return; // 🛑 Reject inbound mesh flood
             }
             
@@ -196,7 +196,7 @@ export class PhaseNetwork {
                 // Era 242.1: CRDT Thundering Herd DDoS Prevention
                 // Exponential backoff capped at 30 seconds, plus 10-20% stochastic jitter
                 const jitter = 0.8 + Math.random() * 0.4;
-                const delayMs = Math.min(1000 * (2 ** attempts), 30000) * jitter;
+                const delayMs = Math.min(1000 * (2 ** attempts), NETWORK_WEBRTC_RECONNECT_CAP) * jitter;
                 
                 this.reconnectionAttempts.set(remotePeerId, attempts + 1);
                 console.warn(`🍄 [Auto-Mycelium] WebRTC ICE connection failed with ${remotePeerId} (Attempt ${attempts + 1}). Retrying in ${Math.round(delayMs)}ms...`);
@@ -317,7 +317,7 @@ export class PhaseNetwork {
                     
                     // O-196 WebRTC Traffic Shaping (DDoS Armor)
                     if (!this.checkRateLimit(p.origin)) {
-                        console.warn(`🛑 [WebRTC DDoS Armor] Peer ${p.origin} exceeded 50 plasmids/sec. Dropping connection.`);
+                        console.warn(`🛑 [WebRTC DDoS Armor] Peer ${p.origin} exceeded ${NETWORK_MYCELIUM_RATE_LIMIT} plasmids/sec. Dropping connection.`);
                         dc.close();
                         return;
                     }

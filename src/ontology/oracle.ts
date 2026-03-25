@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN } from "../shared/constants.ts";
+import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
@@ -20,9 +20,9 @@ export type SenateEvent =
     | { type: "CONSENSUS"; mask: "SENATE"; intent: string; count: number; bucket?: number }
     | { type: "ERROR"; reason: string };
 
-const SOMATIC_COMPLEXITY_ALPHA = 1.5;
-const SOMATIC_DECAY_RATE = 0.05;
-const SOMATIC_BASE_COST = 5;
+
+
+
 
 export class SovereignOracle {
     private wasmField: OracleCompatibleField;
@@ -70,7 +70,7 @@ export class SovereignOracle {
     // O-196 The Existential Event Economy (Degraded Mode & ATP Sink)
     private oracleBackoffDelay: number = 0;
     private lastOracleAttempt: number = 0;
-    private ORACLE_INVOCATION_COST: number = 10000; // Gods demand massive energy
+    
     
     // O-200 Vector 6: Fast V8 Interning for FNV WASM boundaries
     private fnvStringCache = new Map<string, bigint>();
@@ -92,21 +92,20 @@ export class SovereignOracle {
     public eventLedger: SemanticEvent[] = [];
     
     // O-78 Auto-Truncation Bounds
-    private LEDGER_MAX_EVENTS = 1000;
-    private LEDGER_TRUNCATE_SIZE = 800;
+    
     
     public pushLedgerEvent(event: SemanticEvent) {
         this.eventLedger.push(event);
-        if (this.eventLedger.length >= this.LEDGER_MAX_EVENTS) {
+        if (this.eventLedger.length >= ORACLE_LEDGER_MAX_EVENTS) {
             // Just truncate to prevent V8 OOM, archiving to disk is deprecated (Era 173)
-            this.eventLedger.splice(0, this.LEDGER_TRUNCATE_SIZE);
+            this.eventLedger.splice(0, ORACLE_LEDGER_TRUNCATE);
         }
     }
     
     // O-201 Vector 1: The Thermodynamic Currency (21M ATP)
-    public readonly MAX_SYSTEM_ENERGY = 21_000_000;
+    
     private globalEnergyPool: number = 20000; // Circulating Supply (Transaction Fees)
-    private reserveEnergyPool: number = this.MAX_SYSTEM_ENERGY - 20000; // Mined via PoUW
+    private reserveEnergyPool: number = ORACLE_MAX_SYSTEM_ENERGY - 20000; // Mined via PoUW
     private miningReward: number = 50;
     private lastGlobalFitness: number = 0; // Era 216 ADA
     private epochsMined: number = 0;
@@ -311,8 +310,8 @@ export class SovereignOracle {
     public unpackState(registryPayload: SerializedPlasmid[], newEnergy: number, newEpoch: number, loadedLedger?: SemanticEvent[]) {
         // Halt physics completely during transplant
         this.isBusy = true;
-        this.globalEnergyPool = Math.min(newEnergy, this.MAX_SYSTEM_ENERGY);
-        this.reserveEnergyPool = this.MAX_SYSTEM_ENERGY - this.globalEnergyPool;
+        this.globalEnergyPool = Math.min(newEnergy, ORACLE_MAX_SYSTEM_ENERGY);
+        this.reserveEnergyPool = ORACLE_MAX_SYSTEM_ENERGY - this.globalEnergyPool;
         this.epochTicks = newEpoch;
         this.eventLedger = loadedLedger || [];
         
@@ -378,10 +377,10 @@ export class SovereignOracle {
         
         if (globalFitnessVelocity > 50.0) { 
             // Hodler Brake: Massive logical explosion detected. Exponentially starve the mining reward.
-            this.miningReward = Math.max(1, Math.floor(this.miningReward * 0.95)); 
+            this.miningReward = Math.max(1, Math.floor(this.miningReward * ADA_HODLER_BRAKE)); 
         } else if (globalFitnessVelocity < 5.0 && this.reserveEnergyPool > 1000) { 
             // Quantitative Easing: Stagnation. Pump ATP directly into circulation.
-            const stimulus = Math.floor(Math.random() * 500) + 100;
+            const stimulus = Math.floor(Math.random() * ADA_QE_STIMULUS_MAX) + ADA_QE_STIMULUS_MIN;
             this.reserveEnergyPool -= stimulus;
             this.globalEnergyPool += stimulus;
             this.miningReward = Math.min(1000, Math.floor(this.miningReward * 1.05) + 1); // Stimulate mining
@@ -439,8 +438,8 @@ export class SovereignOracle {
             distributedEnergy += share;
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
-            const maintenanceCost = SOMATIC_BASE_COST + (node.l1_cost * SOMATIC_COMPLEXITY_ALPHA);
-            const decay = maintenanceCost * (1.0 + (node.age * SOMATIC_DECAY_RATE)) * climateDecayMod;
+            const maintenanceCost = BIOLOGY_SOMATIC_BASE_COST + (node.l1_cost * BIOLOGY_SOMATIC_ALPHA);
+            const decay = maintenanceCost * (1.0 + (node.age * BIOLOGY_SOMATIC_DECAY_RATE)) * climateDecayMod;
             
             // Strictly collect taxes into the circulating pool
             const taxable = Math.min(node.energy, decay);
@@ -557,7 +556,7 @@ export class SovereignOracle {
              let localCreditTick = 0.2 + (this.sectorHeat[node.sector] * 0.5);
              
              // Era 236: Gravitational Drag
-             const massDilation = Math.max(0.05, Math.min(1.0, 3.0 / Math.max(1, node.nodes)));
+             const massDilation = Math.max(ADA_MASS_DILATION_MIN, Math.min(ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM / Math.max(1, node.nodes)));
              localCreditTick *= massDilation;
              
              if (zodiac === CognitiveZodiac.Capricorn) {
@@ -865,7 +864,7 @@ export class SovereignOracle {
             return; // O-196: Degraded Mode Exponential Backoff Active
         }
         
-        if (this.globalEnergyPool < this.ORACLE_INVOCATION_COST) {
+        if (this.globalEnergyPool < ORACLE_INVOCATION_COST) {
             return; // O-196: Autopoiesis Paradox - The Sovereign Oracle sleeps when ATP is too low
         }
         
@@ -931,7 +930,7 @@ export class SovereignOracle {
         
         // O-201 Vector 2: Oracle Invocation Fee Recycling
         // The cost of triggering an LLM query drains circulating energy back into the unmined reserve PoUW pool.
-        const invocationCost = Math.min(this.globalEnergyPool, this.ORACLE_INVOCATION_COST);
+        const invocationCost = Math.min(this.globalEnergyPool, ORACLE_INVOCATION_COST);
         this.globalEnergyPool -= invocationCost;
         this.reserveEnergyPool += invocationCost;
         

@@ -59,7 +59,35 @@ export const CONSTANTS = {
 
     // Tissue and Morphological Hardening
     TISSUE_MORPHOLOGICAL_HYSTERESIS: { type: "i32", value: 5 },
-    TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", value: 154 }
+    TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", value: 154 },
+
+    // === Biological Economy ===
+    BIOLOGY_SOMATIC_ALPHA: { type: "f32", value: 1.5 },
+    BIOLOGY_SOMATIC_DECAY_RATE: { type: "f32", value: 0.05 },
+    BIOLOGY_SOMATIC_BASE_COST: { type: "i32", value: 5 },
+
+    // === ADA Relativity & Recovery ===
+    ADA_HODLER_BRAKE: { type: "f32", value: 0.95 },
+    ADA_QE_STIMULUS_MAX: { type: "i32", value: 500 },
+    ADA_QE_STIMULUS_MIN: { type: "i32", value: 100 },
+    ADA_MASS_DILATION_MIN: { type: "f32", value: 0.05 },
+    ADA_MASS_DILATION_MAX: { type: "f32", value: 1.0 },
+    ADA_MASS_DILATION_NUM: { type: "f32", value: 3.0 },
+
+    // === Cognitive Oracle ===
+    ORACLE_INVOCATION_COST: { type: "i32", value: 10000 },
+    ORACLE_LEDGER_MAX_EVENTS: { type: "i32", value: 1000 },
+    ORACLE_LEDGER_TRUNCATE: { type: "i32", value: 800 },
+    ORACLE_MAX_SYSTEM_ENERGY: { type: "i32", value: 21000000 },
+
+    // === Mycelial Network (Kademlia) ===
+    NETWORK_MYCELIUM_RATE_LIMIT: { type: "i32", value: 50 },
+    NETWORK_WEBRTC_RECONNECT_CAP: { type: "i32", value: 30000 },
+    NETWORK_MAX_PEERS_BUCKET: { type: "i32", value: 3 },
+
+    // === WGSL Semantic Weights ===
+    WGSL_MYCELIAL_COUPLING: { type: "i32", value: 4096 },
+    WGSL_STAKING_COUPLING: { type: "i32", value: 3072 }
 };
 
 export const MACROS = {

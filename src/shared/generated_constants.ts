@@ -37,6 +37,24 @@ export const SENATE_SHADOW_BUCKET_MIN = 1000;
 export const SENATE_SHADOW_BUCKET_MAX = 1024;
 export const TISSUE_MORPHOLOGICAL_HYSTERESIS = 5;
 export const TISSUE_MORPHOLOGICAL_DELTA_MIN = 154;
+export const BIOLOGY_SOMATIC_ALPHA = 1.5;
+export const BIOLOGY_SOMATIC_DECAY_RATE = 0.05;
+export const BIOLOGY_SOMATIC_BASE_COST = 5;
+export const ADA_HODLER_BRAKE = 0.95;
+export const ADA_QE_STIMULUS_MAX = 500;
+export const ADA_QE_STIMULUS_MIN = 100;
+export const ADA_MASS_DILATION_MIN = 0.05;
+export const ADA_MASS_DILATION_MAX = 1;
+export const ADA_MASS_DILATION_NUM = 3;
+export const ORACLE_INVOCATION_COST = 10000;
+export const ORACLE_LEDGER_MAX_EVENTS = 1000;
+export const ORACLE_LEDGER_TRUNCATE = 800;
+export const ORACLE_MAX_SYSTEM_ENERGY = 21000000;
+export const NETWORK_MYCELIUM_RATE_LIMIT = 50;
+export const NETWORK_WEBRTC_RECONNECT_CAP = 30000;
+export const NETWORK_MAX_PEERS_BUCKET = 3;
+export const WGSL_MYCELIAL_COUPLING = 4096;
+export const WGSL_STAKING_COUPLING = 3072;
 
 // --- MACROS ---
 export function fast_abs(v: number): number {
