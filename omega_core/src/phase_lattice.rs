@@ -112,6 +112,8 @@ pub struct PhaseLatticeField {
     pub(crate) plasmid_collisions: Vec<u64>,
     pub(crate) collision_count: u32,
     pub(crate) active_genomes: [WasmPhysicsGenome; 16],
+    pub(crate) spatial_memory_theta: Vec<u8>,
+    pub(crate) spatial_memory_strength: Vec<u8>,
     pub(crate) canary_end: u32,
     pub(crate) internal_tick: u64,
 }
@@ -166,6 +168,8 @@ impl PhaseLatticeField {
             plasmid_collisions: vec![0; 1024 * 3],
             collision_count: 0,
             active_genomes: [WasmPhysicsGenome::default(); 16],
+            spatial_memory_theta: vec![0; (sectors * radial_bins * harmonics) as usize],
+            spatial_memory_strength: vec![0; (sectors * radial_bins * harmonics) as usize],
             canary_end: 0xDEADBEEF,
             internal_tick: 0,
         };
@@ -195,9 +199,14 @@ impl PhaseLatticeField {
         self.header.harmonics = harmonics;
 
         let required_cap = (sectors * radial_bins * harmonics * self.tau_depth) as usize;
+        let spatial_cap = (sectors * radial_bins * harmonics) as usize;
         if required_cap > self.agents.len() {
             self.agents.resize(required_cap, crate::granite::PhaseAgent::default());
             self.cell_status.resize(required_cap, 0);
+        }
+        if spatial_cap > self.spatial_memory_theta.len() {
+            self.spatial_memory_theta.resize(spatial_cap, 0);
+            self.spatial_memory_strength.resize(spatial_cap, 0);
         }
     }
 
@@ -211,6 +220,14 @@ impl PhaseLatticeField {
 
     pub fn ptr_active_genomes(&self) -> *const u8 {
         self.active_genomes.as_ptr() as *const u8
+    }
+
+    pub fn ptr_spatial_memory_theta(&self) -> *const u8 {
+        self.spatial_memory_theta.as_ptr()
+    }
+
+    pub fn ptr_spatial_memory_strength(&self) -> *const u8 {
+        self.spatial_memory_strength.as_ptr()
     }
 
     pub fn ptr_oracle_requests(&self) -> *const u32 {
@@ -266,11 +283,17 @@ impl PhaseLatticeField {
             agent.theta = wrap_phase(agent.theta as i16 + delta);
             agent.preferred_theta = wrap_phase(agent.preferred_theta as i16 + delta);
         }
+        for mem_theta in &mut self.spatial_memory_theta {
+            *mem_theta = wrap_phase(*mem_theta as i16 + delta);
+        }
     }
 
     pub fn rotate_angular_address(&mut self, delta_sector: i32) {
         let agents_clone = self.agents.clone();
         let status_clone = self.cell_status.clone();
+        
+        let mem_theta_clone = self.spatial_memory_theta.clone();
+        let mem_strength_clone = self.spatial_memory_strength.clone();
 
         for tau in 0..self.tau_depth as usize {
             for harmonic in 0..self.harmonics as usize {
@@ -283,6 +306,20 @@ impl PhaseLatticeField {
                         self.agents[target] = agents_clone[source];
                         self.cell_status[target] = status_clone[source];
                     }
+                }
+            }
+        }
+        
+        // --- Phase 15: Shift Akashic Field Geometry ---
+        for harmonic in 0..self.harmonics as usize {
+            for rho in 0..self.radial_bins as usize {
+                for sector in 0..self.sectors as usize {
+                    let source = sector + (rho * self.sectors as usize) + (harmonic * self.sectors as usize * self.radial_bins as usize);
+                    let target_sector = wrap_index_usize(sector as i32 + delta_sector, self.sectors as usize);
+                    let target = target_sector + (rho * self.sectors as usize) + (harmonic * self.sectors as usize * self.radial_bins as usize);
+                    
+                    self.spatial_memory_theta[target] = mem_theta_clone[source];
+                    self.spatial_memory_strength[target] = mem_strength_clone[source];
                 }
             }
         }
@@ -501,6 +538,14 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let memory_pull = (sin(effective_theta, preferred_theta) * memory_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
                 kuramoto += memory_pull;
 
+                // --- Phase 15: Akashic Field Pull (Collective Spatial Memory) ---
+                let akashic_idx = sector + (rho * field.sectors as usize) + (harmonic * field.sectors as usize * field.radial_bins as usize);
+                let akashic_theta = field.spatial_memory_theta[akashic_idx];
+                let akashic_strength = field.spatial_memory_strength[akashic_idx];
+
+                let akashic_pull = (sin(effective_theta, akashic_theta) * akashic_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
+                kuramoto += akashic_pull;
+
                 let omega_delta = (kuramoto / local_kuramoto_base) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
@@ -518,8 +563,15 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     
                     let memory_gain_byte = (field.header.biology_apa_memory_gain * 255) / 1024;
                     memory_strength = clamp_byte(memory_strength as i16 + memory_gain_byte as i16);
+
+                    // --- Phase 15: Akashic Field Seeding ---
+                    let ak_diff = signed_phase_delta(akashic_theta as i32, next_theta_val as i32);
+                    let ak_shift = (ak_diff * field.header.biology_apa_learning_rate) / 1024;
+                    field.spatial_memory_theta[akashic_idx] = wrap_phase(akashic_theta as i16 + ak_shift as i16);
+                    field.spatial_memory_strength[akashic_idx] = clamp_byte(akashic_strength as i16 + memory_gain_byte as i16);
                 }
                 memory_strength = ((memory_strength as u32 * field.header.biology_apa_memory_decay as u32) / 1024) as u8;
+                field.spatial_memory_strength[akashic_idx] = ((field.spatial_memory_strength[akashic_idx] as u32 * field.header.biology_apa_memory_decay as u32) / 1024) as u8;
 
                 let next_amplitude_val = clamp_byte(amplitude + amplitude_delta);
                 let next_lock_val = clamp_byte(lock + lock_delta);

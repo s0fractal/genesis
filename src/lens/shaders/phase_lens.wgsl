@@ -25,6 +25,8 @@ struct Params {
 
 @group(0) @binding(0) var<storage, read> field: array<u32>;
 @group(0) @binding(1) var<uniform> params: Params;
+@group(0) @binding(2) var<storage, read> akashic_theta: array<u32>;
+@group(0) @binding(3) var<storage, read> akashic_strength: array<u32>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -42,6 +44,18 @@ fn extract_byte(u32_val: u32, byte_idx: u32) -> f32 {
 
 fn get_byte(base_offset: u32, idx: u32, byte_offset: u32) -> f32 {
     return extract_byte(field[base_offset + (idx / 4u)], byte_offset);
+}
+
+fn get_akashic_theta(idx: u32) -> f32 {
+    let word_idx = idx / 4u;
+    let byte_shift = (idx % 4u) * 8u;
+    return f32((akashic_theta[word_idx] >> byte_shift) & 0xFFu) / 255.0;
+}
+
+fn get_akashic_strength(idx: u32) -> f32 {
+    let word_idx = idx / 4u;
+    let byte_shift = (idx % 4u) * 8u;
+    return f32((akashic_strength[word_idx] >> byte_shift) & 0xFFu) / 255.0;
 }
 
 fn hsv2rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
@@ -209,6 +223,18 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
       
       // Intense Gaze excites particle visual entropy
       final_glow = final_glow * (1.0 + gaze_intensity);
+  }
+
+  // Phase 15: The Akashic Field Visualizer Layer
+  let akashic_idx = sector + (rho * params.sectors) + (harmonic * params.sectors * params.radial_bins);
+  let ak_theta = get_akashic_theta(akashic_idx);
+  let ak_strength = get_akashic_strength(akashic_idx);
+  
+  if (ak_strength > 0.02) {
+      let ak_hue = fract(ak_theta + 0.5);
+      let ak_color = hsv2rgb(ak_hue, 0.9, 0.5 + (ak_strength * 0.5));
+      base_color = mix(base_color, ak_color, ak_strength * 0.45);
+      final_glow = final_glow + (ak_strength * 0.25);
   }
 
   out.color = base_color;

@@ -191,6 +191,8 @@ interface OracleCompatibleField {
     ptr_plasmid_collisions?(): number;
     get_collision_count?(): number;
     clear_collisions?(): void;
+    ptr_spatial_memory_theta?(): number;
+    ptr_spatial_memory_strength?(): number;
     cell_count?(): number;
     width?: number;
     height?: number;

@@ -13,6 +13,8 @@ export interface TopologyMetadata {
     cell_count: number;
     ptr_agents: number;
     ptr_header: number;
+    ptr_spatial_memory_theta?: () => number;
+    ptr_spatial_memory_strength?: () => number;
 }
 
 export class PhaseWebGPUObserver {
@@ -24,6 +26,8 @@ export class PhaseWebGPUObserver {
     private bindGroup!: GPUBindGroup;
     private latticeBuffer!: GPUBuffer;
     private paramsBuffer!: GPUBuffer;
+    private akashicThetaBuffer!: GPUBuffer;
+    private akashicStrengthBuffer!: GPUBuffer;
     private metadata: TopologyMetadata;
     private startTime: number;
     public camera: OrbitCamera;
@@ -185,6 +189,18 @@ export class PhaseWebGPUObserver {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
 
+        // Phase 15: The Akashic Field (Spatial Memory Grid)
+        const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
+        const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
+        this.akashicThetaBuffer = this.device.createBuffer({
+            size: alignedSpatialSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.akashicStrengthBuffer = this.device.createBuffer({
+            size: alignedSpatialSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
         // Era 239: The Quantum Eye (Observer Effect) - 448 bytes total
         // 64 default bytes + 64 bytes VIEW + 64 bytes PROJ + 256 bytes (64 floats of sectorHeat)
         this.paramsBuffer = this.device.createBuffer({
@@ -234,7 +250,9 @@ export class PhaseWebGPUObserver {
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.latticeBuffer } },
-                { binding: 1, resource: { buffer: this.paramsBuffer } }
+                { binding: 1, resource: { buffer: this.paramsBuffer } },
+                { binding: 2, resource: { buffer: this.akashicThetaBuffer } },
+                { binding: 3, resource: { buffer: this.akashicStrengthBuffer } }
             ]
         });
 
@@ -290,6 +308,12 @@ export class PhaseWebGPUObserver {
         // Upload new array buffer slice onto VRAM
         const byteSize = numCells * 16;
         this.device.queue.writeBuffer(this.latticeBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_agents, byteSize);
+
+        if (this.metadata.ptr_spatial_memory_theta && this.metadata.ptr_spatial_memory_strength) {
+            const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
+            this.device.queue.writeBuffer(this.akashicThetaBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_spatial_memory_theta(), spatialSize);
+            this.device.queue.writeBuffer(this.akashicStrengthBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_spatial_memory_strength(), spatialSize);
+        }
 
         const time = (performance.now() - this.startTime) / 1000.0;
         const aspect = this.canvas.width / this.canvas.height;
