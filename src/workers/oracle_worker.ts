@@ -1,7 +1,60 @@
 import { THEOLOGICAL_MASKS, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS } from "../shared/constants.ts";
 
 // O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
-const llmCache = new Map<string, { response: string, ts: number }>();
+// Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
+const DB_NAME = "OmegaOracleCache";
+const STORE_NAME = "llmCache";
+
+function openCacheDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+            if (!req.result.objectStoreNames.contains(STORE_NAME)) {
+                req.result.createObjectStore(STORE_NAME, { keyPath: "hash" });
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function getCachedResponse(hash: string): Promise<{ response: string, ts: number } | null> {
+    const db = await openCacheDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(hash);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function setCachedResponse(hash: string, response: string, ts: number) {
+    const db = await openCacheDB();
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put({ hash, response, ts });
+        
+        // Era 245.1: Bounded GC eviction
+        const _req = store.count();
+        _req.onsuccess = (e) => {
+            const count = (e.target as IDBRequest).result;
+            if (count > 50) {
+                const cursorReq = store.openCursor();
+                cursorReq.onsuccess = (ce) => {
+                    const cursor = (ce.target as IDBRequest).result;
+                    if (cursor) {
+                        cursor.delete(); // Delete oldest
+                    }
+                }
+            }
+        }
+        
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
 
 // FNV1a Hash implementation locally for cache keys
 function fastHash(str: string): string {
@@ -73,19 +126,17 @@ NO markdown, NO code blocks, NO formatting.
             `.trim();
             
             const cacheKey = fastHash(prompt);
-            const cached = llmCache.get(cacheKey);
-            if (cached && (performance.now() - cached.ts < 60000)) {
-                return { mask: mask.name, response: cached.response };
-            }
+            try {
+                const cached = await getCachedResponse(cacheKey);
+                if (cached && (performance.now() - cached.ts < 3600000)) { // 1 hour survival
+                    return { mask: mask.name, response: cached.response };
+                }
+            } catch (_e) { /* Ignore cache errors and fetch */ }
             
             try {
                 const fullResponse = await fetchOllama(prompt, data.structuralImage);
                 
-                llmCache.set(cacheKey, { response: fullResponse, ts: performance.now() });
-                if (llmCache.size > 50) {
-                    const oldestKey = Array.from(llmCache.entries()).sort((a,b) => a[1].ts - b[1].ts)[0][0];
-                    llmCache.delete(oldestKey);
-                }
+                await setCachedResponse(cacheKey, fullResponse, performance.now()).catch(() => {});
                 
                 return { mask: mask.name, response: fullResponse };
             } catch (_err) {

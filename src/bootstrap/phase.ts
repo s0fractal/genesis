@@ -26,7 +26,10 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   // Era 243: CPU Hardware Fallback Boundary
   try {
       if (!navigator.gpu) throw new Error("WebGPU API missing");
-      const adapter = await navigator.gpu.requestAdapter();
+      const adapterPromise = navigator.gpu.requestAdapter();
+      const timeoutPromise = new Promise<GPUAdapter | null>((_, reject) => setTimeout(() => reject(new Error("WebGPU Adapter Timeout")), 3000));
+      const adapter = await Promise.race([adapterPromise, timeoutPromise]);
+      
       if (!adapter) throw new Error("WebGPU adapter unavailable");
       device = await adapter.requestDevice();
   } catch (err) {

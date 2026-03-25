@@ -1,134 +1,314 @@
 {
   "schemaVersion": 1,
   "shape": {
-    "tauDepth": 4,
     "sectors": 32,
     "radialBins": 6,
-    "harmonics": 3
+    "harmonics": 3,
+    "tauDepth": 4
   },
-  "ticks": 12,
-  "wasmTrace": [
+  "ticks": 24,
+  "referenceTrace": [
     {
       "tick": 0,
-      "legacySignature": "5a999eb2b3e727b0",
-      "structuralSignature": "5a999eb2b3e727b0",
-      "totalAmplitude": 21907,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "16ab9c791f14b952",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 1,
-      "legacySignature": "364ee21a4a27ceef",
-      "structuralSignature": "364ee21a4a27ceef",
-      "totalAmplitude": 22244,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "eaae70633805e44a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 2,
-      "legacySignature": "74a22602c99fd3d4",
-      "structuralSignature": "74a22602c99fd3d4",
-      "totalAmplitude": 22523,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "871ab55959f7e44a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 3,
-      "legacySignature": "0bee20a43e57eebe",
-      "structuralSignature": "0bee20a43e57eebe",
-      "totalAmplitude": 22745,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "a8e2b6a7aaf3c512",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 4,
-      "legacySignature": "08aab9f63e12fe38",
-      "structuralSignature": "08aab9f63e12fe38",
-      "totalAmplitude": 22910,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "e4d0ba7b431180b6",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 5,
-      "legacySignature": "6574ddef5586472b",
-      "structuralSignature": "6574ddef5586472b",
-      "totalAmplitude": 23018,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "c899b1b0db5cf082",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 6,
-      "legacySignature": "f67704879dff8bbe",
-      "structuralSignature": "f67704879dff8bbe",
-      "totalAmplitude": 23077,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "5a996587bb4de386",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 7,
-      "legacySignature": "cb981dacb6a9f81d",
-      "structuralSignature": "cb981dacb6a9f81d",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "9139a4c4a0570a52",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 8,
-      "legacySignature": "168b7922f860c619",
-      "structuralSignature": "168b7922f860c619",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "86d3e3c957f201aa",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 9,
-      "legacySignature": "2cd491ab4b2f7286",
-      "structuralSignature": "2cd491ab4b2f7286",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "75f4f3874b3ebede",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 10,
-      "legacySignature": "a7b07786a460f903",
-      "structuralSignature": "a7b07786a460f903",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "a437bef381f90442",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 11,
-      "legacySignature": "84f8af50bbcabe05",
-      "structuralSignature": "84f8af50bbcabe05",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "35962dcb55b4dc52",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     },
     {
       "tick": 12,
-      "legacySignature": "a676d7dc727dfeb6",
-      "structuralSignature": "a676d7dc727dfeb6",
-      "totalAmplitude": 23104,
-      "totalEntanglement": 0,
-      "omegaSpan": "-2..2",
-      "runLength": 1
+      "structuralSignature": "4137917cda296836",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 13,
+      "structuralSignature": "194dbcc4f9d1ed9e",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 14,
+      "structuralSignature": "8caf2d9d3aeb2cce",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 15,
+      "structuralSignature": "684100e368cb845a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 16,
+      "structuralSignature": "1adfb4fdc29d8522",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 17,
+      "structuralSignature": "cbef7ee903eb4b5a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 18,
+      "structuralSignature": "a7171d83fcd06b32",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 19,
+      "structuralSignature": "2380ca1991ad2072",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 20,
+      "structuralSignature": "0826bd1ef570d83a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 21,
+      "structuralSignature": "5fc4de0fa5b2d5ba",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 22,
+      "structuralSignature": "1b7601740ec16406",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 23,
+      "structuralSignature": "4350f951572b6406",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 24,
+      "structuralSignature": "c254247ef3f4fd9a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
     }
   ],
-  "invariants": {
-    "wasmSeedStructuralSignature": "5a999eb2b3e727b0",
-    "rotatedPhaseStructuralSignature": "aeab30b3c6c3cb02",
-    "rotatedAddressStructuralSignature": "986c9cd6a82f90be"
-  }
+  "wasmTrace": [
+    {
+      "tick": 0,
+      "structuralSignature": "16ab9c791f14b952",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 1,
+      "structuralSignature": "eaae70633805e44a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 2,
+      "structuralSignature": "871ab55959f7e44a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 3,
+      "structuralSignature": "a8e2b6a7aaf3c512",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 4,
+      "structuralSignature": "e4d0ba7b431180b6",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 5,
+      "structuralSignature": "c899b1b0db5cf082",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 6,
+      "structuralSignature": "5a996587bb4de386",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 7,
+      "structuralSignature": "9139a4c4a0570a52",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 8,
+      "structuralSignature": "86d3e3c957f201aa",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 9,
+      "structuralSignature": "75f4f3874b3ebede",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 10,
+      "structuralSignature": "a437bef381f90442",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 11,
+      "structuralSignature": "35962dcb55b4dc52",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 12,
+      "structuralSignature": "4137917cda296836",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 13,
+      "structuralSignature": "194dbcc4f9d1ed9e",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 14,
+      "structuralSignature": "8caf2d9d3aeb2cce",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 15,
+      "structuralSignature": "684100e368cb845a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 16,
+      "structuralSignature": "1adfb4fdc29d8522",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 17,
+      "structuralSignature": "cbef7ee903eb4b5a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 18,
+      "structuralSignature": "a7171d83fcd06b32",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 19,
+      "structuralSignature": "2380ca1991ad2072",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 20,
+      "structuralSignature": "0826bd1ef570d83a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 21,
+      "structuralSignature": "5fc4de0fa5b2d5ba",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 22,
+      "structuralSignature": "1b7601740ec16406",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 23,
+      "structuralSignature": "4350f951572b6406",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    },
+    {
+      "tick": 24,
+      "structuralSignature": "c254247ef3f4fd9a",
+      "totalAmplitude": 0,
+      "totalEntanglement": 0
+    }
+  ]
 }

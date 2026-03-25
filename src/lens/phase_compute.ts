@@ -307,8 +307,6 @@ export class PhaseComputeEngine {
     }
 
     injectPlasmid(index: number, hash: bigint) {
-        if (!this.device) return;
-        
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return; // Drop if queue full to preserve homeostasis
         
@@ -328,8 +326,6 @@ export class PhaseComputeEngine {
     }
 
     injectPlasmidIntoBucket(bucketId: number, hash: bigint) {
-        if (!this.device) return;
-
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return;
         
@@ -349,8 +345,6 @@ export class PhaseComputeEngine {
     }
 
     injectEnergy(index: number, phaseShift: number) {
-        if (!this.device) return;
-        
         const nextTail = (this.injectionTail + 1) & (this.INJECTION_POOL_SIZE - 1);
         if (nextTail === this.injectionHead) return;
         

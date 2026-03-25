@@ -29,13 +29,14 @@ export async function loadPhaseReplayDataset(): Promise<PhaseReplayDataset> {
     const snapshots: PhaseField[] = [];
     snapshots.push(snapshotWasmPhaseField(field, wasm, golden.shape));
     
-    // validateReferenceSnapshot(snapshots[0], golden.referenceTrace[0]); // Disabled validating legacy TS traces
+    // Era 245.1: Golden CI Verification
+    validateReferenceSnapshot(snapshots[0], golden.referenceTrace[0]);
 
     for (let tick = 1; tick <= golden.ticks; tick++) {
         execute_phase_lattice_tick(field);
         const snapshot = snapshotWasmPhaseField(field, wasm, golden.shape);
         snapshots.push(snapshot);
-        // validateReferenceSnapshot(snapshot, golden.referenceTrace[tick]); // Disabled validating legacy TS traces
+        validateReferenceSnapshot(snapshot, golden.referenceTrace[tick]); 
     }
 
     return {
@@ -178,7 +179,7 @@ function clampTick(value: number, maxTick: number): number {
     return Math.max(0, Math.min(maxTick, Math.trunc(value)));
 }
 
-function _validateReferenceSnapshot(field: PhaseField, trace: ReplayReferenceTraceEntry): void {
+function validateReferenceSnapshot(field: PhaseField, trace: ReplayReferenceTraceEntry): void {
     const signature = structuralSignature(field);
     const amplitude = sumAmplitude(field);
     const entanglement = sumEntanglement(field);

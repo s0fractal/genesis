@@ -885,7 +885,14 @@ export class SovereignOracle {
             if (count > 0) {
                 const requestPtr = this.wasmField.ptr_oracle_requests();
                 const requestArray = new Uint32Array(this.wasmMemory.buffer, requestPtr, count);
-                const rawRequests = Array.from(requestArray);
+                
+                // Era 245: Synchronized Memory Boundaries (Atomics API)
+                const rawRequests: number[] = [];
+                for (let i = 0; i < count; i++) {
+                    // Safe concurrent load blocking memory re-ordering
+                    rawRequests.push(Atomics.load(requestArray, i));
+                }
+                
                 this.wasmField.clear_oracle_requests();
                 
                 // O-133 Phase 2 / Era 134 Vector C: The Molecular Interface
@@ -900,10 +907,15 @@ export class SovereignOracle {
                 const collisionCount = this.wasmField.get_collision_count ? this.wasmField.get_collision_count() : 0;
                 if (collisionCount > 0 && this.wasmField.ptr_plasmid_collisions && this.wasmField.clear_collisions) {
                     const ptr = this.wasmField.ptr_plasmid_collisions();
-                    const collisionsTupleArray = new BigUint64Array(this.wasmMemory.buffer, ptr, collisionCount * 3).slice();
+                    // Note: BigUint64Array Atomics requires JS runtime flag or modern browser, but is supported natively in ES2020
+                    const collisionsTupleArray = new BigUint64Array(this.wasmMemory.buffer, ptr, collisionCount * 3);
+                    const safeArray = new BigUint64Array(collisionCount * 3);
+                    for (let i = 0; i < collisionCount * 3; i++) {
+                        safeArray[i] = Atomics.load(collisionsTupleArray, i);
+                    }
                     this.wasmField.clear_collisions();
                     
-                    this.processHorizontalGeneTransfers(collisionCount, collisionsTupleArray);
+                    this.processHorizontalGeneTransfers(collisionCount, safeArray);
                 }
                 
                 if (llmRequests.length > 0) {
