@@ -11,7 +11,8 @@ use wasm_bindgen::prelude::*;
 pub struct PhaseAgent {
     pub plasmid: u64,        // 0-7 (8-byte aligned naturally)
     pub omega: i16,          // 8-9
-    pub _pad1: i16,          // 10-11 (for alignment to prevent implicit padding)
+    pub time_dilation: u8,   // 10 (O-230.2 Exogenous Local Time)
+    pub _pad2: u8,           // 11 (Alignment to prevent implicit padding)
     pub theta: u8,           // 12
     pub energy: u8,          // 13
     pub lock: u8,            // 14

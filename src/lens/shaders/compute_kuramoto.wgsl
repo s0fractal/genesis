@@ -258,7 +258,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let next_omega = clamp(me.omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(me.theta) + next_omega, 256));
 
-    var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus;
+    // O-230.1: Exogenous Friction (The Blind Oracle)
+    // Absolute Kuramoto torque measures local topological friction.
+    // If torque is extreme, the vacuum spontaneously generates thermal energy (amplitude).
+    let topological_friction = fast_abs(q20_round(kuramoto));
+    var exogenous_energy = 0i;
+    if (topological_friction > 10) {
+        exogenous_energy = topological_friction / 4;
+    }
+
+    var amp_delta = q20_round(coherence * 6) - i32(me.lock / 64u) + staking_energy_bonus + exogenous_energy;
     if (coherence > COHERENCE_HIGH_THRESHOLD) { amp_delta += 2; }
 
     let lock_delta = select(-4, 8, coherence >= COHERENCE_LOCK_THRESHOLD);

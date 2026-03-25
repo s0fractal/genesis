@@ -121,6 +121,14 @@ interface EpochDump {
     dominantPlasmids: SerializedPlasmid[];
 }
 
+interface NetworkPhenotype {
+    behavior: "Aggressive" | "Symbiotic" | "Parasitic" | "Observer";
+    latency: number;
+    replication_cost: number;
+    network_signature: string;
+    target_alignment?: string;
+}
+
 interface ForeignPlasmid {
     hash: string;
     targetBucket: number;
@@ -130,6 +138,7 @@ interface ForeignPlasmid {
     signature: string;
     parents?: string[];
     vectorClock?: Record<string, number>;
+    phenotype?: NetworkPhenotype;
 }
 
 interface PhylogenyRecord {

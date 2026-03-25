@@ -72,18 +72,21 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
   let rho = rem / params.sectors;
   let sector = rem % params.sectors;
 
-  // Extract memory buffers
-  let byte_offset = idx % 4u;
+  // Era 176 / 232: Native AoS Parsing (16-byte aligned structs)
+  let word_base = idx * 4u;
+  let plasmid_low = field[word_base];
+  let plasmid_high = field[word_base + 1u];
+  let word2 = field[word_base + 2u];
+  let word3 = field[word_base + 3u];
 
-  let theta = get_byte(params.off_theta, idx, byte_offset);
-  let amplitude = get_byte(params.off_amplitude, idx, byte_offset);
-  let entanglement = get_byte(params.off_entanglement, idx, byte_offset);
-  let lock = get_byte(params.off_lock, idx, byte_offset);
-
-  // Plasmids are 8 bytes (2x u32)
-  let p_u32_idx = params.off_plasmids + (idx * 2u);
-  let plasmid_low = field[p_u32_idx];
-  let plasmid_high = field[p_u32_idx + 1u];
+  // Word 3 bytes: [0: theta, 1: energy/amplitude, 2: lock, 3: entanglement]
+  let theta = extract_byte(word3, 0u);
+  let amplitude = extract_byte(word3, 1u);
+  let lock = extract_byte(word3, 2u);
+  let entanglement = extract_byte(word3, 3u);
+  
+  // Word 2 bytes: [0-1: omega, 2: time_dilation, 3: pad]
+  let time_dilation = f32((word2 >> 16u) & 0xFFu) / 10.0; // Dilate up to threshold
 
   let angle = f32(sector) / f32(params.sectors) * 6.2831853;
   let radius_t = f32(rho + 1u) / f32(params.radial_bins + 1u);
@@ -164,8 +167,8 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
 
   // O-42 Phase 1: Future Tension Heatmap Rendering ♨️
   if (params.heatmap_toggle == 1u) {
-      let omega = get_byte(params.off_omega, idx, byte_offset);
-      let stress_t = abs(theta - omega);
+      let _omega_byte = f32((word2 >> 8u) & 0xFFu) / 255.0; // Extract high byte of i16 omega approximation
+      let stress_t = abs(theta - _omega_byte);
       let stress = min(stress_t, 1.0 - stress_t) * 2.0;
       
       let t_hue = (1.0 - stress) * 0.4;
@@ -182,6 +185,14 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) ->
       let p_sat = 0.8 + (f32((signature >> 8u) & 0xFFu) / 1275.0);
       let p_color = hsv2rgb(p_hue, min(1.0, p_sat), 1.0);
       base_color = mix(base_color, p_color, 0.85);
+  }
+  
+  // Era 232: Relativistic Time Dilation Rendering (Cryo-Frost)
+  if (time_dilation > 0.0) {
+      // Intensely brighten and shift toward icy cyan to reflect chronological freezing
+      let frost = clamp(time_dilation, 0.0, 1.0);
+      let frost_color = vec3<f32>(0.5, 0.9, 1.0);
+      base_color = mix(base_color, frost_color, frost * 0.8);
   }
 
   out.color = base_color;

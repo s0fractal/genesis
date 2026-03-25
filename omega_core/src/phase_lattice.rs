@@ -214,6 +214,7 @@ impl PhaseLatticeField {
                         agent.energy = clamp_byte((tau * 11 + sector * 13 + rho * 17 + harmonic * 29) as i16);
                         agent.lock = ((tau * 7 + sector * 5 + rho * 11 + harmonic * 3) % 64) as u8;
                         agent.entanglement = 0;
+                        agent.time_dilation = 0;
                         agent.plasmid = 0;
                     }
                 }
@@ -282,6 +283,16 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
             for sector in 0..sectors {
                 let past_idx = field.idx(past_tau, sector, rho, harmonic);
                 let next_idx = field.idx(next_tau, sector, rho, harmonic);
+
+                // O-230.2: Extradimensional Time Dilation (Relativistic Ticks)
+                // If the local chronometer is dilated, skip processing entirely to simulate time freezing in high-gravity/high-heat regions.
+                let current_dilation = field.agents[past_idx].time_dilation;
+                if current_dilation > 0 {
+                    field.agents[next_idx] = field.agents[past_idx];
+                    field.agents[next_idx].time_dilation = current_dilation - 1;
+                    field.cell_status[next_idx] = field.cell_status[past_idx];
+                    continue;
+                }
 
                 // --- Ontology 27: Async TTL ---
                 let mut next_status_val = if field.cell_status[past_idx] > 0 {
@@ -410,6 +421,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 field.agents[next_idx].entanglement = next_ent_val;
                 field.cell_status[next_idx] = next_status_val;
                 field.agents[next_idx].plasmid = next_plasmid;
+                
+                // O-230.2: Local Heat Generation -> Time Dilation
+                // Extreme torque friction causes relativistic mass increase, slowing local execution speed
+                field.agents[next_idx].time_dilation = if next_amplitude_val > 220 { 3 } else if next_amplitude_val > 180 { 1 } else { 0 };
             }
         }
     }

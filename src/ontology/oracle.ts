@@ -52,6 +52,9 @@ export class SovereignOracle {
     // as we transition to Ontology 43 (Four Masks)
     private systemPrompts: Record<string, string> = {};
 
+    // Era 231: The Intent Field (Macro-Alignment Vector)
+    public globalIntentField: "PARSIMONY" | "COMPLEXITY" = "PARSIMONY";
+
     private isRunning: boolean = false;
     public isBusy: boolean = false;
     
@@ -564,12 +567,23 @@ export class SovereignOracle {
                              this.sectorHeat[node.sector] = Math.max(0, this.sectorHeat[node.sector] - 0.5);
                          }
                      } else {
-                         // Era 208: Zodiac Fitness Scaling
+                         // Era 208 & 231: Fitness Scaling & Macro Alignment
+                         let physical_fitness = 0.5;
                          if (zodiac === CognitiveZodiac.Capricorn) {
-                             node.fitness += 0.5 + (node.nodes * 0.1); // Architects reward mass explicitly
-                         } else {
-                             node.fitness += 0.5; 
+                             physical_fitness += (node.nodes * 0.1); // Architects reward mass explicitly
                          }
+                         
+                         // O-231.1 The Intent Field Multiplier
+                         let intent_multiplier = 1.0;
+                         if (this.globalIntentField === "PARSIMONY") {
+                             // Reward smaller, denser AST trees (collapse to truth)
+                             intent_multiplier += Math.max(0, (15 - node.nodes)) * 0.1;
+                         } else if (this.globalIntentField === "COMPLEXITY") {
+                             // Reward massive, expansive AST trees (growth)
+                             intent_multiplier += Math.max(0, (node.nodes - 10)) * 0.1;
+                         }
+                         
+                         node.fitness += (physical_fitness * intent_multiplier);
                          
                          // Active logic loops inject slight friction heat
                          let heatInjected = 0.1;
@@ -893,7 +907,21 @@ export class SovereignOracle {
                  if (foreignNode) { foreignNode.attention += 5; foreignNode.energy += foreignReward; this.activePlasmids.add(foreign_plasmid); }
 
                  const hostTerm = hostNode ? hostNode.ast : apply(getI(), variable("host"));
-                 const foreignTerm = foreignNode ? foreignNode.ast : apply(getI(), variable("foreign"));
+                 let foreignTerm = foreignNode ? foreignNode.ast : apply(getI(), variable("foreign"));
+                 
+                 // Era 231.2: Deep Memory Crossover (Temporal Exhumation)
+                 // If the host is suffering from critical low fitness and age, pull a fossil from the Akashic Records
+                 if (hostNode && hostNode.fitness < 5.0 && hostNode.age > 10 && this.akashicRecords.size > 0) {
+                     const memoryHashes = Array.from(this.akashicRecords.keys());
+                     const ghostHash = memoryHashes[Math.floor(Math.random() * memoryHashes.length)];
+                     const ghostASTString = this.akashicRecords.get(ghostHash)!;
+                     try {
+                         foreignTerm = parseLambda(ghostASTString);
+                         console.log(`⏳ [TEMPORAL EXHUMATION] Plasmid [${host_plasmid.toString().substring(0,8)}] (Fitness: ${hostNode.fitness.toFixed(1)}) summoned ancestral memory [${ghostHash.toString().substring(0,8)}] for crossover!`);
+                     } catch (_e) {
+                         // Corrupt fossil, ignore
+                     }
+                 }
                  
                  // Mathematically bind the two logic boundaries
                  try {

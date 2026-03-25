@@ -197,11 +197,11 @@ export class PhaseNetwork {
     }
 
     // Broadcast a mutated idea to all connected mycelial nodes via Holographic Refraction
-    public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number, parents?: string[], vectorClock?: Record<string, number>) {
+    public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number, parents?: string[], vectorClock?: Record<string, number>, phenotype?: NetworkPhenotype) {
         const origin = "peer_" + Math.random().toString(36).substring(7);
         const parentStr = parents ? parents.join(",") : "";
         const signature = fnv1a_64(`${hash}:${targetBucket}:${origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
-        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock };
+        const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock, phenotype };
         
         // Emitting internally locally ignores geometry
         const localMsg = { type: "FOREIGN_PLASMID", payload };
@@ -337,10 +337,16 @@ export class PhaseNetwork {
                         console.log(`🌈 [Refraction] Proxied plasmid ${p.hash} at angle ${theta_out.toFixed(2)} rad. Amp: ${currentAmplitude.toFixed(0)}`);
                     }
 
-                    // 🍄 Era 203: Holographic CRDT Resonance
+                    // 🍄 Era 203 & 230: Holographic CRDT & Phenotypic Resonance
                     // Even as the wave passes through us, we attempt to biologically absorb it
-                    console.log(`📡 [Holo-CRDT] Attempting to resonate with plasmid: ${p.hash}`);
-                    this.onPlasmidReceived(p);
+                    if (p.phenotype) {
+                        console.log(`🧬 [Phenotype] Encountered ${p.phenotype.behavior} intent targeting ${p.phenotype.target_alignment || "Torus Core"}`);
+                        // Simulate exogenous network latency per phenotype rules
+                        setTimeout(() => this.onPlasmidReceived(p), p.phenotype.latency);
+                    } else {
+                        console.log(`📡 [Holo-CRDT] Attempting to resonate with naked plasmid: ${p.hash}`);
+                        this.onPlasmidReceived(p);
+                    }
                 }
             } catch (_err) {
                 // Ignore malformed WebRTC frames

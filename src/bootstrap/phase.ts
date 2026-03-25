@@ -118,7 +118,6 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   setTimeout(() => (globalThis as unknown as { injectMycelialTest: () => void }).injectMycelialTest(), 500);
 
   // Flat Game Loop 
-  let lastAionIntervention = performance.now();
   let lastShadowTelemetryCheck = performance.now();
   let lastPhylogenyCheck = performance.now();
 
@@ -127,11 +126,6 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
       // Thermodynamic Tick
       const entropy = phase_lattice_shannon_entropy(phaseField);
-      if (entropy < 2.0 && nowLocal - lastAionIntervention > 150) {
-          lastAionIntervention = nowLocal;
-          const waveIntensity = Math.floor((2.0 - entropy) * 10); 
-          for (let i = 0; i < 3; i++) computeEngine.injectEnergy(1000 + Math.floor(Math.random() * 25), waveIntensity);
-      }
       oracle.tickHomeostasis(entropy);
 
       if (nowLocal - lastShadowTelemetryCheck > 1000) {
