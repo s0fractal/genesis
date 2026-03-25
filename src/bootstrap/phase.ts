@@ -11,6 +11,7 @@ import { PhaseNetwork } from "../shared/phase_network.ts";
 import { SenateChatHUD } from "../ontology/senate_hud.ts";
 import { PhylogeneticCanvas } from "../ontology/phylogeny.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
+import { ASTInspector } from "../ontology/ast_inspector.ts";
 
 
 export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
@@ -18,7 +19,7 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
 
   // Init Phase Objects
   const canvas = configureCanvas();
-  const phaseField = new PhaseLatticeField(256, 256, 1);
+  const phaseField = new PhaseLatticeField(256, 256, 3);
   hydrateSubstrateHeader(wasmMemory, phaseField.ptr_header());
   
   let device: GPUDevice | null = null;
@@ -45,6 +46,9 @@ export async function bootstrapPhase(wasmMemory: WebAssembly.Memory) {
   await computeEngine.init();
   await observer.init();
   oracle.boot();
+  
+  // Era 250: Deep Semantics AST Telemetry
+  new ASTInspector(oracle);
 
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice");
   DOM.statusLabel?.replaceChildren("PHASE MODE ACTIVE");

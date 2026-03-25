@@ -49,6 +49,7 @@ async function main() {
 
   // Root essentials
   await addFile("README.md");
+  await addFile("ROADMAP.md");
   await addFile("package.json");
   await addFile("tools/export_omega.ts");
   await addFile("index.html");

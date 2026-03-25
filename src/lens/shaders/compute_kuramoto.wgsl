@@ -1,3 +1,72 @@
+// @polyfill
+const MATH_Q_BITS: i32 = 10;
+const MATH_Q_SCALE: i32 = 1024;
+const NATIVE_GRAVITY: f32 = -0.05f;
+const PHASE_TAU_DEPTH: i32 = 4;
+const PHASE_LUT_SIZE: i32 = 256;
+const PHASE_MAX_AMPLITUDE: i32 = 255;
+const PHASE_MAX_LOCK: i32 = 255;
+const PHASE_MAX_ENTANGLEMENT: i32 = 255;
+const PHASE_HALF_PHASE: i32 = 128;
+const PHASE_MIN_OMEGA: i32 = -16;
+const PHASE_MAX_OMEGA: i32 = 16;
+const PHASE_MAX_OMEGA_BRIDGE: i32 = 32;
+const PHASE_FOSSILIZATION_PULSE_TICKS: i32 = 24;
+const KURAMOTO_COUPLING_BASE: i32 = 1024;
+const KURAMOTO_SAKAGUCHI_ALPHA: f32 = 0.15f;
+const KURAMOTO_COUPLING_HARMONIC_PEER: i32 = 512;
+const KURAMOTO_COUPLING_ANTIPODE: i32 = 358;
+const KURAMOTO_COHERENCE_THRESHOLD_LOCK: i32 = 3072;
+const KURAMOTO_COHERENCE_THRESHOLD_HIGH: i32 = 4301;
+const KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: i32 = 614;
+const KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: i32 = 942;
+const KURAMOTO_COUPLING_PLASMID: i32 = 768;
+const KURAMOTO_PLASMID_DIFFUSION_RATE: i32 = 51;
+const MUTATION_BASE_COST: i32 = 50;
+const MUTATION_MIN_COST: i32 = 5;
+const MUTATION_MAX_COST: i32 = 500;
+const MUTATION_SMOOTHING_FACTOR: i32 = 102;
+const SENATE_ORACLE_TIMEOUT_MS: i32 = 16;
+const SENATE_MYCELIUM_MIN_LOCKS: i32 = 1000;
+const SENATE_MYCELIUM_MIN_ENERGY: i32 = 220;
+const SENATE_SHADOW_BUCKET_MIN: i32 = 1000;
+const SENATE_SHADOW_BUCKET_MAX: i32 = 1024;
+const TISSUE_MORPHOLOGICAL_HYSTERESIS: i32 = 5;
+const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 154;
+const BIOLOGY_SOMATIC_ALPHA: f32 = 1.5f;
+const BIOLOGY_SOMATIC_DECAY_RATE: f32 = 0.05f;
+const BIOLOGY_SOMATIC_BASE_COST: i32 = 5;
+const BIOLOGY_EXTINCTION_THRESHOLD: i32 = 0;
+const ADA_HODLER_BRAKE: f32 = 0.95f;
+const ADA_QE_STIMULUS_MAX: i32 = 500;
+const ADA_QE_STIMULUS_MIN: i32 = 100;
+const ADA_MASS_DILATION_MIN: f32 = 0.05f;
+const ADA_MASS_DILATION_MAX: f32 = 1.0f;
+const ADA_MASS_DILATION_NUM: f32 = 3.0f;
+const ORACLE_INVOCATION_COST: i32 = 10000;
+const ORACLE_LEDGER_MAX_EVENTS: i32 = 1000;
+const ORACLE_LEDGER_TRUNCATE: i32 = 800;
+const ORACLE_MAX_SYSTEM_ENERGY: i32 = 21000000;
+const ORACLE_BACKOFF_BASE_MS: i32 = 5000;
+const ORACLE_BACKOFF_MAX_MS: i32 = 60000;
+const ORACLE_AKASHIC_GC_THRESHOLD: i32 = 15000;
+const ORACLE_AKASHIC_GC_TARGET: i32 = 8000;
+const NETWORK_MYCELIUM_RATE_LIMIT: i32 = 50;
+const NETWORK_WEBRTC_RECONNECT_CAP: i32 = 30000;
+const NETWORK_MAX_PEERS_BUCKET: i32 = 3;
+const WGSL_MYCELIAL_COUPLING: i32 = 4096;
+const WGSL_STAKING_COUPLING: i32 = 3072;
+
+fn fast_abs(v: i32) -> i32 { return 0; }
+fn q20_round(x: i32) -> i32 { return 0; }
+fn sin_q10(from_theta: u32, to_theta: u32) -> i32 { return 0; }
+fn cos_q10(from_theta: u32, to_theta: u32) -> i32 { return 0; }
+fn wrap_index(value: i32, modulo: i32) -> i32 { return 0; }
+fn signed_phase_delta(from_theta: i32, to_theta: i32) -> i32 { return 0; }
+fn phase_distance(a: i32, b: i32) -> i32 { return 0; }
+fn clamp_i32(value: i32, min_val: i32, max_val: i32) -> i32 { return 0; }
+fn atan2_u8(y: i32, x: i32) -> i32 { return 0; }
+// @end_polyfill
 // O-176 Native Metal Kuramoto Physics Compute Shader (Granite Core AoS)
 
 

@@ -278,4 +278,55 @@ export class BioAcousticChoir {
             this.activeVoices.delete(hashStr);
         }
     }
+
+    // Era 250: God Hand Intervention Sonification
+    public triggerNoiseBurst(panX: number, panY: number) {
+        if (!this.ctx || !this.isInitialized) return;
+        const time = this.ctx.currentTime;
+        
+        const bufferSize = this.ctx.sampleRate * 0.5; // 500ms of noise
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = "bandpass";
+        noiseFilter.frequency.setValueAtTime(400, time);
+        noiseFilter.frequency.exponentialRampToValueAtTime(8000, time + 0.1);
+        
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.5, time);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+        
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+        
+        noise.start(time);
+        noise.stop(time + 0.5);
+    }
+
+    public triggerSineBell(panX: number, panY: number) {
+        if (!this.ctx || !this.isInitialized) return;
+        const time = this.ctx.currentTime;
+        
+        const osc = this.ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(864.0, time); // High pitched bell (864Hz)
+        
+        const bellGain = this.ctx.createGain();
+        bellGain.gain.setValueAtTime(0.8, time);
+        bellGain.gain.exponentialRampToValueAtTime(0.01, time + 1.5);
+        
+        osc.connect(bellGain);
+        bellGain.connect(this.masterGain);
+        
+        osc.start(time);
+        osc.stop(time + 1.5);
+    }
 }

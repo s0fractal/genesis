@@ -135,8 +135,11 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.bufferA, 0, new Uint8Array(mem, agentPtr, totalSize));
         this.device.queue.writeBuffer(this.bufferB, 0, new Uint8Array(mem, agentPtr, totalSize));
 
-        const shaderModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + computeKuramotoWgsl });
-        const mycelialModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + computeMycelialWgsl });
+        const cleanKuramoto = computeKuramotoWgsl.replace(/\/\/ @polyfill[\s\S]*?\/\/ @end_polyfill/g, "");
+        const cleanMycelial = computeMycelialWgsl.replace(/\/\/ @polyfill[\s\S]*?\/\/ @end_polyfill/g, "");
+        
+        const shaderModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + cleanKuramoto });
+        const mycelialModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + cleanMycelial });
 
         this.pipeline = this.device.createComputePipeline({
             label: "Kuramoto Thermodynamic Physics Matrix",

@@ -26,6 +26,7 @@ export class PhaseWebGPUObserver {
     private shadowXRayActive: boolean = false;
     private mouseNDC: {x: number, y: number} | null = null;
     private hoveredHash: bigint | null = null;
+    public hoveredIdx: number | null = null;
     
     // Era 238: The Canvas Pool (Zero-Copy Observer)
     private snapshotCanvas?: HTMLCanvasElement;
@@ -59,6 +60,18 @@ export class PhaseWebGPUObserver {
     private setupInteractions() {
         this.canvas.addEventListener('pointerdown', (e) => {
             if (e.button === 0) this.isDragging = true;
+            
+            // Era 249: God Hand Immediate Injection
+            if (this.hoveredIdx !== null) {
+                if (e.shiftKey) {
+                    this.engine.injectEnergy(this.hoveredIdx, Math.floor(Math.random() * 255));
+                    this.choir.triggerNoiseBurst(0, 0);
+                } else if (e.altKey) {
+                    this.engine.injectPlasmid(this.hoveredIdx, 0x0111_2222_3333_4444n);
+                    this.choir.triggerSineBell(0, 0);
+                }
+            }
+            
             try {
                 this.choir.init();
                 this.choir.resume();
@@ -89,12 +102,22 @@ export class PhaseWebGPUObserver {
                 x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
                 y: -(((e.clientY - rect.top) / rect.height) * 2 - 1)
             };
+            
+            // Era 249: God Hand Drag Injection
+            if (this.hoveredIdx !== null && e.buttons === 1) {
+                if (e.shiftKey) {
+                    this.engine.injectEnergy(this.hoveredIdx, Math.floor(Math.random() * 255));
+                } else if (e.altKey) {
+                    this.engine.injectPlasmid(this.hoveredIdx, 0x0111_2222_3333_4444n);
+                }
+            }
         });
 
         this.canvas.addEventListener('mouseleave', () => {
             this.mouseNDC = null;
             if (this.hoveredHash !== null) {
                 this.hoveredHash = null;
+                this.hoveredIdx = null;
                 globalThis.dispatchEvent(new CustomEvent('gridHover', { detail: null }));
             }
         });
@@ -319,6 +342,7 @@ export class PhaseWebGPUObserver {
         // Topos Raycasting Logic 
         if (this.mouseNDC) {
             let closestDist = Infinity;
+            let closestIdx: number | null = null;
             let closestHash: bigint | null = null;
             let closestAmp = 0;
             let closestLock = 0;
@@ -381,6 +405,7 @@ export class PhaseWebGPUObserver {
                     
                     if (distSq < 0.005 && distSq < closestDist) { 
                         closestDist = distSq;
+                        closestIdx = idx;
                         closestHash = BigInt(plasmid_low) | (BigInt(plasmid_high) << 32n);
                         closestAmp = plasmid_amplitude;
                         closestLock = Math.floor(lock * 255);
@@ -391,6 +416,7 @@ export class PhaseWebGPUObserver {
 
             if (closestHash !== this.hoveredHash) {
                 this.hoveredHash = closestHash;
+                this.hoveredIdx = closestIdx;
                 if (closestHash !== null) {
                     globalThis.dispatchEvent(new CustomEvent('gridHover', { detail: { hash: closestHash, amp: closestAmp, lock: closestLock, ent: closestEnt } }));
                 } else {
