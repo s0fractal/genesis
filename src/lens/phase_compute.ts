@@ -405,10 +405,20 @@ export class PhaseComputeEngine {
 
     // O-59 Persistent Substrate Serialization Hooks
     async extractPlasmidsBuffer(): Promise<BigUint64Array> {
-        if (!this.device) return new BigUint64Array(0);
+        const numCells = this.field.cell_count();
+        const data = new BigUint64Array(numCells);
+        
+        // Era 248: CPU-only Extraction Fallback
+        if (!this.device) {
+            const ptrAgents = this.field.ptr_agents() as number;
+            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 16);
+            for(let i=0; i<numCells; i++) {
+                data[i] = dv.getBigUint64(i * 16 + 0, true);
+            }
+            return data;
+        }
         
         const activeBuffer = this.getActiveBuffer();
-        const numCells = this.field.cell_count();
         const size = numCells * 16; // 16 bytes per PhaseAgent
         
         const stagingBuffer = this.getStagingBuffer(size);
@@ -421,7 +431,6 @@ export class PhaseComputeEngine {
         const copyBuffer = stagingBuffer.getMappedRange();
         const dataU8 = new Uint8Array(copyBuffer.slice(0));
         
-        const data = new BigUint64Array(numCells);
         const dataView = new DataView(dataU8.buffer);
         // Extract the 64-bit Plasmid from offset 0 of each 16-byte AoS struct
         for(let i=0; i<numCells; i++) {
@@ -435,8 +444,6 @@ export class PhaseComputeEngine {
     }
 
     injectGridState(grid: Record<number, string>) {
-        if (!this.device) return;
-        
         const numCells = this.field.cell_count();
         const AGENT_BYTES = 16;
         const totalSize = numCells * AGENT_BYTES;
@@ -473,8 +480,11 @@ export class PhaseComputeEngine {
             dataView.setUint8(offset + 15, 0); // ent
         }
 
-        // Parallel hardware pipeline teleportation using unified payload
-        this.device.queue.writeBuffer(this.bufferA, 0, dataU8);
-        this.device.queue.writeBuffer(this.bufferB, 0, dataU8);
+        // Era 248: Protect GPU copy in CPU-only environments
+        if (this.device) {
+            // Parallel hardware pipeline teleportation using unified payload
+            this.device.queue.writeBuffer(this.bufferA, 0, dataU8);
+            this.device.queue.writeBuffer(this.bufferB, 0, dataU8);
+        }
     }
 }

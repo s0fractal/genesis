@@ -86,6 +86,7 @@ pub struct PhaseLatticeField {
     pub(crate) plasmid_collisions: Vec<u64>,
     pub(crate) collision_count: u32,
     pub(crate) canary_end: u32,
+    pub(crate) internal_tick: u64,
 }
 
 #[wasm_bindgen]
@@ -133,6 +134,7 @@ impl PhaseLatticeField {
             plasmid_collisions: vec![0; 1024 * 3],
             collision_count: 0,
             canary_end: 0xDEADBEEF,
+            internal_tick: 0,
         };
         field.seed_deterministic();
         field
@@ -265,6 +267,12 @@ impl PhaseLatticeField {
 
 #[wasm_bindgen]
 pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
+    // Era 248: SSoT WebAssembly Memory Watchdog
+    if field.internal_tick % 100 == 0 && !field.check_memory_canary() {
+        panic!("[O-64 FATAL] OMEGA CORE MEMORY CORRUPTION DETECTED AT TICK {}", field.internal_tick);
+    }
+    field.internal_tick = field.internal_tick.wrapping_add(1);
+
     let sectors = field.sectors as usize;
     let radial_bins = field.radial_bins as usize;
     let harmonics = field.harmonics as usize;
@@ -420,7 +428,10 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 if !adopted && next_amplitude_val < 20 && next_lock_val < 10 && field.oracle_request_count < 1024 {
                     // Only request if completely cooled down
                     if field.cell_status[past_idx] == 0 {
-                        field.oracle_requests[field.oracle_request_count as usize] = past_idx as u32;
+                        let ptr = field.oracle_requests.as_mut_ptr() as *mut core::sync::atomic::AtomicU32;
+                        unsafe {
+                            (*ptr.add(field.oracle_request_count as usize)).store(past_idx as u32, core::sync::atomic::Ordering::Release);
+                        }
                         field.oracle_request_count += 1;
                         next_status_val = 240; // 4 second TTLS Cooldown
                     }

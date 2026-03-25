@@ -1,9 +1,9 @@
 import { 
-    PHASE_LUT_SIZE, PHASE_HALF_PHASE,
+    PHASE_LUT_SIZE,
     PHASE_MIN_OMEGA, PHASE_MAX_OMEGA,
     PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT,
     FNV64_OFFSET_BASIS,
-    wrap_index, clamp_i32, mix_u64, fast_abs, signed_phase_delta, phase_distance
+    wrap_index, clamp_i32, mix_u64, signed_phase_delta, phase_distance
 } from "./constants.ts";
 
 
@@ -32,7 +32,7 @@ export function wrapTheta(theta: number): number {
     return wrap_index(theta, 256);
 }
 
-export function fieldIndex(shape: PhaseFieldShape, tau: number, sector: number, rho: number, harmonic: number): number {
+function fieldIndex(shape: PhaseFieldShape, tau: number, sector: number, rho: number, harmonic: number): number {
     const elementsPerLayer = shape.harmonics * shape.radialBins * shape.sectors;
     return tau * elementsPerLayer + harmonic * shape.radialBins * shape.sectors + rho * shape.sectors + sector;
 }

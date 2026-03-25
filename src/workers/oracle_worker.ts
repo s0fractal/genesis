@@ -34,11 +34,11 @@ async function setCachedResponse(hash: string, response: string, ts: number) {
     return new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
-        const req = store.put({ hash, response, ts });
+        store.put({ hash, response, ts });
         
         // Era 245.1: Bounded GC eviction
-        const _req = store.count();
-        _req.onsuccess = (e) => {
+        const countReq = store.count();
+        countReq.onsuccess = (e) => {
             const count = (e.target as IDBRequest).result;
             if (count > 50) {
                 const cursorReq = store.openCursor();
@@ -153,7 +153,9 @@ NO markdown, NO code blocks, NO formatting.
                 if (cached && (performance.now() - cached.ts < 3600000)) { 
                     return { mask: dipole.name, response: cached.response };
                 }
-            } catch (_e) { }
+            } catch (_e) { 
+                // Cache miss, proceed to fetch
+            }
             
             try {
                 const fullResponse = await fetchOllama(prompt, data.structuralImage);
