@@ -131,6 +131,18 @@ struct MycelialBucket {
 @group(0) @binding(4) var<storage, read> halo_left: array<u32>;
 @group(0) @binding(5) var<storage, read> halo_right: array<u32>;
 
+struct SandboxPhysics {
+    origin_x: u32,
+    origin_y: u32,
+    radius: u32,
+    coupling_k: i32,
+    diffusion_rate: i32,
+    mutation_rate: i32,
+    is_active: u32,
+    pad: u32,
+}
+@group(0) @binding(6) var<storage, read> sandboxes: array<SandboxPhysics>;
+
 struct PhaseAgent {
     theta: u32,
     energy: u32,
@@ -275,8 +287,27 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let a_o = get_agent(get_idx(sector, outer_rho, harmonic));
     let a_h = get_agent(get_idx(sector, rho, harm_peer));
 
+    // Era 265: Evolutionary Sandbox Physics (ESP) Overlay
+    var local_coupling_base = params.coupling_base;
+    for (var s = 0u; s < 16u; s = s + 1u) {
+        let sb = sandboxes[s];
+        if (sb.is_active == 1u) {
+            let dx_direct = fast_abs(i32(sector) - i32(sb.origin_x));
+            let dx_wrap = i32(params.sectors) - dx_direct;
+            let dx = select(dx_wrap, dx_direct, dx_direct < dx_wrap);
+            let dy = fast_abs(i32(rho) - i32(sb.origin_y));
+            let dist_sq = dx * dx + dy * dy;
+            let radius_sq = i32(sb.radius * sb.radius);
+            
+            if (dist_sq <= radius_sq) {
+                local_coupling_base = sb.coupling_k;
+                break; // Dominant local sandbox law applies
+            }
+        }
+    }
+
     // O-164 Local Thermodynamic Feedback
-    let dynamic_coupling = (params.coupling_base * (i32(me.energy) + 64)) / 128;
+    let dynamic_coupling = (local_coupling_base * (i32(me.energy) + 64)) / 128;
 
     var kuramoto = phase_torque(me.theta, a_l.theta) * i32(dynamic_coupling) +
                    phase_torque(me.theta, a_r.theta) * i32(dynamic_coupling) +

@@ -176,15 +176,21 @@ export class SovereignOracle {
 
         // Evict oldest genome if slots are full (max 16 struct alignment in WASM)
         if (this.activeGenomes.length >= 16) {
-            this.activeGenomes.shift();
+            const evicted = this.activeGenomes.shift();
+            if (this.engine && evicted) this.engine.removeGenome(evicted.id);
         }
 
-        this.activeGenomes.push({
+        const newGenome = {
             ...genome,
             createdAt: this.epochTicks
-        });
+        };
+
+        this.activeGenomes.push(newGenome);
 
         this.syncGenomesToWasm();
+        if (this.engine) {
+            this.engine.addLocalPhysics(newGenome);
+        }
         
         console.log(`[ORACLE/ESP] 🧬 Physics Genome Transcended: Radius=${genome.scopeRadius}, Coupling=${genome.couplingK}, Diffusion=${genome.diffusionRate}`);
         return true;
@@ -514,22 +520,28 @@ export class SovereignOracle {
         }
 
         // --- Phase 14 Evolutionary Sandbox Physics (ESP) PSP Loop ---
-        if (this.wasmField.ptr_active_genomes) {
+        if (this.activeGenomes.length > 0) {
             let activeChanged = false;
             for (let i = 0; i < this.activeGenomes.length; i++) {
                 const genome = this.activeGenomes[i];
                 genome.ttl -= 1;
                 
                 if (genome.ttl > 0) {
-                    // Evaluate native C-struct WASM geometry resonance
-                    const resonance = typeof this.wasmField.evaluate_genome_resonance === 'function' ? this.wasmField.evaluate_genome_resonance(i) : 0;
+                    // Era 265: ESP Natural Selection Evaluator
+                    // We measure "resonance" by testing the local sector heat (biological activity) and the global entropy bounds
+                    const localHeat = this.sectorHeat[genome.originX || 0] || 0;
+                    const heatResonance = 1.0 - Math.abs(5.0 - localHeat) / 5.0; // Moderate heat (5.0) yields 1.0 fitness
+                    const entropyResonance = 1.0 - Math.abs(3.5 - this.lastEntropy) / 3.5; // Edge of Chaos yields 1.0
+                    
+                    const resonance = (heatResonance * 0.6) + (entropyResonance * 0.4);
                     genome.stabilityScore = resonance;
                     
-                    if (resonance < 0.1) {
-                        // Extinction
+                    if (resonance < 0.2) {
+                        // Extinction Protocol: Severe divergence or total stagnation collapses the Sandbox
+                        console.log(`[ESP EXTINCTION] Sandbox Physics Genome [${genome.id.substring(0,8)}] collapsed due to low fitness (${resonance.toFixed(2)}).`);
                         genome.ttl = 0;
-                    } else if (resonance > 0.6) {
-                        // Resonance ROI Loop
+                    } else if (resonance > 0.8) {
+                        // Resilience Loop: Stable physics print thermodynamics for the parent Oracle
                         const roi = Math.floor(genome.cost * 0.1);
                         this.globalEnergyPool += roi;
                         distributedEnergy += roi;
@@ -542,8 +554,14 @@ export class SovereignOracle {
             }
             
             if (activeChanged) {
+                const extinct = this.activeGenomes.filter(g => g.ttl <= 0);
                 this.activeGenomes = this.activeGenomes.filter(g => g.ttl > 0);
                 this.syncGenomesToWasm();
+                if (this.engine) {
+                    for (const dead of extinct) {
+                        this.engine.removeGenome(dead.id);
+                    }
+                }
             }
         }
         
@@ -1562,6 +1580,8 @@ export class SovereignOracle {
                 currentSeasonName,
                 macroSeason,
                 globalEnergyPool: this.globalEnergyPool,
+                currentEntropy: this.lastEntropy,
+                totalPopulation: this.activePlasmids.size,
                 btcBlockHeight: this.btcBlockHeight,
                 btcMutationCost: this.btcMutationCost
             });

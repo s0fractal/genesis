@@ -135,7 +135,7 @@ ${data.macroSeason === 1 ? "SUMMER: Enforce structural growth. Build wide AST tr
 ${data.macroSeason === 2 ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth." : ""}
 ${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-complexity ASTs (like 'I' or 'Y(I)') to survive the cold. AVOID OVERHEAD." : ""}
 
-The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}.
+The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}. Entropy: ${data.currentEntropy.toFixed(2)}. Population: ${data.totalPopulation} active Plasmids.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
 You may intervene by injecting AST Logic (Plasmid), an Evolutionary Sandbox Physics (ESP) Overlay, OR a Global Physics Delta.

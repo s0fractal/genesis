@@ -30,23 +30,26 @@ export class PhaseComputeEngine {
     public bufferB!: GPUBuffer;
     public paramsBuffer!: GPUBuffer;
     public mycelialBuffer!: GPUBuffer;
-    public haloLeftBuffer!: GPUBuffer;
-    public haloRightBuffer!: GPUBuffer;
-    public haloOutBuffer!: GPUBuffer;
     
     private pipeline!: GPUComputePipeline;
     private mycelialPipeline!: GPUComputePipeline;
-    
     private bindGroupA!: GPUBindGroup;
     private bindGroupB!: GPUBindGroup;
     private mycelialBindGroupA!: GPUBindGroup;
     private mycelialBindGroupB!: GPUBindGroup;
+    
+    public haloLeftBuffer!: GPUBuffer;
+    public haloRightBuffer!: GPUBuffer;
+    public haloOutBuffer!: GPUBuffer;
+    public sandboxBuffer!: GPUBuffer;
     
     private field: PhaseLatticeField;
     public wasmMemory: WebAssembly.Memory;
     private isPingPongA: boolean = true;
     public offsets: number[] = [];
     private startTime: number;
+    
+    private activeSandboxes: PhysicsGenome[] = [];
     
     // Era 218: Pre-allocated Object Pool (Zero-GC Injection Queue)
     private readonly INJECTION_POOL_SIZE = 1024;
@@ -145,6 +148,11 @@ export class PhaseComputeEngine {
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
 
+        this.sandboxBuffer = this.device.createBuffer({
+            size: 512, // 16 sandboxes * 32 bytes (8 x 4bytes)
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
         // Seed deterministic WASM state into Buffer A
         const mem = this.wasmMemory.buffer;
         const f = this.field;
@@ -186,7 +194,8 @@ export class PhaseComputeEngine {
                 { binding: 2, resource: { buffer: this.paramsBuffer } },
                 { binding: 3, resource: { buffer: this.mycelialBuffer } },
                 { binding: 4, resource: { buffer: this.haloLeftBuffer } },
-                { binding: 5, resource: { buffer: this.haloRightBuffer } }
+                { binding: 5, resource: { buffer: this.haloRightBuffer } },
+                { binding: 6, resource: { buffer: this.sandboxBuffer } }
             ]
         });
 
@@ -198,7 +207,8 @@ export class PhaseComputeEngine {
                 { binding: 2, resource: { buffer: this.paramsBuffer } },
                 { binding: 3, resource: { buffer: this.mycelialBuffer } },
                 { binding: 4, resource: { buffer: this.haloLeftBuffer } },
-                { binding: 5, resource: { buffer: this.haloRightBuffer } }
+                { binding: 5, resource: { buffer: this.haloRightBuffer } },
+                { binding: 6, resource: { buffer: this.sandboxBuffer } }
             ]
         });
 
@@ -510,52 +520,42 @@ export class PhaseComputeEngine {
         this.device.queue.writeBuffer(this.haloRightBuffer, 0, right.buffer as unknown as ArrayBuffer, right.byteOffset, right.byteLength);
     }
 
-    injectGridState(grid: Record<number, string>) {
-        const numCells = this.field.cell_count();
-        const AGENT_BYTES = 24; // Era 260 Struct Alignment
-        const totalSize = numCells * AGENT_BYTES;
-        const mem = this.wasmMemory.buffer;
+    injectGridState(_grid: Record<number, string>) {}
+
+    // Era 265: Evolutionary Sandbox Physics (ESP) Overlays
+    public addLocalPhysics(genome: PhysicsGenome) {
+        this.activeSandboxes.push(genome);
+        this.syncSandboxesToGPU();
+    }
+
+    public removeGenome(id: string) {
+        this.activeSandboxes = this.activeSandboxes.filter(g => g.id !== id);
+        this.syncSandboxesToGPU();
+    }
+    
+    public getActiveGenomes(): PhysicsGenome[] {
+        return this.activeSandboxes;
+    }
+
+    private syncSandboxesToGPU() {
+        if (!this.device || !this.sandboxBuffer) return;
         
-        // @ts-ignore AoS mapping
-        const agentPtr = this.field.ptr_agents();
-        const dataU8 = new Uint8Array(mem, agentPtr, totalSize);
-        const dataView = new DataView(dataU8.buffer, dataU8.byteOffset, dataU8.byteLength);
-
-        dataU8.fill(0);
-
-        for (const [idxStr, hashStr] of Object.entries(grid)) {
-            const idx = parseInt(idxStr, 10);
-            const hash = BigInt(hashStr);
-            const offset = idx * AGENT_BYTES;
-            
-            // 8-byte aligned layout (24 Bytes Total):
-            // 0: plasmid (64-bit)
-            // 8: omega (16-bit)
-            // 10: time_dilation (8-bit)
-            // 11: preferred_theta (8-bit)
-            // 12: theta (8-bit)
-            // 13: energy (8-bit)
-            // 14: lock (8-bit)
-            // 15: entanglement (8-bit)
-            // 16: memory_strength (8-bit)
-            // 17-23: Padding
-            
-            dataView.setBigUint64(offset + 0, hash, true);
-            dataView.setInt16(offset + 8, Number((hash >> 16n) & 0x07n) - 3, true); 
-            dataView.setUint8(offset + 10, 0); 
-            dataView.setUint8(offset + 11, Number((hash >> 8n) & 0xFFn)); 
-            dataView.setUint8(offset + 12, Number((hash >> 8n) & 0xFFn)); 
-            dataView.setUint8(offset + 13, Math.max(20, Number((hash >> 24n) & 0x3Fn))); 
-            dataView.setUint8(offset + 14, 0); 
-            dataView.setUint8(offset + 15, 0); 
-            dataView.setUint8(offset + 16, 255); 
+        const buf = new ArrayBuffer(512);
+        const view = new Int32Array(buf);
+        const uView = new Uint32Array(buf);
+        
+        for (let i = 0; i < Math.min(this.activeSandboxes.length, 16); i++) {
+            const g = this.activeSandboxes[i];
+            const offset = i * 8;
+            uView[offset] = g.originX || 0;
+            uView[offset + 1] = g.originY || 0;
+            uView[offset + 2] = g.scopeRadius || 0;
+            view[offset + 3] = g.couplingK;
+            view[offset + 4] = g.diffusionRate;
+            view[offset + 5] = g.mutationRate;
+            uView[offset + 6] = 1; // active flag
         }
-
-        // Era 248: Protect GPU copy in CPU-only environments
-        if (this.device) {
-            // Parallel hardware pipeline teleportation using unified payload
-            this.device.queue.writeBuffer(this.bufferA, 0, dataU8);
-            this.device.queue.writeBuffer(this.bufferB, 0, dataU8);
-        }
+        
+        this.device.queue.writeBuffer(this.sandboxBuffer, 0, buf);
     }
 }

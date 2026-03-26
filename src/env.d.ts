@@ -169,6 +169,21 @@ interface ForeignPlasmid {
     phenotype?: NetworkPhenotype;
 }
 
+// Era 265: ESP (Evolutionary Sandbox Physics)
+interface PhysicsGenome {
+    id: string;             // Hash or uuid identifying this physical law mutation
+    couplingK: number;      // Locally modified Kuramoto coupling constant (e.g. 0.0001 - 2.0)
+    diffusionRate: number;  // Local thermodynamic phase diffusion (e.g 0.0 - 1.0)
+    mutationRate: number;   // Plasmid AST evolutionary rate scaling
+    scopeRadius: number;    // Spatial radius (in cells) where this physics applies
+    ttl: number;            // Time to Live (in ticks) before required fitness check
+    cost: number;           // ATP Energy price to spawn this physical dimension
+    stabilityScore?: number;// Survival fitness metric
+    createdAt?: number;     // Engine loop injection tick
+    originX?: number;       // Matrix spawn point X (Sector)
+    originY?: number;       // Matrix spawn point Y (Radius)
+}
+
 interface PhylogenyRecord {
     t: number;
     alias: string;
@@ -258,6 +273,8 @@ interface OracleWorkerRequest {
     macroSeason: number;
     currentSeasonName: string;
     globalEnergyPool: number;
+    currentEntropy: number;
+    totalPopulation: number;
     btcBlockHeight?: number;
     btcMutationCost?: number;
 }
