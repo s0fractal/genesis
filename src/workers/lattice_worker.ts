@@ -42,7 +42,7 @@ async function physicsLoop() {
                 if (tickCount % 30 === 0 && network) {
                     const halos = await engine.extractLocalHalosAsync();
                     if (halos) {
-                        network.broadcastHalos(halos.left, halos.right);
+                        network.broadcastHalos(new Float32Array(halos.left.buffer), new Float32Array(halos.right.buffer));
                     }
                 }
             } else {
