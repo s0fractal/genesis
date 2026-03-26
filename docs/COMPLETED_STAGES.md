@@ -4,6 +4,18 @@
 
 ---
 
+## 🌌 Era 300-310: Zero-Copy IPC Emancipation & Nomos Gate
+*Статус: Завершено (Березень 2026)*
+
+### 1. WebRTC Mesh Proxy (Main Thread Bridge)
+- **Zero-Copy IPC:** Вирішено фундаментальне обмеження ізоляції `SharedWorker` (відсутність `RTCPeerConnection`). Мережевий P2P-міст (`WebRTCMesh`) розгортається на рівні головного потоку DOM, ретранслюючи `FOREIGN_PLASMID` та `HALO_SYNC` пакети через швидкісний `MessagePort` безпосередньо у фізичний рушій.
+- **Signaling Relay:** Імплементовано полегшений Deno WebSocket сервер (`webrtc_signal.ts`) для встановлення P2P SDP-оферів і створення безшовної Mesh-мережі з множинних вузлів.
+
+### 2. The Nomos Gate (Vector III Foundation)
+- **ZK-SNARK Limits Simulation:** Введено `NomosGate` всередині `SovereignOracle`. Перед ін'єкцією чужорідних плазмідів у симуляцію, алгоритм перевіряє структурний ліміт газу (OpCodes), глибину AST-рекурсії та балансування. Це убезпечує Worker від зависань (halt) та формує математичну базу для майбутніх криптографічних доказів-від-нуля.
+
+---
+
 ## 🌌 Era 267-268: Macro-Visual Optimizations & Phylogeny
 *Статус: Завершено (Березень 2026)*
 
@@ -25,7 +37,7 @@
 - **Fitness Evaluation & Extinction:** Закони фізики еволюціонують і конкурують. Якщо їх локальна теплова топологія (`sectorHeat`) і резонанс ентропії низькі ($<0.2$), фізика автоматично видаляється з WebGPU буферів. Якщо висока ($>0.8$), повертається відсоток ATP.
 
 ### 2. IPFS DHT Pinning (The Eternal Ledger)
-- Інтеграція і підключення повноцінної ноди `Helia` паралельно до існуючого `libp2p` стеку.
+- Інтеграція і підключення повноцінної ноди `Helia` паралельно до існуючого P2P стеку.
 - **Akashic Immortalization:** Організми (`ForeignPlasmids`), які виживають більше 100 епох з `fitness > 5.0` (Apex Plasmids), автоматично прописуються у світовий IPFS DHT у вигляді AST-логів. Власна історія симуляції є незмінною.
 
 ---
@@ -38,14 +50,12 @@
 - Операції з рухомою комою (IEEE 754) вилучені з усіх шейдерів та Rust-ядра.
 - Досягнуто 100% побітової детермінованості (Golden Trace Validation: `b4633951ca15d716`). Тепер Матриця симулюється абсолютно ідентично на будь-якому обладнанні світу.
 
-### 2. The True Mycelial Network (P2P + Kademlia)
-- Замінено локальні імітації (WebRTC Broadcast) на справжню розподілену мережу `js-libp2p` (GossipSub + Kad-DHT).
-- Кожна нода автоматично займає фізичний сектор Макро-Тору (на основі хешу `PeerId` по модулю Q_SCALE), встановлюючи просторові P2P-зв'язки.
-- Еволюційні дерева та плазміди стабільно реплікуються як LWW-Element Sets (CRDT).
+### 2. Space Federation & Mesh Bridge 
+- Початкова децентралізація обчислень та введення LWW-Element Sets (CRDT) для реплікації геномів по P2P. Кожна нода претендує на певний просторовий шматок макро-обчислень.
 
 ### 3. Boundary Halo Synchronization (WebGPU)
 - Обчислення на межах "розірваного" Тору (між нодами) уніфіковано в єдину математичну поверхню.
-- Compute Shader (`compute_kuramoto.wgsl`) зчитує `halo_left` та `halo_right` буфери від Kademlia-сусідів через GossipSub (в 24-byte alignment), дозволяючи хвилям Курамото безперешкодно проходити через фізичні машини.
+- Compute Shader (`compute_kuramoto.wgsl`) зчитує `halo_left` та `halo_right` буфери від сусідів (в 24-byte alignment).
 
 ### 4. Headless Decoupling (SharedWorker)
 - Графічний UI (`phase.ts`) повністю відділений від "серця" екосистеми.
