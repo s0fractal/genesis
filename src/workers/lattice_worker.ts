@@ -13,6 +13,14 @@ let tickCount = 0;
 
 const connections: MessagePort[] = [];
 
+// Vector III: Meta-Compilation Physics Bridge
+globalThis.addEventListener("substratePhysicsDelta", (e: any) => {
+    const detail = e.detail;
+    if (field && field.set_physics_parameter) {
+         field.set_physics_parameter(detail.key, detail.value);
+    }
+});
+
 // The Headless Physics Loop
 function physicsLoop() {
     if (!isPhysicsRunning) return;

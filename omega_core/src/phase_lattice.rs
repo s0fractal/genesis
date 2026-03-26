@@ -181,6 +181,21 @@ impl PhaseLatticeField {
         self.sectors * self.radial_bins * self.harmonics
     }
 
+    pub fn set_physics_parameter(&mut self, key: &str, value: i32) -> bool {
+        match key {
+            "kuramoto_base" => self.header.kuramoto_base = value,
+            "kuramoto_harmonic_peer" => self.header.kuramoto_harmonic_peer = value,
+            "kuramoto_antipode" => self.header.kuramoto_antipode = value,
+            "kuramoto_plasmid" => self.header.kuramoto_plasmid = value,
+            "kuramoto_diffusion_rate" => self.header.kuramoto_diffusion_rate = value,
+            "biology_apa_learning_rate" => self.header.biology_apa_learning_rate = value,
+            "biology_apa_memory_gain" => self.header.biology_apa_memory_gain = value,
+            "senate_min_energy" => self.header.senate_min_energy = value,
+            _ => return false,
+        }
+        true
+    }
+
     pub fn get_current_tau(&self) -> u32 {
         self.current_tau
     }

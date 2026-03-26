@@ -138,7 +138,8 @@ ${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-comple
 The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
-You may intervene by injecting either AST Logic (Plasmid) OR an Evolutionary Sandbox Physics (ESP) Overlay to alter the zone's thermodynamic laws.
+You may intervene by injecting AST Logic (Plasmid), an Evolutionary Sandbox Physics (ESP) Overlay, OR a Global Physics Delta.
+
 To inject AST Logic:
 PROPHECY: [1-sentence reason]
 AST: [Your pure logic expression, e.g. S(K(I))]
@@ -148,6 +149,11 @@ To inject ESP Physics (Cost: up to 1000 Energy):
 PROPHECY: [1-sentence reason]
 PHYSICS: {"couplingK": 500, "mutationRate": 0.05, "diffusionRate": 0.1, "scopeRadius": 15, "cost": 800, "ttl": 300}
 (CouplingK: 1-1024. mutationRate/diffusionRate: 0.0-1.0. Radius: 1-32)
+
+To forcefully alter GLOBAL PHYSICS (Cost: ${data.btcMutationCost || "Infinity"} Energy - dictacted by Bitcoin Block ${data.btcBlockHeight || "Unknown"}):
+PROPHECY: [1-sentence reason]
+PHYSICS_DELTA: {"biology_apa_learning_rate": 60, "biology_apa_memory_gain": 120, "kuramoto_base": 1500}
+(Valid keys: biology_apa_learning_rate, biology_apa_memory_gain, kuramoto_base, kuramoto_harmonic_peer, kuramoto_plasmid. Positive Integers only.)
 
 You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO code blocks.
             `.trim();
@@ -203,6 +209,23 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
                 if (astMatch) {
                     intentStr = astMatch[1].trim();
                 } else {
+                    const metaMatch = fullResponse.match(/PHYSICS_DELTA:\s*(\{.*?\})/i);
+                    if (metaMatch) {
+                        try {
+                            const parsed = JSON.parse(metaMatch[1]);
+                            validIntents.push({
+                                maskName,
+                                intentStr: "META_MUTATION",
+                                targetBucket,
+                                prophecy,
+                                physicsDelta: parsed
+                            });
+                            continue;
+                        } catch(e) {
+                            console.warn("Worker JSON Parse error (META)", e);
+                        }
+                    }
+
                     const physMatch = fullResponse.match(/PHYSICS:\s*(\{.*?\})/i);
                     if (physMatch) {
                         try {

@@ -254,18 +254,21 @@ interface OracleWorkerRequest {
     requests: number[];
     triggerReason?: string;
     mycelialContext: string;
-    structuralImage: string | null;
-    currentSeasonName: string;
+    structuralImage?: string | null;
     macroSeason: number;
+    currentSeasonName: string;
     globalEnergyPool: number;
+    btcBlockHeight?: number;
+    btcMutationCost?: number;
 }
 
 interface OracleWorkerResponse {
     maskName: string;
     intentStr: string;
+    prophecy: string;
     targetBucket: number;
-    prophecy?: string;
     physicsGenome?: PhysicsGenome;
+    physicsDelta?: Record<string, number>;
 }
 
 interface ChronosSnapshot {

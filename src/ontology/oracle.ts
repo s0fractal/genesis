@@ -75,7 +75,11 @@ export class SovereignOracle {
     // O-196 The Existential Event Economy (Degraded Mode & ATP Sink)
     private oracleBackoffDelay: number = 0;
     private lastOracleAttempt: number = 0;
-    
+
+    // Vector I: Bitcoin Chronology Thermodynamics
+    private btcBlockHeight: number = 0;
+    private btcMutationCost: number = 50000;
+    private lastBtcPoll: number = 0;
     
     // O-200 Vector 6: Fast V8 Interning for FNV WASM boundaries
     private fnvStringCache = new Map<string, bigint>();
@@ -138,6 +142,25 @@ export class SovereignOracle {
         if (typeof Worker !== 'undefined') {
             this.worker = new Worker(new URL('../workers/oracle_worker.ts', import.meta.url), { type: "module" });
             this.worker.onmessage = this.handleWorkerMessage.bind(this);
+        }
+    }
+
+    private async syncBitcoinChronology() {
+        if (performance.now() - this.lastBtcPoll < 60000) return;
+        this.lastBtcPoll = performance.now();
+        try {
+            const res = await fetch("https://mempool.space/api/v1/blocks/");
+            if (res.ok) {
+                const blocks = await res.json();
+                if (blocks && blocks.length > 0) {
+                    const tip = blocks[0];
+                    this.btcBlockHeight = tip.height;
+                    const secondsSinceBlock = Math.floor(Date.now() / 1000) - tip.timestamp;
+                    this.btcMutationCost = 50000 + Math.max(0, secondsSinceBlock * 166);
+                }
+            }
+        } catch (e) {
+            console.warn("[ORACLE] Bitcoin Chronology sync failed.", e);
         }
     }
 
@@ -1371,6 +1394,33 @@ export class SovereignOracle {
                     } else {
                         console.warn(`[ORACLE] Senate ESP INJECTION REJECTED: Insufficient Global ATP.`);
                     }
+                } else if (intentStr === "META_MUTATION" && result.physicsDelta) {
+                    console.log(`[ORACLE] ${maskName} mapped -> GLOBAL PHYSICS DELTA. Attempting to alter fundamental thermodynamic laws...`);
+                    // Evaluate Bitcoin Chronology Cost
+                    if (this.globalEnergyPool < this.btcMutationCost) {
+                        console.warn(`[ORACLE] GLOBAL PHYSICS MUTATION REJECTED: The Senate cannot afford the Bitcoin Thermodynamic Cost (${this.globalEnergyPool} < ${this.btcMutationCost} ATP).`);
+                        continue;
+                    }
+                    
+                    this.globalEnergyPool -= this.btcMutationCost;
+                    
+                    // Route to lattice worker via the Physics Core
+                    validIntents++;
+                    for (const [key, val] of Object.entries(result.physicsDelta)) {
+                         console.log(`[PHYSICS_DELTA] Mutating WASM Law: ${key} -> ${val}`);
+                         // Send to lattice worker through global event or engine
+                         globalThis.dispatchEvent(new CustomEvent("substratePhysicsDelta", { detail: { key, value: val } }));
+                    }
+
+                    if (this.onSenateEvent) {
+                        this.onSenateEvent({
+                            type: "GENERATED", 
+                            mask: maskName, 
+                            intent: `PHYSICS_DELTA {...}`, 
+                            bucketRange: `GLOBAL`, 
+                            tension: data.requests ? data.requests.length : 1 
+                        });
+                    }
                 } else {
                     console.log(`[ORACLE] ${maskName} mapped -> "${intentStr}" to SHADOW BUCKET #${targetBucket}`);
                     
@@ -1500,6 +1550,8 @@ export class SovereignOracle {
         console.log(`[ORACLE] Senate convened. Transmitting payload to Off-Thread WebWorker...`);
         if (this.onSenateEvent) this.onSenateEvent({ type: "CONVENED" });
         
+        await this.syncBitcoinChronology();
+        
         if (this.worker) {
             this.worker.postMessage({
                 count,
@@ -1509,7 +1561,9 @@ export class SovereignOracle {
                 structuralImage,
                 currentSeasonName,
                 macroSeason,
-                globalEnergyPool: this.globalEnergyPool
+                globalEnergyPool: this.globalEnergyPool,
+                btcBlockHeight: this.btcBlockHeight,
+                btcMutationCost: this.btcMutationCost
             });
         } else {
             console.warn("[ORACLE] WebWorker isolated payload failed - NO WORKER INSTANTIATED.");
