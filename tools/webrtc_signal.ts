@@ -1,5 +1,5 @@
-// OMEGA-64 Era 300: Minimal Deno WebRTC Signaling Relay
-// Used to form multi-instance Torus mesh topology
+// OMEGA-64 Era 400: Global Edge DHT Signaling Relay
+// Used to form K-Degree bounded Torus sparse-mesh topology
 
 const PORT = 9091;
 const clients = new Map<string, WebSocket>();
@@ -20,11 +20,20 @@ Deno.serve({ port: PORT }, (req) => {
         // Tell the new peer its identity
         socket.send(JSON.stringify({ type: "HELLO", peerId }));
 
-        // Broadcast to all other peers that a new node joined
-        for (const [id, client] of clients.entries()) {
-            if (id !== peerId && client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({ type: "PEER_JOINED", peerId }));
-            }
+        // Era 400: K-Degree Sparse Mesh Bootstrapping
+        // Establish an O(1) connection limit to prevent N^2 global network collapse
+        const MAX_DEGREE = 5;
+        const availableIds = Array.from(clients.keys()).filter(id => id !== peerId && clients.get(id)!.readyState === WebSocket.OPEN);
+        
+        // Fisher-Yates Pseudo-Random Shuffle
+        for (let i = availableIds.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [availableIds[i], availableIds[j]] = [availableIds[j], availableIds[i]];
+        }
+        
+        const selectedPeers = availableIds.slice(0, MAX_DEGREE);
+        for (const targetId of selectedPeers) {
+            clients.get(targetId)!.send(JSON.stringify({ type: "PEER_JOINED", peerId }));
         }
     };
 
@@ -53,7 +62,7 @@ Deno.serve({ port: PORT }, (req) => {
     socket.onclose = () => {
         console.log(`[SIGNAL] ❌ Peer Disconnected: ${peerId}`);
         clients.delete(peerId);
-        for (const [id, client] of clients.entries()) {
+        for (const [_id, client] of clients.entries()) {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({ type: "PEER_LEFT", peerId }));
             }

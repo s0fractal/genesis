@@ -1,6 +1,28 @@
 # OMEGA-64 | Completed Evolutionary Stages (Виконані Етапи)
 
-Цей документ фіксує ключові етапи розвитку системи, які вже реалізовані та міцно інтегровані в ядро OMEGA-64. 
+Цей документ фіксує ключові етапи розвитку системи, які вже реалізовані та міцно інтегровані в ядро OMEGA-64.
+
+---
+
+## 🌌 Era 310-320: WebLLM Autopoiesis & The God Hand
+*Статус: Завершено (Березень 2026)*
+
+### 1. In-Browser LLM (Era 310)
+- **WebLLM Neural-Symbiosis:** Інтегровано `@mlc-ai/web-llm` безпосередньо у `SovereignOracle`.
+- Замість зовнішнього Ollama-сервера, ноди самостійно завантажують `Llama-3.2-1B-Instruct-q4f32_1-MLC` в локальну пам'ять WebGPU, стаючи повністю автономними біологічними акторами. Відслідковується прогрес завантаження через `INIT_PROGRESS` телеметрію.
+
+### 2. Holographic VR Lens (Era 320)
+- **WebXR Integration:** Інтерфейс Сенату переведено у просторову VR-голограму через `navigator.xr.requestSession('immersive-vr')`.
+- **The God Hand:** Реалізовано 3D raycasting контролерів (`targetRaySpace`). Натискання тригера ("Squeeze") безпосередньо вкидає сиру Енергію (ATP) або Плазміди у симуляційну матрицю.
+
+## 🌌 Era 280-300: ZK-SNARK Stratum & Tokenized Osmosis
+*Статус: Завершено (Березень 2026)*
+
+### 1. ZK-STARK Proof Architecture (Era 280)
+- Відкрито вектор `omega_zk_guest` для герметичного виконання мутацій всередині SP1 (RISC-V ZK-VM). P2P ін'єкції `FOREIGN_PLASMID` тепер вимагають дійсного STARK Receipt, інкапсулюючи біологічну логіку у криптографічний доказ.
+
+### 2. Proof-of-Useful-Work (PoUW) ATP Bridge (Era 300)
+- Створено інтерфейс `IATPBridge` та мок-реєстр блокчейн-транзакцій. Кожна P2P мутація вимагає спалення токенізованого газу (`burn_tx_hash`), захищаючи WebRTC Mesh від спам-атак.
 
 ---
 

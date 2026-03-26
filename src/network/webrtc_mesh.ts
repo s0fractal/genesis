@@ -9,7 +9,7 @@ export class WebRTCMesh {
     private localId: string = "";
     private atpBridge: IATPBridge;
 
-    constructor(workerPort: MessagePort, signalingUrl: string = "ws://localhost:9091") {
+    constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev") {
         this.workerPort = workerPort;
         this.atpBridge = new MockATPBridge(); // Era 300: Instantiate Web3 Token Osmosis Bridge
         this.signaling = new WebSocket(signalingUrl);
