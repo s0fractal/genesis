@@ -1,4 +1,5 @@
 import { NomosGate } from "../ontology/nomos_gate.ts";
+import { MockATPBridge, IATPBridge } from "./atp_bridge.ts";
 
 export class WebRTCMesh {
     private signaling: WebSocket;
@@ -6,9 +7,11 @@ export class WebRTCMesh {
     private channels: Map<string, RTCDataChannel> = new Map();
     private workerPort: MessagePort;
     private localId: string = "";
+    private atpBridge: IATPBridge;
 
     constructor(workerPort: MessagePort, signalingUrl: string = "ws://localhost:9091") {
         this.workerPort = workerPort;
+        this.atpBridge = new MockATPBridge(); // Era 300: Instantiate Web3 Token Osmosis Bridge
         this.signaling = new WebSocket(signalingUrl);
 
         this.signaling.onmessage = this.handleSignalingMessage.bind(this);
@@ -74,7 +77,7 @@ export class WebRTCMesh {
         channel.onopen = () => console.log(`[WebRTCMesh] Data Channel OPEN with ${peerId}`);
         channel.onclose = () => this.channels.delete(peerId);
         
-        channel.onmessage = (event) => {
+        channel.onmessage = async (event) => {
             // Relay data straight to the Macro-Torus Worker!
             try {
                 const packet = JSON.parse(event.data);
@@ -87,7 +90,17 @@ export class WebRTCMesh {
                         );
 
                         if (proof.valid) {
-                            this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
+                            // Era 300: ATP Osmosis Verification
+                            let isBurnValid = false;
+                            if (packet.payload.burn_tx_hash) {
+                                isBurnValid = await this.atpBridge.verifyBurnTx(packet.payload.burn_tx_hash);
+                            }
+
+                            if (isBurnValid) {
+                                this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
+                            } else {
+                                console.warn(`[WebRTCMesh] Invalid or missing ATP Burn Transaction! Rejected ForeignPlasmid.`);
+                            }
                         } else {
                             console.warn(`[WebRTCMesh] STARK Proof invalid! Rejected ForeignPlasmid.`);
                         }
@@ -97,7 +110,7 @@ export class WebRTCMesh {
                 } else if (packet.type === 'HALO_SYNC') {
                     this.workerPort.postMessage(packet);
                 }
-            } catch (e) {
+            } catch (_e) {
                 // binary or unrecognized packet
             }
         };
@@ -142,7 +155,7 @@ export class WebRTCMesh {
     }
     
     // Called by the DOM (phase.ts) when the Worker wants to broadcast to the P2P Mesh
-    public broadcast(packet: any) {
+    public broadcast(packet: Record<string, unknown>) {
         const dataStr = JSON.stringify(packet);
         for (const channel of this.channels.values()) {
             if (channel.readyState === "open") {
