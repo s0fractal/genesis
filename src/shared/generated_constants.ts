@@ -3,6 +3,8 @@
 // --- CONSTANTS ---
 export const MATH_Q_BITS = 10;
 export const MATH_Q_SCALE = 1024;
+export const Q20_SCALE = 1048576;
+export const Q24_SCALE = 16777216;
 export const NATIVE_GRAVITY = -51;
 export const FNV64_OFFSET_BASIS = 14695981039346656037n;
 export const FNV64_PRIME = 1099511628211n;

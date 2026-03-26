@@ -3,6 +3,8 @@
 // --- CONSTANTS ---
 const MATH_Q_BITS: i32 = 10;
 const MATH_Q_SCALE: i32 = 1024;
+const Q20_SCALE: i32 = 1048576;
+const Q24_SCALE: i32 = 16777216;
 const NATIVE_GRAVITY: i32 = -51;
 const PHASE_TAU_DEPTH: i32 = 4;
 const PHASE_LUT_SIZE: i32 = 256;

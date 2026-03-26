@@ -11,6 +11,8 @@ export const CONSTANTS = {
     // Math & Hashing
     MATH_Q_BITS: { type: "i32", value: 10 },
     MATH_Q_SCALE: { type: "i32", expr: "1 << MATH_Q_BITS" },
+    Q20_SCALE: { type: "i32", expr: "1 << 20" },
+    Q24_SCALE: { type: "i32", expr: "1 << 24" },
     NATIVE_GRAVITY: { type: "i32", value: -51 },
     
     FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },

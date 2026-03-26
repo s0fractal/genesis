@@ -1,4 +1,5 @@
 use crate::constants::{PHASE_LUT_SIZE, PHASE_MAX_AMPLITUDE};
+use crate::fixed_point::*;
 
 #[inline(always)]
 pub(crate) fn wrap_phase(value: i16) -> u8 {
@@ -22,10 +23,10 @@ pub(crate) fn clamp_byte(value: i16) -> u8 {
 
 #[inline(always)]
 pub(crate) fn sin(from_theta: u8, to_theta: u8) -> i32 {
-    crate::constants::sin_q10(from_theta as u32, to_theta as u32)
+    sin_q20(from_theta, to_theta)
 }
 
 #[inline(always)]
 pub(crate) fn cos(from_theta: u8, to_theta: u8) -> i32 {
-    crate::constants::cos_q10(from_theta as u32, to_theta as u32)
+    cos_q20(from_theta, to_theta)
 }

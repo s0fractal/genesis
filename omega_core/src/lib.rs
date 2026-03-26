@@ -1,6 +1,7 @@
 pub mod phase_lattice;
 pub mod granite;
 pub mod constants;
+pub mod fixed_point;
 pub mod utils;
 pub mod lambda;
 

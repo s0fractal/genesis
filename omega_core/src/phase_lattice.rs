@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::*;
 use crate::constants::*;
+use crate::fixed_point::*;
 use crate::utils::*;
 
 
@@ -395,7 +396,7 @@ impl PhaseLatticeField {
 
         if count == 0 { return 0.0; }
         
-        let normalized = (total_coherence as f64) / (count as f64 * 4096.0);
+        let normalized = (total_coherence as f64) / (count as f64 * (4.0 * Q20_SCALE as f64));
         normalized
     }
 }
@@ -510,21 +511,21 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     + sin(effective_theta, field.agents[right].theta)
                     + sin(effective_theta, field.agents[inner].theta)
                     + sin(effective_theta, field.agents[outer].theta)
-                    + (sin(effective_theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / local_kuramoto_base)
-                    + ((sin(effective_theta, field.agents[historical_peer].theta) * 3) / 10); // Temporal Z-axis weight (0.3)
+                    + ((sin(effective_theta, field.agents[harmonic_peer].theta) as i64 * field.header.kuramoto_harmonic_peer as i64) / local_kuramoto_base as i64) as i32
+                    + ((sin(effective_theta, field.agents[historical_peer].theta) as i64 * 3) / 10) as i32;
 
                 let mut coherence = cos(theta, field.agents[left].theta)
                     + cos(theta, field.agents[right].theta)
                     + cos(theta, field.agents[inner].theta)
                     + cos(theta, field.agents[outer].theta)
-                    + (cos(theta, field.agents[harmonic_peer].theta) * field.header.kuramoto_harmonic_peer / local_kuramoto_base)
-                    + ((cos(theta, field.agents[historical_peer].theta) * 3) / 10);
+                    + ((cos(theta, field.agents[harmonic_peer].theta) as i64 * field.header.kuramoto_harmonic_peer as i64) / local_kuramoto_base as i64) as i32
+                    + ((cos(theta, field.agents[historical_peer].theta) as i64 * 3) / 10) as i32;
 
                 // --- O-130: Plasmid-Field Bridge ---
                 if field.agents[past_idx].plasmid != 0 {
                     let target_theta = (field.agents[past_idx].plasmid & 0xFF) as u8;
-                    kuramoto += (sin(theta, target_theta) * field.header.kuramoto_plasmid) / local_kuramoto_base;
-                    coherence += (cos(theta, target_theta) * field.header.kuramoto_plasmid) / local_kuramoto_base;
+                    kuramoto += ((sin(theta, target_theta) as i64 * field.header.kuramoto_plasmid as i64) / local_kuramoto_base as i64) as i32;
+                    coherence += ((cos(theta, target_theta) as i64 * field.header.kuramoto_plasmid as i64) / local_kuramoto_base as i64) as i32;
                 }
 
                 let mut next_ent_val = entanglement;
@@ -535,8 +536,8 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     let sin_anti = sin(theta, field.agents[antipode].theta);
                     let cos_anti = cos(theta, field.agents[antipode].theta);
                     
-                    kuramoto += (sin_anti * entanglement as i32 * field.header.kuramoto_antipode) / (local_kuramoto_base * 25);
-                    coherence += (cos_anti * entanglement as i32 * field.header.kuramoto_antipode) / (local_kuramoto_base * 25);
+                    kuramoto += ((sin_anti as i64 * entanglement as i64 * field.header.kuramoto_antipode as i64) / (local_kuramoto_base as i64 * 25)) as i32;
+                    coherence += ((cos_anti as i64 * entanglement as i64 * field.header.kuramoto_antipode as i64) / (local_kuramoto_base as i64 * 25)) as i32;
 
                     let antipode_alignment = cos_anti;
                     next_ent_val = if antipode_alignment > field.header.kuramoto_antipode_alignment && amplitude > 96 { // 0.92 * 1024
@@ -550,7 +551,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let mut preferred_theta = field.agents[past_idx].preferred_theta;
                 let mut memory_strength = field.agents[past_idx].memory_strength;
 
-                let memory_pull = (sin(effective_theta, preferred_theta) * memory_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
+                let memory_pull = ((sin(effective_theta, preferred_theta) as i64 * memory_strength as i64 * field.header.biology_apa_memory_gain as i64) / (255 * 1024)) as i32;
                 kuramoto += memory_pull;
 
                 // --- Phase 15: Akashic Field Pull (Collective Spatial Memory) ---
@@ -558,16 +559,16 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let akashic_theta = field.spatial_memory_theta[akashic_idx];
                 let akashic_strength = field.spatial_memory_strength[akashic_idx];
 
-                let akashic_pull = (sin(effective_theta, akashic_theta) * akashic_strength as i32 * field.header.biology_apa_memory_gain) / (255 * 1024);
+                let akashic_pull = ((sin(effective_theta, akashic_theta) as i64 * akashic_strength as i64 * field.header.biology_apa_memory_gain as i64) / (255 * 1024)) as i32;
                 kuramoto += akashic_pull;
 
-                let omega_delta = (kuramoto / local_kuramoto_base) as i16;
+                let omega_delta = (kuramoto / (local_kuramoto_base * 1024)) as i16;
                 let next_omega_val = clamp_i16(omega + omega_delta, PHASE_MIN_OMEGA, PHASE_MAX_OMEGA);
                 let next_theta_val = wrap_phase(theta as i16 + next_omega_val);
                 
                 // Metabolic Cost of Adaptation
                 let adaptation_cost = (fast_abs(omega_delta as i32) * field.header.biology_apa_decision_cost / 1024) as i16;
-                let amplitude_delta = (((coherence as i64 * 6) / local_kuramoto_base as i64) as i16) - (lock / 64) - adaptation_cost;
+                let amplitude_delta = (((coherence as i64 * 6) / (local_kuramoto_base as i64 * 1024)) as i16) - (lock / 64) - adaptation_cost;
                 let lock_delta = if coherence >= field.header.kuramoto_threshold_lock { 8 } else { -4 };
 
                 // Phase Memory Learning & Decay

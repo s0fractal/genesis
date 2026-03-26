@@ -57,4 +57,9 @@ Notable active architectural specifications:
 
 *The engine state exists natively inside the WebGPU Torus grid.*
 
-// Era 248: Hardened Stratum
+### Era 250: Hardened Stratum
+The transition out of localhost into a true planetary Macro-Torus.
+- **Headless Decoupling:** The WebGPU physics engine and LLM Oracle are completely decoupled into a `SharedWorker`. The UI main thread acts merely as a thin, "Dumb Terminal" viewing window.
+- **Pure Integer Determinism:** Complete purge of `f32`/`f64` floats from the grid. Computations utilize strict Q10/Q20 fixed-point trigonometry, guaranteeing bit-exact deterministic execution across different GPUs.
+- **Evolutionary Sandbox Physics (ESP):** Localized physics laws (`PhysicsGenome`) dynamically mutate and undergo natural selection based on thermodynamic fitness (`sectorHeat`), essentially allowing the Torus to evolve its own fundamental constants.
+- **WebRTC Mesh & Zero-Copy IPC:** High-performance DOM-layer P2P connection bridging the decoupled `SharedWorker` via `MessagePort`, federating independent machines into a continuous unified lattice space.

@@ -10,304 +10,304 @@
   "referenceTrace": [
     {
       "tick": 0,
-      "structuralSignature": "f52b98c7cb2a1374",
-      "totalAmplitude": 57240,
+      "structuralSignature": "82a76016f9981013",
+      "totalAmplitude": 118189,
       "totalEntanglement": 0
     },
     {
       "tick": 1,
-      "structuralSignature": "8a801ab1305821a5",
-      "totalAmplitude": 64793,
+      "structuralSignature": "bd435601153f5eef",
+      "totalAmplitude": 123169,
       "totalEntanglement": 0
     },
     {
       "tick": 2,
-      "structuralSignature": "334c2a96d8eb5831",
-      "totalAmplitude": 40868,
+      "structuralSignature": "1a4674a3fee08633",
+      "totalAmplitude": 125985,
       "totalEntanglement": 0
     },
     {
       "tick": 3,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "5525345ce6fec52f",
+      "totalAmplitude": 129113,
       "totalEntanglement": 0
     },
     {
       "tick": 4,
-      "structuralSignature": "94d92b62f3121d06",
-      "totalAmplitude": 61865,
+      "structuralSignature": "53a9955e03326d77",
+      "totalAmplitude": 131261,
       "totalEntanglement": 0
     },
     {
       "tick": 5,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "b3f482d47e6ada77",
+      "totalAmplitude": 133565,
       "totalEntanglement": 0
     },
     {
       "tick": 6,
-      "structuralSignature": "389c47d3a5d87569",
-      "totalAmplitude": 41434,
+      "structuralSignature": "5d5b8e8992864557",
+      "totalAmplitude": 134901,
       "totalEntanglement": 0
     },
     {
       "tick": 7,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "d9891a058245d743",
+      "totalAmplitude": 136223,
       "totalEntanglement": 0
     },
     {
       "tick": 8,
-      "structuralSignature": "a162002064b39e53",
-      "totalAmplitude": 65571,
+      "structuralSignature": "f63ae4277b436abf",
+      "totalAmplitude": 137067,
       "totalEntanglement": 0
     },
     {
       "tick": 9,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "5ce9d7548d53ceab",
+      "totalAmplitude": 137977,
       "totalEntanglement": 0
     },
     {
       "tick": 10,
-      "structuralSignature": "ecbad0e3f613ecb5",
-      "totalAmplitude": 43758,
+      "structuralSignature": "7efac37ef8557e67",
+      "totalAmplitude": 138641,
       "totalEntanglement": 0
     },
     {
       "tick": 11,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "8c3ca30fb3690833",
+      "totalAmplitude": 139105,
       "totalEntanglement": 0
     },
     {
       "tick": 12,
-      "structuralSignature": "ad1c78d7f168b7d5",
-      "totalAmplitude": 67176,
+      "structuralSignature": "91a61e35320e7e8f",
+      "totalAmplitude": 139525,
       "totalEntanglement": 0
     },
     {
       "tick": 13,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "e083b46119e76763",
+      "totalAmplitude": 139851,
       "totalEntanglement": 0
     },
     {
       "tick": 14,
-      "structuralSignature": "9260bbb92b17ce61",
-      "totalAmplitude": 44784,
+      "structuralSignature": "5765458ebf19425b",
+      "totalAmplitude": 140147,
       "totalEntanglement": 0
     },
     {
       "tick": 15,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "b2004ac67884af57",
+      "totalAmplitude": 140337,
       "totalEntanglement": 0
     },
     {
       "tick": 16,
-      "structuralSignature": "d08e8cb3ab3cda42",
-      "totalAmplitude": 67807,
+      "structuralSignature": "f5284ae68541130f",
+      "totalAmplitude": 140455,
       "totalEntanglement": 0
     },
     {
       "tick": 17,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "0da4bea40e070963",
+      "totalAmplitude": 140507,
       "totalEntanglement": 0
     },
     {
       "tick": 18,
-      "structuralSignature": "d25ab0adf5a7c045",
-      "totalAmplitude": 45236,
+      "structuralSignature": "74b8fed39653f447",
+      "totalAmplitude": 140609,
       "totalEntanglement": 0
     },
     {
       "tick": 19,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "c1a55a7eb3fa1267",
+      "totalAmplitude": 140657,
       "totalEntanglement": 0
     },
     {
       "tick": 20,
-      "structuralSignature": "70b259c723b296b1",
-      "totalAmplitude": 67982,
+      "structuralSignature": "5f79238c1f1f5f4f",
+      "totalAmplitude": 140683,
       "totalEntanglement": 0
     },
     {
       "tick": 21,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "83b4a70ec905db87",
+      "totalAmplitude": 140683,
       "totalEntanglement": 0
     },
     {
       "tick": 22,
-      "structuralSignature": "b8809bacace68019",
-      "totalAmplitude": 45338,
+      "structuralSignature": "b67131ebba83a5cf",
+      "totalAmplitude": 140701,
       "totalEntanglement": 0
     },
     {
       "tick": 23,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "59aa4502905a87df",
+      "totalAmplitude": 140701,
       "totalEntanglement": 0
     },
     {
       "tick": 24,
-      "structuralSignature": "3bb4c05322cb3852",
-      "totalAmplitude": 68025,
+      "structuralSignature": "54393d5e49316a53",
+      "totalAmplitude": 140707,
       "totalEntanglement": 0
     }
   ],
   "wasmTrace": [
     {
       "tick": 0,
-      "structuralSignature": "f52b98c7cb2a1374",
-      "totalAmplitude": 57240,
+      "structuralSignature": "82a76016f9981013",
+      "totalAmplitude": 118189,
       "totalEntanglement": 0
     },
     {
       "tick": 1,
-      "structuralSignature": "8a801ab1305821a5",
-      "totalAmplitude": 64793,
+      "structuralSignature": "bd435601153f5eef",
+      "totalAmplitude": 123169,
       "totalEntanglement": 0
     },
     {
       "tick": 2,
-      "structuralSignature": "334c2a96d8eb5831",
-      "totalAmplitude": 40868,
+      "structuralSignature": "1a4674a3fee08633",
+      "totalAmplitude": 125985,
       "totalEntanglement": 0
     },
     {
       "tick": 3,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "5525345ce6fec52f",
+      "totalAmplitude": 129113,
       "totalEntanglement": 0
     },
     {
       "tick": 4,
-      "structuralSignature": "94d92b62f3121d06",
-      "totalAmplitude": 61865,
+      "structuralSignature": "53a9955e03326d77",
+      "totalAmplitude": 131261,
       "totalEntanglement": 0
     },
     {
       "tick": 5,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "b3f482d47e6ada77",
+      "totalAmplitude": 133565,
       "totalEntanglement": 0
     },
     {
       "tick": 6,
-      "structuralSignature": "389c47d3a5d87569",
-      "totalAmplitude": 41434,
+      "structuralSignature": "5d5b8e8992864557",
+      "totalAmplitude": 134901,
       "totalEntanglement": 0
     },
     {
       "tick": 7,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "d9891a058245d743",
+      "totalAmplitude": 136223,
       "totalEntanglement": 0
     },
     {
       "tick": 8,
-      "structuralSignature": "a162002064b39e53",
-      "totalAmplitude": 65571,
+      "structuralSignature": "f63ae4277b436abf",
+      "totalAmplitude": 137067,
       "totalEntanglement": 0
     },
     {
       "tick": 9,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "5ce9d7548d53ceab",
+      "totalAmplitude": 137977,
       "totalEntanglement": 0
     },
     {
       "tick": 10,
-      "structuralSignature": "ecbad0e3f613ecb5",
-      "totalAmplitude": 43758,
+      "structuralSignature": "7efac37ef8557e67",
+      "totalAmplitude": 138641,
       "totalEntanglement": 0
     },
     {
       "tick": 11,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "8c3ca30fb3690833",
+      "totalAmplitude": 139105,
       "totalEntanglement": 0
     },
     {
       "tick": 12,
-      "structuralSignature": "ad1c78d7f168b7d5",
-      "totalAmplitude": 67176,
+      "structuralSignature": "91a61e35320e7e8f",
+      "totalAmplitude": 139525,
       "totalEntanglement": 0
     },
     {
       "tick": 13,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "e083b46119e76763",
+      "totalAmplitude": 139851,
       "totalEntanglement": 0
     },
     {
       "tick": 14,
-      "structuralSignature": "9260bbb92b17ce61",
-      "totalAmplitude": 44784,
+      "structuralSignature": "5765458ebf19425b",
+      "totalAmplitude": 140147,
       "totalEntanglement": 0
     },
     {
       "tick": 15,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "b2004ac67884af57",
+      "totalAmplitude": 140337,
       "totalEntanglement": 0
     },
     {
       "tick": 16,
-      "structuralSignature": "d08e8cb3ab3cda42",
-      "totalAmplitude": 67807,
+      "structuralSignature": "f5284ae68541130f",
+      "totalAmplitude": 140455,
       "totalEntanglement": 0
     },
     {
       "tick": 17,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "0da4bea40e070963",
+      "totalAmplitude": 140507,
       "totalEntanglement": 0
     },
     {
       "tick": 18,
-      "structuralSignature": "d25ab0adf5a7c045",
-      "totalAmplitude": 45236,
+      "structuralSignature": "74b8fed39653f447",
+      "totalAmplitude": 140609,
       "totalEntanglement": 0
     },
     {
       "tick": 19,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "c1a55a7eb3fa1267",
+      "totalAmplitude": 140657,
       "totalEntanglement": 0
     },
     {
       "tick": 20,
-      "structuralSignature": "70b259c723b296b1",
-      "totalAmplitude": 67982,
+      "structuralSignature": "5f79238c1f1f5f4f",
+      "totalAmplitude": 140683,
       "totalEntanglement": 0
     },
     {
       "tick": 21,
-      "structuralSignature": "21779b0a17f5b675",
-      "totalAmplitude": 64029,
+      "structuralSignature": "83b4a70ec905db87",
+      "totalAmplitude": 140683,
       "totalEntanglement": 0
     },
     {
       "tick": 22,
-      "structuralSignature": "b8809bacace68019",
-      "totalAmplitude": 45338,
+      "structuralSignature": "b67131ebba83a5cf",
+      "totalAmplitude": 140701,
       "totalEntanglement": 0
     },
     {
       "tick": 23,
-      "structuralSignature": "27fb32e99fc72a65",
-      "totalAmplitude": 192,
+      "structuralSignature": "59aa4502905a87df",
+      "totalAmplitude": 140701,
       "totalEntanglement": 0
     },
     {
       "tick": 24,
-      "structuralSignature": "3bb4c05322cb3852",
-      "totalAmplitude": 68025,
+      "structuralSignature": "54393d5e49316a53",
+      "totalAmplitude": 140707,
       "totalEntanglement": 0
     }
   ]

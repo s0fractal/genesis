@@ -3,6 +3,8 @@
 // --- CONSTANTS ---
 pub const MATH_Q_BITS: i32 = 10;
 pub const MATH_Q_SCALE: i32 = 1024;
+pub const Q20_SCALE: i32 = 1048576;
+pub const Q24_SCALE: i32 = 16777216;
 pub const NATIVE_GRAVITY: i32 = -51;
 pub const FNV64_OFFSET_BASIS: u64 = 14695981039346656037;
 pub const FNV64_PRIME: u64 = 1099511628211;
