@@ -1,7 +1,7 @@
 import { PhaseWebGPUObserver, TopologyMetadata } from "../lens/phase_webgpu.ts";
 import { configureCanvas, DOM, frames, setHudStat, setInputMode, tickFps } from "./dom.ts";
 import { SenateChatHUD } from "../ontology/senate_hud.ts";
-import { PhylogeneticCanvas } from "../ontology/phylogeny.ts";
+import { PhylogenyView } from "../lens/phylogeny_view.ts";
 
 export async function bootstrapPhase() {
   console.log("[Genesis] Bootstrapping Global Macro-Torus Worker Topology (Era 250: SharedWorker)...");
@@ -49,7 +49,20 @@ export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | 
   observer.workerPort = workerPort;
   
   const senateChat = new SenateChatHUD();
-  const phylogenyHUD = new PhylogeneticCanvas();
+  
+  // Era 268: Holographic Resonance DAG Overlay
+  const phylogenyCanvas = document.createElement("canvas");
+  phylogenyCanvas.id = "holo-resonance-ui";
+  phylogenyCanvas.style.position = "absolute";
+  phylogenyCanvas.style.top = "0";
+  phylogenyCanvas.style.left = "0";
+  phylogenyCanvas.style.width = "100%";
+  phylogenyCanvas.style.height = "100%";
+  phylogenyCanvas.style.pointerEvents = "none";
+  phylogenyCanvas.style.zIndex = "100";
+  document.body.appendChild(phylogenyCanvas);
+  
+  const phylogenyHUD = new PhylogenyView(phylogenyCanvas);
 
   let heatmapEnabled = false;
   globalThis.addEventListener("keydown", (e) => {
@@ -97,9 +110,12 @@ export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | 
       // Local UI Animation Ticks
       if (nowLocal - lastPhylogenyCheck > 1000) {
           lastPhylogenyCheck = nowLocal;
-          phylogenyHUD.tick();
           observer.choir.syncEcosystemVoices(apexPlasmids);
       }
+      
+      // Update Holographic metrics
+      const kuramotoSync = Math.max(0.1, 1.0 - (currentEntropy / 4.0));
+      phylogenyHUD.updateMetrics(currentEntropy, kuramotoSync);
 
       observer.choir.modulateParams(
           globalEnergy / 100000.0,

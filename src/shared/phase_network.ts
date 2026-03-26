@@ -159,6 +159,8 @@ export class PhaseNetwork {
                 this.addSet.set(hash, p);
                 this.localVectorClock[this.nodeId] = performance.now();
                 this.onPlasmidReceived(p);
+                // Era 268: Push to local UI DAG view
+                this.channel.postMessage({ type: "FOREIGN_PLASMID", payload: p });
                 return true;
             }
         }
