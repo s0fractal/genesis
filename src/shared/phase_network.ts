@@ -4,6 +4,9 @@ import { webTransport } from '@libp2p/webtransport';
 import { noise } from '@chainsafe/libp2p-noise';
 import { kadDHT } from '@libp2p/kad-dht';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { yamux } from '@libp2p/yamux';
+import { createHelia } from 'helia';
+import { strings } from '@helia/strings';
 import { fnv1a_64 } from "@wasm";
 import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, MATH_Q_SCALE } from "./constants.ts";
 
@@ -17,6 +20,10 @@ function verifyPayloadSignature(p: ForeignPlasmid): boolean {
 
 export class PhaseNetwork {
     private node: Libp2p | null = null;
+    // deno-lint-ignore no-explicit-any
+    private helia: any | null = null;
+    // deno-lint-ignore no-explicit-any
+    private heliaStrings: any | null = null;
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     public onHaloReceived?: (left: Uint8Array, right: Uint8Array) => void;
     private channel: BroadcastChannel;
@@ -68,6 +75,15 @@ export class PhaseNetwork {
         await this.node.start();
         console.log(`🌐 [Libp2p Mycelium] Node booted with Spatial Prefix: ${this.node.peerId.toString()}`);
         
+        // Era 266: IPFS DHT Pinning (Helia)
+        try {
+            this.helia = await createHelia({ libp2p: this.node });
+            this.heliaStrings = strings(this.helia);
+            console.log(`🌌 [Helia DHT] Immutable IPFS node bound to the Libp2p transport.`);
+        } catch(e) {
+            console.warn(`[Helia DHT] Failed to integrate IPFS pinning:`, e);
+        }
+        
         // Era 260: Map PeerID hash to a spatial sector inside the Q-Scaled Torus (0 to 1024)
         const dhtHash = fnv1a_64(this.node.peerId.toString());
         const theta_start = Number(dhtHash % BigInt(MATH_Q_SCALE));
@@ -79,7 +95,8 @@ export class PhaseNetwork {
         this.node.services.pubsub.subscribe('omega-64-crdt');
         this.node.services.pubsub.subscribe('omega-64-halo');
 
-        this.node.services.pubsub.addEventListener('message', (evt) => {
+        // deno-lint-ignore no-explicit-any
+        this.node.services.pubsub.addEventListener('message', (evt: any) => {
             const topic = evt.detail.topic;
             const strData = new TextDecoder().decode(evt.detail.data);
             try {
@@ -257,5 +274,19 @@ export class PhaseNetwork {
         });
         
         this.node.services.pubsub.publish('omega-64-halo', new TextEncoder().encode(payload)).catch(()=>{});
+    }
+
+    // Era 266: IPFS Eternal Pinning
+    public async pinPlasmid(hash: string, ast: string) {
+        if (!this.heliaStrings) return;
+        try {
+            const payload = JSON.stringify({ hash, ast, timestamp: Date.now(), sector: this.thetaLimits });
+            const cid = await this.heliaStrings.add(payload);
+            console.log(`💎 [IPFS PIN] Eternalized Plasmid [${hash.substring(0,8)}] at CID: ${cid.toString()}`);
+            return cid.toString();
+        } catch (e) {
+            console.warn(`[IPFS PIN] Failed to persist mathematical topology:`, e);
+            return null;
+        }
     }
 }

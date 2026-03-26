@@ -121,7 +121,7 @@ async function initEnvironment() {
     };
 
     // The Oracle acts natively against either the WebGPU map or CPU mapping
-    oracle = new SovereignOracle(field, sharedMemory, engine, undefined);
+    oracle = new SovereignOracle(field, sharedMemory, engine, network);
     oracle.boot();
 
     isInitialized = true;

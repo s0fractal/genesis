@@ -141,3 +141,147 @@ export class OrbitCamera {
         return this._mvpMatrix;
     }
 }
+
+// Era 267: Spatial Indexing & Frustum
+export class Frustum {
+    public planes: Float32Array[] = [];
+
+    constructor() {
+        for (let i = 0; i < 6; i++) {
+            this.planes.push(new Float32Array(4));
+        }
+    }
+
+    public update(vp: Mat4) {
+        // Extract frustum planes from ViewProjection matrix
+        // Left
+        this.planes[0][0] = vp[3] + vp[0];
+        this.planes[0][1] = vp[7] + vp[4];
+        this.planes[0][2] = vp[11] + vp[8];
+        this.planes[0][3] = vp[15] + vp[12];
+        // Right
+        this.planes[1][0] = vp[3] - vp[0];
+        this.planes[1][1] = vp[7] - vp[4];
+        this.planes[1][2] = vp[11] - vp[8];
+        this.planes[1][3] = vp[15] - vp[12];
+        // Bottom
+        this.planes[2][0] = vp[3] + vp[1];
+        this.planes[2][1] = vp[7] + vp[5];
+        this.planes[2][2] = vp[11] + vp[9];
+        this.planes[2][3] = vp[15] + vp[13];
+        // Top
+        this.planes[3][0] = vp[3] - vp[1];
+        this.planes[3][1] = vp[7] - vp[5];
+        this.planes[3][2] = vp[11] - vp[9];
+        this.planes[3][3] = vp[15] - vp[13];
+        // Near
+        this.planes[4][0] = vp[3] + vp[2];
+        this.planes[4][1] = vp[7] + vp[6];
+        this.planes[4][2] = vp[11] + vp[10];
+        this.planes[4][3] = vp[15] + vp[14];
+        // Far
+        this.planes[5][0] = vp[3] - vp[2];
+        this.planes[5][1] = vp[7] - vp[6];
+        this.planes[5][2] = vp[11] - vp[10];
+        this.planes[5][3] = vp[15] - vp[14];
+
+        for (let i = 0; i < 6; i++) {
+            const p = this.planes[i];
+            const mag = Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+            if (mag > 0) {
+                p[0] /= mag; p[1] /= mag; p[2] /= mag; p[3] /= mag;
+            }
+        }
+    }
+
+    // Sphere intersection
+    public intersectsSphere(x: number, y: number, z: number, r: number): boolean {
+        for (let i = 0; i < 6; i++) {
+            const p = this.planes[i];
+            const dist = p[0] * x + p[1] * y + p[2] * z + p[3];
+            if (dist < -r) return false;
+        }
+        return true;
+    }
+}
+
+// A node tracking a 2D Polar bounds bounded by Sector (θ) and Rho (r)
+export class TorusQuadNode {
+    public minSector: number;
+    public maxSector: number;
+    public minRho: number;
+    public maxRho: number;
+    public boundsX: number = 0;
+    public boundsY: number = 0;
+    public boundsZ: number = 0;
+    public boundsRadius: number = 0;
+    public children: TorusQuadNode[] = [];
+    public leaf: boolean = true;
+
+    constructor(minSector: number, maxSector: number, minRho: number, maxRho: number, totalSectors: number, totalRho: number) {
+        this.minSector = minSector;
+        this.maxSector = maxSector;
+        this.minRho = minRho;
+        this.maxRho = maxRho;
+
+        // Calculate 3D sphere bounds for this Torus quad
+        const midSector = (minSector + maxSector) / 2;
+        const midRho = (minRho + maxRho) / 2;
+        
+        const angle = (midSector / totalSectors) * Math.PI * 2;
+        const radius_t = (midRho + 1) / (totalRho + 1);
+        const major_radius = 2.8 * radius_t;
+        
+        this.boundsX = Math.cos(angle) * major_radius;
+        this.boundsY = Math.sin(angle) * major_radius;
+        this.boundsZ = 0.0; // Torus depth center
+        
+        // Approximate spanning radius
+        const spanSectors = ((maxSector - minSector) / totalSectors) * Math.PI * 2 * major_radius;
+        const spanRho = ((maxRho - minRho) / totalRho) * 2.8;
+        this.boundsRadius = Math.max(spanSectors, spanRho) * 1.5 + 0.6; // + 0.6 for harmonic Z-depth bounds
+    }
+
+    public subdivide(totalSectors: number, totalRho: number) {
+        if (this.maxSector - this.minSector <= 16 || this.maxRho - this.minRho <= 16) return;
+        this.leaf = false;
+        const midS = Math.floor((this.minSector + this.maxSector) / 2);
+        const midR = Math.floor((this.minRho + this.maxRho) / 2);
+        
+        this.children.push(new TorusQuadNode(this.minSector, midS, this.minRho, midR, totalSectors, totalRho));
+        this.children.push(new TorusQuadNode(midS, this.maxSector, this.minRho, midR, totalSectors, totalRho));
+        this.children.push(new TorusQuadNode(this.minSector, midS, midR, this.maxRho, totalSectors, totalRho));
+        this.children.push(new TorusQuadNode(midS, this.maxSector, midR, this.maxRho, totalSectors, totalRho));
+        
+        for(const child of this.children) child.subdivide(totalSectors, totalRho);
+    }
+}
+
+export class TorusQuadtree {
+    public root: TorusQuadNode;
+    public totalSectors: number;
+    public totalRho: number;
+    
+    constructor(sectors: number, radial_bins: number) {
+        this.totalSectors = sectors;
+        this.totalRho = radial_bins;
+        this.root = new TorusQuadNode(0, sectors, 0, radial_bins, sectors, radial_bins);
+        this.root.subdivide(sectors, radial_bins);
+    }
+    
+    public getVisibleLeaves(frustum: Frustum): TorusQuadNode[] {
+        const visible: TorusQuadNode[] = [];
+        const traverse = (node: TorusQuadNode) => {
+            if (!frustum.intersectsSphere(node.boundsX, node.boundsY, node.boundsZ, node.boundsRadius)) {
+                return;
+            }
+            if (node.leaf) {
+                visible.push(node);
+            } else {
+                for(const child of node.children) traverse(child);
+            }
+        };
+        traverse(this.root);
+        return visible;
+    }
+}

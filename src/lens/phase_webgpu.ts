@@ -1,8 +1,9 @@
 /// <reference types="@webgpu/types" />
 
+import cullWgsl from './shaders/compute_cull.wgsl?raw';
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
 import * as C from "../shared/constants.ts";
-import { OrbitCamera, mat4Perspective, mat4LookAt, createMat4, vec4TransformMat4, mat4Multiply } from "./math_3d.ts";
+import { Frustum, TorusQuadtree, OrbitCamera, mat4Perspective, mat4LookAt, createMat4, vec4TransformMat4, mat4Multiply } from "./math_3d.ts";
 import { BioAcousticChoir } from "./audio_synth.ts";
 
 export interface TopologyMetadata {
@@ -28,6 +29,18 @@ export class PhaseWebGPUObserver {
     private paramsBuffer!: GPUBuffer;
     private akashicThetaBuffer!: GPUBuffer;
     private akashicStrengthBuffer!: GPUBuffer;
+    
+    // Era 267: Frustum Culling Buffers
+    private frustum!: Frustum;
+    private quadtree!: TorusQuadtree;
+    private cullPipeline!: GPUComputePipeline;
+    private cullBindGroup!: GPUBindGroup;
+    private indirectBuffer!: GPUBuffer;
+    private indirectResetBuffer!: GPUBuffer;
+    private visibleInstancesBuffer!: GPUBuffer;
+    private quadNodesBuffer!: GPUBuffer;
+    private cullParamsBuffer!: GPUBuffer;
+
     private metadata: TopologyMetadata;
     private startTime: number;
     public camera: OrbitCamera;
@@ -208,6 +221,52 @@ export class PhaseWebGPUObserver {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
         
+        // Era 267: GPU Indirect Frustum Culling Pipeline
+        this.frustum = new Frustum();
+        this.quadtree = new TorusQuadtree(this.metadata.sectors, this.metadata.radial_bins);
+
+        this.indirectBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        
+        this.indirectResetBuffer = this.device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(this.indirectResetBuffer, 0, new Uint32Array([4, 0, 0, 0]));
+
+        this.visibleInstancesBuffer = this.device.createBuffer({
+            size: numCells * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
+        this.quadNodesBuffer = this.device.createBuffer({
+            size: 1024 * 16, 
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.cullParamsBuffer = this.device.createBuffer({
+            size: 32, // 8 x u32
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const cullModule = this.device.createShaderModule({ code: cullWgsl });
+        this.cullPipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: { module: cullModule, entryPoint: 'main' }
+        });
+
+        this.cullBindGroup = this.device.createBindGroup({
+            layout: this.cullPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.cullParamsBuffer } },
+                { binding: 1, resource: { buffer: this.indirectBuffer } },
+                { binding: 2, resource: { buffer: this.visibleInstancesBuffer } },
+                { binding: 3, resource: { buffer: this.quadNodesBuffer } }
+            ]
+        });
+        
         const shaderModule = this.device.createShaderModule({
             code: phaseLensWgsl 
         });
@@ -252,7 +311,8 @@ export class PhaseWebGPUObserver {
                 { binding: 0, resource: { buffer: this.latticeBuffer } },
                 { binding: 1, resource: { buffer: this.paramsBuffer } },
                 { binding: 2, resource: { buffer: this.akashicThetaBuffer } },
-                { binding: 3, resource: { buffer: this.akashicStrengthBuffer } }
+                { binding: 3, resource: { buffer: this.akashicStrengthBuffer } },
+                { binding: 4, resource: { buffer: this.visibleInstancesBuffer } }
             ]
         });
 
@@ -454,7 +514,44 @@ export class PhaseWebGPUObserver {
             }
         }
 
+        // Era 267: GPU Compute Culling
         const commandEncoder = this.device.createCommandEncoder();
+
+        // 1. Traverse CPU Quadtree
+        this.frustum.update(view_proj);
+        let visibleLeaves = this.quadtree.getVisibleLeaves(this.frustum);
+        if (visibleLeaves.length > 1024) visibleLeaves = visibleLeaves.slice(0, 1024);
+
+        if (visibleLeaves.length > 0) {
+            const nodeData = new Uint32Array(visibleLeaves.length * 4);
+            for (let i = 0; i < visibleLeaves.length; i++) {
+                nodeData[i*4]   = visibleLeaves[i].minSector;
+                nodeData[i*4+1] = visibleLeaves[i].maxSector;
+                nodeData[i*4+2] = visibleLeaves[i].minRho;
+                nodeData[i*4+3] = visibleLeaves[i].maxRho;
+            }
+            this.device.queue.writeBuffer(this.quadNodesBuffer, 0, nodeData);
+        }
+
+        const cullParams = new Uint32Array(8);
+        cullParams[0] = numCells;
+        cullParams[1] = this.metadata.sectors;
+        cullParams[2] = this.metadata.radial_bins;
+        cullParams[3] = this.metadata.harmonics;
+        cullParams[4] = visibleLeaves.length;
+        this.device.queue.writeBuffer(this.cullParamsBuffer, 0, cullParams);
+
+        // 2. Reset DrawIndirect Counters
+        commandEncoder.copyBufferToBuffer(this.indirectResetBuffer, 0, this.indirectBuffer, 0, 16);
+
+        // 3. Dispatch Compute Cull
+        if (visibleLeaves.length > 0) {
+            const cullPass = commandEncoder.beginComputePass();
+            cullPass.setPipeline(this.cullPipeline);
+            cullPass.setBindGroup(0, this.cullBindGroup);
+            cullPass.dispatchWorkgroups(Math.ceil(numCells / 256));
+            cullPass.end();
+        }
 
         const pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
@@ -467,7 +564,8 @@ export class PhaseWebGPUObserver {
 
         pass.setPipeline(this.pipeline);
         pass.setBindGroup(0, this.bindGroup);
-        pass.draw(4, numCells); 
+        // Era 267: Draw only instances flagged visible by QuadTree bounds
+        pass.drawIndirect(this.indirectBuffer, 0); 
         pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);

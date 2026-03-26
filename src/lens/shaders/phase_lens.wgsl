@@ -27,6 +27,7 @@ struct Params {
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<storage, read> akashic_theta: array<u32>;
 @group(0) @binding(3) var<storage, read> akashic_strength: array<u32>;
+@group(0) @binding(4) var<storage, read> visible_instances: array<u32>;
 
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
@@ -77,7 +78,10 @@ fn hsv2rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
 
 
 @vertex
-fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) idx: u32) -> VertexOutput {
+fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) inst_idx: u32) -> VertexOutput {
+  // Era 267: Instanced vertices arrive indirectly compacted from compute_cull.wgsl
+  let idx = visible_instances[inst_idx];
+  
   let layer_size = params.harmonics * params.radial_bins * params.sectors;
   let tau = idx / layer_size;
   let rem_tau = idx % layer_size;

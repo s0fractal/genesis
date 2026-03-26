@@ -591,6 +591,12 @@ export class SovereignOracle {
             
             node.age += 1;
             
+            // Era 266: IPFS Eternal Pinning Threshold
+            if (node.age >= 100 && node.fitness >= 5.0 && !node.isPinned && this.network) {
+                this.network.pinPlasmid(hash.toString(), lambda_format_term(node.ast));
+                node.isPinned = true;
+            }
+            
             // Plasticity & Attention half-life (attenuation)
             node.attention = Math.floor(node.attention * 0.9);
             
@@ -615,7 +621,14 @@ export class SovereignOracle {
             if (node.energy <= BIOLOGY_EXTINCTION_THRESHOLD) {
                 // Era 207 Vector 1: The Akashic Records (Meta-Memory Remembrance)
                 if (node.fitness >= 10.0) {
-                    this.akashicRecords.set(hash, lambda_format_term(node.ast));
+                    const astStr = lambda_format_term(node.ast);
+                    this.akashicRecords.set(hash, astStr);
+                    
+                    // Era 266: Last-chance IPFS Eternal DHT Pinning upon Extinction
+                    if (!node.isPinned && this.network) {
+                        this.network.pinPlasmid(hash.toString(), astStr);
+                        node.isPinned = true; // Technically extinct locally, but marked to prevent double-pins
+                    }
                     
                     // Era 240: Kimi's Emergency GC (O(1) bounds protection during Mass Extinctions)
                     if (this.akashicRecords.size > ORACLE_AKASHIC_GC_THRESHOLD) {

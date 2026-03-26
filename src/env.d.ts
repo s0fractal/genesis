@@ -75,6 +75,7 @@ interface SomaticNode {
     parents?: string[];
     vectorClock?: Record<string, number>;
     last_known_idx?: number; // Era 233.2: Tracking physical memory locus for migration
+    isPinned?: boolean;      // Era 266: IPFS eternal DHT pinning flag
 }
 
 interface SerializedPlasmid {

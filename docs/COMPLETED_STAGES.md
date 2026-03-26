@@ -4,6 +4,19 @@
 
 ---
 
+## 🌌 Era 265-266: Evolutionary Sandbox Physics & Eternal Pinning
+*Статус: Завершено (Березень 2026)*
+
+### 1. The Natural Selection Calculus (ESP)
+- **Generative Cycles:** `SovereignOracle` навчився читати глобальну показники (ентропію, енергію, популяцію) і створювати `PhysicsGenome` пропозиції.
+- **Fitness Evaluation & Extinction:** Закони фізики еволюціонують і конкурують. Якщо їх локальна теплова топологія (`sectorHeat`) і резонанс ентропії низькі ($<0.2$), фізика автоматично видаляється з WebGPU буферів. Якщо висока ($>0.8$), повертається відсоток ATP.
+
+### 2. IPFS DHT Pinning (The Eternal Ledger)
+- Інтеграція і підключення повноцінної ноди `Helia` паралельно до існуючого `libp2p` стеку.
+- **Akashic Immortalization:** Організми (`ForeignPlasmids`), які виживають більше 100 епох з `fitness > 5.0` (Apex Plasmids), автоматично прописуються у світовий IPFS DHT у вигляді AST-логів. Власна історія симуляції є незмінною.
+
+---
+
 ## 🌌 Era 260: Macro-Torus Federation & The Float Purge
 *Статус: Завершено (Березень 2026)*
 
