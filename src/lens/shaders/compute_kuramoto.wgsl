@@ -128,6 +128,8 @@ struct MycelialBucket {
 }
 
 @group(0) @binding(3) var<storage, read_write> mycelial_centroids: array<MycelialBucket>;
+@group(0) @binding(4) var<storage, read> halo_left: array<u32>;
+@group(0) @binding(5) var<storage, read> halo_right: array<u32>;
 
 struct PhaseAgent {
     theta: u32,
@@ -144,11 +146,23 @@ struct PhaseAgent {
 
 fn get_agent(idx: u32) -> PhaseAgent {
     let offset = idx * 6u;
-    let t0 = field_in[offset];
-    let t1 = field_in[offset + 1u];
-    let t2 = field_in[offset + 2u];
-    let t3 = field_in[offset + 3u];
-    let t4 = field_in[offset + 4u];
+    return get_agent_from_buffer(offset, 0u);
+}
+
+fn get_agent_from_buffer(offset: u32, source: u32) -> PhaseAgent {
+    // source: 0 = field_in, 1 = halo_left, 2 = halo_right
+    var t0 = 0u; var t1 = 0u; var t2 = 0u; var t3 = 0u; var t4 = 0u;
+    
+    if (source == 0u) {
+        t0 = field_in[offset]; t1 = field_in[offset + 1u]; t2 = field_in[offset + 2u]; 
+        t3 = field_in[offset + 3u]; t4 = field_in[offset + 4u];
+    } else if (source == 1u) {
+        t0 = halo_left[offset]; t1 = halo_left[offset + 1u]; t2 = halo_left[offset + 2u]; 
+        t3 = halo_left[offset + 3u]; t4 = halo_left[offset + 4u];
+    } else if (source == 2u) {
+        t0 = halo_right[offset]; t1 = halo_right[offset + 1u]; t2 = halo_right[offset + 2u]; 
+        t3 = halo_right[offset + 3u]; t4 = halo_right[offset + 4u];
+    }
 
     var agent: PhaseAgent;
     agent.plasmid_low = t0;
@@ -234,14 +248,29 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let me = get_agent(idx);
 
-    let left_sec = u32(wrap_index(i32(sector) - 1, i32(params.sectors)));
-    let right_sec = u32(wrap_index(i32(sector) + 1, i32(params.sectors)));
     let inner_rho = max(0u, rho - 1u);
     let outer_rho = min(params.radial_bins - 1u, rho + 1u);
     let harm_peer = u32(wrap_index(i32(harmonic) + 1, i32(params.harmonics)));
 
-    let a_l = get_agent(get_idx(left_sec, rho, harmonic));
-    let a_r = get_agent(get_idx(right_sec, rho, harmonic));
+    // Era 260: Boundary Halo Matrix Crossing
+    var a_l: PhaseAgent;
+    if (sector == 0u) {
+        // Read strictly from Peer Network Halo Buffer
+        a_l = get_agent_from_buffer(rho * 6u, 1u); // Source 1: halo_left
+    } else {
+        let left_idx = get_idx(sector - 1u, rho, harmonic);
+        a_l = get_agent(left_idx);
+    }
+
+    var a_r: PhaseAgent;
+    if (sector == params.sectors - 1u) {
+        // Read strictly from Peer Network Halo Buffer
+        a_r = get_agent_from_buffer(rho * 6u, 2u); // Source 2: halo_right
+    } else {
+        let right_idx = get_idx(sector + 1u, rho, harmonic);
+        a_r = get_agent(right_idx);
+    }
+
     let a_i = get_agent(get_idx(sector, inner_rho, harmonic));
     let a_o = get_agent(get_idx(sector, outer_rho, harmonic));
     let a_h = get_agent(get_idx(sector, rho, harm_peer));

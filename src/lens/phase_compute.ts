@@ -30,6 +30,9 @@ export class PhaseComputeEngine {
     public bufferB!: GPUBuffer;
     public paramsBuffer!: GPUBuffer;
     public mycelialBuffer!: GPUBuffer;
+    public haloLeftBuffer!: GPUBuffer;
+    public haloRightBuffer!: GPUBuffer;
+    public haloOutBuffer!: GPUBuffer;
     
     private pipeline!: GPUComputePipeline;
     private mycelialPipeline!: GPUComputePipeline;
@@ -100,8 +103,9 @@ export class PhaseComputeEngine {
         if (!this.device) return;
         
         const numCells = this.field.cell_count();
-        const AGENT_BYTES = 16;
+        const AGENT_BYTES = 24;
         const totalSize = numCells * AGENT_BYTES;
+        const haloSize = this.field.radial_bins * AGENT_BYTES;
         
         this.offsets = [0]; // Deprecated, keeping array for compatibility
 
@@ -124,6 +128,21 @@ export class PhaseComputeEngine {
         this.mycelialBuffer = this.device.createBuffer({
             size: 16384,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.haloLeftBuffer = this.device.createBuffer({
+            size: haloSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.haloRightBuffer = this.device.createBuffer({
+            size: haloSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+
+        this.haloOutBuffer = this.device.createBuffer({
+            size: haloSize * 2,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
         });
 
         // Seed deterministic WASM state into Buffer A
@@ -165,7 +184,9 @@ export class PhaseComputeEngine {
                 { binding: 0, resource: { buffer: this.bufferA } },
                 { binding: 1, resource: { buffer: this.bufferB } },
                 { binding: 2, resource: { buffer: this.paramsBuffer } },
-                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+                { binding: 3, resource: { buffer: this.mycelialBuffer } },
+                { binding: 4, resource: { buffer: this.haloLeftBuffer } },
+                { binding: 5, resource: { buffer: this.haloRightBuffer } }
             ]
         });
 
@@ -175,7 +196,9 @@ export class PhaseComputeEngine {
                 { binding: 0, resource: { buffer: this.bufferB } },
                 { binding: 1, resource: { buffer: this.bufferA } },
                 { binding: 2, resource: { buffer: this.paramsBuffer } },
-                { binding: 3, resource: { buffer: this.mycelialBuffer } }
+                { binding: 3, resource: { buffer: this.mycelialBuffer } },
+                { binding: 4, resource: { buffer: this.haloLeftBuffer } },
+                { binding: 5, resource: { buffer: this.haloRightBuffer } }
             ]
         });
 
@@ -203,7 +226,7 @@ export class PhaseComputeEngine {
             // Era 243.2: CPU Fallback Execution
             const numCells = this.field.cell_count();
             const ptrAgents = this.field.ptr_agents() as number;
-            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 16);
+            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 24);
             
             while (this.injectionHead !== this.injectionTail) {
                 const inj = this.injectionPool[this.injectionHead];
@@ -214,7 +237,7 @@ export class PhaseComputeEngine {
                     targetIdx = Math.floor(Math.random() * numCells); 
                 }
                 
-                const offset = targetIdx * 16;
+                const offset = targetIdx * 24;
                 dv.setUint8(offset + 12, 255); // max amp
                 dv.setUint8(offset + 13, inj.ent); // max lock
                 dv.setUint32(offset, inj.hashLow, true);     // plasmid low
@@ -288,7 +311,7 @@ export class PhaseComputeEngine {
 
         // O-194 Semantic Optimization Pipeline: Native Zero-Overhead Fossil Storage VRAM Migration (Bypassing WGSL execution)
         if (this.field.harmonics > 1) {
-            const bytesPerCell = 16;
+            const bytesPerCell = 24;
             const fossilOffset = physicalCells * bytesPerCell;
             const fossilSize = (numCells - physicalCells) * bytesPerCell;
             const src = this.isPingPongA ? this.bufferA : this.bufferB;
@@ -414,15 +437,15 @@ export class PhaseComputeEngine {
         // Era 248: CPU-only Extraction Fallback
         if (!this.device) {
             const ptrAgents = this.field.ptr_agents() as number;
-            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 16);
+            const dv = new DataView(this.wasmMemory.buffer, ptrAgents, numCells * 24);
             for(let i=0; i<numCells; i++) {
-                data[i] = dv.getBigUint64(i * 16 + 0, true);
+                data[i] = dv.getBigUint64(i * 24 + 0, true);
             }
             return data;
         }
         
         const activeBuffer = this.getActiveBuffer();
-        const size = numCells * 16; // 16 bytes per PhaseAgent
+        const size = numCells * 24; // 24 bytes per PhaseAgent
         
         const stagingBuffer = this.getStagingBuffer(size);
 
@@ -435,9 +458,9 @@ export class PhaseComputeEngine {
         const dataU8 = new Uint8Array(copyBuffer.slice(0));
         
         const dataView = new DataView(dataU8.buffer);
-        // Extract the 64-bit Plasmid from offset 0 of each 16-byte AoS struct
+        // Extract the 64-bit Plasmid from offset 0 of each 24-byte AoS struct
         for(let i=0; i<numCells; i++) {
-            data[i] = dataView.getBigUint64(i * 16 + 0, true);
+            data[i] = dataView.getBigUint64(i * 24 + 0, true);
         }
         
         stagingBuffer.unmap();
@@ -446,9 +469,50 @@ export class PhaseComputeEngine {
         return data;
     }
 
+    async extractLocalHalosAsync(): Promise<{ left: Uint8Array, right: Uint8Array } | null> {
+        if (!this.device) return null;
+        
+        const activeBuffer = this.getActiveBuffer();
+        const AGENT_BYTES = 24;
+        const radialBins = this.field.radial_bins;
+        const sectors = this.field.sectors;
+        
+        const commandEncoder = this.device.createCommandEncoder();
+        
+        for (let rho = 0; rho < radialBins; rho++) {
+            const srcOffset = (rho * sectors + 0) * AGENT_BYTES;
+            const dstOffset = rho * AGENT_BYTES;
+            commandEncoder.copyBufferToBuffer(activeBuffer, srcOffset, this.haloOutBuffer, dstOffset, AGENT_BYTES);
+        }
+
+        for (let rho = 0; rho < radialBins; rho++) {
+            const srcOffset = (rho * sectors + (sectors - 1)) * AGENT_BYTES;
+            const dstOffset = (radialBins * AGENT_BYTES) + (rho * AGENT_BYTES);
+            commandEncoder.copyBufferToBuffer(activeBuffer, srcOffset, this.haloOutBuffer, dstOffset, AGENT_BYTES);
+        }
+
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        await this.haloOutBuffer.mapAsync(GPUMapMode.READ);
+        const copyBuffer = this.haloOutBuffer.getMappedRange();
+        
+        const leftU8 = new Uint8Array(copyBuffer.slice(0, radialBins * AGENT_BYTES));
+        const rightU8 = new Uint8Array(copyBuffer.slice(radialBins * AGENT_BYTES, 2 * radialBins * AGENT_BYTES));
+        
+        this.haloOutBuffer.unmap();
+        
+        return { left: leftU8, right: rightU8 };
+    }
+
+    ingestRemoteHalos(left: Uint8Array, right: Uint8Array) {
+        if (!this.device) return;
+        this.device.queue.writeBuffer(this.haloLeftBuffer, 0, left.buffer as unknown as ArrayBuffer, left.byteOffset, left.byteLength);
+        this.device.queue.writeBuffer(this.haloRightBuffer, 0, right.buffer as unknown as ArrayBuffer, right.byteOffset, right.byteLength);
+    }
+
     injectGridState(grid: Record<number, string>) {
         const numCells = this.field.cell_count();
-        const AGENT_BYTES = 16;
+        const AGENT_BYTES = 24; // Era 260 Struct Alignment
         const totalSize = numCells * AGENT_BYTES;
         const mem = this.wasmMemory.buffer;
         
@@ -457,7 +521,6 @@ export class PhaseComputeEngine {
         const dataU8 = new Uint8Array(mem, agentPtr, totalSize);
         const dataView = new DataView(dataU8.buffer, dataU8.byteOffset, dataU8.byteLength);
 
-        // Zero out memory
         dataU8.fill(0);
 
         for (const [idxStr, hashStr] of Object.entries(grid)) {
@@ -465,22 +528,27 @@ export class PhaseComputeEngine {
             const hash = BigInt(hashStr);
             const offset = idx * AGENT_BYTES;
             
-            // 8-byte aligned layout:
+            // 8-byte aligned layout (24 Bytes Total):
             // 0: plasmid (64-bit)
             // 8: omega (16-bit)
-            // 10: pad1 (16-bit)
+            // 10: time_dilation (8-bit)
+            // 11: preferred_theta (8-bit)
             // 12: theta (8-bit)
             // 13: energy (8-bit)
             // 14: lock (8-bit)
             // 15: entanglement (8-bit)
+            // 16: memory_strength (8-bit)
+            // 17-23: Padding
             
-            dataView.setBigUint64(offset + 0, hash, true); // plasmid
-            dataView.setInt16(offset + 8, Number((hash >> 16n) & 0x07n) - 3, true); // omega
-            dataView.setInt16(offset + 10, 0, true); // pad1
-            dataView.setUint8(offset + 12, Number((hash >> 8n) & 0xFFn)); // theta
-            dataView.setUint8(offset + 13, Math.max(20, Number((hash >> 24n) & 0x3Fn))); // energy
-            dataView.setUint8(offset + 14, 0); // lock
-            dataView.setUint8(offset + 15, 0); // ent
+            dataView.setBigUint64(offset + 0, hash, true);
+            dataView.setInt16(offset + 8, Number((hash >> 16n) & 0x07n) - 3, true); 
+            dataView.setUint8(offset + 10, 0); 
+            dataView.setUint8(offset + 11, Number((hash >> 8n) & 0xFFn)); 
+            dataView.setUint8(offset + 12, Number((hash >> 8n) & 0xFFn)); 
+            dataView.setUint8(offset + 13, Math.max(20, Number((hash >> 24n) & 0x3Fn))); 
+            dataView.setUint8(offset + 14, 0); 
+            dataView.setUint8(offset + 15, 0); 
+            dataView.setUint8(offset + 16, 255); 
         }
 
         // Era 248: Protect GPU copy in CPU-only environments

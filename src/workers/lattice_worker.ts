@@ -1,10 +1,14 @@
 /// <reference lib="webworker" />
 import initWasm, { PhaseLatticeField, phase_lattice_shannon_entropy, execute_phase_lattice_tick } from "@wasm";
 import { SovereignOracle } from "../ontology/oracle.ts";
+import { PhaseComputeEngine } from "../lens/phase_compute.ts";
+import { PhaseNetwork } from "../shared/phase_network.ts";
 
 // Global Shared State
 let field: PhaseLatticeField;
 let oracle: SovereignOracle;
+let engine: PhaseComputeEngine | undefined;
+let network: PhaseNetwork | undefined;
 let sharedMemory: WebAssembly.Memory;
 
 let isInitialized = false;
@@ -22,7 +26,7 @@ globalThis.addEventListener("substratePhysicsDelta", (e: any) => {
 });
 
 // The Headless Physics Loop
-function physicsLoop() {
+async function physicsLoop() {
     if (!isPhysicsRunning) return;
 
     try {
@@ -30,15 +34,27 @@ function physicsLoop() {
         oracle.tickHomeostasis(entropy);
 
         if (!oracle.isBusy) {
-            // Core WASM CPU Physics Tick
-            execute_phase_lattice_tick(field);
+            if (engine && engine.device) {
+                // Wait for the async WebGPU pipeline to finish the dispatch and map back to SharedArrayBuffer
+                await engine.tick();
+                
+                // Vector II: Periodic Spatial Halo Extraction (2 FPS)
+                if (tickCount % 30 === 0 && network) {
+                    const halos = await engine.extractLocalHalosAsync();
+                    if (halos) {
+                        network.broadcastHalos(halos.left, halos.right);
+                    }
+                }
+            } else {
+                // CPU Fallback (WASM)
+                execute_phase_lattice_tick(field);
+            }
         }
 
         oracle.sync();
 
         tickCount++;
 
-        // Broadcast metadata at lower frequency
         if (tickCount % 4 === 0) {
             const payload = {
                 type: 'SYNC_METADATA',
@@ -62,7 +78,6 @@ function physicsLoop() {
         console.error("[LatticeWorker] Physics loop fault:", e);
     }
 
-    // Attempt ~60FPS
     setTimeout(physicsLoop, 16);
 }
 
@@ -80,11 +95,33 @@ async function initEnvironment() {
     field = new PhaseLatticeField(256, 256, 3);
     
     // Seed Header manually or via function
-    // (Assuming hydrateSubstrateHeader equivalent is handled or oracle syncs it)
-    
-    // Instantiate Oracle in headless mode
-    // We pass null for ComputeEngine and Observer since they are on Main Thread
-    oracle = new SovereignOracle(field, sharedMemory, undefined, undefined);
+    let device: GPUDevice | null = null;
+    try {
+        if (navigator.gpu) {
+            const adapterPromise = navigator.gpu.requestAdapter();
+            const timeoutPromise = new Promise<GPUAdapter | null>((_, reject) => setTimeout(() => reject(new Error("WebGPU Adapter Timeout")), 3000));
+            const adapter = await Promise.race([adapterPromise, timeoutPromise]) as GPUAdapter | null;
+            if (adapter) {
+                device = await adapter.requestDevice();
+                console.log("[LatticeWorker] WebGPU Context Acquired in Background Thread.");
+                engine = new PhaseComputeEngine(field, sharedMemory, device);
+                await engine.init();
+            }
+        }
+    } catch (err) {
+        console.error("[LatticeWorker] WebGPU initialization failed, defaulting to CPU WASM:", err);
+    }
+
+    // Instantiate Macro-Torus Network Mycelium
+    network = new PhaseNetwork();
+    await network.bootstrap();
+
+    network.onHaloReceived = (left: Uint8Array, right: Uint8Array) => {
+        if (engine) engine.ingestRemoteHalos(left, right);
+    };
+
+    // The Oracle acts natively against either the WebGPU map or CPU mapping
+    oracle = new SovereignOracle(field, sharedMemory, engine, undefined);
     oracle.boot();
 
     isInitialized = true;

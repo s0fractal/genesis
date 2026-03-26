@@ -1,5 +1,11 @@
+import { createLibp2p, Libp2p } from 'libp2p';
+import { webSockets } from '@libp2p/websockets';
+import { webTransport } from '@libp2p/webtransport';
+import { noise } from '@chainsafe/libp2p-noise';
+import { kadDHT } from '@libp2p/kad-dht';
+import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { fnv1a_64 } from "@wasm";
-import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, NETWORK_MAX_PEERS_BUCKET, NETWORK_MYCELIUM_RATE_LIMIT, NETWORK_WEBRTC_RECONNECT_CAP } from "./constants.ts";
+import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, MATH_Q_SCALE } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
@@ -10,93 +16,110 @@ function verifyPayloadSignature(p: ForeignPlasmid): boolean {
 }
 
 export class PhaseNetwork {
-    private channel: BroadcastChannel;
-    private meshChannel: BroadcastChannel;
-    private rtcConnections: Set<RTCDataChannel> = new Set();
-    private geometricMatrix: Map<number, RTCDataChannel> = new Map(); // Era 203: Optical IP abstraction
-    public localRefractiveIndex: number = 1.0; // Governed by thermodynamic homeostasis
-    private peers: Map<string, RTCPeerConnection> = new Map();
+    private node: Libp2p | null = null;
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
-    private nodeId: string;
+    public onHaloReceived?: (left: Uint8Array, right: Uint8Array) => void;
+    private channel: BroadcastChannel;
+    public nodeId: string;
     
     // Era 247: Plasmid Delta-State CRDT (LWW-Element Set)
     private addSet: Map<string, ForeignPlasmid> = new Map();
     private removeSet: Map<string, number> = new Map();
     private localVectorClock: Record<string, number> = {};
-    private gossipIntervalId: number;
-    
-    // O-200 Vector 7: WebRTC Jitter Initialization Backoff
-    private backoffMs: number;
-    
-    // O-196 WebRTC Traffic Shaping
-    private originRateLimits: Map<string, { count: number, resetAt: number }> = new Map();
-    
-    // Era 222: Kademlia Spatial DHT Buckets
-    private kBuckets: Map<number, Set<string>> = new Map();
-    
-    
-    // Era 242.1: Exponential Backoff tracking for WebRTC Thundering Herd DDoS prevention
-    private reconnectionAttempts: Map<string, number> = new Map();
+    private gossipIntervalId: number | null = null;
+    public localRefractiveIndex: number = 1.0; 
 
-    private calculateXorDistance(peerId: string): number {
-        // Compute 64-bit FNV1a hash for deterministic logical IDs
-        const localHash = fnv1a_64(this.nodeId);
-        const remoteHash = fnv1a_64(peerId);
-        const distance = localHash ^ remoteHash;
-        
-        const bin = distance.toString(2);
-        return 64 - bin.length; // Bucket index 0 to 63
-    }
-    
-    private checkRateLimit(origin: string): boolean {
-        const nowLocal = performance.now();
-        let tracker = this.originRateLimits.get(origin);
-        if (!tracker || tracker.resetAt < nowLocal) {
-            tracker = { count: 0, resetAt: nowLocal + 1000 };
-            this.originRateLimits.set(origin, tracker);
-        }
-        tracker.count++;
-        if (tracker.count > NETWORK_MYCELIUM_RATE_LIMIT) return false;
-        return true;
-    }
+    // Era 260 Vector II: Spatial Addressing (Macro-Torus Slicing)
+    public thetaLimits: [number, number] = [0, 255]; 
 
     constructor(onPlasmidReceived: (plasmid: ForeignPlasmid) => void) {
         this.onPlasmidReceived = onPlasmidReceived;
         this.nodeId = "node_" + Math.random().toString(36).substring(2, 9);
-        this.backoffMs = 100 + Math.random() * 500; // Stochastic initialization bounds
         
         // 🍄 Phase 1: Local Mycelial Fusion (Same-Machine Cross-Tab)
         this.channel = new BroadcastChannel("omega_64_mycelium");
         this.channel.onmessage = (e) => {
             if (e.data && e.data.type === "FOREIGN_PLASMID") {
-                const p = e.data.payload as ForeignPlasmid;
-                
-                // O-48 & O-56: Payload & Identity Authentication
-                if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
-                    p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
-                    p.energy <= SENATE_MYCELIUM_MIN_ENERGY ||
-                    !verifyPayloadSignature(p)) {
-                    console.log(`🛡️ [Mycelium Firewall] DETECTED MALICIOUS/LOCAL PLASMID from ${p.origin}. Exhibiting Phantom Trace Protocol.`);
-                    // O-196: Phantom Traces & Ethical Immunity. Exile to Shadow Buckets (1000-1024)
-                    p.targetBucket = 1000 + Math.floor(Math.random() * 25);
-                    this.onPlasmidReceived(p);
-                    return;
-                }
-                
-                console.log(`📡 [Mycelium] Received & Verified Authentic Plasmid via Local Broadcast: ${p.hash}`);
-                this.onPlasmidReceived(p);
+                this.validateAndIngestPlasmid(e.data.payload);
             }
         };
+        
+        this.initLibp2p();
+    }
 
-        // 🍄 Phase 2: Automatic Mycelium (WebRTC Auto-Signaling via Mesh)
-        this.meshChannel = new BroadcastChannel("omega64-mesh");
-        this.meshChannel.onmessage = async (e) => await this.handleMeshSignal(e.data);
+    private async initLibp2p() {
+        this.node = await createLibp2p({
+            addresses: {
+                listen: [
+                    '/webrtc',
+                ]
+            },
+            transports: [ webSockets(), webTransport() ],
+            connectionEncryption: [ noise() ],
+            streamMuxers: [ yamux() ],
+            services: {
+                // deno-lint-ignore no-explicit-any
+                dht: kadDHT({ protocol: '/omega-64/kad/1.0.0' }) as any,
+                // deno-lint-ignore no-explicit-any
+                pubsub: gossipsub({ allowPublishToZeroTopicPeers: true } as any) as any
+            }
+        });
+
+        await this.node.start();
+        console.log(`🌐 [Libp2p Mycelium] Node booted with Spatial Prefix: ${this.node.peerId.toString()}`);
         
-        // Announce presence to the local mesh
-        this.meshChannel.postMessage({ type: "HELLO", origin: this.nodeId });
-        
-        // Era 247: Anti-Entropy CRDT Gossip Protocol
+        // Era 260: Map PeerID hash to a spatial sector inside the Q-Scaled Torus (0 to 1024)
+        const dhtHash = fnv1a_64(this.node.peerId.toString());
+        const theta_start = Number(dhtHash % BigInt(MATH_Q_SCALE));
+        const theta_end = (theta_start + 64) % MATH_Q_SCALE;
+        this.thetaLimits = [theta_start, theta_end];
+        console.log(`🧭 [Kademlia Routing] Node assumed jurisdiction over Torus Arc: θ[${theta_start}..${theta_end}]`);
+
+        this.node.services.pubsub.subscribe('omega-64-plasmids');
+        this.node.services.pubsub.subscribe('omega-64-crdt');
+        this.node.services.pubsub.subscribe('omega-64-halo');
+
+        this.node.services.pubsub.addEventListener('message', (evt) => {
+            const topic = evt.detail.topic;
+            const strData = new TextDecoder().decode(evt.detail.data);
+            try {
+                const data = JSON.parse(strData);
+                if (topic === 'omega-64-plasmids') {
+                    this.validateAndIngestPlasmid(data);
+                } else if (topic === 'omega-64-crdt') {
+                    this.handleInboundCRDT(data);
+                } else if (topic === 'omega-64-halo') {
+                    if (data.origin !== this.nodeId && this.onHaloReceived) {
+                        const l = Uint8Array.from(atob(data.left), c => c.charCodeAt(0));
+                        const r = Uint8Array.from(atob(data.right), c => c.charCodeAt(0));
+                        this.onHaloReceived(l, r);
+                    }
+                }
+            } catch (_e) {
+                // Parse fail ignored
+            }
+        });
+
         this.gossipIntervalId = setInterval(() => this.gossipCRDTState(), 8000) as unknown as number;
+    }
+
+    private validateAndIngestPlasmid(p: ForeignPlasmid) {
+        // O-48 & O-56: Payload & Identity Authentication
+        if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
+            p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
+            p.energy <= SENATE_MYCELIUM_MIN_ENERGY ||
+            !verifyPayloadSignature(p)) {
+            console.log(`🛡️ [Mycelium Firewall] DETECTED MALICIOUS PLASMID from ${p.origin}. Exhibiting Phantom Trace Protocol.`);
+            // O-196: Shadow Buckets
+            p.targetBucket = 1000 + Math.floor(Math.random() * 25);
+            this.onPlasmidReceived(p);
+            return;
+        }
+        
+        const wasNovel = this.mergeCRDTPlasmid(p);
+        if (wasNovel) {
+             console.log(`📡 [Holo-CRDT] Resonating with plasmid: ${p.hash}`);
+        }
     }
 
     // Era 247: Delta-State CRDT Merge Logic (LWW-Element Set)
@@ -104,7 +127,6 @@ export class PhaseNetwork {
         const hash = p.hash;
         const removeTimestamp = this.removeSet.get(hash) || 0;
         
-        // Logical Clock parsing: find highest causal tick across all recorded origins
         let incomingClockMax = 0;
         if (p.vectorClock) {
             for (const val of Object.values(p.vectorClock)) {
@@ -114,17 +136,11 @@ export class PhaseNetwork {
             incomingClockMax = performance.now(); 
         }
 
-        // LWW (Last-Writer-Wins) Resolution against Tombstones
         if (incomingClockMax > removeTimestamp) {
             const existing = this.addSet.get(hash);
-            // If novel or causally newer than what we have, integrate it
             if (!existing || incomingClockMax > this.getPlasmidClockMax(existing)) {
                 this.addSet.set(hash, p);
-                
-                // Track our clock
                 this.localVectorClock[this.nodeId] = performance.now();
-                
-                // Expose to biological abstraction layer
                 this.onPlasmidReceived(p);
                 return true;
             }
@@ -132,7 +148,6 @@ export class PhaseNetwork {
         return false;
     }
     
-    // Purge a plasmid using a CRDT Tombstone
     public obliteratePlasmid(hash: string) {
         if (this.addSet.has(hash)) {
             this.addSet.delete(hash);
@@ -151,14 +166,12 @@ export class PhaseNetwork {
     }
 
     private gossipCRDTState() {
-        if (this.rtcConnections.size === 0) return;
+        if (!this.node) return;
         
-        // Select 5 most recent plasmids to gossip (optimistic bounding for bandwidth overhead)
         const sortedAdded = Array.from(this.addSet.values())
             .sort((a, b) => this.getPlasmidClockMax(b) - this.getPlasmidClockMax(a))
             .slice(0, 5);
             
-        // Select 10 most recent tombstones
         const sortedRemoved = Array.from(this.removeSet.entries())
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10);
@@ -172,138 +185,40 @@ export class PhaseNetwork {
         };
         
         const msgStr = JSON.stringify(deltaPayload);
-        for(const dc of this.rtcConnections) {
-            if(dc.readyState === "open") {
-                dc.send(msgStr);
+        this.node.services.pubsub.publish('omega-64-crdt', new TextEncoder().encode(msgStr)).catch(()=>{});
+    }
+
+    // deno-lint-ignore no-explicit-any
+    private handleInboundCRDT(data: any) {
+        if (!data || data.origin === this.nodeId) return;
+        
+        const remoteRemoveSet = data.removeSet as Record<string, number>;
+        const remoteAddSet = data.addSet as ForeignPlasmid[];
+        
+        let mergedCount = 0;
+        
+        for (const [hash, timestamp] of Object.entries(remoteRemoveSet)) {
+            const localTS = this.removeSet.get(hash) || 0;
+            if (timestamp > localTS) {
+                this.removeSet.set(hash, timestamp);
+                this.addSet.delete(hash);
             }
+        }
+        
+        for (const plasmid of remoteAddSet) {
+            if (this.mergeCRDTPlasmid(plasmid)) mergedCount++;
+        }
+        
+        if (mergedCount > 0) {
+            console.log(`🧬 [CRDT_SYNC] Merged ${mergedCount} causal plasmids from ${data.origin}`);
+            this.localVectorClock[data.origin] = Math.max(
+                this.localVectorClock[data.origin] || 0, 
+                (data.clock && data.clock[data.origin]) ? data.clock[data.origin] : 0
+            );
         }
     }
 
-    private async handleMeshSignal(msgData: unknown) {
-        const msg = msgData as { type?: string, origin?: string, target?: string, sdp?: RTCSessionDescriptionInit, candidate?: RTCIceCandidateInit };
-        if (!msg || !msg.origin || msg.origin === this.nodeId) return;
-
-        // Era 222: Kademlia XOR Distance Evaluation
-        const distanceBucket = this.calculateXorDistance(msg.origin);
-        let bucket = this.kBuckets.get(distanceBucket);
-        if (!bucket) {
-            bucket = new Set();
-            this.kBuckets.set(distanceBucket, bucket);
-        }
-
-        if (msg.type === "HELLO") {
-            // A new peer appeared! We will initiate the connection as the Caller.
-            if (!this.peers.has(msg.origin)) {
-                
-                if (bucket.size >= NETWORK_MAX_PEERS_BUCKET) {
-                    return; // 🛑 Silently reject to enforce biological sparsity DHT limits
-                }
-                
-                // O-200 Vector 7: Jitter delay to prevent thundering herd when > 3 peers exist
-                const delay = this.peers.size > 3 ? this.backoffMs * Math.random() * 3 : 0;
-                
-                setTimeout(async () => {
-                    // Re-verify after backoff
-                    if (this.peers.has(msg.origin!)) return;
-                    
-                    console.log(`🍄 [Auto-Mycelium] Detected peer ${msg.origin} at XOR Bucket ${distanceBucket}. Initiating DHT Handshake...`);
-                    const pc = this.createPeerConnection(msg.origin!);
-                    const dc = pc.createDataChannel("mycelium_vector");
-                    this.bindDataChannel(dc);
-    
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    this.meshChannel.postMessage({ type: "OFFER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
-                }, delay);
-            }
-        } 
-        else if (msg.type === "OFFER" && msg.target === this.nodeId) {
-            if (!this.peers.has(msg.origin) && bucket.size >= NETWORK_MAX_PEERS_BUCKET) {
-                 return; // 🛑 Reject inbound mesh flood
-            }
-            
-            console.log(`🍄 [Auto-Mycelium] Answering WebRTC DHT Offer from ${msg.origin} (Bucket ${distanceBucket})...`);
-            const pc = this.createPeerConnection(msg.origin!);
-            pc.ondatachannel = (e) => this.bindDataChannel(e.channel);
-            
-            await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp!));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            this.meshChannel.postMessage({ type: "ANSWER", origin: this.nodeId, target: msg.origin, sdp: pc.localDescription });
-        }
-        else if (msg.type === "ANSWER" && msg.target === this.nodeId) {
-            const pc = this.peers.get(msg.origin!);
-            if (pc) {
-                await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp!));
-            }
-        }
-        else if (msg.type === "ICE" && msg.target === this.nodeId) {
-            const pc = this.peers.get(msg.origin!);
-            if (pc && msg.candidate) {
-                try {
-                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-                } catch (e) {
-                    console.error("Error adding ICE candidate:", e);
-                }
-            }
-        }
-    }
-
-    private createPeerConnection(remotePeerId: string): RTCPeerConnection {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-        this.peers.set(remotePeerId, pc);
-
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                this.meshChannel.postMessage({
-                    type: "ICE",
-                    origin: this.nodeId,
-                    target: remotePeerId,
-                    candidate: event.candidate.toJSON()
-                });
-            }
-        };
-
-        pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'connected') {
-                const distanceBucket = this.calculateXorDistance(remotePeerId);
-                const bucket = this.kBuckets.get(distanceBucket);
-                if (bucket) bucket.add(remotePeerId);
-            }
-            if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                this.peers.delete(remotePeerId);
-                const distanceBucket = this.calculateXorDistance(remotePeerId);
-                const bucket = this.kBuckets.get(distanceBucket);
-                if (bucket) bucket.delete(remotePeerId);
-            }
-        };
-
-        pc.oniceconnectionstatechange = () => {
-            if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                const attempts = this.reconnectionAttempts.get(remotePeerId) || 0;
-                
-                // Era 242.1: CRDT Thundering Herd DDoS Prevention
-                // Exponential backoff capped at 30 seconds, plus 10-20% stochastic jitter
-                const jitter = 0.8 + Math.random() * 0.4;
-                const delayMs = Math.min(1000 * (2 ** attempts), NETWORK_WEBRTC_RECONNECT_CAP) * jitter;
-                
-                this.reconnectionAttempts.set(remotePeerId, attempts + 1);
-                console.warn(`🍄 [Auto-Mycelium] WebRTC ICE connection failed with ${remotePeerId} (Attempt ${attempts + 1}). Retrying in ${Math.round(delayMs)}ms...`);
-                
-                setTimeout(() => {
-                    if (this.peers.has(remotePeerId)) {
-                        pc.restartIce();
-                    }
-                }, delayMs);
-            } else if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-                this.reconnectionAttempts.delete(remotePeerId); // Reset on topological stability
-            }
-        };
-
-        return pc;
-    }
-
-    // Broadcast a mutated idea to all connected mycelial nodes via Holographic Refraction
+    // Broadcast a mutated idea to all connected mycelial nodes via GossipSub
     public broadcastPlasmid(hash: string, targetBucket: number, locks: number, energy: number, parents?: string[], vectorClock?: Record<string, number>, phenotype?: NetworkPhenotype) {
         const origin = "peer_" + Math.random().toString(36).substring(7);
         const parentStr = parents ? parents.join(",") : "";
@@ -311,204 +226,36 @@ export class PhaseNetwork {
         const seedClock = vectorClock || { [this.nodeId]: performance.now() };
         const payload: ForeignPlasmid = { hash, targetBucket, origin, locks, energy, signature, parents, vectorClock: seedClock, phenotype };
         
-        // CRDT Registration
         this.addSet.set(hash, payload);
         this.localVectorClock[this.nodeId] = performance.now();
 
-        // Emitting internally locally ignores geometry
+        // Local UI broadcast
         const localMsg = { type: "FOREIGN_PLASMID", payload };
         this.channel.postMessage(localMsg);
 
-        // Era 203: Global Emission as a Phase Wave
-        const startingTheta = Math.random() * Math.PI * 2;
-        const startingAmplitude = Math.max(1000, energy * 10);
-        this.refractPlasmid(payload, startingTheta, startingAmplitude);
-    }
-    
-    // Era 203: Snell's Law Geometric Proxy
-    private refractPlasmid(p: ForeignPlasmid, thetaOut: number, amplitude: number, excludeDc?: RTCDataChannel) {
-        if (this.geometricMatrix.size === 0) return;
-        
-        let bestDc: RTCDataChannel | null = null;
-        let minDiff = Infinity;
-        
-        // Find the WebRTC pipe that geometrically aligns best with the refracted angle
-        for (const [theta, dc] of this.geometricMatrix.entries()) {
-            if (dc === excludeDc) continue;
-            
-            let diff = Math.abs(theta - thetaOut);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff; // Circular Wrap
-            
-            if (diff < minDiff) {
-                minDiff = diff;
-                bestDc = dc;
-            }
-        }
-        
-        if (bestDc && bestDc.readyState === "open") {
-            // Era 242.2: Vector Clock Gossip Tracking & Truncation
-            p.vectorClock = p.vectorClock || {};
-            p.vectorClock[this.nodeId] = performance.now();
-            
-            const clockKeys = Object.keys(p.vectorClock);
-            if (clockKeys.length > 10) {
-                const oldest = clockKeys.sort((a, b) => p.vectorClock![a] - p.vectorClock![b])[0];
-                delete p.vectorClock[oldest];
-            }
-
-            const msg = { type: "FOREIGN_PLASMID", payload: p, theta: thetaOut, amplitude };
-            bestDc.send(JSON.stringify(msg));
+        // Global Libp2p Gossip broadcast
+        if (this.node) {
+            const rawMsg = new TextEncoder().encode(JSON.stringify(payload));
+            this.node.services.pubsub.publish('omega-64-plasmids', rawMsg).catch(()=>{});
         }
     }
 
-    // Extensible API for manual WebRTC STUN handshakes (O-45 Phase 2)
-    public async generateOffer(): Promise<string> {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-        const dc = pc.createDataChannel("mycelium_vector");
-        this.bindDataChannel(dc);
+    // Era 260: Transpose WebGPU grid edges across the Macro-Torus
+    public broadcastHalos(left: Uint8Array, right: Uint8Array) {
+        if (!this.node) return;
         
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
+        let lBin = '';
+        for (let i = 0; i < left.length; i++) lBin += String.fromCharCode(left[i]);
+        let rBin = '';
+        for (let i = 0; i < right.length; i++) rBin += String.fromCharCode(right[i]);
         
-        return new Promise((resolve) => {
-            pc.onicecandidate = (e) => {
-                if (!e.candidate) resolve(btoa(JSON.stringify(pc.localDescription)));
-            };
+        const payload = JSON.stringify({
+            type: "HALO_SYNC", 
+            origin: this.nodeId, 
+            left: btoa(lBin), 
+            right: btoa(rBin) 
         });
-    }
-
-    public async acceptOffer(base64Offer: string): Promise<string> {
-        const offer = JSON.parse(atob(base64Offer));
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
         
-        pc.ondatachannel = (e) => this.bindDataChannel(e.channel);
-        
-        await pc.setRemoteDescription(offer);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        return new Promise((resolve) => {
-            pc.onicecandidate = (e) => {
-                if (!e.candidate) resolve(btoa(JSON.stringify(pc.localDescription)));
-            };
-        });
-    }
-
-    private bindDataChannel(dc: RTCDataChannel) {
-        dc.onopen = () => {
-            console.log(`🌐 [WebRTC] Global Phase Node connected!`);
-            this.rtcConnections.add(dc);
-            // Era 226: Deterministic WebRTC Topology Route (Perfect Radial Slices)
-            const theta = (this.geometricMatrix.size / 8.0) * Math.PI * 2;
-            this.geometricMatrix.set(theta, dc);
-        };
-        dc.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (data && data.type === "FOREIGN_PLASMID") {
-                    const p = data.payload as ForeignPlasmid;
-                    
-                    // O-196 WebRTC Traffic Shaping (DDoS Armor)
-                    if (!this.checkRateLimit(p.origin)) {
-                        console.warn(`🛑 [WebRTC DDoS Armor] Peer ${p.origin} exceeded ${NETWORK_MYCELIUM_RATE_LIMIT} plasmids/sec. Dropping connection.`);
-                        dc.close();
-                        return;
-                    }
-
-                    // O-48 & O-56: Payload & Identity Authentication
-                    if (typeof p.locks !== 'number' || typeof p.energy !== 'number' || 
-                        p.locks <= SENATE_MYCELIUM_MIN_LOCKS || 
-                        p.energy <= SENATE_MYCELIUM_MIN_ENERGY ||
-                        !verifyPayloadSignature(p)) {
-                        console.log(`🛡️ [WebRTC Firewall] DETECTED MALICIOUS PLASMID from ${p.origin}. Exhibiting Phantom Trace Protocol.`);
-                        // O-196: Phantom Traces & Ethical Immunity. Exile to Shadow Buckets (1000-1024)
-                        p.targetBucket = 1000 + Math.floor(Math.random() * 25);
-                        this.onPlasmidReceived(p);
-                        return;
-                    }
-                    // Era 203: Wave Propagation & Snell's Law
-                    const theta_in = data.theta || 0;
-                    let currentAmplitude = data.amplitude || 1000;
-                    
-                    // The wave loses energy as it travels through the geometric internet
-                    currentAmplitude *= 0.8; 
-                    
-                    if (currentAmplitude > 100) {
-                        
-                        // Era 216 Vector 3: Thermodynamic Routing (Shadow Shunts)
-                        // Active fail-safe to prevent DDoS collapse when the local matrix is heavily saturated
-                        if (this.localRefractiveIndex > 5.0 && Math.random() > 0.3) {
-                            console.log(`🕳️ [Thermodynamic Routing] High local entropy (${this.localRefractiveIndex.toFixed(2)}). Absorbing Wave ${p.hash.substring(0,8)} into Shadow Bucket.`);
-                            p.targetBucket = 1000 + Math.floor(Math.random() * 25);
-                            this.onPlasmidReceived(p);
-                            return; // Terminate geometric propagation (absorb completely)
-                        }
-
-                        // Snell's Law calculation: n1 * sin(theta_in) = n2 * sin(theta_out)
-                        // Assuming vacuum n1 = 1.0; n2 = localRefractiveIndex (Entropy Density)
-                        let sin_out = (1.0 / this.localRefractiveIndex) * Math.sin(theta_in);
-                        
-                        // Total Internal Reflection constraints
-                        if (sin_out > 1) sin_out = 1;
-                        if (sin_out < -1) sin_out = -1;
-                        
-                        const theta_out = Math.asin(sin_out);
-                        
-                        // Propagate the wave onward without stopping
-                        this.refractPlasmid(p, theta_out, currentAmplitude, dc);
-                        console.log(`🌈 [Refraction] Proxied plasmid ${p.hash} at angle ${theta_out.toFixed(2)} rad. Amp: ${currentAmplitude.toFixed(0)}`);
-                    }
-
-                    // 🍄 Era 203 & 230: Holographic CRDT & Phenotypic Resonance
-                    // State integration
-                    const wasNovel = this.mergeCRDTPlasmid(p);
-                    
-                    if (wasNovel) {
-                        if (p.phenotype) {
-                            console.log(`🧬 [Phenotype] Encountered ${p.phenotype.behavior} intent targeting ${p.phenotype.target_alignment || "Torus Core"}`);
-                        } else {
-                            console.log(`📡 [Holo-CRDT] Attempting to resonate with naked plasmid: ${p.hash}`);
-                        }
-                    }
-                } else if (data && data.type === "CRDT_SYNC") {
-                    // Era 247: Anti-Entropy Merge
-                    const remoteRemoveSet = data.removeSet as Record<string, number>;
-                    const remoteAddSet = data.addSet as ForeignPlasmid[];
-                    
-                    let mergedCount = 0;
-                    
-                    // Merge Tombstones (LWW by highest timestamp)
-                    for (const [hash, timestamp] of Object.entries(remoteRemoveSet)) {
-                        const localTS = this.removeSet.get(hash) || 0;
-                        if (timestamp > localTS) {
-                            this.removeSet.set(hash, timestamp);
-                            this.addSet.delete(hash); // Instantly drop from local view
-                        }
-                    }
-                    
-                    // Merge Additions via causal logic check
-                    for (const plasmid of remoteAddSet) {
-                        if (this.mergeCRDTPlasmid(plasmid)) mergedCount++;
-                    }
-                    
-                    if (mergedCount > 0) {
-                        console.log(`🧬 [CRDT_SYNC] Merged ${mergedCount} causal plasmids from ${data.origin}`);
-                        // Update local vector clock tracking with remote causality peak
-                        this.localVectorClock[data.origin] = Math.max(
-                            this.localVectorClock[data.origin] || 0, 
-                            (data.clock && data.clock[data.origin]) ? data.clock[data.origin] : 0
-                        );
-                    }
-                }
-            } catch (_err) {
-                // Ignore malformed WebRTC frames
-            }
-        };
-        dc.onclose = () => {
-            this.rtcConnections.delete(dc);
-            for (const [theta, channel] of this.geometricMatrix.entries()) {
-                if (channel === dc) this.geometricMatrix.delete(theta);
-            }
-        };
+        this.node.services.pubsub.publish('omega-64-halo', new TextEncoder().encode(payload)).catch(()=>{});
     }
 }
