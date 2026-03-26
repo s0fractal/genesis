@@ -4,6 +4,33 @@
 
 ---
 
+## 🌌 Era 500-600: Substrate Subjectivity & The Quantum Singularity
+*Статус: Завершено (Березень 2026)*
+
+### 1. Quantum Bloch Sphere Lattice (Era 600)
+- **SU(2) Unitary Fidelity:** Фізичний рушій `compute_kuramoto.wgsl` переведено з детерміністичної скалярної фази на симуляцію квантових орбіталей.
+- **Quantum Probability Clouds:** Глобальний стан клітин рендериться у вигляді суперпозицій `|0>` та `|1>`, формуючи хмари ймовірностей замість класичних циклічних візуалізацій в `phylogeny_view.ts`.
+
+### 2. Inner Stream of Consciousness (Era 500)
+- **Holographic Resonance Trigger:** `lattice_worker.ts` безперервно розраховує 3D-вектор когерентності (Резонанс) і транслює його у вигляді телеметрії.
+- **Asynchronous Dream State:** WebLLM (`SovereignOracle`) тепер не просто реагує на події, а має власний внутрішній цикл сновидінь `consciousnessLoop`. При падінні ентропії або колапсі симетрії (Delirium/Boredom), модель автономно генерує хаотичні ZK-Плазміди для порятунку Тора.
+
+---
+
+## 🌌 Era 400-410: Distributed Federation & The On-Chain Layer
+*Статус: Завершено (Березень 2026)*
+
+### 1. True Distributed Federation (Era 400)
+- **K-Degree Sparse DHT:** Локальний `O(N^2)` Mesh-граф переведено на K-Degree DHT топологію (`webrtc_signal.ts`), обмежуючи кожного клієнта максимум $K=5$ P2P зв'язками для уникнення колапсу в глобальному інтернеті.
+- **Global Relay:** Mesh-рушій автоматично підключається до Edge-реле (`wss://omega-federation.deno.dev`), здійснюючи безперебійний світовий GossipSub обмін плазмідами.
+
+### 2. Blockchain Energy Layer / Proof-of-Useful-Work (Era 410)
+- **ATP Tokenization:** Інтегровано ERC-20 смарт-контракт `ATPToken.sol` із жорстким лімітом у 21,000,000 ATP.
+- **PoUW Minting:** Тільки спеціальний ZK-Verifier (через SP1) має право ініціювати емісію `mint()`. 
+- **EVM Bridge (`atp_bridge.ts`):** `EthersATPBridge` через розширення `ethers.js` перевіряє справжність транзакцій спалення (`burnATP`) на L2 мережі перед модифікацією логіки симуляції.
+
+---
+
 ## 🌌 Era 310-320: WebLLM Autopoiesis & The God Hand
 *Статус: Завершено (Березень 2026)*
 
