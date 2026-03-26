@@ -14,7 +14,8 @@
     "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
     "verify:phase-coherence": "deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
     "verify:phase-stack": "deno task verify:phase-coherence",
-    "verify:golden": "deno run -A tools/verify_golden.ts"
+    "verify:golden": "deno run -A tools/verify_golden.ts",
+    "start:signal": "deno run -A tools/webrtc_signal.ts"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",
@@ -27,6 +28,7 @@
     "@chainsafe/libp2p-noise": "^17.0.0",
     "@helia/strings": "^5.0.7",
     "@libp2p/kad-dht": "^16.1.6",
+    "@libp2p/webrtc": "^6.0.14",
     "@libp2p/websockets": "^10.1.6",
     "@libp2p/webtransport": "^6.0.15",
     "@libp2p/yamux": "^8.0.1",

@@ -92,6 +92,8 @@ async function physicsLoop() {
                     globalEnergy: oracle.getGlobalEnergy(),
                     climate: oracle.getCurrentClimate(),
                     queueSize: oracle.getQueueSize(),
+                    nomosVerified: oracle.nomosProofsVerified,
+                    nomosOrphaned: oracle.nomosOrphanedPlasmids,
                     apexPlasmids: oracle.getApexPlasmids(3).map(p => ({
                         hash: p.hash.toString(),
                         astStr: p.ast,
@@ -143,6 +145,10 @@ async function initEnvironment() {
     // Instantiate Macro-Torus Network Mycelium
     network = new PhaseNetwork((p) => {
         // Placeholder for remote plasmid ingestion
+    }, (packet) => {
+        for (const port of connections) {
+            port.postMessage(packet);
+        }
     });
 
     network.onHaloReceived = (left: Uint8Array, right: Uint8Array) => {
@@ -190,6 +196,8 @@ async function initEnvironment() {
         
         else if (msg.data.type === 'GOD_HAND_ENERGY') {
             // Implement simple WASM memory injection or add to queue
+        } else if (msg.data.type === 'FOREIGN_PLASMID' || msg.data.type === 'HALO_SYNC') {
+            if (network) network.handleIncomingPacket(msg.data);
         }
     });
 

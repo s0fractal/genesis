@@ -4,6 +4,7 @@ import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
 import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY, ORACLE_BACKOFF_BASE_MS, ORACLE_BACKOFF_MAX_MS, ORACLE_AKASHIC_GC_THRESHOLD, ORACLE_AKASHIC_GC_TARGET, BIOLOGY_EXTINCTION_THRESHOLD } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { WasmMemoryProxy } from "../shared/memory_proxy.ts";
+import { NomosGate } from "./nomos_gate.ts";
 import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
@@ -46,6 +47,10 @@ export class SovereignOracle {
     
     // Era 207: Cognitive Replay (Meta-Memory Bank)
     public akashicRecords = new Map<bigint, string>();
+
+    // Era 300: Nomos ZK-SNARK Metrics
+    public nomosProofsVerified: number = 0;
+    public nomosOrphanedPlasmids: number = 0;
     
     // O-51 Senate Chat HUD Telemetry
     public onSenateEvent?: (event: SenateEvent) => void;
@@ -1246,6 +1251,15 @@ export class SovereignOracle {
                      }
                      
                      const childStr = lambda_format_term(childTerm);
+                     
+                     // Era 300: The Nomos Gate (ZK-SNARK Simulation)
+                     const proof = NomosGate.verify_plasmid(childStr, 15000);
+                     if (!proof.valid) {
+                         this.nomosOrphanedPlasmids++;
+                         continue; // Orphan the payload structurally
+                     }
+                     this.nomosProofsVerified++;
+
                      let childHash = this.fastSemanticHash(childStr);
                      
                      const hue = lambda_phenotype_hue(childTerm);
@@ -1616,6 +1630,16 @@ export class SovereignOracle {
         try {
             const astTerm = lambda_parse(intent);
             const astStr = lambda_format_term(astTerm); // Normalize spacing and validation
+            
+            // Era 300: The Nomos Gate (ZK-SNARK Simulation)
+            const proof = NomosGate.verify_plasmid(astStr, 15000);
+            if (!proof.valid) {
+                this.nomosOrphanedPlasmids++;
+                console.warn(`[SENATE] ❌ ZK-SNARK Verification Failed: Proof orphaned for ${astStr}`);
+                return; // Orphan the payload structurally
+            }
+            this.nomosProofsVerified++;
+
             hash = lambda_compile_morphology(astTerm);
             if (!this.plasmidRegistry.has(hash)) {
                 const metrics = measureIR(astTerm);

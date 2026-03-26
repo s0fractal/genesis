@@ -2,6 +2,7 @@ import { PhaseWebGPUObserver, TopologyMetadata } from "../lens/phase_webgpu.ts";
 import { configureCanvas, DOM, frames, setHudStat, setInputMode, tickFps } from "./dom.ts";
 import { SenateChatHUD } from "../ontology/senate_hud.ts";
 import { PhylogenyView } from "../lens/phylogeny_view.ts";
+import { WebRTCMesh } from "../network/webrtc_mesh.ts";
 
 export async function bootstrapPhase() {
   console.log("[Genesis] Bootstrapping Global Macro-Torus Worker Topology (Era 250: SharedWorker)...");
@@ -46,6 +47,9 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   setHudStat("c", "SIGNATURE", "federation");
   setInputMode("semantic");
 
+  // Era 300: Spawn Native WebRTC Mesh for the UI Thread
+  const mesh = new WebRTCMesh(workerPort, "ws://localhost:9091");
+
   const observer = new PhaseWebGPUObserver(canvas, metadata, device);
   observer.workerPort = workerPort;
   await observer.init();
@@ -85,6 +89,8 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   let globalEnergy = 0;
   let climate = "SPRING (Mutation)";
   let queueSize = 0;
+  let nomosVerified = 0;
+  let nomosOrphaned = 0;
   let apexPlasmids: {hash: string, astStr: string, energy: number}[] = [];
 
   workerPort.addEventListener('message', (e) => {
@@ -95,13 +101,19 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
           globalEnergy = msg.globalEnergy;
           climate = msg.climate;
           queueSize = msg.queueSize;
+          nomosVerified = msg.nomosVerified || 0;
+          nomosOrphaned = msg.nomosOrphaned || 0;
           apexPlasmids = msg.apexPlasmids;
       } else if (msg.type === 'FRAME_DATA') {
           current_tau = msg.tau;
           // Render reactively against the incoming Zero-Copy Transfer block
           observer.render(msg.buffer, current_tau);
+      } else if (msg.type === 'HALO_SYNC' || msg.type === 'FOREIGN_PLASMID') {
+          mesh.broadcast(msg);
       } else if (msg.type === 'SENATE_EVENT') {
           senateChat.handleEvent(msg.event);
+      } else if (msg.type === 'P2P_BROADCAST') {
+          mesh.broadcast(msg.payload);
       }
   });
 
@@ -131,7 +143,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
 
       tickFps();
       if (frames === 0) {
-          DOM.statusLabel?.replaceChildren(`[${climate}] ENT ${currentEntropy.toFixed(2)} | Q ${queueSize} | Δ ${globalEnergy}`);
+          DOM.statusLabel?.replaceChildren(`[${climate}] ENT ${currentEntropy.toFixed(2)} | Q ${queueSize} | Δ ${globalEnergy} | ZK-V: ${nomosVerified} ZK-X: ${nomosOrphaned}`);
       }
 
       requestAnimationFrame(loop);
