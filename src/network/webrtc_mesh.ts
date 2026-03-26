@@ -1,5 +1,6 @@
 import { NomosGate } from "../ontology/nomos_gate.ts";
 import { MockATPBridge, IATPBridge } from "./atp_bridge.ts";
+import { omega64 } from "../proto/omega64.js";
 
 export class WebRTCMesh {
     private signaling: WebSocket;
@@ -80,8 +81,24 @@ export class WebRTCMesh {
         channel.onmessage = async (event) => {
             // Relay data straight to the Macro-Torus Worker!
             try {
-                const packet = JSON.parse(event.data);
-                if (packet.type === 'FOREIGN_PLASMID') {
+                let packet: any;
+                if (event.data instanceof ArrayBuffer) {
+                    // @ts-ignore: pbts generates strict signatures that expect a reader, length, error
+                    const decoded = omega64.OmegaMessage.decode(new Uint8Array(event.data)) as any;
+                    
+                    if (decoded.type === omega64.OmegaMessage.MessageType.FOREIGN_PLASMID && decoded.plasmid) {
+                        packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid };
+                    } else if (decoded.type === omega64.OmegaMessage.MessageType.HALO_SYNC && decoded.halo) {
+                        packet = { type: 'HALO_SYNC', left: decoded.halo.left, right: decoded.halo.right };
+                    } else if (decoded.type === omega64.OmegaMessage.MessageType.SYNC_METADATA && decoded.telemetry) {
+                        packet = decoded.telemetry;
+                        packet.type = 'SYNC_METADATA';
+                    }
+                } else if (typeof event.data === "string") {
+                    packet = JSON.parse(event.data);
+                }
+
+                if (packet && packet.type === 'FOREIGN_PLASMID' && packet.payload) {
                     // Era 280: Validate SP1 STARK ZK-Proof receipt before injection!
                     if (packet.payload.proof_bytes) {
                         const proof = NomosGate.verify_sp1_receipt(
@@ -107,11 +124,11 @@ export class WebRTCMesh {
                     } else {
                         console.warn(`[WebRTCMesh] Plasmid packet missing ZK 'proof_bytes'! Rejected.`);
                     }
-                } else if (packet.type === 'HALO_SYNC') {
+                } else if (packet && packet.type === 'HALO_SYNC') {
                     this.workerPort.postMessage(packet);
                 }
             } catch (_e) {
-                // binary or unrecognized packet
+                console.error("[WebRTCMesh] Failed to process message", _e);
             }
         };
     }
@@ -155,11 +172,40 @@ export class WebRTCMesh {
     }
     
     // Called by the DOM (phase.ts) when the Worker wants to broadcast to the P2P Mesh
-    public broadcast(packet: Record<string, unknown>) {
-        const dataStr = JSON.stringify(packet);
+    public broadcast(packet: Record<string, any>) {
+        let rawData: Uint8Array | string;
+        
+        if (packet.type === 'FOREIGN_PLASMID' && packet.payload) {
+             const msg = omega64.OmegaMessage.create({
+                 type: omega64.OmegaMessage.MessageType.FOREIGN_PLASMID,
+                 plasmid: packet.payload
+             });
+             rawData = omega64.OmegaMessage.encode(msg).finish();
+        } else if (packet.type === 'HALO_SYNC') {
+             const leftArr = packet.left ? new Uint8Array(Object.values(packet.left)) : new Uint8Array();
+             const rightArr = packet.right ? new Uint8Array(Object.values(packet.right)) : new Uint8Array();
+             
+             const msg = omega64.OmegaMessage.create({
+                 type: omega64.OmegaMessage.MessageType.HALO_SYNC,
+                 halo: { 
+                     left: leftArr, 
+                     right: rightArr 
+                 }
+             });
+             rawData = omega64.OmegaMessage.encode(msg).finish();
+        } else if (packet.type === 'SYNC_METADATA') {
+             const msg = omega64.OmegaMessage.create({
+                 type: omega64.OmegaMessage.MessageType.SYNC_METADATA,
+                 telemetry: packet
+             });
+             rawData = omega64.OmegaMessage.encode(msg).finish();
+        } else {
+             rawData = JSON.stringify(packet);
+        }
+
         for (const channel of this.channels.values()) {
             if (channel.readyState === "open") {
-                channel.send(dataStr);
+                channel.send(rawData as any);
             }
         }
     }

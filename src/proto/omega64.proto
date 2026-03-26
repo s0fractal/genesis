@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package omega64;
+
+message NetworkPhenotype {
+  string behavior = 1;
+  float latency = 2;
+  float replication_cost = 3;
+  string network_signature = 4;
+  string target_alignment = 5;
+}
+
+message ForeignPlasmid {
+  string hash = 1;
+  string astStr = 2;
+  float energy = 3;
+  uint32 targetBucket = 4;
+  string origin = 5;
+  repeated string parents = 6;
+  string signature = 7;
+  map<string, uint32> vectorClock = 8;
+  NetworkPhenotype phenotype = 9;
+  string proof_bytes = 10;
+  string morphology_hash = 11;
+  uint32 steps_cost = 12;
+  string burn_tx_hash = 13;
+}
+
+message HaloSync {
+  bytes left = 1;
+  bytes right = 2;
+}
+
+message OracleTelemetry {
+  float entropy = 1;
+  float resonance = 2;
+  float globalEnergy = 3;
+  string climate = 4;
+  uint32 queueSize = 5;
+  uint32 nomosVerified = 6;
+  uint32 nomosOrphaned = 7;
+  
+  message ApexPlasmid {
+    string hash = 1;
+    string astStr = 2;
+    uint32 energy = 3;
+  }
+  repeated ApexPlasmid apexPlasmids = 8;
+  uint32 current_tau = 9;
+}
+
+message OmegaMessage {
+  enum MessageType {
+    UNKNOWN = 0;
+    FOREIGN_PLASMID = 1;
+    HALO_SYNC = 2;
+    SYNC_METADATA = 3;
+  }
+  
+  MessageType type = 1;
+  ForeignPlasmid plasmid = 2;
+  HaloSync halo = 3;
+  OracleTelemetry telemetry = 4;
+}
