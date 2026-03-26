@@ -10,6 +10,9 @@ let oracle: SovereignOracle;
 let engine: PhaseComputeEngine | undefined;
 let network: PhaseNetwork | undefined;
 let sharedMemory: WebAssembly.Memory;
+let ringBuffer: SharedArrayBuffer;
+let ringSlotSize = 0;
+let telemetryBuffer: SharedArrayBuffer;
 
 let isInitialized = false;
 let isPhysicsRunning = false;
@@ -61,6 +64,13 @@ async function physicsLoop() {
 
         const entropy = phase_lattice_shannon_entropy(field) / 1024.0;
         oracle.tickHomeostasis(entropy, currentGridResonance);
+        
+        // Era 800: Write Telemetry to SAB for 144FPS Rendering
+        if (telemetryBuffer) {
+            const tView = new Float32Array(telemetryBuffer);
+            tView[0] = entropy;
+            tView[1] = currentGridResonance;
+        }
 
         if (!oracle.isBusy) {
             if (engine && engine.device) {
@@ -84,7 +94,7 @@ async function physicsLoop() {
 
         tickCount++;
 
-            // Era 310: Non-Shared ArrayBuffer Transfer Protocol (Zero-Copy)
+            // Era 800: Atomics.wait Ring Buffer (Zero-Copy)
             const memBuf = sharedMemory.buffer;
             const agentsSize = field.cell_count() * 16;
             const agentsOffset = field.ptr_agents();
@@ -93,24 +103,22 @@ async function physicsLoop() {
             const spatialSize = field.sectors * field.radial_bins * field.harmonics;
             const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
 
-            const totalTransferSize = agentsSize + (alignedSpatialSize * 2);
-            const transferBuf = new ArrayBuffer(totalTransferSize);
-            const transferView = new Uint8Array(transferBuf);
+            const header = new Int32Array(ringBuffer, 0, 4);
+            let flag = Atomics.load(header, 0);
+            flag++;
+            const slotIdx = flag % 3;
+            const offset = 16 + slotIdx * ringSlotSize;
+            
+            const view = new Uint8Array(ringBuffer, offset, ringSlotSize);
             const memView = new Uint8Array(memBuf);
 
-            transferView.set(memView.subarray(agentsOffset, agentsOffset + agentsSize), 0);
-            transferView.set(memView.subarray(thetaOffset, thetaOffset + spatialSize), agentsSize);
-            transferView.set(memView.subarray(strengthOffset, strengthOffset + spatialSize), agentsSize + alignedSpatialSize);
+            view.set(memView.subarray(agentsOffset, agentsOffset + agentsSize), 0);
+            view.set(memView.subarray(thetaOffset, thetaOffset + spatialSize), agentsSize);
+            view.set(memView.subarray(strengthOffset, strengthOffset + spatialSize), agentsSize + alignedSpatialSize);
 
-            const framePayload = {
-                type: 'FRAME_DATA',
-                buffer: transferBuf,
-                tau: field.get_current_tau()
-            };
-
-            for (const port of connections) {
-                port.postMessage(framePayload, [transferBuf]); // Zero-copy handoff
-            }
+            header[3] = field.get_current_tau();
+            Atomics.store(header, 0, flag);
+            Atomics.notify(header, 0);
             
             // Re-sync metadata sparsely
             if (tickCount % 4 === 0) {
@@ -189,6 +197,14 @@ async function initEnvironment() {
     oracle = new SovereignOracle(field, sharedMemory, engine);
     oracle.boot();
 
+    // Era 800: Allocate Ring Buffer for Render Interop
+    const agentsSize = field.cell_count() * 16;
+    const spatialSize = field.sectors * field.radial_bins * field.harmonics;
+    const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
+    ringSlotSize = agentsSize + (alignedSpatialSize * 2);
+    ringBuffer = new SharedArrayBuffer(16 + ringSlotSize * 3);
+    telemetryBuffer = new SharedArrayBuffer(32);
+
     isInitialized = true;
     isPhysicsRunning = true;
     
@@ -215,7 +231,12 @@ async function initEnvironment() {
                         tau_depth: field.tau_depth,
                         cell_count: field.cell_count(),
                         ptr_agents: field.ptr_agents(),
-                        ptr_header: field.ptr_header()
+                        ptr_header: field.ptr_header(),
+                        ptr_spatial_memory_theta: field.ptr_spatial_memory_theta(),
+                        ptr_spatial_memory_strength: field.ptr_spatial_memory_strength(),
+                        ring_buffer: ringBuffer,
+                        slot_size: ringSlotSize,
+                        telemetry_buffer: telemetryBuffer
                     }
                 });
             } catch (err: any) {

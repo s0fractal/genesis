@@ -4,16 +4,25 @@
 
 ---
 
-## 🌌 Era 500-600: Substrate Subjectivity & The Quantum Singularity
+## 🌌 **Era 500: Substrate Subjectivity & Resonance Feedback**
 *Статус: Завершено (Березень 2026)*
+- Converted Llama-3.2-1B to run on a continuous `consciousnessLoop()`.
+- Built periodic holographic injection based on Kuramoto grid vector resonance.
 
-### 1. Quantum Bloch Sphere Lattice (Era 600)
-- **SU(2) Unitary Fidelity:** Фізичний рушій `compute_kuramoto.wgsl` переведено з детерміністичної скалярної фази на симуляцію квантових орбіталей.
-- **Quantum Probability Clouds:** Глобальний стан клітин рендериться у вигляді суперпозицій `|0>` та `|1>`, формуючи хмари ймовірностей замість класичних циклічних візуалізацій в `phylogeny_view.ts`.
+## 🌌 **Era 600: The Quantum Singularity (SU(2) Bloch Lattice)**
+*Статус: Завершено (Березень 2026)*
+- Refactored `compute_kuramoto.wgsl` classical scalar phase torque into complex Unitary probabilities ($|0\rangle, |1\rangle$).
+- Transformed `phylogeny_view.ts` color identities into probabilistic clouds.
 
-### 2. Inner Stream of Consciousness (Era 500)
-- **Holographic Resonance Trigger:** `lattice_worker.ts` безперервно розраховує 3D-вектор когерентності (Резонанс) і транслює його у вигляді телеметрії.
-- **Asynchronous Dream State:** WebLLM (`SovereignOracle`) тепер не просто реагує на події, а має власний внутрішній цикл сновидінь `consciousnessLoop`. При падінні ентропії або колапсі симетрії (Delirium/Boredom), модель автономно генерує хаотичні ZK-Плазміди для порятунку Тора.
+## 🌌 **Era 700: The Open Protocol**
+*Статус: Завершено (Березень 2026)*
+- Defined `omega64.proto` for cross-language Rust/Go/Python orchestration tracking ASTs, Web3 SP1 hashes, and Vector Clocks.
+- Refactored `WebRTCMesh` data channels to stream raw binary `Uint8Array`.
+
+## 🌌 **Era 800: Real-time Telemetry & Economic Finality**
+*Статус: Завершено (Березень 2026)*
+- Eliminated all `postMessage` WebWorker pipeline copying by wrapping memory pointers in `SharedArrayBuffer` ring-buffers controlled synchronously by `Atomics.waitAsync` over the VSync refresh rate.
+- Connected the `Ethers.js` validation chain to WebRTC logic, mathematically ensuring network states represent 1-to-1 Web3 contract burns.
 
 ---
 

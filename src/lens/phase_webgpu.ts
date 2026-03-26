@@ -18,6 +18,9 @@ export interface TopologyMetadata {
     ptr_header: number;
     ptr_spatial_memory_theta?: number;
     ptr_spatial_memory_strength?: number;
+    ring_buffer?: SharedArrayBuffer;
+    slot_size?: number;
+    telemetry_buffer?: SharedArrayBuffer;
 }
 
 export class PhaseWebGPUObserver {
@@ -406,7 +409,7 @@ export class PhaseWebGPUObserver {
         });
     }
 
-    render(sab: ArrayBufferLike, current_tau: number, sectorHeatArray?: Float32Array) {
+    render(sab: ArrayBufferLike | Uint8Array, current_tau: number, sectorHeatArray?: Float32Array) {
         if (!this.context) return;
         
         const numCells = this.metadata.cell_count;
@@ -425,7 +428,9 @@ export class PhaseWebGPUObserver {
             ctx.fillRect(0, 0, w, h);
             
             // Zero-Offset Array Map Slice mapping
-            const dv = new DataView(sab, 0, numCells * 16);
+            const viewBuffer = sab instanceof Uint8Array ? sab.buffer : sab;
+            const viewOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
+            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * 16);
             
             for (let i = 0; i < numCells; i++) {
                 const offset = i * 16;
@@ -447,18 +452,26 @@ export class PhaseWebGPUObserver {
         }
 
         // Era 310: Zero-Copy ArrayBuffer Slice Handoff Mapping
-        const byteSize = numCells * 16;
-        let offset = 0;
-        this.device.queue.writeBuffer(this.latticeBuffer, 0, sab as ArrayBuffer, offset, byteSize);
-        offset += byteSize;
+        const sourceBuffer = sab instanceof Uint8Array ? sab.buffer : sab;
+        let sourceOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
+        const sourceLength = sab.byteLength;
+        
+        this.device.queue.writeBuffer(
+            this.latticeBuffer,
+            0,
+            sourceBuffer as ArrayBuffer,
+            sourceOffset,
+            numCells * 16
+        );
+        sourceOffset += numCells * 16;
 
         const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
         const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
 
         if (this.metadata.ptr_spatial_memory_theta !== undefined && this.metadata.ptr_spatial_memory_strength !== undefined) {
-            this.device.queue.writeBuffer(this.akashicThetaBuffer, 0, sab as ArrayBuffer, offset, spatialSize);
-            offset += alignedSpatialSize;
-            this.device.queue.writeBuffer(this.akashicStrengthBuffer, 0, sab as ArrayBuffer, offset, spatialSize);
+            this.device.queue.writeBuffer(this.akashicThetaBuffer, 0, sourceBuffer as ArrayBuffer, sourceOffset, spatialSize);
+            sourceOffset += alignedSpatialSize;
+            this.device.queue.writeBuffer(this.akashicStrengthBuffer, 0, sourceBuffer as ArrayBuffer, sourceOffset, spatialSize);
         }
 
         const time = (performance.now() - this.startTime) / 1000.0;
@@ -525,8 +538,10 @@ export class PhaseWebGPUObserver {
             let closestLock = 0;
             let closestEnt = 0;
 
-            // GPU Raycasting hits read directly from the Zero-Copy Array View Offset
-            const dv = new DataView(sab, 0, numCells * 16);
+            // GPU Raycasting hits read directly from the Zero-Copy
+            const viewBuffer = sab instanceof Uint8Array ? sab.buffer : sab;
+            const viewOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
+            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * 16);
             
             const vOut = new Float32Array(4);
             const vPos = new Float32Array(4);

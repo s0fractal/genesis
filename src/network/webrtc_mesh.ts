@@ -1,5 +1,5 @@
 import { NomosGate } from "../ontology/nomos_gate.ts";
-import { MockATPBridge, IATPBridge } from "./atp_bridge.ts";
+import { EthersATPBridge, IATPBridge } from "./atp_bridge.ts";
 import { omega64 } from "../proto/omega64.js";
 
 export class WebRTCMesh {
@@ -12,7 +12,7 @@ export class WebRTCMesh {
 
     constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev") {
         this.workerPort = workerPort;
-        this.atpBridge = new MockATPBridge(); // Era 300: Instantiate Web3 Token Osmosis Bridge
+        this.atpBridge = new EthersATPBridge(); // Era 800: Real Web3 Token Osmosis Bridge
         this.signaling = new WebSocket(signalingUrl);
 
         this.signaling.onmessage = this.handleSignalingMessage.bind(this);

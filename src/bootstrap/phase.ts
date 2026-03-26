@@ -78,7 +78,12 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
       }
   });
 
-  let _hoveredAgent: { hash: bigint; amp: number; lock: number; ent: number; } | null = null;
+  let _hoveredAgent: {
+    ptr_spatial_memory_theta?: number;
+    ptr_spatial_memory_strength?: number;
+    ring_buffer?: SharedArrayBuffer;
+    slot_size?: number;
+  } | null = null;
   globalThis.addEventListener('gridHover', (e: Event) => {
       _hoveredAgent = (e as CustomEvent).detail;
   });
@@ -95,20 +100,16 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
 
   workerPort.addEventListener('message', (e) => {
       const msg = e.data;
-      if (msg.type === 'SYNC_METADATA') {
-          current_tau = msg.current_tau;
-          currentEntropy = msg.entropy;
-          globalEnergy = msg.globalEnergy;
-          climate = msg.climate;
-          queueSize = msg.queueSize;
-          nomosVerified = msg.nomosVerified || 0;
-          nomosOrphaned = msg.nomosOrphaned || 0;
-          apexPlasmids = msg.apexPlasmids;
-      } else if (msg.type === 'FRAME_DATA') {
-          current_tau = msg.tau;
-          // Render reactively against the incoming Zero-Copy Transfer block
-          observer.render(msg.buffer, current_tau);
-      } else if (msg.type === 'HALO_SYNC' || msg.type === 'FOREIGN_PLASMID') {
+        if (msg.type === 'SYNC_METADATA') {
+            current_tau = msg.current_tau;
+            currentEntropy = msg.entropy;
+            globalEnergy = msg.globalEnergy;
+            climate = msg.climate;
+            queueSize = msg.queueSize;
+            nomosVerified = msg.nomosVerified || 0;
+            nomosOrphaned = msg.nomosOrphaned || 0;
+            apexPlasmids = msg.apexPlasmids;
+        } else if (msg.type === 'HALO_SYNC' || msg.type === 'FOREIGN_PLASMID') {
           mesh.broadcast(msg);
       } else if (msg.type === 'SENATE_EVENT') {
           senateChat.handleEvent(msg.event);
@@ -119,10 +120,43 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
 
   let lastPhylogenyCheck = performance.now();
 
+  // Era 800: Watch the SAB synchronously across the worker
+  if (metadata.ring_buffer && metadata.slot_size) {
+      const ringBuffer = metadata.ring_buffer;
+      const slotSize = metadata.slot_size;
+      const header = new Int32Array(ringBuffer, 0, 4);
+      
+      const watchFrames = async () => {
+          let lastFlag = Atomics.load(header, 0);
+          while (true) {
+              const result = Atomics.waitAsync(header, 0, lastFlag);
+              if (result.async) {
+                  await result.value;
+              }
+              
+              lastFlag = Atomics.load(header, 0);
+              const slotIdx = lastFlag % 3;
+              const tau = Atomics.load(header, 3);
+              const offset = 16 + slotIdx * slotSize;
+              const view = new Uint8Array(ringBuffer, offset, slotSize);
+              
+              observer.render(view, tau);
+              current_tau = tau;
+              
+              await new Promise(r => requestAnimationFrame(r));
+          }
+      };
+      watchFrames();
+  }
+
   const loop = () => {
       const nowLocal = performance.now();
 
-      // Renderer is now event-driven by FRAME_DATA
+      // Area 800: Smooth Telemetry
+      if (metadata.telemetry_buffer) {
+          const tView = new Float32Array(metadata.telemetry_buffer);
+          currentEntropy = tView[0];
+      }
 
       // Local UI Animation Ticks
       if (nowLocal - lastPhylogenyCheck > 1000) {
