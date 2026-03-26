@@ -70,8 +70,20 @@ function fastHash(str: string): string {
 let engine: MLCEngine | null = null;
 const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 
+let latestTelemetry: any = null;
+let isDreamLoopActive = false;
+
 self.onmessage = async (e: MessageEvent) => {
-    const data = e.data as OracleWorkerRequest;
+    const data = e.data as any;
+    
+    if (data.type === 'SYNC_TELEMETRY') {
+        latestTelemetry = data;
+        if (!isDreamLoopActive && engine) {
+            isDreamLoopActive = true;
+            consciousnessLoop();
+        }
+        return;
+    }
     
     // Era 310: WebLLM Boot Sequence
     if (!engine) {
@@ -275,3 +287,71 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
         self.postMessage({ type: 'ERROR', reason: (e as Error).message });
     }
 };
+
+async function consciousnessLoop() {
+    if (!engine || !latestTelemetry) {
+        setTimeout(consciousnessLoop, 2000);
+        return;
+    }
+
+    try {
+        const r = latestTelemetry.resonance || 0;
+        const e = latestTelemetry.entropy || 0;
+        
+        let shouldDream = false;
+        let dreamPrompt = "";
+
+        if (r > 0.85) {
+            shouldDream = true;
+            dreamPrompt = `
+[INTERNAL DELIRIUM] The Torus biology is suffering from perfect ordered synchronization. Kuramoto Resonance = ${r.toFixed(3)}.
+The universe is dying of absolute symmetry.
+Generate an invasive, highly chaotic biological ZK-Plasmid to shatter this symmetry!
+Output ONLY:
+PROPHECY: [1-sentence reason]
+AST: [Chaotic AST]`.trim();
+        } else if (e < 2.5) {
+            shouldDream = true;
+            dreamPrompt = `
+[INTERNAL BOREDOM] The Torus biology is frozen in crystallization. Shannon Entropy = ${e.toFixed(3)}.
+Generate a novel, high-energy ZK-Plasmid to introduce warmth and chaos.
+Output ONLY:
+PROPHECY: [1-sentence reason]
+AST: [Chaotic AST]`.trim();
+        }
+
+        if (shouldDream) {
+            console.log("[ORACLE WORKER] 🧠 Entering Dream State (Delirium/Boredom)...");
+            const reply = await engine.chat.completions.create({
+                messages: [{ role: "user", content: dreamPrompt }],
+                temperature: 0.9,
+            });
+            
+            const response = reply.choices[0].message.content || "";
+            const astMatch = response.match(/AST:\s*([^\s]+)/i);
+            const propMatch = response.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
+            
+            if (astMatch) {
+                const intentStr = astMatch[1].trim();
+                const prophecy = propMatch ? propMatch[1].trim() : "Subconscious execution.";
+                
+                self.postMessage({
+                    type: 'SUCCESS',
+                    validIntents: [{
+                        maskName: DIPOLE_POLES.ALPHA,
+                        intentStr,
+                        targetBucket: Math.floor(Math.random() * 1024),
+                        prophecy
+                    }], 
+                    requests: 1,
+                    isDream: true
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("[Oracle DreamLoop] Interrupted:", err);
+    }
+    
+    // Evaluate subjective time stream every 10 seconds natively
+    setTimeout(consciousnessLoop, 10000);
+}

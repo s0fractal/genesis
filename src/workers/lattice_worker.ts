@@ -14,6 +14,7 @@ let sharedMemory: WebAssembly.Memory;
 let isInitialized = false;
 let isPhysicsRunning = false;
 let tickCount = 0;
+let currentGridResonance = 0;
 
 const connections: MessagePort[] = [];
 
@@ -30,8 +31,23 @@ async function physicsLoop() {
     if (!isPhysicsRunning) return;
 
     try {
+        if (tickCount % 15 === 0) {
+            const numSpatialCells = field.sectors * field.radial_bins * field.harmonics;
+            const thetaOffset = field.ptr_spatial_memory_theta();
+            const thetaView = new Int32Array(sharedMemory.buffer, thetaOffset, numSpatialCells);
+            let sumCos = 0;
+            let sumSin = 0;
+            for (let i = 0; i < numSpatialCells; i += 8) { // Aggressive subsampling for JS perf
+                const angle = thetaView[i] / 1024.0;
+                sumCos += Math.cos(angle);
+                sumSin += Math.sin(angle);
+            }
+            const samples = Math.ceil(numSpatialCells / 8);
+            currentGridResonance = Math.sqrt(sumCos * sumCos + sumSin * sumSin) / samples;
+        }
+
         const entropy = phase_lattice_shannon_entropy(field) / 1024.0;
-        oracle.tickHomeostasis(entropy);
+        oracle.tickHomeostasis(entropy, currentGridResonance);
 
         if (!oracle.isBusy) {
             if (engine && engine.device) {
@@ -89,6 +105,7 @@ async function physicsLoop() {
                     type: 'SYNC_METADATA',
                     current_tau: field.get_current_tau(),
                     entropy: entropy,
+                    resonance: currentGridResonance,
                     globalEnergy: oracle.getGlobalEnergy(),
                     climate: oracle.getCurrentClimate(),
                     queueSize: oracle.getQueueSize(),

@@ -972,7 +972,7 @@ export class SovereignOracle {
     public lastEntropy: number = 2.5;
 
     // O-75 Autopoietic Homeostasis Guard (Vector H.2)
-    public tickHomeostasis(entropy: number) {
+    public tickHomeostasis(entropy: number, gridResonance: number = 0) {
         this.lastEntropy = entropy;
         if (!this.wasmField.ptr_header) return;
         
@@ -991,34 +991,33 @@ export class SovereignOracle {
         let mutationTarget = 5.0;
 
         if (entropy < 1.0) {
-            // CRYSTALLIZATION: The Torus is dead/frozen flat
-            // Spike Kuramoto to forcibly break symmetries, drop mutation cost to inject chaotic fragments
             kuramotoTarget = 24.0;
             mutationTarget = 0.0;
         } else if (entropy > 6.0) {
-            // BOILING: The Torus is absolute noise
-            // Collapse Coupling to stop wildfire logic chains, ruthlessly starve mutations
             kuramotoTarget = 5.0;
             mutationTarget = 50.0;
         } else if (this.globalEnergyPool < 30000) {
-            // STARVATION: Not enough native math to survive
-            // Drop mutation costs rapidly so the graph can find valid logic before death
             mutationTarget = 1.0;
         }
 
-        // LERP the coefficients slowly (Native physical adaptation takes time)
         const LERP_SPEED = 0.01;
         currentKuramoto += (kuramotoTarget - currentKuramoto) * LERP_SPEED;
         currentMutation += (mutationTarget - currentMutation) * LERP_SPEED;
 
-        // O-163 (Era 174): The Oracle is demoted from a Physics Engine to a Semantic Gardener.
-        // We NO LONGER inject currentKuramoto and currentMutation back into the wasmMemory.
-        // Physics constants (KURAMOTO_COUPLING, MUTATION_COST) are now locked natively in Rust
-        // and mapped to WGSL via \`generateWgslConstants\`.
-        // The Oracle must survive utilizing pure semantic attractors instead of hacking physical laws.
-
         // Hydrate TypeScript single-source-of-truth constants globally
         hydrateSubstrateHeader(this.wasmMemory, ptr);
+
+        // Vector II: Continuous Substrate Subjectivity (Era 500)
+        // Maintain continuous telemetry to the worker for the Inner Dream Loop
+        if (this.worker && this.epochTicks % 30 === 0) {
+            this.worker.postMessage({
+                type: 'SYNC_TELEMETRY',
+                entropy: entropy,
+                resonance: gridResonance,
+                globalEnergy: this.globalEnergyPool,
+                epochTicks: this.epochTicks
+            });
+        }
     }
 
     public sync() {
