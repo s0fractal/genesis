@@ -55,25 +55,53 @@ async function physicsLoop() {
 
         tickCount++;
 
-        if (tickCount % 4 === 0) {
-            const payload = {
-                type: 'SYNC_METADATA',
-                current_tau: field.get_current_tau(),
-                entropy: entropy,
-                globalEnergy: oracle.getGlobalEnergy(),
-                climate: oracle.getCurrentClimate(),
-                queueSize: oracle.getQueueSize(),
-                apexPlasmids: oracle.getApexPlasmids(3).map(p => ({
-                    hash: p.hash.toString(),
-                    astStr: p.ast,
-                    energy: p.energy
-                }))
+            // Era 310: Non-Shared ArrayBuffer Transfer Protocol (Zero-Copy)
+            const memBuf = sharedMemory.buffer;
+            const agentsSize = field.cell_count() * 16;
+            const agentsOffset = field.ptr_agents();
+            const thetaOffset = field.ptr_spatial_memory_theta();
+            const strengthOffset = field.ptr_spatial_memory_strength();
+            const spatialSize = field.sectors * field.radial_bins * field.harmonics;
+            const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
+
+            const totalTransferSize = agentsSize + (alignedSpatialSize * 2);
+            const transferBuf = new ArrayBuffer(totalTransferSize);
+            const transferView = new Uint8Array(transferBuf);
+            const memView = new Uint8Array(memBuf);
+
+            transferView.set(memView.subarray(agentsOffset, agentsOffset + agentsSize), 0);
+            transferView.set(memView.subarray(thetaOffset, thetaOffset + spatialSize), agentsSize);
+            transferView.set(memView.subarray(strengthOffset, strengthOffset + spatialSize), agentsSize + alignedSpatialSize);
+
+            const framePayload = {
+                type: 'FRAME_DATA',
+                buffer: transferBuf,
+                tau: field.get_current_tau()
             };
 
             for (const port of connections) {
-                port.postMessage(payload);
+                port.postMessage(framePayload, [transferBuf]); // Zero-copy handoff
             }
-        }
+            
+            // Re-sync metadata sparsely
+            if (tickCount % 4 === 0) {
+                const payload = {
+                    type: 'SYNC_METADATA',
+                    current_tau: field.get_current_tau(),
+                    entropy: entropy,
+                    globalEnergy: oracle.getGlobalEnergy(),
+                    climate: oracle.getCurrentClimate(),
+                    queueSize: oracle.getQueueSize(),
+                    apexPlasmids: oracle.getApexPlasmids(3).map(p => ({
+                        hash: p.hash.toString(),
+                        astStr: p.ast,
+                        energy: p.energy
+                    }))
+                };
+                for (const port of connections) {
+                    port.postMessage(payload);
+                }
+            }
     } catch (e) {
         console.error("[LatticeWorker] Physics loop fault:", e);
     }
@@ -87,7 +115,7 @@ async function initEnvironment() {
 
     const wasm = await initWasm();
     // Verify memory is shared
-    if (!(wasm.memory.buffer instanceof SharedArrayBuffer)) {
+    if (typeof SharedArrayBuffer === "undefined" || !(wasm.memory.buffer instanceof SharedArrayBuffer)) {
         console.warn("[LatticeWorker] WARNING: WASM memory is not a SharedArrayBuffer. Multi-tab federation will fail or cause cloning overhead.");
     }
     
@@ -104,7 +132,7 @@ async function initEnvironment() {
             if (adapter) {
                 device = await adapter.requestDevice();
                 console.log("[LatticeWorker] WebGPU Context Acquired in Background Thread.");
-                engine = new PhaseComputeEngine(field, sharedMemory, device);
+                engine = new PhaseComputeEngine(device, field, sharedMemory);
                 await engine.init();
             }
         }
@@ -113,15 +141,16 @@ async function initEnvironment() {
     }
 
     // Instantiate Macro-Torus Network Mycelium
-    network = new PhaseNetwork();
-    await network.bootstrap();
+    network = new PhaseNetwork((p) => {
+        // Placeholder for remote plasmid ingestion
+    });
 
     network.onHaloReceived = (left: Uint8Array, right: Uint8Array) => {
         if (engine) engine.ingestRemoteHalos(left, right);
     };
 
     // The Oracle acts natively against either the WebGPU map or CPU mapping
-    oracle = new SovereignOracle(field, sharedMemory, engine, network);
+    oracle = new SovereignOracle(field, sharedMemory, engine);
     oracle.boot();
 
     isInitialized = true;
@@ -138,21 +167,25 @@ async function initEnvironment() {
 
     port.addEventListener("message", async (msg) => {
         if (msg.data.type === 'HELO') {
-            await initEnvironment();
-            
-            port.postMessage({
-                type: 'INIT_ACK',
-                memory: sharedMemory, // Pass the WebAssembly.Memory (or its buffer)
-                metadata: {
-                    sectors: field.sectors,
-                    radial_bins: field.radial_bins,
-                    harmonics: field.harmonics,
-                    tau_depth: field.tau_depth,
-                    cell_count: field.cell_count(),
-                    ptr_agents: field.ptr_agents(),
-                    ptr_header: field.ptr_header()
-                }
-            });
+            try {
+                await initEnvironment();
+                
+                port.postMessage({
+                    type: 'INIT_ACK',
+                    metadata: {
+                        sectors: field.sectors,
+                        radial_bins: field.radial_bins,
+                        harmonics: field.harmonics,
+                        tau_depth: field.tau_depth,
+                        cell_count: field.cell_count(),
+                        ptr_agents: field.ptr_agents(),
+                        ptr_header: field.ptr_header()
+                    }
+                });
+            } catch (err: any) {
+                console.error("[LatticeWorker] FATAL BOOT ERROR:", err);
+                port.postMessage({ type: 'INIT_ERR', error: err.message || err.toString(), stack: err.stack });
+            }
         }
         
         else if (msg.data.type === 'GOD_HAND_ENERGY') {

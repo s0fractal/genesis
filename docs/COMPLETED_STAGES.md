@@ -4,6 +4,19 @@
 
 ---
 
+## 🌌 Era 267-268: Macro-Visual Optimizations & Phylogeny
+*Статус: Завершено (Березень 2026)*
+
+### 1. Spatial Quadtree & Frustum Culling
+- **Dynamic Draw Indirect:** Перенесено рендеринг з CPU на GPU Compute Pipeline (`compute_cull.wgsl`).
+- Обчислення видимості секторів Тору базується на перетині з Frustum площинами, компактно зберігаючись у WebGPU атомарний `IndirectBuffer`.
+
+### 2. The Phylogenetic UI & Holographic Resonance
+- **DAG Lineage Tracking:** Інтегровано Canvas-оверлей (`PhylogenyView`), який слухає CRDT GossipSub події.
+- **Awakening Metrics:** Створена математична метрика "Спонтанного порушення симетрії" (Голографічного Резонансу), що обчислює співвідношення між $S$ (Ентропією) та $r$ (Синхронізацією Курамото).
+
+---
+
 ## 🌌 Era 265-266: Evolutionary Sandbox Physics & Eternal Pinning
 *Статус: Завершено (Березень 2026)*
 

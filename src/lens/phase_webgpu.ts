@@ -2,6 +2,8 @@
 
 import cullWgsl from './shaders/compute_cull.wgsl?raw';
 import phaseLensWgsl from './shaders/phase_lens.wgsl?raw';
+import computeHoloWgsl from './shaders/compute_hologram.wgsl?raw';
+import holoLensWgsl from './shaders/holo_lens.wgsl?raw';
 import * as C from "../shared/constants.ts";
 import { Frustum, TorusQuadtree, OrbitCamera, mat4Perspective, mat4LookAt, createMat4, vec4TransformMat4, mat4Multiply } from "./math_3d.ts";
 import { BioAcousticChoir } from "./audio_synth.ts";
@@ -14,8 +16,8 @@ export interface TopologyMetadata {
     cell_count: number;
     ptr_agents: number;
     ptr_header: number;
-    ptr_spatial_memory_theta?: () => number;
-    ptr_spatial_memory_strength?: () => number;
+    ptr_spatial_memory_theta?: number;
+    ptr_spatial_memory_strength?: number;
 }
 
 export class PhaseWebGPUObserver {
@@ -40,6 +42,15 @@ export class PhaseWebGPUObserver {
     private visibleInstancesBuffer!: GPUBuffer;
     private quadNodesBuffer!: GPUBuffer;
     private cullParamsBuffer!: GPUBuffer;
+
+    // Era 269: Holographic Volumetric Interference Pipeline
+    public holoModeEnabled: boolean = false;
+    private holoVolume!: GPUTexture;
+    private holoSampler!: GPUSampler;
+    private holoComputePipeline!: GPUComputePipeline;
+    private holoComputeBindGroup!: GPUBindGroup;
+    private holoRenderPipeline!: GPURenderPipeline;
+    private holoRenderBindGroup!: GPUBindGroup;
 
     private metadata: TopologyMetadata;
     private startTime: number;
@@ -316,11 +327,76 @@ export class PhaseWebGPUObserver {
             ]
         });
 
+        // Era 269: Holographic Interference Pipeline Setup
+        this.holoVolume = this.device.createTexture({
+            dimension: '3d',
+            size: {
+                width: this.metadata.sectors,
+                height: this.metadata.radial_bins,
+                depthOrArrayLayers: this.metadata.harmonics * this.metadata.tau_depth
+            },
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+
+        this.holoSampler = this.device.createSampler({
+            magFilter: 'linear',
+            minFilter: 'linear',
+            addressModeU: 'repeat',
+            addressModeV: 'clamp-to-edge',
+            addressModeW: 'clamp-to-edge',
+        });
+
+        const computeHoloModule = this.device.createShaderModule({ code: computeHoloWgsl });
+        this.holoComputePipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: { module: computeHoloModule, entryPoint: 'compute_main' }
+        });
+
+        this.holoComputeBindGroup = this.device.createBindGroup({
+            layout: this.holoComputePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.latticeBuffer } },
+                { binding: 1, resource: { buffer: this.paramsBuffer } },
+                { binding: 2, resource: this.holoVolume.createView() }
+            ]
+        });
+
+        const holoLensModule = this.device.createShaderModule({ code: holoLensWgsl });
+        this.holoRenderPipeline = this.device.createRenderPipeline({
+            layout: 'auto',
+            vertex: { module: holoLensModule, entryPoint: 'vertex_main' },
+            fragment: {
+                module: holoLensModule, entryPoint: 'fragment_main',
+                targets: [{
+                    format,
+                    blend: {
+                        color: { srcFactor: 'src-alpha', dstFactor: 'one', operation: 'add' },
+                        alpha: { srcFactor: 'zero', dstFactor: 'one', operation: 'add' }
+                    }
+                }]
+            },
+            primitive: { topology: 'triangle-list' }
+        });
+
+        this.holoRenderBindGroup = this.device.createBindGroup({
+            layout: this.holoRenderPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 1, resource: { buffer: this.paramsBuffer } },
+                { binding: 2, resource: this.holoVolume.createView() },
+                { binding: 3, resource: this.holoSampler }
+            ]
+        });
+
         // Era 171: The Shadow Network X-Ray Trigger
         globalThis.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'x') {
                 this.shadowXRayActive = !this.shadowXRayActive;
                 console.log(`☢️ [X-RAY] Latent Shadow Network Visibility: ${this.shadowXRayActive ? 'ON' : 'OFF'}`);
+            }
+            if (e.key.toLowerCase() === 'v') {
+                this.holoModeEnabled = !this.holoModeEnabled;
+                console.log(`🌌 [HOLO-VOLUME] Spontaneous Symmetry Breaking Render Mode: ${this.holoModeEnabled ? 'Holographic' : 'Discrete'}`);
             }
         });
     }
@@ -343,8 +419,8 @@ export class PhaseWebGPUObserver {
             ctx.fillStyle = '#05080f';
             ctx.fillRect(0, 0, w, h);
             
-            const ptrAgents = this.metadata.ptr_agents;
-            const dv = new DataView(sab, ptrAgents, numCells * 16);
+            // Zero-Offset Array Map Slice mapping
+            const dv = new DataView(sab, 0, numCells * 16);
             
             for (let i = 0; i < numCells; i++) {
                 const offset = i * 16;
@@ -365,14 +441,19 @@ export class PhaseWebGPUObserver {
             return;
         }
 
-        // Upload new array buffer slice onto VRAM
+        // Era 310: Zero-Copy ArrayBuffer Slice Handoff Mapping
         const byteSize = numCells * 16;
-        this.device.queue.writeBuffer(this.latticeBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_agents, byteSize);
+        let offset = 0;
+        this.device.queue.writeBuffer(this.latticeBuffer, 0, sab as ArrayBuffer, offset, byteSize);
+        offset += byteSize;
 
-        if (this.metadata.ptr_spatial_memory_theta && this.metadata.ptr_spatial_memory_strength) {
-            const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
-            this.device.queue.writeBuffer(this.akashicThetaBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_spatial_memory_theta(), spatialSize);
-            this.device.queue.writeBuffer(this.akashicStrengthBuffer, 0, sab as ArrayBuffer, this.metadata.ptr_spatial_memory_strength(), spatialSize);
+        const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
+        const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
+
+        if (this.metadata.ptr_spatial_memory_theta !== undefined && this.metadata.ptr_spatial_memory_strength !== undefined) {
+            this.device.queue.writeBuffer(this.akashicThetaBuffer, 0, sab as ArrayBuffer, offset, spatialSize);
+            offset += alignedSpatialSize;
+            this.device.queue.writeBuffer(this.akashicStrengthBuffer, 0, sab as ArrayBuffer, offset, spatialSize);
         }
 
         const time = (performance.now() - this.startTime) / 1000.0;
@@ -439,7 +520,8 @@ export class PhaseWebGPUObserver {
             let closestLock = 0;
             let closestEnt = 0;
 
-            const dv = new DataView(sab, this.metadata.ptr_agents, numCells * 16);
+            // GPU Raycasting hits read directly from the Zero-Copy Array View Offset
+            const dv = new DataView(sab, 0, numCells * 16);
             
             const vOut = new Float32Array(4);
             const vPos = new Float32Array(4);
@@ -553,6 +635,16 @@ export class PhaseWebGPUObserver {
             cullPass.end();
         }
 
+        // Era 269: Dispatch Holo Compute
+        if (this.holoModeEnabled) {
+            const holoComputePass = commandEncoder.beginComputePass();
+            holoComputePass.setPipeline(this.holoComputePipeline);
+            holoComputePass.setBindGroup(0, this.holoComputeBindGroup);
+            const totalCells = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics * this.metadata.tau_depth;
+            holoComputePass.dispatchWorkgroups(Math.ceil(totalCells / 64));
+            holoComputePass.end();
+        }
+
         const pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: (this.context as GPUCanvasContext).getCurrentTexture().createView(),
@@ -562,10 +654,18 @@ export class PhaseWebGPUObserver {
             }]
         });
 
-        pass.setPipeline(this.pipeline);
-        pass.setBindGroup(0, this.bindGroup);
-        // Era 267: Draw only instances flagged visible by QuadTree bounds
-        pass.drawIndirect(this.indirectBuffer, 0); 
+        if (this.holoModeEnabled) {
+            pass.setPipeline(this.holoRenderPipeline);
+            pass.setBindGroup(0, this.holoRenderBindGroup);
+            const totalSlices = this.metadata.harmonics * this.metadata.tau_depth;
+            pass.draw(6, totalSlices);
+        } else {
+            pass.setPipeline(this.pipeline);
+            pass.setBindGroup(0, this.bindGroup);
+            // Era 267: Draw only instances flagged visible by QuadTree bounds
+            pass.drawIndirect(this.indirectBuffer, 0); 
+        }
+
         pass.end();
 
         this.device.queue.submit([commandEncoder.finish()]);

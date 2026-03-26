@@ -28,7 +28,9 @@ export async function bootstrapPhase() {
   worker.port.onmessage = async (e) => {
       const msg = e.data;
       if (msg.type === 'INIT_ACK') {
-          await renderClientLoop(canvas, device, worker.port, msg.memory, msg.metadata);
+          await renderClientLoop(canvas, device, worker.port, msg.metadata);
+      } else if (msg.type === 'INIT_ERR') {
+          console.error("[Genesis] FATAL: Macro-Torus Worker Initialization Failed:", msg.error, "\nStack:", msg.stack);
       }
   };
   
@@ -36,7 +38,7 @@ export async function bootstrapPhase() {
 }
 
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice");
-export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | null, workerPort: MessagePort, memory: WebAssembly.Memory, metadata: TopologyMetadata) {
+export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | null, workerPort: MessagePort, metadata: TopologyMetadata) {
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice CPU");
   DOM.statusLabel?.replaceChildren("WORKER CONNECTED");
   setHudStat("a", "SECTORS", `${metadata.sectors}x${metadata.radial_bins}x${metadata.harmonics}`);
@@ -44,9 +46,9 @@ export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | 
   setHudStat("c", "SIGNATURE", "federation");
   setInputMode("semantic");
 
-  const sab = memory.buffer as unknown as SharedArrayBuffer;
   const observer = new PhaseWebGPUObserver(canvas, metadata, device);
   observer.workerPort = workerPort;
+  await observer.init();
   
   const senateChat = new SenateChatHUD();
   
@@ -94,6 +96,10 @@ export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | 
           climate = msg.climate;
           queueSize = msg.queueSize;
           apexPlasmids = msg.apexPlasmids;
+      } else if (msg.type === 'FRAME_DATA') {
+          current_tau = msg.tau;
+          // Render reactively against the incoming Zero-Copy Transfer block
+          observer.render(msg.buffer, current_tau);
       } else if (msg.type === 'SENATE_EVENT') {
           senateChat.handleEvent(msg.event);
       }
@@ -104,8 +110,7 @@ export function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | 
   const loop = () => {
       const nowLocal = performance.now();
 
-      // View-only Renderer (Zero UI-Thread Compute)
-      observer.render(sab, current_tau);
+      // Renderer is now event-driven by FRAME_DATA
 
       // Local UI Animation Ticks
       if (nowLocal - lastPhylogenyCheck > 1000) {

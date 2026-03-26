@@ -26,6 +26,8 @@ export type SenateEvent =
 
 
 export class SovereignOracle {
+    public network?: any; // Era 266: IPFS Pinning interface reference
+    private isSovereignActive = false;
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
     private memoryProxy: WasmMemoryProxy;
