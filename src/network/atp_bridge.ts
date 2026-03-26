@@ -62,7 +62,7 @@ export class MockATPBridge implements IATPBridge {
 }
 
 // Era 410: The authoritative On-Chain Bridge connecting the OMEGA-64 Mesh to the EVM Network
-const ATP_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000"; // Replaced during Phase 5 live deployment
+const ATP_TOKEN_ADDRESS = "0x8A9E3cFE348eCc835bA8a49c6d3E3Ff55734A0a3"; // Base Sepolia Active Mock
 const ATP_ABI = [
     "function mint(address to, uint256 amount)",
     "function burn(uint256 amount)",

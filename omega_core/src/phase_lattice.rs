@@ -118,6 +118,8 @@ pub struct PhaseLatticeField {
     pub(crate) spatial_memory_strength: Vec<u8>,
     pub(crate) canary_end: u32,
     pub(crate) internal_tick: u64,
+    pub(crate) ring_buffer: Vec<u8>,
+    pub(crate) telemetry_buffer: Vec<f32>,
 }
 
 #[wasm_bindgen]
@@ -176,6 +178,8 @@ impl PhaseLatticeField {
             spatial_memory_strength: vec![0; (sectors * radial_bins * harmonics) as usize],
             canary_end: 0xDEADBEEF,
             internal_tick: 0,
+            ring_buffer: vec![0; 16 + (max_elements * 16 + (((sectors * radial_bins * harmonics) as usize + 3) & !3) * 2) * 3],
+            telemetry_buffer: vec![0.0; 8],
         };
         field.seed_deterministic();
         field
@@ -227,6 +231,12 @@ impl PhaseLatticeField {
             self.spatial_memory_theta.resize(spatial_cap, 0);
             self.spatial_memory_strength.resize(spatial_cap, 0);
         }
+
+        let ring_slot_size = (required_cap * 16) + ((spatial_cap + 3) & !3) * 2;
+        let ring_buffer_size = 16 + ring_slot_size * 3;
+        if ring_buffer_size > self.ring_buffer.len() {
+            self.ring_buffer.resize(ring_buffer_size, 0);
+        }
     }
 
     pub fn ptr_header(&self) -> *const u8 {
@@ -263,6 +273,14 @@ impl PhaseLatticeField {
 
     pub fn ptr_plasmid_collisions(&self) -> *const u64 {
         self.plasmid_collisions.as_ptr()
+    }
+
+    pub fn ptr_ring_buffer(&self) -> *const u8 {
+        self.ring_buffer.as_ptr()
+    }
+
+    pub fn ptr_telemetry_buffer(&self) -> *const f32 {
+        self.telemetry_buffer.as_ptr()
     }
 
     pub fn get_collision_count(&self) -> u32 {

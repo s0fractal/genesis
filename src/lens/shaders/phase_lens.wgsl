@@ -91,8 +91,8 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) inst_idx: u3
   let rho = rem / params.sectors;
   let sector = rem % params.sectors;
 
-  // Era 176 / 232: Native AoS Parsing (16-byte aligned structs)
-  let word_base = idx * 4u;
+  // Era 600 SSoT Deterministic Rollback: 24-byte aligned structs (AoS)
+  let word_base = idx * 6u;
   let plasmid_low = field[word_base];
   let plasmid_high = field[word_base + 1u];
   let word2 = field[word_base + 2u];
@@ -173,18 +173,15 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) inst_idx: u3
       out.is_latent = 0.0;
   }
 
-  // Era 600: Quantum Bloch Sphere Probability Rendering
-  // ent maps to Probability Amplitude |1> (0.0 to 1.0)
-  // theta maps to Quantum Phase Phi (0.0 to 1.0)
-  
-  let prob_excited = sin(entanglement * 1.57079); // sin(theta/2)
-  let prob_ground = cos(entanglement * 1.57079); // cos(theta/2)
+  // Era 600 SSoT Rollback: Compute probabilities directly from integer entanglement amplitude
+  let prob_ground = 1.0 - entanglement;
+  let prob_excited = entanglement;
   
   // Ground states |0> are deep void-blue, Excited states |1> are blinding plasma-white
   let color_ground = vec3<f32>(0.02, 0.05, 0.2);
   let color_excited = hsv2rgb(fract(theta + 0.5), 1.0, 1.0); // Phase dictates the excited energy frequency
   
-  var base_color = mix(color_ground, color_excited, prob_excited * prob_excited * amplitude);
+  var base_color = mix(color_ground, color_excited, prob_excited * amplitude);
 
   // Era 171: X-Ray Debug Override for the Shadow Network
   if (params.debug_shadow == 1u && out.is_latent > 0.5) {

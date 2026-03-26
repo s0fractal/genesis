@@ -19,6 +19,7 @@ let isPhysicsRunning = false;
 let tickCount = 0;
 let currentGridResonance = 0;
 
+const bufferPool: ArrayBuffer[] = [];
 const connections: MessagePort[] = [];
 
 // Vector III: Meta-Compilation Physics Bridge
@@ -65,9 +66,9 @@ async function physicsLoop() {
         const entropy = phase_lattice_shannon_entropy(field) / 1024.0;
         oracle.tickHomeostasis(entropy, currentGridResonance);
         
-        // Era 800: Write Telemetry to SAB for 144FPS Rendering
-        if (telemetryBuffer) {
-            const tView = new Float32Array(telemetryBuffer);
+        // Era 850: Write Telemetry directly to WASM Memory exported buffer
+        if (sharedMemory) {
+            const tView = new Float32Array(sharedMemory.buffer, field.ptr_telemetry_buffer(), 8);
             tView[0] = entropy;
             tView[1] = currentGridResonance;
         }
@@ -88,31 +89,48 @@ async function physicsLoop() {
 
         tickCount++;
 
-            // Era 800: Atomics.wait Ring Buffer (Zero-Copy)
+            // Era 850: Atomics.wait Ring Buffer (Pure WASM Substrate)
             const memBuf = sharedMemory.buffer;
-            const agentsSize = field.cell_count() * 16;
+            const AGENT_BYTES = 24;
+            const agentsSize = field.cell_count() * AGENT_BYTES;
             const agentsOffset = field.ptr_agents();
             const thetaOffset = field.ptr_spatial_memory_theta();
             const strengthOffset = field.ptr_spatial_memory_strength();
             const spatialSize = field.sectors * field.radial_bins * field.harmonics;
             const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
 
-            const header = new Int32Array(ringBuffer, 0, 4);
+            const ringPtr = field.ptr_ring_buffer();
+            const header = new Int32Array(memBuf, ringPtr, 4);
             let flag = Atomics.load(header, 0);
             flag++;
             const slotIdx = flag % 3;
-            const offset = 16 + slotIdx * ringSlotSize;
+            // Native zero-copy within same buffer:
+            const targetOffset = ringPtr + 16 + slotIdx * ringSlotSize;
             
-            const view = new Uint8Array(ringBuffer, offset, ringSlotSize);
-            const memView = new Uint8Array(memBuf);
-
-            view.set(memView.subarray(agentsOffset, agentsOffset + agentsSize), 0);
-            view.set(memView.subarray(thetaOffset, thetaOffset + spatialSize), agentsSize);
-            view.set(memView.subarray(strengthOffset, strengthOffset + spatialSize), agentsSize + alignedSpatialSize);
+            const view = new Uint8Array(memBuf);
+            view.copyWithin(targetOffset, agentsOffset, agentsOffset + agentsSize);
+            view.copyWithin(targetOffset + agentsSize, thetaOffset, thetaOffset + spatialSize);
+            view.copyWithin(targetOffset + agentsSize + alignedSpatialSize, strengthOffset, strengthOffset + spatialSize);
 
             header[3] = field.get_current_tau();
             Atomics.store(header, 0, flag);
             Atomics.notify(header, 0);
+
+            if (!(memBuf instanceof SharedArrayBuffer)) {
+                // Era 850 Fallback: Simulate zero-copy ring buffer with explicit payload
+                let fallbackBuffer = bufferPool.pop();
+                if (!fallbackBuffer || fallbackBuffer.byteLength !== ringSlotSize) {
+                    fallbackBuffer = new ArrayBuffer(ringSlotSize);
+                }
+                const fallbackView = new Uint8Array(fallbackBuffer);
+                fallbackView.set(view.subarray(targetOffset, targetOffset + ringSlotSize));
+
+                postMessage({
+                    type: 'FRAME_FALLBACK',
+                    tau: field.get_current_tau(),
+                    buffer: fallbackBuffer
+                }, [fallbackBuffer]);
+            }
             
             // Re-sync metadata sparsely
             if (tickCount % 4 === 0) {
@@ -190,13 +208,11 @@ async function initEnvironment() {
     oracle = new SovereignOracle(field, sharedMemory, engine);
     oracle.boot();
 
-    // Era 800: Allocate Ring Buffer for Render Interop
-    const agentsSize = field.cell_count() * 16;
+    // Era 850: Using WASM Native Ring Buffer bounds
+    const agentsSize = field.cell_count() * 24;
     const spatialSize = field.sectors * field.radial_bins * field.harmonics;
     const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
     ringSlotSize = agentsSize + (alignedSpatialSize * 2);
-    ringBuffer = new SharedArrayBuffer(16 + ringSlotSize * 3);
-    telemetryBuffer = new SharedArrayBuffer(32);
 
     isInitialized = true;
     isPhysicsRunning = true;
@@ -207,6 +223,10 @@ async function initEnvironment() {
 
 // deno-lint-ignore no-explicit-any
 (self as any).onmessage = async (msg: MessageEvent) => {
+    if (msg.data.type === 'RECYCLE_BUFFER') {
+        bufferPool.push(msg.data.buffer);
+        return;
+    }
     if (msg.data.type === 'HELO') {
         try {
             await initEnvironment();
@@ -223,9 +243,10 @@ async function initEnvironment() {
                     ptr_header: field.ptr_header(),
                     ptr_spatial_memory_theta: field.ptr_spatial_memory_theta(),
                     ptr_spatial_memory_strength: field.ptr_spatial_memory_strength(),
-                    ring_buffer: ringBuffer,
-                    slot_size: ringSlotSize,
-                    telemetry_buffer: telemetryBuffer
+                    ring_buffer: sharedMemory.buffer,
+                    ring_buffer_ptr: field.ptr_ring_buffer(),
+                    telemetry_ptr: field.ptr_telemetry_buffer(),
+                    slot_size: ringSlotSize
                 }
             });
         } catch (err: any) {

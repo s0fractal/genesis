@@ -28,7 +28,16 @@ export async function bootstrapPhase() {
   
   worker.onmessage = async (e) => {
       const msg = e.data;
-      if (msg.type === 'INIT_ACK') {
+      if (msg.type === 'WGSL_ERR') {
+          let errDiv = document.getElementById('wgsl-err-main');
+          if (!errDiv) {
+              errDiv = document.createElement('div');
+              errDiv.id = 'wgsl-err-main';
+              errDiv.style.cssText = 'position:fixed;top:10px;left:10px;color:white;z-index:9999;font-size:12px;background:rgba(255,0,0,0.9);padding:10px;font-family:monospace;max-width:80vw;white-space:pre-wrap;';
+              document.body.appendChild(errDiv);
+          }
+          errDiv.innerText += msg.msg + '\n';
+      } else if (msg.type === 'INIT_ACK') {
           await renderClientLoop(canvas, device, worker, msg.metadata);
       } else if (msg.type === 'INIT_ERR') {
           console.error("[Genesis] FATAL: Macro-Torus Worker Initialization Failed:", msg.error, "\nStack:", msg.stack);
@@ -97,6 +106,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   let nomosVerified = 0;
   let nomosOrphaned = 0;
   let apexPlasmids: {hash: string, astStr: string, energy: number}[] = [];
+  let latestFallbackFrame: { buffer: ArrayBuffer, tau: number } | null = null;
 
   workerPort.addEventListener('message', (e: Event) => {
       const msg = (e as MessageEvent).data;
@@ -115,35 +125,60 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
           senateChat.handleEvent(msg.event);
       } else if (msg.type === 'P2P_BROADCAST') {
           mesh.broadcast(msg.payload);
+      } else if (msg.type === 'FRAME_FALLBACK') {
+          if (latestFallbackFrame) {
+              workerPort.postMessage({ type: 'RECYCLE_BUFFER', buffer: latestFallbackFrame.buffer }, [latestFallbackFrame.buffer]);
+          }
+          latestFallbackFrame = { buffer: msg.buffer, tau: msg.tau };
       }
   });
 
   let lastPhylogenyCheck = performance.now();
 
-  // Era 800: Watch the SAB synchronously across the worker
-  if (metadata.ring_buffer && metadata.slot_size) {
+  // Era 850: Watch the SAB synchronously across the worker via WASM pointers
+  if (metadata.ring_buffer && metadata.slot_size && metadata.ring_buffer_ptr !== undefined) {
       const ringBuffer = metadata.ring_buffer;
+      const ringPtr = metadata.ring_buffer_ptr;
       const slotSize = metadata.slot_size;
-      const header = new Int32Array(ringBuffer, 0, 4);
+      const header = new Int32Array(ringBuffer, ringPtr, 4);
       
       const watchFrames = async () => {
           let lastFlag = Atomics.load(header, 0);
           while (true) {
-              const result = Atomics.waitAsync(header, 0, lastFlag);
-              if (result.async) {
-                  await result.value;
+              if (header.buffer instanceof SharedArrayBuffer) {
+                  const result = (Atomics as any).waitAsync(header, 0, lastFlag);
+                  if (result.async) {
+                      await result.value;
+                  }
+                  
+                  lastFlag = Atomics.load(header, 0);
+                  const slotIdx = lastFlag % 3;
+                  const tau = Atomics.load(header, 3);
+                  const offset = ringPtr + 16 + slotIdx * slotSize;
+                  const view = new Uint8Array(ringBuffer, offset, slotSize);
+                  
+                  observer.render(view, tau);
+                  current_tau = tau;
+                  
+                  await new Promise(r => requestAnimationFrame(r));
+              } else {
+                  // Era 850 Fallback: Decoupled Polling (Non-Blocking)
+                  while (!latestFallbackFrame) {
+                      await new Promise(r => requestAnimationFrame(r));
+                  }
+                  
+                  const frame = latestFallbackFrame;
+                  latestFallbackFrame = null;
+                  
+                  const view = new Uint8Array(frame.buffer);
+                  observer.render(view, frame.tau);
+                  current_tau = frame.tau;
+                  
+                  // Recycle the buffer to prevent WASM clones leaking memory over the event loop
+                  workerPort.postMessage({ type: 'RECYCLE_BUFFER', buffer: frame.buffer }, [frame.buffer]);
+                  
+                  await new Promise(r => requestAnimationFrame(r));
               }
-              
-              lastFlag = Atomics.load(header, 0);
-              const slotIdx = lastFlag % 3;
-              const tau = Atomics.load(header, 3);
-              const offset = 16 + slotIdx * slotSize;
-              const view = new Uint8Array(ringBuffer, offset, slotSize);
-              
-              observer.render(view, tau);
-              current_tau = tau;
-              
-              await new Promise(r => requestAnimationFrame(r));
           }
       };
       watchFrames();
@@ -152,9 +187,9 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   const loop = () => {
       const nowLocal = performance.now();
 
-      // Area 800: Smooth Telemetry
-      if (metadata.telemetry_buffer) {
-          const tView = new Float32Array(metadata.telemetry_buffer);
+      // Area 850: Pointer-based Telemetry
+      if (metadata.telemetry_ptr !== undefined && metadata.ring_buffer) {
+          const tView = new Float32Array(metadata.ring_buffer, metadata.telemetry_ptr, 8);
           currentEntropy = tView[0];
       }
 

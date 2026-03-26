@@ -1,4 +1,7 @@
 {
+  "tasks": {
+    "start": "deno run -A tools/start_all.ts"
+  },
   "compilerOptions": {
     "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
     "types": ["./src/env.d.ts", "./omega_core/pkg/omega_core.d.ts"]

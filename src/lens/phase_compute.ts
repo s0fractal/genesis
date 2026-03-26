@@ -72,14 +72,8 @@ export class PhaseComputeEngine {
         if (this.device) {
             // Utilize generic wrapper for Deno WebGPU Type Compatibility bounds
             (this.device as unknown as { onuncapturederror: (e: { error: Error }) => void }).onuncapturederror = ((event: { error: Error }) => {
-                console.error("[O-64 GPU FATAL]", event.error);
-                const errDiv = document.getElementById('wgsl-err') || document.createElement('div');
-                if (!errDiv.id) {
-                    errDiv.id = 'wgsl-err';
-                    errDiv.style.cssText = 'position:fixed;top:50px;left:10px;color:#ff3333;z-index:9999;font-size:12px;background:rgba(0,0,0,0.9);padding:10px;font-family:monospace;max-width:80vw;';
-                    document.body.appendChild(errDiv);
-                }
-                errDiv.innerText += `[O-64 GPU]\n${event.error.message}\n\n`;
+                console.error("[O-64 GPU FATAL]", event.error.message);
+                fetch('http://localhost:12345/?err=' + encodeURIComponent(event.error.message)).catch(() => {});
             });
         }
             
@@ -165,29 +159,85 @@ export class PhaseComputeEngine {
         const cleanKuramoto = computeKuramotoWgsl.replace(/\/\/ @polyfill[\s\S]*?\/\/ @end_polyfill/g, "");
         const cleanMycelial = computeMycelialWgsl.replace(/\/\/ @polyfill[\s\S]*?\/\/ @end_polyfill/g, "");
         
+        this.device.pushErrorScope('validation');
         const shaderModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + cleanKuramoto });
-        const mycelialModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + cleanMycelial });
+        const errShaderKura = await this.device.popErrorScope();
+        if (errShaderKura) {
+            self.postMessage({ type: 'WGSL_ERR', msg: "Dawn Shader Compiler Panic (Kuramoto): " + errShaderKura.message });
+        }
 
-        this.pipeline = this.device.createComputePipeline({
-            label: "Kuramoto Thermodynamic Physics Matrix",
-            layout: 'auto',
-            compute: {
-                module: shaderModule,
-                entryPoint: 'main',
+        this.device.pushErrorScope('validation');
+        const mycelialModule = this.device.createShaderModule({ code: generatedWgslConstants + "\n" + cleanMycelial });
+        const errShaderMyc = await this.device.popErrorScope();
+        if (errShaderMyc) {
+            self.postMessage({ type: 'WGSL_ERR', msg: "Dawn Shader Compiler Panic (Mycelial): " + errShaderMyc.message });
+        }
+
+        shaderModule.getCompilationInfo().then(info => {
+            const errs = info.messages.filter(m => m.type === 'error');
+            if (errs.length > 0) {
+                const errString = errs.map(m => `Line ${m.lineNum}: ${m.message}`).join(" | ");
+                self.postMessage({ type: 'WGSL_ERR', msg: "Kuramoto Shader Error: " + errString });
             }
         });
 
-        this.mycelialPipeline = this.device.createComputePipeline({
+        const bglKuramoto = this.device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } }
+            ]
+        });
+        const layoutKuramoto = this.device.createPipelineLayout({ bindGroupLayouts: [bglKuramoto] });
+
+        this.device.pushErrorScope('validation');
+        try {
+            this.pipeline = await this.device.createComputePipelineAsync({
+                label: "Kuramoto Thermodynamic Physics Matrix",
+                layout: layoutKuramoto,
+                compute: {
+                    module: shaderModule,
+                    entryPoint: 'main',
+                }
+            });
+        } catch (e: any) {
+            self.postMessage({ type: 'WGSL_ERR', msg: "Kuramoto Pipeline Promise Exception: " + String(e.message || e) });
+            console.error(e);
+        }
+        const errKuramoto = await this.device.popErrorScope();
+        if (errKuramoto) {
+            self.postMessage({ type: 'WGSL_ERR', msg: "Kuramoto Scope Error: " + errKuramoto.message });
+        }
+
+        const bglMycelial = this.device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+            ]
+        });
+        const layoutMycelial = this.device.createPipelineLayout({ bindGroupLayouts: [bglMycelial] });
+
+        this.device.pushErrorScope('validation');
+        this.mycelialPipeline = await this.device.createComputePipelineAsync({
             label: "Mycelial Centroid Matrix",
-            layout: 'auto',
+            layout: layoutMycelial,
             compute: {
                 module: mycelialModule,
                 entryPoint: 'main',
             }
         });
+        const errMycelial = await this.device.popErrorScope();
+        if (errMycelial) {
+            self.postMessage({ type: 'WGSL_ERR', msg: "Mycelial Scope Error: " + errMycelial.message });
+        }
 
         this.bindGroupA = this.device.createBindGroup({
-            layout: this.pipeline.getBindGroupLayout(0),
+            layout: bglKuramoto,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferA } },
                 { binding: 1, resource: { buffer: this.bufferB } },
@@ -200,7 +250,7 @@ export class PhaseComputeEngine {
         });
 
         this.bindGroupB = this.device.createBindGroup({
-            layout: this.pipeline.getBindGroupLayout(0),
+            layout: bglKuramoto,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferB } },
                 { binding: 1, resource: { buffer: this.bufferA } },
@@ -213,7 +263,7 @@ export class PhaseComputeEngine {
         });
 
         this.mycelialBindGroupA = this.device.createBindGroup({
-            layout: this.mycelialPipeline.getBindGroupLayout(0),
+            layout: bglMycelial,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferA } },
                 { binding: 2, resource: { buffer: this.paramsBuffer } },
@@ -222,7 +272,7 @@ export class PhaseComputeEngine {
         });
 
         this.mycelialBindGroupB = this.device.createBindGroup({
-            layout: this.mycelialPipeline.getBindGroupLayout(0),
+            layout: bglMycelial,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferB } },
                 { binding: 2, resource: { buffer: this.paramsBuffer } },

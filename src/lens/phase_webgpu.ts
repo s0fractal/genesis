@@ -19,8 +19,9 @@ export interface TopologyMetadata {
     ptr_spatial_memory_theta?: number;
     ptr_spatial_memory_strength?: number;
     ring_buffer?: SharedArrayBuffer;
+    ring_buffer_ptr?: number;
     slot_size?: number;
-    telemetry_buffer?: SharedArrayBuffer;
+    telemetry_ptr?: number;
 }
 
 export class PhaseWebGPUObserver {
@@ -77,6 +78,8 @@ export class PhaseWebGPUObserver {
     public xrSession: any | null = null;
     public xrRefSpace: any | null = null;
     public isVrMode: boolean = false;
+
+    public lastRaycastTime: number = 0;
 
     constructor(canvas: HTMLCanvasElement, metadata: TopologyMetadata, device: GPUDevice | null) {
         this.canvas = canvas;
@@ -207,7 +210,7 @@ export class PhaseWebGPUObserver {
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         
         const numCells = this.metadata.cell_count;
-        const totalSize = numCells * 16;
+        const totalSize = numCells * 24;
         
         const format = navigator.gpu.getPreferredCanvasFormat();
         (this.context as GPUCanvasContext).configure({
@@ -430,10 +433,11 @@ export class PhaseWebGPUObserver {
             // Zero-Offset Array Map Slice mapping
             const viewBuffer = sab instanceof Uint8Array ? sab.buffer : sab;
             const viewOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
-            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * 16);
+            const AGENT_BYTES = 24; // Changed from 32 to 24
+            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * AGENT_BYTES);
             
             for (let i = 0; i < numCells; i++) {
-                const offset = i * 16;
+                const offset = i * AGENT_BYTES;
                 const plasmidLow = dv.getUint32(offset, true);
                 const plasmidHigh = dv.getUint32(offset + 4, true);
                 if (plasmidLow !== 0 || plasmidHigh !== 0) {
@@ -456,14 +460,18 @@ export class PhaseWebGPUObserver {
         let sourceOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
         const sourceLength = sab.byteLength;
         
+        if (sourceLength < numCells * 24 || this.latticeBuffer.size < numCells * 24) {
+            console.error(`[AION FATAL] WebGPU Byte Size Mismatch! sourceLength: ${sourceLength}, bufSize: ${this.latticeBuffer.size}, expected: ${numCells * 24}`);
+        }
+        
         this.device.queue.writeBuffer(
             this.latticeBuffer,
             0,
             sourceBuffer as ArrayBuffer,
             sourceOffset,
-            numCells * 16
+            numCells * 24
         );
-        sourceOffset += numCells * 16;
+        sourceOffset += numCells * 24;
 
         const spatialSize = this.metadata.sectors * this.metadata.radial_bins * this.metadata.harmonics;
         const alignedSpatialSize = Math.ceil(spatialSize / 4) * 4;
@@ -529,8 +537,11 @@ export class PhaseWebGPUObserver {
         const view_proj = createMat4();
         mat4Multiply(view_proj, proj, view);
 
-        // Topos Raycasting Logic 
-        if (this.mouseNDC) {
+        if (!this.lastRaycastTime) this.lastRaycastTime = 0;
+
+        // Topos Raycasting Logic - Throttled to 10Hz to prevent 11 Million Matrix Ops per frame
+        if (this.mouseNDC && (performance.now() - this.lastRaycastTime > 100)) {
+            this.lastRaycastTime = performance.now();
             let closestDist = Infinity;
             let closestIdx: number | null = null;
             let closestHash: bigint | null = null;
@@ -541,7 +552,7 @@ export class PhaseWebGPUObserver {
             // GPU Raycasting hits read directly from the Zero-Copy
             const viewBuffer = sab instanceof Uint8Array ? sab.buffer : sab;
             const viewOffset = sab instanceof Uint8Array ? sab.byteOffset : 0;
-            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * 16);
+            const dv = new DataView(viewBuffer as ArrayBuffer, viewOffset, numCells * 24);
             
             const vOut = new Float32Array(4);
             const vPos = new Float32Array(4);
@@ -552,7 +563,7 @@ export class PhaseWebGPUObserver {
 
             for (let i = 0; i < layer_size; i++) {
                 const idx = base_idx + i;
-                const offset = idx * 16;
+                const offset = idx * 24;
                 const plasmid_low = dv.getUint32(offset, true);
                 const plasmid_high = dv.getUint32(offset + 4, true);
 

@@ -1,7 +1,7 @@
 {
   "name": "omega-genesis",
-  "version": "42.0.0",
-  "era": "64 (The Stratum)",
+  "version": "42.1.0",
+  "era": "77 (Absolute Stratum)",
   "type": "module",
   "scripts": {
     "dev": "vite",

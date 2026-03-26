@@ -175,10 +175,8 @@ fn get_agent_from_buffer(offset: u32, source: u32) -> PhaseAgent {
         t0 = halo_right[offset]; t1 = halo_right[offset + 1u]; t2 = halo_right[offset + 2u]; 
         t3 = halo_right[offset + 3u]; t4 = halo_right[offset + 4u];
     }
-
     var agent: PhaseAgent;
     agent.plasmid_low = t0;
-    agent.plasmid_high = t1;
     
     let omega_raw = t2 & 0xFFFFu;
     if ((omega_raw & 0x8000u) != 0u) {
@@ -208,7 +206,6 @@ fn set_agent(idx: u32, agent: PhaseAgent) {
     let t4 = agent.memory_strength & 0xFFu;
     
     field_out[offset] = agent.plasmid_low;
-    field_out[offset + 1u] = agent.plasmid_high;
     field_out[offset + 2u] = t2;
     field_out[offset + 3u] = t3;
     field_out[offset + 4u] = t4;
@@ -356,7 +353,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     genetic_resonance(me, a_o) * i32(dynamic_coupling) +
                     genetic_resonance(me, a_h) * params.coupling_harmonic_peer;
 
-    var next_ent = i32(me.ent) + q20_round(q_ent_torque);
+    var next_ent_temp = i32(me.ent); // Use a temporary variable for initial ent calculation
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
@@ -367,9 +364,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let align = genetic_resonance(me, a_anti);
         if (align > params.antipode_align && me.energy > 96u) {
-            next_ent += 8;
+            next_ent_temp += 8;
         } else {
-            next_ent -= 3;
+            next_ent_temp -= 3;
         }
     }
 
@@ -421,7 +418,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var omega_delta = fast_abs(raw_omega_delta);
     let next_omega = clamp(me.omega + omega_delta, -16, 16);
     var next_theta = u32(wrap_index(i32(me.theta) + next_omega, 256));
-
+    // Era 600 Deterministic Fix:
+    // We use `ent` as the integer Z-axis proxy for the Bloch sphere probability 
+    // instead of volatile f32 hardware floats. High torque rotates entanglement naturally.
+    let q_rotator = (omega_delta * 12) / 1024;
+    var next_ent = clamp_i32(next_ent_temp + q20_round(q_ent_torque) + q_rotator, 0, 255);
+    
     // O-230.1: Exogenous Friction (The Blind Oracle)
     let topological_friction = fast_abs(q20_round(kuramoto));
     var exogenous_energy = 0i;
@@ -480,7 +482,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         next_plasmid_low = params.inj_hash_low;
         next_plasmid_high = params.inj_hash_high;
     }
-
     var next_agent: PhaseAgent;
     next_agent.theta = next_theta;
     next_agent.energy = u32(next_amp);
