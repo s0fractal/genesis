@@ -1,5 +1,4 @@
-// OMEGA-64 Era 300: Native WebRTC Mesh
-// Runs on the Main Thread (DOM) and relays to the Phase SharedWorker
+import { NomosGate } from "../ontology/nomos_gate.ts";
 
 export class WebRTCMesh {
     private signaling: WebSocket;
@@ -80,7 +79,21 @@ export class WebRTCMesh {
             try {
                 const packet = JSON.parse(event.data);
                 if (packet.type === 'FOREIGN_PLASMID') {
-                    this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
+                    // Era 280: Validate SP1 STARK ZK-Proof receipt before injection!
+                    if (packet.payload.proof_bytes) {
+                        const proof = NomosGate.verify_sp1_receipt(
+                            packet.payload.proof_bytes,
+                            { morphology: packet.payload.morphology_hash, steps: packet.payload.steps_cost }
+                        );
+
+                        if (proof.valid) {
+                            this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
+                        } else {
+                            console.warn(`[WebRTCMesh] STARK Proof invalid! Rejected ForeignPlasmid.`);
+                        }
+                    } else {
+                        console.warn(`[WebRTCMesh] Plasmid packet missing ZK 'proof_bytes'! Rejected.`);
+                    }
                 } else if (packet.type === 'HALO_SYNC') {
                     this.workerPort.postMessage(packet);
                 }

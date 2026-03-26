@@ -1,0 +1,12 @@
+[package]
+name = "omega_zk_guest"
+version = "42.0.0"
+edition = "2021"
+
+[dependencies]
+omega_core = { path = "../omega_core" }
+sp1-zkvm = "3.0.0"
+
+[profile.release]
+lto = true
+opt-level = 3

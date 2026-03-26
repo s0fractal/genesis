@@ -123,6 +123,7 @@ pub struct PhaseLatticeField {
 impl PhaseLatticeField {
     #[wasm_bindgen(constructor)]
     pub fn new(sectors: u32, radial_bins: u32, harmonics: u32) -> PhaseLatticeField {
+        #[cfg(target_arch = "wasm32")]
         console_error_panic_hook::set_once();
         let tau_depth = 4;
         let max_elements = (sectors * radial_bins * harmonics * tau_depth) as usize; 

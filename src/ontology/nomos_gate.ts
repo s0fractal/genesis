@@ -1,3 +1,10 @@
+export interface NomosZKProof {
+    morphology_hash: string;
+    gas_used: number;
+    proof_bytes: string;
+    valid: boolean;
+}
+
 export interface NomosProof {
     hash: string;
     gas_used: number;
@@ -7,6 +14,29 @@ export interface NomosProof {
 }
 
 export class NomosGate {
+    /**
+     * Era 280: STARK Receipt Verification
+     * In a production environment, this calls into SP1 WASM Verifier bindings 
+     * using the hardcoded verification key (vkey) of `omega_zk_guest`.
+     */
+    static verify_sp1_receipt(proof_bytes: string, public_values: any): NomosZKProof {
+        // Mock ZK implementation for architecture scaffolding
+        console.warn("[NomosGate] SP1 Verification explicitly mocked for Era 280 scaffolding.");
+        
+        let valid = false;
+        // A real proof is much larger, this simulates rejection of non-ZK packets
+        if (proof_bytes && proof_bytes.length >= 32) {
+            valid = true;
+        }
+
+        return {
+            morphology_hash: public_values.morphology || "0x0000000000000000",
+            gas_used: public_values.steps || 0,
+            proof_bytes,
+            valid
+        };
+    }
+
     /**
      * Statically verifies an AST payload without executing it.
      * Mimics a ZK-SNARK verification circuit bounds testing logic constraints.
