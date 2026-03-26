@@ -233,21 +233,28 @@ export class PhylogenyView {
             // Pulse effect for highly resonant organisms
             const pulse = (node.resonance > 5.0) ? Math.sin(now * 0.005) * 2 : 0;
             
-            this.ctx.beginPath();
-            this.ctx.arc(node.x, node.y, r + pulse, 0, Math.PI * 2);
-            
-            if (node.isPinned) {
-                this.ctx.fillStyle = `hsl(280, 100%, 70%)`; // Akashic Purple
-                this.ctx.shadowColor = `hsl(280, 100%, 70%)`;
-                this.ctx.shadowBlur = 10;
-            } else if (age < 2000) {
-                this.ctx.fillStyle = `hsl(120, 100%, 70%)`; // Newborn Green
-                this.ctx.shadowBlur = 0;
-            } else {
-                this.ctx.fillStyle = `hsl(200, 80%, 50%)`; // Standard Blue
-                this.ctx.shadowBlur = 0;
+            // Era 600: Probability Cloud Rendering
+            let baseColor = `200, 80%, 50%`;
+            if (node.isPinned) baseColor = `280, 100%, 70%`;
+            else if (age < 2000) baseColor = `120, 100%, 70%`;
+
+            // Draw multi-layered probability rings instead of solid sphere
+            const orbitals = 3 + Math.floor(node.resonance);
+            for (let i = 0; i < orbitals; i++) {
+                const orbitalR = r + pulse + (i * 3);
+                const alpha = Math.max(0.1, 1.0 - (i / orbitals)) * (0.3 + (node.energy % 100) / 200.0);
+                
+                this.ctx.beginPath();
+                this.ctx.arc(node.x, node.y, orbitalR, 0, Math.PI * 2);
+                this.ctx.strokeStyle = `hsla(${baseColor}, ${alpha})`;
+                this.ctx.lineWidth = 1.0 + (i === 0 ? 1 : 0);
+                this.ctx.stroke();
             }
             
+            // Core singularity
+            this.ctx.beginPath();
+            this.ctx.arc(node.x, node.y, 2, 0, Math.PI * 2);
+            this.ctx.fillStyle = `hsl(${baseColor})`;
             this.ctx.fill();
         }
 

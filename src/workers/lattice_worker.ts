@@ -32,18 +32,31 @@ async function physicsLoop() {
 
     try {
         if (tickCount % 15 === 0) {
-            const numSpatialCells = field.sectors * field.radial_bins * field.harmonics;
-            const thetaOffset = field.ptr_spatial_memory_theta();
-            const thetaView = new Int32Array(sharedMemory.buffer, thetaOffset, numSpatialCells);
-            let sumCos = 0;
-            let sumSin = 0;
+            const numSpatialCells = field.cell_count();
+            const agentsOffset = field.ptr_agents();
+            const agentsView = new Uint32Array(sharedMemory.buffer, agentsOffset, numSpatialCells * 6);
+            
+            let sumU = 0;
+            let sumV = 0;
+            let sumW = 0;
+            
             for (let i = 0; i < numSpatialCells; i += 8) { // Aggressive subsampling for JS perf
-                const angle = thetaView[i] / 1024.0;
-                sumCos += Math.cos(angle);
-                sumSin += Math.sin(angle);
+                const t3 = agentsView[i * 6 + 3];
+                const thetaRaw = t3 & 0xFF;
+                const entRaw = (t3 >>> 24) & 0xFF;
+                
+                // Map to Bloch Sphere angles
+                // ent mapping: [0, 255] -> [0, pi]
+                const polarAngle = (entRaw / 255.0) * Math.PI;
+                // theta mapping: [0, 255] -> [0, 2pi)
+                const azimuthAngle = (thetaRaw / 255.0) * Math.PI * 2.0;
+                
+                sumU += Math.sin(polarAngle) * Math.cos(azimuthAngle);
+                sumV += Math.sin(polarAngle) * Math.sin(azimuthAngle);
+                sumW += Math.cos(polarAngle);
             }
             const samples = Math.ceil(numSpatialCells / 8);
-            currentGridResonance = Math.sqrt(sumCos * sumCos + sumSin * sumSin) / samples;
+            currentGridResonance = Math.sqrt(sumU * sumU + sumV * sumV + sumW * sumW) / samples;
         }
 
         const entropy = phase_lattice_shannon_entropy(field) / 1024.0;

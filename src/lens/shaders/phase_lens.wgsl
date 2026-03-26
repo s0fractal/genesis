@@ -173,10 +173,18 @@ fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) inst_idx: u3
       out.is_latent = 0.0;
   }
 
-  let hue = fract(theta + 0.5);
-  let sat = 0.6 + entanglement;
-  let val = 0.3 + amplitude * 0.7;
-  var base_color = hsv2rgb(hue, min(1.0, sat), min(1.0, val));
+  // Era 600: Quantum Bloch Sphere Probability Rendering
+  // ent maps to Probability Amplitude |1> (0.0 to 1.0)
+  // theta maps to Quantum Phase Phi (0.0 to 1.0)
+  
+  let prob_excited = sin(entanglement * 1.57079); // sin(theta/2)
+  let prob_ground = cos(entanglement * 1.57079); // cos(theta/2)
+  
+  // Ground states |0> are deep void-blue, Excited states |1> are blinding plasma-white
+  let color_ground = vec3<f32>(0.02, 0.05, 0.2);
+  let color_excited = hsv2rgb(fract(theta + 0.5), 1.0, 1.0); // Phase dictates the excited energy frequency
+  
+  var base_color = mix(color_ground, color_excited, prob_excited * prob_excited * amplitude);
 
   // Era 171: X-Ray Debug Override for the Shadow Network
   if (params.debug_shadow == 1u && out.is_latent > 0.5) {

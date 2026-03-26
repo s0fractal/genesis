@@ -220,18 +220,45 @@ fn get_idx(sector: u32, rho: u32, harmonic: u32) -> u32 {
     return harmonic * params.radial_bins * params.sectors + rho * params.sectors + sector;
 }
 
-// O-223 Native Phase Coupling via Hardware Hamming Distance (POPCNT Singularity)
-// O-247 Sakaguchi Phase Frustration (Breaks uniform crystalline sync to allow biological niches)
-fn phase_torque(me_theta: u32, neighbor_theta: u32) -> i32 {
-    let effective_me_theta = u32(wrap_index(i32(me_theta) + KURAMOTO_SAKAGUCHI_ALPHA, 256));
-    return signed_phase_delta(i32(effective_me_theta), i32(neighbor_theta)) * 8; // Triangle wave approximation of Sin(x) * 1024
+// O-223 Quantum-Inspired Unitary Phase Coupling (Era 600)
+fn quantum_fidelity(me: PhaseAgent, nb: PhaseAgent) -> i32 {
+    let half_theta_a = me.ent / 2u;
+    let half_theta_b = nb.ent / 2u;
+    
+    let cos_a = cos_q10(0u, half_theta_a);
+    let sin_a = sin_q10(0u, half_theta_a);
+    let cos_b = cos_q10(0u, half_theta_b);
+    let sin_b = sin_q10(0u, half_theta_b);
+    
+    let cos_phi = cos_q10(me.theta, nb.theta);
+    
+    let term1 = (cos_a * cos_b) / 1024;
+    let term2 = (sin_a * sin_b) / 1024;
+    let term3 = (2 * term1 * term2 * cos_phi) / 1024; // Normalized scaling
+    
+    let f1 = (term1 * term1) / 1024;
+    let f2 = (term2 * term2) / 1024;
+    
+    return clamp_i32(f1 + f2 + term3, 0, 1024);
+}
+
+fn quantum_torque(me_theta: u32, nb_theta: u32, me: PhaseAgent, nb: PhaseAgent) -> i32 {
+    let fidelity = quantum_fidelity(me, nb);
+    let phase_diff = signed_phase_delta(i32(me_theta), i32(nb_theta));
+    return (phase_diff * fidelity) / 512;
+}
+
+fn quantum_ent_torque(me: PhaseAgent, nb: PhaseAgent) -> i32 {
+    let ent_diff = i32(nb.ent) - i32(me.ent);
+    let cos_phi = cos_q10(me.theta, nb.theta);
+    return (ent_diff * cos_phi) / 1024;
 }
 
 fn genetic_resonance(me: PhaseAgent, neighbor: PhaseAgent) -> i32 {
     if (me.plasmid_low == 0u && neighbor.plasmid_low == 0u) {
-        // Pure physics vacuum coherence (Triangle wave Cosine approximation)
-        let diff = phase_distance(i32(neighbor.theta), i32(me.theta));
-        return (64 - diff) * 16; // 0 diff -> 1024, 64 diff -> 0, 128 diff -> -1024
+        // Pure physics vacuum coherence (Quantum Fidelity Projection)
+        let fidelity = quantum_fidelity(me, neighbor);
+        return (fidelity - 512) * 2; // scale [0..1024] to [-1024..1024]
     }
     if (me.plasmid_low == 0u || neighbor.plasmid_low == 0u) {
         return -512; // Empty space repels explicit Biology
@@ -309,11 +336,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // O-164 Local Thermodynamic Feedback
     let dynamic_coupling = (local_coupling_base * (i32(me.energy) + 64)) / 128;
 
-    var kuramoto = phase_torque(me.theta, a_l.theta) * i32(dynamic_coupling) +
-                   phase_torque(me.theta, a_r.theta) * i32(dynamic_coupling) +
-                   phase_torque(me.theta, a_i.theta) * i32(dynamic_coupling) +
-                   phase_torque(me.theta, a_o.theta) * i32(dynamic_coupling) +
-                   phase_torque(me.theta, a_h.theta) * params.coupling_harmonic_peer;
+    // Quantum Phase Drift
+    var kuramoto = quantum_torque(me.theta, a_l.theta, me, a_l) * i32(dynamic_coupling) +
+                   quantum_torque(me.theta, a_r.theta, me, a_r) * i32(dynamic_coupling) +
+                   quantum_torque(me.theta, a_i.theta, me, a_i) * i32(dynamic_coupling) +
+                   quantum_torque(me.theta, a_o.theta, me, a_o) * i32(dynamic_coupling) +
+                   quantum_torque(me.theta, a_h.theta, me, a_h) * params.coupling_harmonic_peer;
+
+    // Quantum Amplitude Superposition State Evolution
+    var q_ent_torque = quantum_ent_torque(me, a_l) * i32(dynamic_coupling) +
+                       quantum_ent_torque(me, a_r) * i32(dynamic_coupling) +
+                       quantum_ent_torque(me, a_i) * i32(dynamic_coupling) +
+                       quantum_ent_torque(me, a_o) * i32(dynamic_coupling) +
+                       quantum_ent_torque(me, a_h) * params.coupling_harmonic_peer;
 
     var coherence = genetic_resonance(me, a_l) * i32(dynamic_coupling) +
                     genetic_resonance(me, a_r) * i32(dynamic_coupling) +
@@ -321,13 +356,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     genetic_resonance(me, a_o) * i32(dynamic_coupling) +
                     genetic_resonance(me, a_h) * params.coupling_harmonic_peer;
 
-    var next_ent = i32(me.ent);
+    var next_ent = i32(me.ent) + q20_round(q_ent_torque);
     if (params.sectors % 2u == 0u) {
         let antipode_sec = (sector + params.sectors / 2u) % params.sectors;
         let a_anti = get_agent(get_idx(antipode_sec, rho, harmonic));
         
         let weight = (i32(me.ent) * params.coupling_antipode) / PHASE_MAX_ENTANGLEMENT;
-        kuramoto += phase_torque(me.theta, a_anti.theta) * weight;
+        kuramoto += quantum_torque(me.theta, a_anti.theta, me, a_anti) * weight;
         coherence += genetic_resonance(me, a_anti) * weight;
 
         let align = genetic_resonance(me, a_anti);
@@ -343,7 +378,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     if (me.plasmid_low != 0u || me.plasmid_high != 0u) {
         let target_theta = me.plasmid_low & 0xFFu;
-        kuramoto += phase_torque(me.theta, target_theta) * params.coupling_plasmid;
+        kuramoto += signed_phase_delta(i32(me.theta), i32(target_theta)) * params.coupling_plasmid;
         // Self-resonance with implicit DNA target (Torque alignment substitute)
         let diff = phase_distance(i32(target_theta), i32(me.theta));
         coherence += ((64 - diff) * 16) * params.coupling_plasmid;
@@ -355,7 +390,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let m_x = atomicLoad(&mycelial_centroids[bucket_idx].x_sum);
             let m_y = atomicLoad(&mycelial_centroids[bucket_idx].y_sum);
             let centroid = u32(atan2_u8(m_y, m_x));
-            kuramoto += phase_torque(me.theta, centroid) * WGSL_MYCELIAL_COUPLING;
+            kuramoto += signed_phase_delta(i32(me.theta), i32(centroid)) * WGSL_MYCELIAL_COUPLING;
             
             let m_diff = phase_distance(i32(centroid), i32(me.theta));
             coherence += ((64 - m_diff) * 16) * WGSL_MYCELIAL_COUPLING;
@@ -371,14 +406,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n.plasmid_low == me.plasmid_low && n.plasmid_high == me.plasmid_high) {
                 if (n.energy > me.energy) {
                     staking_energy_bonus += i32(n.energy - me.energy) / 4;
-                    kuramoto += phase_torque(me.theta, n.theta) * WGSL_STAKING_COUPLING;
+                    kuramoto += quantum_torque(me.theta, n.theta, me, n) * WGSL_STAKING_COUPLING;
                 }
             }
         }
     }
 
     // --- Phase 12: Adaptive Phase Biology (Ghost Neighbor Memory) ---
-    let memory_pull_q20 = (phase_torque(me.theta, me.preferred_theta) * i32(me.memory_strength) * BIOLOGY_APA_MEMORY_GAIN) / 255;
+    let memory_pull_q20 = (signed_phase_delta(i32(me.theta), i32(me.preferred_theta)) * i32(me.memory_strength) * BIOLOGY_APA_MEMORY_GAIN) / 255;
     kuramoto += memory_pull_q20;
 
     // Kinematics
