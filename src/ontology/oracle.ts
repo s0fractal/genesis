@@ -468,7 +468,7 @@ export class SovereignOracle {
         
         if (globalFitnessVelocity > 50.0) { 
             // Hodler Brake: Massive logical explosion detected. Exponentially starve the mining reward.
-            this.miningReward = Math.max(1, Math.floor(this.miningReward * ADA_HODLER_BRAKE)); 
+            this.miningReward = Math.max(1, Math.floor((this.miningReward * ADA_HODLER_BRAKE) / MATH_Q_SCALE)); 
         } else if (globalFitnessVelocity < 5.0 && this.reserveEnergyPool > 1000) { 
             // Quantitative Easing: Stagnation. Pump ATP directly into circulation.
             const stimulus = Math.floor(Math.random() * ADA_QE_STIMULUS_MAX) + ADA_QE_STIMULUS_MIN;
@@ -500,17 +500,17 @@ export class SovereignOracle {
             return; // Skip normal economy completely
         }
         
-        let climateEnergyMod = 1.0;
-        let climateDecayMod = 1.0;
+        let climateEnergyMod = MATH_Q_SCALE;
+        let climateDecayMod = MATH_Q_SCALE;
         if (season === 0) { // SPRING
-            climateEnergyMod = 1.5; 
-            climateDecayMod = 0.5;
+            climateEnergyMod = 1536; 
+            climateDecayMod = 512;
         } else if (season === 1) { // SUMMER
-            climateEnergyMod = 1.0;
-            climateDecayMod = 2.0; 
+            climateEnergyMod = MATH_Q_SCALE;
+            climateDecayMod = 2048; 
         } else if (season === 2) { // AUTUMN
-            climateEnergyMod = 0.5;
-            climateDecayMod = 1.0; 
+            climateEnergyMod = 512;
+            climateDecayMod = MATH_Q_SCALE; 
         }
 
         // --- Phase 14 Evolutionary Sandbox Physics (ESP) PSP Loop ---
@@ -558,13 +558,13 @@ export class SovereignOracle {
             const popularityShare = (totalAttention > 0 && node.attention > 0) ? (node.attention / totalAttention) : 0;
             const noveltyShare = (1.0 / (1.0 + node.attention)) / totalNovelty; // Weirdest/Newest get priority
             
-            const share = distributionPool * (popularityShare * 0.4 + noveltyShare * 0.6) * climateEnergyMod;
+            const share = distributionPool * (popularityShare * 0.4 + noveltyShare * 0.6) * (climateEnergyMod / MATH_Q_SCALE);
             node.energy += share;
             distributedEnergy += share;
             
             // Tax the node based on its AST geometric depth (L1 Penalty) and age
-            const maintenanceCost = BIOLOGY_SOMATIC_BASE_COST + (node.l1_cost * BIOLOGY_SOMATIC_ALPHA);
-            const decay = maintenanceCost * (1.0 + (node.age * BIOLOGY_SOMATIC_DECAY_RATE)) * climateDecayMod;
+            const maintenanceCost = BIOLOGY_SOMATIC_BASE_COST + (node.l1_cost * (BIOLOGY_SOMATIC_ALPHA / MATH_Q_SCALE));
+            const decay = maintenanceCost * (1.0 + (node.age * (BIOLOGY_SOMATIC_DECAY_RATE / MATH_Q_SCALE))) * (climateDecayMod / MATH_Q_SCALE);
             
             // Strictly collect taxes into the circulating pool
             const taxable = Math.min(node.energy, decay);
@@ -682,7 +682,7 @@ export class SovereignOracle {
              
              // Era 236: Gravitational Drag
              const massDilation = Math.max(ADA_MASS_DILATION_MIN, Math.min(ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM / Math.max(1, node.nodes)));
-             localCreditTick *= massDilation;
+             localCreditTick *= (massDilation / MATH_Q_SCALE);
              
              if (zodiac === CognitiveZodiac.Capricorn) {
                  localCreditTick *= (1.0 + (node.depth * 0.05)); // Architects speed boost for monolithic graphs
