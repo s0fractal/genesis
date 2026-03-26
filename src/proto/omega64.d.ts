@@ -293,103 +293,236 @@ export namespace omega64 {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a HaloSync. */
-    interface IHaloSync {
+    /** Properties of an ImpactEvent. */
+    interface IImpactEvent {
 
-        /** HaloSync left */
-        left?: (Uint8Array|null);
+        /** ImpactEvent x */
+        x?: (number|null);
 
-        /** HaloSync right */
-        right?: (Uint8Array|null);
+        /** ImpactEvent y */
+        y?: (number|null);
+
+        /** ImpactEvent energy */
+        energy?: (number|null);
+
+        /** ImpactEvent astHash */
+        astHash?: (string|null);
+
+        /** ImpactEvent signature */
+        signature?: (string|null);
     }
 
-    /** Represents a HaloSync. */
-    class HaloSync implements IHaloSync {
+    /** Represents an ImpactEvent. */
+    class ImpactEvent implements IImpactEvent {
 
         /**
-         * Constructs a new HaloSync.
+         * Constructs a new ImpactEvent.
          * @param [properties] Properties to set
          */
-        constructor(properties?: omega64.IHaloSync);
+        constructor(properties?: omega64.IImpactEvent);
 
-        /** HaloSync left. */
-        public left: Uint8Array;
+        /** ImpactEvent x. */
+        public x: number;
 
-        /** HaloSync right. */
-        public right: Uint8Array;
+        /** ImpactEvent y. */
+        public y: number;
+
+        /** ImpactEvent energy. */
+        public energy: number;
+
+        /** ImpactEvent astHash. */
+        public astHash: string;
+
+        /** ImpactEvent signature. */
+        public signature: string;
 
         /**
-         * Creates a new HaloSync instance using the specified properties.
+         * Creates a new ImpactEvent instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns HaloSync instance
+         * @returns ImpactEvent instance
          */
-        public static create(properties?: omega64.IHaloSync): omega64.HaloSync;
+        public static create(properties?: omega64.IImpactEvent): omega64.ImpactEvent;
 
         /**
-         * Encodes the specified HaloSync message. Does not implicitly {@link omega64.HaloSync.verify|verify} messages.
-         * @param message HaloSync message or plain object to encode
+         * Encodes the specified ImpactEvent message. Does not implicitly {@link omega64.ImpactEvent.verify|verify} messages.
+         * @param message ImpactEvent message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: omega64.IHaloSync, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: omega64.IImpactEvent, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified HaloSync message, length delimited. Does not implicitly {@link omega64.HaloSync.verify|verify} messages.
-         * @param message HaloSync message or plain object to encode
+         * Encodes the specified ImpactEvent message, length delimited. Does not implicitly {@link omega64.ImpactEvent.verify|verify} messages.
+         * @param message ImpactEvent message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: omega64.IHaloSync, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: omega64.IImpactEvent, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a HaloSync message from the specified reader or buffer.
+         * Decodes an ImpactEvent message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns HaloSync
+         * @returns ImpactEvent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): omega64.HaloSync;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): omega64.ImpactEvent;
 
         /**
-         * Decodes a HaloSync message from the specified reader or buffer, length delimited.
+         * Decodes an ImpactEvent message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns HaloSync
+         * @returns ImpactEvent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): omega64.HaloSync;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): omega64.ImpactEvent;
 
         /**
-         * Verifies a HaloSync message.
+         * Verifies an ImpactEvent message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a HaloSync message from a plain object. Also converts values to their respective internal types.
+         * Creates an ImpactEvent message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns HaloSync
+         * @returns ImpactEvent
          */
-        public static fromObject(object: { [k: string]: any }): omega64.HaloSync;
+        public static fromObject(object: { [k: string]: any }): omega64.ImpactEvent;
 
         /**
-         * Creates a plain object from a HaloSync message. Also converts values to other types if specified.
-         * @param message HaloSync
+         * Creates a plain object from an ImpactEvent message. Also converts values to other types if specified.
+         * @param message ImpactEvent
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: omega64.HaloSync, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: omega64.ImpactEvent, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this HaloSync to JSON.
+         * Converts this ImpactEvent to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for HaloSync
+         * Gets the default type url for ImpactEvent
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a SP1Receipt. */
+    interface ISP1Receipt {
+
+        /** SP1Receipt verifyingKey */
+        verifyingKey?: (string|null);
+
+        /** SP1Receipt proofBytes */
+        proofBytes?: (string|null);
+
+        /** SP1Receipt publicValues */
+        publicValues?: (string|null);
+
+        /** SP1Receipt blockHeight */
+        blockHeight?: (number|null);
+    }
+
+    /** Represents a SP1Receipt. */
+    class SP1Receipt implements ISP1Receipt {
+
+        /**
+         * Constructs a new SP1Receipt.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: omega64.ISP1Receipt);
+
+        /** SP1Receipt verifyingKey. */
+        public verifyingKey: string;
+
+        /** SP1Receipt proofBytes. */
+        public proofBytes: string;
+
+        /** SP1Receipt publicValues. */
+        public publicValues: string;
+
+        /** SP1Receipt blockHeight. */
+        public blockHeight: number;
+
+        /**
+         * Creates a new SP1Receipt instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns SP1Receipt instance
+         */
+        public static create(properties?: omega64.ISP1Receipt): omega64.SP1Receipt;
+
+        /**
+         * Encodes the specified SP1Receipt message. Does not implicitly {@link omega64.SP1Receipt.verify|verify} messages.
+         * @param message SP1Receipt message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: omega64.ISP1Receipt, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified SP1Receipt message, length delimited. Does not implicitly {@link omega64.SP1Receipt.verify|verify} messages.
+         * @param message SP1Receipt message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: omega64.ISP1Receipt, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SP1Receipt message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SP1Receipt
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): omega64.SP1Receipt;
+
+        /**
+         * Decodes a SP1Receipt message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns SP1Receipt
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): omega64.SP1Receipt;
+
+        /**
+         * Verifies a SP1Receipt message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a SP1Receipt message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns SP1Receipt
+         */
+        public static fromObject(object: { [k: string]: any }): omega64.SP1Receipt;
+
+        /**
+         * Creates a plain object from a SP1Receipt message. Also converts values to other types if specified.
+         * @param message SP1Receipt
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: omega64.SP1Receipt, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this SP1Receipt to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for SP1Receipt
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
@@ -662,11 +795,14 @@ export namespace omega64 {
         /** OmegaMessage plasmid */
         plasmid?: (omega64.IForeignPlasmid|null);
 
-        /** OmegaMessage halo */
-        halo?: (omega64.IHaloSync|null);
+        /** OmegaMessage impact */
+        impact?: (omega64.IImpactEvent|null);
 
         /** OmegaMessage telemetry */
         telemetry?: (omega64.IOracleTelemetry|null);
+
+        /** OmegaMessage zkReceipt */
+        zkReceipt?: (omega64.ISP1Receipt|null);
     }
 
     /** Represents an OmegaMessage. */
@@ -684,11 +820,14 @@ export namespace omega64 {
         /** OmegaMessage plasmid. */
         public plasmid?: (omega64.IForeignPlasmid|null);
 
-        /** OmegaMessage halo. */
-        public halo?: (omega64.IHaloSync|null);
+        /** OmegaMessage impact. */
+        public impact?: (omega64.IImpactEvent|null);
 
         /** OmegaMessage telemetry. */
         public telemetry?: (omega64.IOracleTelemetry|null);
+
+        /** OmegaMessage zkReceipt. */
+        public zkReceipt?: (omega64.ISP1Receipt|null);
 
         /**
          * Creates a new OmegaMessage instance using the specified properties.
@@ -774,7 +913,7 @@ export namespace omega64 {
         enum MessageType {
             UNKNOWN = 0,
             FOREIGN_PLASMID = 1,
-            HALO_SYNC = 2,
+            IMPACT_EVENT = 2,
             SYNC_METADATA = 3
         }
     }

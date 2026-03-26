@@ -24,22 +24,22 @@ export async function bootstrapPhase() {
   }
 
   // Connect to the true sovereign simulation
-  const worker = new SharedWorker(new URL('../workers/lattice_worker.ts', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('../workers/lattice_worker.ts', import.meta.url), { type: 'module' });
   
-  worker.port.onmessage = async (e) => {
+  worker.onmessage = async (e) => {
       const msg = e.data;
       if (msg.type === 'INIT_ACK') {
-          await renderClientLoop(canvas, device, worker.port, msg.metadata);
+          await renderClientLoop(canvas, device, worker, msg.metadata);
       } else if (msg.type === 'INIT_ERR') {
           console.error("[Genesis] FATAL: Macro-Torus Worker Initialization Failed:", msg.error, "\nStack:", msg.stack);
       }
   };
   
-  worker.port.postMessage({ type: 'HELO' });
+  worker.postMessage({ type: 'HELO' });
 }
 
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice");
-export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | null, workerPort: MessagePort, metadata: TopologyMetadata) {
+export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDevice | null, workerPort: Worker | MessagePort, metadata: TopologyMetadata) {
   DOM.hudTitle?.replaceChildren("Φ Phase Lattice CPU");
   DOM.statusLabel?.replaceChildren("WORKER CONNECTED");
   setHudStat("a", "SECTORS", `${metadata.sectors}x${metadata.radial_bins}x${metadata.harmonics}`);
@@ -48,10 +48,10 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   setInputMode("semantic");
 
   // Era 300: Spawn Native WebRTC Mesh for the UI Thread
-  const mesh = new WebRTCMesh(workerPort, "ws://localhost:9091");
+  const mesh = new WebRTCMesh(workerPort as unknown as MessagePort, "ws://localhost:9091");
 
   const observer = new PhaseWebGPUObserver(canvas, metadata, device);
-  observer.workerPort = workerPort;
+  observer.workerPort = workerPort as unknown as MessagePort;
   await observer.init();
   
   const senateChat = new SenateChatHUD();
@@ -98,8 +98,8 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   let nomosOrphaned = 0;
   let apexPlasmids: {hash: string, astStr: string, energy: number}[] = [];
 
-  workerPort.addEventListener('message', (e) => {
-      const msg = e.data;
+  workerPort.addEventListener('message', (e: Event) => {
+      const msg = (e as MessageEvent).data;
         if (msg.type === 'SYNC_METADATA') {
             current_tau = msg.current_tau;
             currentEntropy = msg.entropy;

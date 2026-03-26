@@ -854,25 +854,28 @@ export const omega64 = $root.omega64 = (() => {
         return ForeignPlasmid;
     })();
 
-    omega64.HaloSync = (function() {
+    omega64.ImpactEvent = (function() {
 
         /**
-         * Properties of a HaloSync.
+         * Properties of an ImpactEvent.
          * @memberof omega64
-         * @interface IHaloSync
-         * @property {Uint8Array|null} [left] HaloSync left
-         * @property {Uint8Array|null} [right] HaloSync right
+         * @interface IImpactEvent
+         * @property {number|null} [x] ImpactEvent x
+         * @property {number|null} [y] ImpactEvent y
+         * @property {number|null} [energy] ImpactEvent energy
+         * @property {string|null} [astHash] ImpactEvent astHash
+         * @property {string|null} [signature] ImpactEvent signature
          */
 
         /**
-         * Constructs a new HaloSync.
+         * Constructs a new ImpactEvent.
          * @memberof omega64
-         * @classdesc Represents a HaloSync.
-         * @implements IHaloSync
+         * @classdesc Represents an ImpactEvent.
+         * @implements IImpactEvent
          * @constructor
-         * @param {omega64.IHaloSync=} [properties] Properties to set
+         * @param {omega64.IImpactEvent=} [properties] Properties to set
          */
-        function HaloSync(properties) {
+        function ImpactEvent(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -880,91 +883,133 @@ export const omega64 = $root.omega64 = (() => {
         }
 
         /**
-         * HaloSync left.
-         * @member {Uint8Array} left
-         * @memberof omega64.HaloSync
+         * ImpactEvent x.
+         * @member {number} x
+         * @memberof omega64.ImpactEvent
          * @instance
          */
-        HaloSync.prototype.left = $util.newBuffer([]);
+        ImpactEvent.prototype.x = 0;
 
         /**
-         * HaloSync right.
-         * @member {Uint8Array} right
-         * @memberof omega64.HaloSync
+         * ImpactEvent y.
+         * @member {number} y
+         * @memberof omega64.ImpactEvent
          * @instance
          */
-        HaloSync.prototype.right = $util.newBuffer([]);
+        ImpactEvent.prototype.y = 0;
 
         /**
-         * Creates a new HaloSync instance using the specified properties.
+         * ImpactEvent energy.
+         * @member {number} energy
+         * @memberof omega64.ImpactEvent
+         * @instance
+         */
+        ImpactEvent.prototype.energy = 0;
+
+        /**
+         * ImpactEvent astHash.
+         * @member {string} astHash
+         * @memberof omega64.ImpactEvent
+         * @instance
+         */
+        ImpactEvent.prototype.astHash = "";
+
+        /**
+         * ImpactEvent signature.
+         * @member {string} signature
+         * @memberof omega64.ImpactEvent
+         * @instance
+         */
+        ImpactEvent.prototype.signature = "";
+
+        /**
+         * Creates a new ImpactEvent instance using the specified properties.
          * @function create
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
-         * @param {omega64.IHaloSync=} [properties] Properties to set
-         * @returns {omega64.HaloSync} HaloSync instance
+         * @param {omega64.IImpactEvent=} [properties] Properties to set
+         * @returns {omega64.ImpactEvent} ImpactEvent instance
          */
-        HaloSync.create = function create(properties) {
-            return new HaloSync(properties);
+        ImpactEvent.create = function create(properties) {
+            return new ImpactEvent(properties);
         };
 
         /**
-         * Encodes the specified HaloSync message. Does not implicitly {@link omega64.HaloSync.verify|verify} messages.
+         * Encodes the specified ImpactEvent message. Does not implicitly {@link omega64.ImpactEvent.verify|verify} messages.
          * @function encode
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
-         * @param {omega64.IHaloSync} message HaloSync message or plain object to encode
+         * @param {omega64.IImpactEvent} message ImpactEvent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        HaloSync.encode = function encode(message, writer) {
+        ImpactEvent.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.left != null && Object.hasOwnProperty.call(message, "left"))
-                writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.left);
-            if (message.right != null && Object.hasOwnProperty.call(message, "right"))
-                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.right);
+            if (message.x != null && Object.hasOwnProperty.call(message, "x"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.x);
+            if (message.y != null && Object.hasOwnProperty.call(message, "y"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.y);
+            if (message.energy != null && Object.hasOwnProperty.call(message, "energy"))
+                writer.uint32(/* id 3, wireType 5 =*/29).float(message.energy);
+            if (message.astHash != null && Object.hasOwnProperty.call(message, "astHash"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.astHash);
+            if (message.signature != null && Object.hasOwnProperty.call(message, "signature"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.signature);
             return writer;
         };
 
         /**
-         * Encodes the specified HaloSync message, length delimited. Does not implicitly {@link omega64.HaloSync.verify|verify} messages.
+         * Encodes the specified ImpactEvent message, length delimited. Does not implicitly {@link omega64.ImpactEvent.verify|verify} messages.
          * @function encodeDelimited
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
-         * @param {omega64.IHaloSync} message HaloSync message or plain object to encode
+         * @param {omega64.IImpactEvent} message ImpactEvent message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        HaloSync.encodeDelimited = function encodeDelimited(message, writer) {
+        ImpactEvent.encodeDelimited = function encodeDelimited(message, writer) {
             return this.encode(message, writer).ldelim();
         };
 
         /**
-         * Decodes a HaloSync message from the specified reader or buffer.
+         * Decodes an ImpactEvent message from the specified reader or buffer.
          * @function decode
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {omega64.HaloSync} HaloSync
+         * @returns {omega64.ImpactEvent} ImpactEvent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        HaloSync.decode = function decode(reader, length, error) {
+        ImpactEvent.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.omega64.HaloSync();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.omega64.ImpactEvent();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.left = reader.bytes();
+                        message.x = reader.uint32();
                         break;
                     }
                 case 2: {
-                        message.right = reader.bytes();
+                        message.y = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.energy = reader.float();
+                        break;
+                    }
+                case 4: {
+                        message.astHash = reader.string();
+                        break;
+                    }
+                case 5: {
+                        message.signature = reader.string();
                         break;
                     }
                 default:
@@ -976,129 +1021,410 @@ export const omega64 = $root.omega64 = (() => {
         };
 
         /**
-         * Decodes a HaloSync message from the specified reader or buffer, length delimited.
+         * Decodes an ImpactEvent message from the specified reader or buffer, length delimited.
          * @function decodeDelimited
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {omega64.HaloSync} HaloSync
+         * @returns {omega64.ImpactEvent} ImpactEvent
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        HaloSync.decodeDelimited = function decodeDelimited(reader) {
+        ImpactEvent.decodeDelimited = function decodeDelimited(reader) {
             if (!(reader instanceof $Reader))
                 reader = new $Reader(reader);
             return this.decode(reader, reader.uint32());
         };
 
         /**
-         * Verifies a HaloSync message.
+         * Verifies an ImpactEvent message.
          * @function verify
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
          * @param {Object.<string,*>} message Plain object to verify
          * @returns {string|null} `null` if valid, otherwise the reason why it is not
          */
-        HaloSync.verify = function verify(message) {
+        ImpactEvent.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.left != null && message.hasOwnProperty("left"))
-                if (!(message.left && typeof message.left.length === "number" || $util.isString(message.left)))
-                    return "left: buffer expected";
-            if (message.right != null && message.hasOwnProperty("right"))
-                if (!(message.right && typeof message.right.length === "number" || $util.isString(message.right)))
-                    return "right: buffer expected";
+            if (message.x != null && message.hasOwnProperty("x"))
+                if (!$util.isInteger(message.x))
+                    return "x: integer expected";
+            if (message.y != null && message.hasOwnProperty("y"))
+                if (!$util.isInteger(message.y))
+                    return "y: integer expected";
+            if (message.energy != null && message.hasOwnProperty("energy"))
+                if (typeof message.energy !== "number")
+                    return "energy: number expected";
+            if (message.astHash != null && message.hasOwnProperty("astHash"))
+                if (!$util.isString(message.astHash))
+                    return "astHash: string expected";
+            if (message.signature != null && message.hasOwnProperty("signature"))
+                if (!$util.isString(message.signature))
+                    return "signature: string expected";
             return null;
         };
 
         /**
-         * Creates a HaloSync message from a plain object. Also converts values to their respective internal types.
+         * Creates an ImpactEvent message from a plain object. Also converts values to their respective internal types.
          * @function fromObject
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
          * @param {Object.<string,*>} object Plain object
-         * @returns {omega64.HaloSync} HaloSync
+         * @returns {omega64.ImpactEvent} ImpactEvent
          */
-        HaloSync.fromObject = function fromObject(object) {
-            if (object instanceof $root.omega64.HaloSync)
+        ImpactEvent.fromObject = function fromObject(object) {
+            if (object instanceof $root.omega64.ImpactEvent)
                 return object;
-            let message = new $root.omega64.HaloSync();
-            if (object.left != null)
-                if (typeof object.left === "string")
-                    $util.base64.decode(object.left, message.left = $util.newBuffer($util.base64.length(object.left)), 0);
-                else if (object.left.length >= 0)
-                    message.left = object.left;
-            if (object.right != null)
-                if (typeof object.right === "string")
-                    $util.base64.decode(object.right, message.right = $util.newBuffer($util.base64.length(object.right)), 0);
-                else if (object.right.length >= 0)
-                    message.right = object.right;
+            let message = new $root.omega64.ImpactEvent();
+            if (object.x != null)
+                message.x = object.x >>> 0;
+            if (object.y != null)
+                message.y = object.y >>> 0;
+            if (object.energy != null)
+                message.energy = Number(object.energy);
+            if (object.astHash != null)
+                message.astHash = String(object.astHash);
+            if (object.signature != null)
+                message.signature = String(object.signature);
             return message;
         };
 
         /**
-         * Creates a plain object from a HaloSync message. Also converts values to other types if specified.
+         * Creates a plain object from an ImpactEvent message. Also converts values to other types if specified.
          * @function toObject
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
-         * @param {omega64.HaloSync} message HaloSync
+         * @param {omega64.ImpactEvent} message ImpactEvent
          * @param {$protobuf.IConversionOptions} [options] Conversion options
          * @returns {Object.<string,*>} Plain object
          */
-        HaloSync.toObject = function toObject(message, options) {
+        ImpactEvent.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
             let object = {};
             if (options.defaults) {
-                if (options.bytes === String)
-                    object.left = "";
-                else {
-                    object.left = [];
-                    if (options.bytes !== Array)
-                        object.left = $util.newBuffer(object.left);
-                }
-                if (options.bytes === String)
-                    object.right = "";
-                else {
-                    object.right = [];
-                    if (options.bytes !== Array)
-                        object.right = $util.newBuffer(object.right);
-                }
+                object.x = 0;
+                object.y = 0;
+                object.energy = 0;
+                object.astHash = "";
+                object.signature = "";
             }
-            if (message.left != null && message.hasOwnProperty("left"))
-                object.left = options.bytes === String ? $util.base64.encode(message.left, 0, message.left.length) : options.bytes === Array ? Array.prototype.slice.call(message.left) : message.left;
-            if (message.right != null && message.hasOwnProperty("right"))
-                object.right = options.bytes === String ? $util.base64.encode(message.right, 0, message.right.length) : options.bytes === Array ? Array.prototype.slice.call(message.right) : message.right;
+            if (message.x != null && message.hasOwnProperty("x"))
+                object.x = message.x;
+            if (message.y != null && message.hasOwnProperty("y"))
+                object.y = message.y;
+            if (message.energy != null && message.hasOwnProperty("energy"))
+                object.energy = options.json && !isFinite(message.energy) ? String(message.energy) : message.energy;
+            if (message.astHash != null && message.hasOwnProperty("astHash"))
+                object.astHash = message.astHash;
+            if (message.signature != null && message.hasOwnProperty("signature"))
+                object.signature = message.signature;
             return object;
         };
 
         /**
-         * Converts this HaloSync to JSON.
+         * Converts this ImpactEvent to JSON.
          * @function toJSON
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @instance
          * @returns {Object.<string,*>} JSON object
          */
-        HaloSync.prototype.toJSON = function toJSON() {
+        ImpactEvent.prototype.toJSON = function toJSON() {
             return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
         };
 
         /**
-         * Gets the default type url for HaloSync
+         * Gets the default type url for ImpactEvent
          * @function getTypeUrl
-         * @memberof omega64.HaloSync
+         * @memberof omega64.ImpactEvent
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        HaloSync.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        ImpactEvent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/omega64.HaloSync";
+            return typeUrlPrefix + "/omega64.ImpactEvent";
         };
 
-        return HaloSync;
+        return ImpactEvent;
+    })();
+
+    omega64.SP1Receipt = (function() {
+
+        /**
+         * Properties of a SP1Receipt.
+         * @memberof omega64
+         * @interface ISP1Receipt
+         * @property {string|null} [verifyingKey] SP1Receipt verifyingKey
+         * @property {string|null} [proofBytes] SP1Receipt proofBytes
+         * @property {string|null} [publicValues] SP1Receipt publicValues
+         * @property {number|null} [blockHeight] SP1Receipt blockHeight
+         */
+
+        /**
+         * Constructs a new SP1Receipt.
+         * @memberof omega64
+         * @classdesc Represents a SP1Receipt.
+         * @implements ISP1Receipt
+         * @constructor
+         * @param {omega64.ISP1Receipt=} [properties] Properties to set
+         */
+        function SP1Receipt(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * SP1Receipt verifyingKey.
+         * @member {string} verifyingKey
+         * @memberof omega64.SP1Receipt
+         * @instance
+         */
+        SP1Receipt.prototype.verifyingKey = "";
+
+        /**
+         * SP1Receipt proofBytes.
+         * @member {string} proofBytes
+         * @memberof omega64.SP1Receipt
+         * @instance
+         */
+        SP1Receipt.prototype.proofBytes = "";
+
+        /**
+         * SP1Receipt publicValues.
+         * @member {string} publicValues
+         * @memberof omega64.SP1Receipt
+         * @instance
+         */
+        SP1Receipt.prototype.publicValues = "";
+
+        /**
+         * SP1Receipt blockHeight.
+         * @member {number} blockHeight
+         * @memberof omega64.SP1Receipt
+         * @instance
+         */
+        SP1Receipt.prototype.blockHeight = 0;
+
+        /**
+         * Creates a new SP1Receipt instance using the specified properties.
+         * @function create
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {omega64.ISP1Receipt=} [properties] Properties to set
+         * @returns {omega64.SP1Receipt} SP1Receipt instance
+         */
+        SP1Receipt.create = function create(properties) {
+            return new SP1Receipt(properties);
+        };
+
+        /**
+         * Encodes the specified SP1Receipt message. Does not implicitly {@link omega64.SP1Receipt.verify|verify} messages.
+         * @function encode
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {omega64.ISP1Receipt} message SP1Receipt message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SP1Receipt.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.verifyingKey != null && Object.hasOwnProperty.call(message, "verifyingKey"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.verifyingKey);
+            if (message.proofBytes != null && Object.hasOwnProperty.call(message, "proofBytes"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.proofBytes);
+            if (message.publicValues != null && Object.hasOwnProperty.call(message, "publicValues"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.publicValues);
+            if (message.blockHeight != null && Object.hasOwnProperty.call(message, "blockHeight"))
+                writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.blockHeight);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified SP1Receipt message, length delimited. Does not implicitly {@link omega64.SP1Receipt.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {omega64.ISP1Receipt} message SP1Receipt message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SP1Receipt.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a SP1Receipt message from the specified reader or buffer.
+         * @function decode
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {omega64.SP1Receipt} SP1Receipt
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SP1Receipt.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.omega64.SP1Receipt();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.verifyingKey = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.proofBytes = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.publicValues = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.blockHeight = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a SP1Receipt message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {omega64.SP1Receipt} SP1Receipt
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SP1Receipt.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a SP1Receipt message.
+         * @function verify
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        SP1Receipt.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.verifyingKey != null && message.hasOwnProperty("verifyingKey"))
+                if (!$util.isString(message.verifyingKey))
+                    return "verifyingKey: string expected";
+            if (message.proofBytes != null && message.hasOwnProperty("proofBytes"))
+                if (!$util.isString(message.proofBytes))
+                    return "proofBytes: string expected";
+            if (message.publicValues != null && message.hasOwnProperty("publicValues"))
+                if (!$util.isString(message.publicValues))
+                    return "publicValues: string expected";
+            if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
+                if (!$util.isInteger(message.blockHeight))
+                    return "blockHeight: integer expected";
+            return null;
+        };
+
+        /**
+         * Creates a SP1Receipt message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {omega64.SP1Receipt} SP1Receipt
+         */
+        SP1Receipt.fromObject = function fromObject(object) {
+            if (object instanceof $root.omega64.SP1Receipt)
+                return object;
+            let message = new $root.omega64.SP1Receipt();
+            if (object.verifyingKey != null)
+                message.verifyingKey = String(object.verifyingKey);
+            if (object.proofBytes != null)
+                message.proofBytes = String(object.proofBytes);
+            if (object.publicValues != null)
+                message.publicValues = String(object.publicValues);
+            if (object.blockHeight != null)
+                message.blockHeight = object.blockHeight >>> 0;
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a SP1Receipt message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {omega64.SP1Receipt} message SP1Receipt
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        SP1Receipt.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.verifyingKey = "";
+                object.proofBytes = "";
+                object.publicValues = "";
+                object.blockHeight = 0;
+            }
+            if (message.verifyingKey != null && message.hasOwnProperty("verifyingKey"))
+                object.verifyingKey = message.verifyingKey;
+            if (message.proofBytes != null && message.hasOwnProperty("proofBytes"))
+                object.proofBytes = message.proofBytes;
+            if (message.publicValues != null && message.hasOwnProperty("publicValues"))
+                object.publicValues = message.publicValues;
+            if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
+                object.blockHeight = message.blockHeight;
+            return object;
+        };
+
+        /**
+         * Converts this SP1Receipt to JSON.
+         * @function toJSON
+         * @memberof omega64.SP1Receipt
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        SP1Receipt.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for SP1Receipt
+         * @function getTypeUrl
+         * @memberof omega64.SP1Receipt
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        SP1Receipt.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/omega64.SP1Receipt";
+        };
+
+        return SP1Receipt;
     })();
 
     omega64.OracleTelemetry = (function() {
@@ -1773,8 +2099,9 @@ export const omega64 = $root.omega64 = (() => {
          * @interface IOmegaMessage
          * @property {omega64.OmegaMessage.MessageType|null} [type] OmegaMessage type
          * @property {omega64.IForeignPlasmid|null} [plasmid] OmegaMessage plasmid
-         * @property {omega64.IHaloSync|null} [halo] OmegaMessage halo
+         * @property {omega64.IImpactEvent|null} [impact] OmegaMessage impact
          * @property {omega64.IOracleTelemetry|null} [telemetry] OmegaMessage telemetry
+         * @property {omega64.ISP1Receipt|null} [zkReceipt] OmegaMessage zkReceipt
          */
 
         /**
@@ -1809,12 +2136,12 @@ export const omega64 = $root.omega64 = (() => {
         OmegaMessage.prototype.plasmid = null;
 
         /**
-         * OmegaMessage halo.
-         * @member {omega64.IHaloSync|null|undefined} halo
+         * OmegaMessage impact.
+         * @member {omega64.IImpactEvent|null|undefined} impact
          * @memberof omega64.OmegaMessage
          * @instance
          */
-        OmegaMessage.prototype.halo = null;
+        OmegaMessage.prototype.impact = null;
 
         /**
          * OmegaMessage telemetry.
@@ -1823,6 +2150,14 @@ export const omega64 = $root.omega64 = (() => {
          * @instance
          */
         OmegaMessage.prototype.telemetry = null;
+
+        /**
+         * OmegaMessage zkReceipt.
+         * @member {omega64.ISP1Receipt|null|undefined} zkReceipt
+         * @memberof omega64.OmegaMessage
+         * @instance
+         */
+        OmegaMessage.prototype.zkReceipt = null;
 
         /**
          * Creates a new OmegaMessage instance using the specified properties.
@@ -1852,10 +2187,12 @@ export const omega64 = $root.omega64 = (() => {
                 writer.uint32(/* id 1, wireType 0 =*/8).int32(message.type);
             if (message.plasmid != null && Object.hasOwnProperty.call(message, "plasmid"))
                 $root.omega64.ForeignPlasmid.encode(message.plasmid, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            if (message.halo != null && Object.hasOwnProperty.call(message, "halo"))
-                $root.omega64.HaloSync.encode(message.halo, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            if (message.impact != null && Object.hasOwnProperty.call(message, "impact"))
+                $root.omega64.ImpactEvent.encode(message.impact, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
             if (message.telemetry != null && Object.hasOwnProperty.call(message, "telemetry"))
                 $root.omega64.OracleTelemetry.encode(message.telemetry, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
+            if (message.zkReceipt != null && Object.hasOwnProperty.call(message, "zkReceipt"))
+                $root.omega64.SP1Receipt.encode(message.zkReceipt, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
             return writer;
         };
 
@@ -1901,11 +2238,15 @@ export const omega64 = $root.omega64 = (() => {
                         break;
                     }
                 case 3: {
-                        message.halo = $root.omega64.HaloSync.decode(reader, reader.uint32());
+                        message.impact = $root.omega64.ImpactEvent.decode(reader, reader.uint32());
                         break;
                     }
                 case 4: {
                         message.telemetry = $root.omega64.OracleTelemetry.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 5: {
+                        message.zkReceipt = $root.omega64.SP1Receipt.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -1958,15 +2299,20 @@ export const omega64 = $root.omega64 = (() => {
                 if (error)
                     return "plasmid." + error;
             }
-            if (message.halo != null && message.hasOwnProperty("halo")) {
-                let error = $root.omega64.HaloSync.verify(message.halo);
+            if (message.impact != null && message.hasOwnProperty("impact")) {
+                let error = $root.omega64.ImpactEvent.verify(message.impact);
                 if (error)
-                    return "halo." + error;
+                    return "impact." + error;
             }
             if (message.telemetry != null && message.hasOwnProperty("telemetry")) {
                 let error = $root.omega64.OracleTelemetry.verify(message.telemetry);
                 if (error)
                     return "telemetry." + error;
+            }
+            if (message.zkReceipt != null && message.hasOwnProperty("zkReceipt")) {
+                let error = $root.omega64.SP1Receipt.verify(message.zkReceipt);
+                if (error)
+                    return "zkReceipt." + error;
             }
             return null;
         };
@@ -1998,7 +2344,7 @@ export const omega64 = $root.omega64 = (() => {
             case 1:
                 message.type = 1;
                 break;
-            case "HALO_SYNC":
+            case "IMPACT_EVENT":
             case 2:
                 message.type = 2;
                 break;
@@ -2012,15 +2358,20 @@ export const omega64 = $root.omega64 = (() => {
                     throw TypeError(".omega64.OmegaMessage.plasmid: object expected");
                 message.plasmid = $root.omega64.ForeignPlasmid.fromObject(object.plasmid);
             }
-            if (object.halo != null) {
-                if (typeof object.halo !== "object")
-                    throw TypeError(".omega64.OmegaMessage.halo: object expected");
-                message.halo = $root.omega64.HaloSync.fromObject(object.halo);
+            if (object.impact != null) {
+                if (typeof object.impact !== "object")
+                    throw TypeError(".omega64.OmegaMessage.impact: object expected");
+                message.impact = $root.omega64.ImpactEvent.fromObject(object.impact);
             }
             if (object.telemetry != null) {
                 if (typeof object.telemetry !== "object")
                     throw TypeError(".omega64.OmegaMessage.telemetry: object expected");
                 message.telemetry = $root.omega64.OracleTelemetry.fromObject(object.telemetry);
+            }
+            if (object.zkReceipt != null) {
+                if (typeof object.zkReceipt !== "object")
+                    throw TypeError(".omega64.OmegaMessage.zkReceipt: object expected");
+                message.zkReceipt = $root.omega64.SP1Receipt.fromObject(object.zkReceipt);
             }
             return message;
         };
@@ -2041,17 +2392,20 @@ export const omega64 = $root.omega64 = (() => {
             if (options.defaults) {
                 object.type = options.enums === String ? "UNKNOWN" : 0;
                 object.plasmid = null;
-                object.halo = null;
+                object.impact = null;
                 object.telemetry = null;
+                object.zkReceipt = null;
             }
             if (message.type != null && message.hasOwnProperty("type"))
                 object.type = options.enums === String ? $root.omega64.OmegaMessage.MessageType[message.type] === undefined ? message.type : $root.omega64.OmegaMessage.MessageType[message.type] : message.type;
             if (message.plasmid != null && message.hasOwnProperty("plasmid"))
                 object.plasmid = $root.omega64.ForeignPlasmid.toObject(message.plasmid, options);
-            if (message.halo != null && message.hasOwnProperty("halo"))
-                object.halo = $root.omega64.HaloSync.toObject(message.halo, options);
+            if (message.impact != null && message.hasOwnProperty("impact"))
+                object.impact = $root.omega64.ImpactEvent.toObject(message.impact, options);
             if (message.telemetry != null && message.hasOwnProperty("telemetry"))
                 object.telemetry = $root.omega64.OracleTelemetry.toObject(message.telemetry, options);
+            if (message.zkReceipt != null && message.hasOwnProperty("zkReceipt"))
+                object.zkReceipt = $root.omega64.SP1Receipt.toObject(message.zkReceipt, options);
             return object;
         };
 
@@ -2087,14 +2441,14 @@ export const omega64 = $root.omega64 = (() => {
          * @enum {number}
          * @property {number} UNKNOWN=0 UNKNOWN value
          * @property {number} FOREIGN_PLASMID=1 FOREIGN_PLASMID value
-         * @property {number} HALO_SYNC=2 HALO_SYNC value
+         * @property {number} IMPACT_EVENT=2 IMPACT_EVENT value
          * @property {number} SYNC_METADATA=3 SYNC_METADATA value
          */
         OmegaMessage.MessageType = (function() {
             const valuesById = {}, values = Object.create(valuesById);
             values[valuesById[0] = "UNKNOWN"] = 0;
             values[valuesById[1] = "FOREIGN_PLASMID"] = 1;
-            values[valuesById[2] = "HALO_SYNC"] = 2;
+            values[valuesById[2] = "IMPACT_EVENT"] = 2;
             values[valuesById[3] = "SYNC_METADATA"] = 3;
             return values;
         })();

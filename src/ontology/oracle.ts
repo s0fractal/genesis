@@ -1,7 +1,7 @@
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";
-import { hydrateSubstrateHeader, MATH_Q_SCALE, SENATE_SHADOW_BUCKET_MAX, SENATE_SHADOW_BUCKET_MIN, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY, ORACLE_BACKOFF_BASE_MS, ORACLE_BACKOFF_MAX_MS, ORACLE_AKASHIC_GC_THRESHOLD, ORACLE_AKASHIC_GC_TARGET, BIOLOGY_EXTINCTION_THRESHOLD } from "../shared/constants.ts";
+import { hydrateSubstrateHeader, MATH_Q_SCALE, BIOLOGY_SOMATIC_ALPHA, BIOLOGY_SOMATIC_DECAY_RATE, BIOLOGY_SOMATIC_BASE_COST, ADA_HODLER_BRAKE, ADA_QE_STIMULUS_MIN, ADA_QE_STIMULUS_MAX, ADA_MASS_DILATION_MIN, ADA_MASS_DILATION_MAX, ADA_MASS_DILATION_NUM, ORACLE_INVOCATION_COST, ORACLE_LEDGER_MAX_EVENTS, ORACLE_LEDGER_TRUNCATE, ORACLE_MAX_SYSTEM_ENERGY, ORACLE_BACKOFF_BASE_MS, ORACLE_BACKOFF_MAX_MS, ORACLE_AKASHIC_GC_THRESHOLD, ORACLE_AKASHIC_GC_TARGET, BIOLOGY_EXTINCTION_THRESHOLD } from "../shared/constants.ts";
 import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { WasmMemoryProxy } from "../shared/memory_proxy.ts";
 import { NomosGate } from "./nomos_gate.ts";
@@ -1044,20 +1044,31 @@ export class SovereignOracle {
             }
         } else {
             // Legacy WASM fallback
-            count = this.wasmField.get_oracle_request_count();
+            const lockOffset = this.wasmField.ptr_oracle_lock() / 4;
+            const lockArray = new Int32Array(this.memoryProxy.buffer);
+            while (Atomics.compareExchange(lockArray, lockOffset, 0, 1) !== 0) {
+                Atomics.pause ? Atomics.pause() : null;
+            }
+
+            const reqCountOffset = this.wasmField.ptr_oracle_request_count() / 4;
+            const mem32 = new Uint32Array(this.memoryProxy.buffer);
+            count = Atomics.load(mem32, reqCountOffset);
+            const rawRequests: number[] = [];
             if (count > 0) {
                 const requestPtr = this.wasmField.ptr_oracle_requests();
                 const requestArray = new Uint32Array(this.memoryProxy.buffer, requestPtr, count);
                 
                 // Era 245: Synchronized Memory Boundaries (Atomics API)
-                const rawRequests: number[] = [];
                 for (let i = 0; i < count; i++) {
                     // Safe concurrent load blocking memory re-ordering
                     rawRequests.push(Atomics.load(requestArray, i));
                 }
                 
-                this.wasmField.clear_oracle_requests();
-                
+                Atomics.store(mem32, reqCountOffset, 0);
+            }
+            Atomics.store(lockArray, lockOffset, 0);
+            
+            if (count > 0) {
                 // O-133 Phase 2 / Era 134 Vector C: The Molecular Interface
                 const llmRequests: number[] = [];
                 for (const req of rawRequests) {
@@ -1532,10 +1543,26 @@ export class SovereignOracle {
             let totalY = 0;
             const bucketDetails: string[] = [];
             // O-46 Shadow Mycelial Clearance
-            for (let i = SENATE_SHADOW_BUCKET_MIN; i < SENATE_SHADOW_BUCKET_MAX; i++) {
-                this.wasmField.clear_oracle_requests(); // Just using the API if it clears all or specific
+            try {
+                // Era 810: Utilize the Spinlock
+                const lockOffset = this.wasmField.ptr_oracle_lock() / 4;
+                const lockArray = new Int32Array(this.memoryProxy.buffer);
+                // Spin until we acquire the lock (expecting 0, swapping to 1)
+                while (Atomics.compareExchange(lockArray, lockOffset, 0, 1) !== 0) {
+                    // Backoff slightly to avoid blocking the main thread Event loop fully
+                    Atomics.pause ? Atomics.pause() : null;
+                }
+
+                const reqCountOffset = this.wasmField.ptr_oracle_request_count() / 4;
+                const mem = new Uint32Array(this.memoryProxy.buffer);
+                Atomics.store(mem, reqCountOffset, 0);
+
+                // Release lock
+                Atomics.store(lockArray, lockOffset, 0);
+            } catch (err) {
+                 console.error("[ORACLE] Error retrieving context: ", err);
             }
-            
+
             for (let i = 0; i < 1024; i++) {
                 const count = centroids[i * 4 + 2];
                 if (count > 0) {

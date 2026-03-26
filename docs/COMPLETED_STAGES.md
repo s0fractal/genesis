@@ -24,6 +24,11 @@
 - Eliminated all `postMessage` WebWorker pipeline copying by wrapping memory pointers in `SharedArrayBuffer` ring-buffers controlled synchronously by `Atomics.waitAsync` over the VSync refresh rate.
 - Connected the `Ethers.js` validation chain to WebRTC logic, mathematically ensuring network states represent 1-to-1 Web3 contract burns.
 
+## 🌌 **Era 810: SAB Memory Safety & WebWorker Mutexes**
+*Статус: Завершено (Березень 2026)*
+- Introduced `Atomics.compareExchange` spinlocks to block race conditions across the WASM layer and JavaScript Context during O-46 Shadow Mycelial events.
+- Refactored `oracle_lock` into a non-atomic `i32` within Rust `PhaseLatticeField`, exposing its pointer directly to the `Int32Array` on the main TS thread.
+
 ---
 
 ## 🌌 Era 400-410: Distributed Federation & The On-Chain Layer

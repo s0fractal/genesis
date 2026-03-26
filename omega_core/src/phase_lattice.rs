@@ -108,6 +108,7 @@ pub struct PhaseLatticeField {
     pub(crate) canary_1: u32,
     pub(crate) oracle_requests: Vec<u32>,
     pub(crate) oracle_request_count: u32,
+    pub(crate) oracle_lock: i32,
     pub(crate) canary_2: u32,
     pub(crate) cell_status: Vec<u8>,
     pub(crate) plasmid_collisions: Vec<u64>,
@@ -165,6 +166,7 @@ impl PhaseLatticeField {
             canary_1: 0xDEADBEEF,
             oracle_requests: vec![0; 1024],
             oracle_request_count: 0,
+            oracle_lock: 0,
             canary_2: 0xDEADBEEF,
             cell_status: vec![0; max_elements],
             plasmid_collisions: vec![0; 1024 * 3],
@@ -251,12 +253,12 @@ impl PhaseLatticeField {
         self.oracle_requests.as_ptr()
     }
 
-    pub fn get_oracle_request_count(&self) -> u32 {
-        self.oracle_request_count
+    pub fn ptr_oracle_request_count(&self) -> *const u32 {
+        &self.oracle_request_count as *const u32
     }
 
-    pub fn clear_oracle_requests(&mut self) {
-        self.oracle_request_count = 0;
+    pub fn ptr_oracle_lock(&self) -> *const i32 {
+        &self.oracle_lock as *const i32
     }
 
     pub fn ptr_plasmid_collisions(&self) -> *const u64 {

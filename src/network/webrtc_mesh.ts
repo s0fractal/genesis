@@ -36,9 +36,17 @@ export class WebRTCMesh {
                 this.closePeer(data.peerId);
                 break;
             case "OFFER":
+                if (!data.zkProof || !NomosGate.verify_sp1_receipt(data.zkProof, { morphology: "handshake", steps: 1 }).valid) {
+                    console.warn(`[WebRTCMesh] Rejected peer ${data.from} due to invalid SP1 proof!`);
+                    return;
+                }
                 await this.handleOffer(data.from, data.offer);
                 break;
             case "ANSWER":
+                if (!data.zkProof || !NomosGate.verify_sp1_receipt(data.zkProof, { morphology: "handshake", steps: 1 }).valid) {
+                    console.warn(`[WebRTCMesh] Rejected peer ${data.from} due to invalid SP1 answer proof!`);
+                    return;
+                }
                 await this.handleAnswer(data.from, data.answer);
                 break;
             case "ICE":
@@ -88,8 +96,8 @@ export class WebRTCMesh {
                     
                     if (decoded.type === omega64.OmegaMessage.MessageType.FOREIGN_PLASMID && decoded.plasmid) {
                         packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid };
-                    } else if (decoded.type === omega64.OmegaMessage.MessageType.HALO_SYNC && decoded.halo) {
-                        packet = { type: 'HALO_SYNC', left: decoded.halo.left, right: decoded.halo.right };
+                    } else if (decoded.type === omega64.OmegaMessage.MessageType.IMPACT_EVENT && decoded.impact) {
+                        packet = { type: 'IMPACT_EVENT', payload: decoded.impact };
                     } else if (decoded.type === omega64.OmegaMessage.MessageType.SYNC_METADATA && decoded.telemetry) {
                         packet = decoded.telemetry;
                         packet.type = 'SYNC_METADATA';
@@ -124,7 +132,7 @@ export class WebRTCMesh {
                     } else {
                         console.warn(`[WebRTCMesh] Plasmid packet missing ZK 'proof_bytes'! Rejected.`);
                     }
-                } else if (packet && packet.type === 'HALO_SYNC') {
+                } else if (packet && packet.type === 'IMPACT_EVENT') {
                     this.workerPort.postMessage(packet);
                 }
             } catch (_e) {
@@ -140,7 +148,8 @@ export class WebRTCMesh {
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        this.signaling.send(JSON.stringify({ type: "OFFER", target: peerId, offer }));
+        const zkProof = "mock_sp1_handshake_proof_32bytes_min_length"; // Era 280 Scaffolding
+        this.signaling.send(JSON.stringify({ type: "OFFER", target: peerId, offer, zkProof }));
     }
 
     private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
@@ -151,7 +160,8 @@ export class WebRTCMesh {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        this.signaling.send(JSON.stringify({ type: "ANSWER", target: peerId, answer }));
+        const zkProof = "mock_sp1_handshake_proof_32bytes_min_length"; // Era 280 Scaffolding
+        this.signaling.send(JSON.stringify({ type: "ANSWER", target: peerId, answer, zkProof }));
     }
 
     private async handleAnswer(peerId: string, answer: RTCSessionDescriptionInit) {
@@ -181,16 +191,10 @@ export class WebRTCMesh {
                  plasmid: packet.payload
              });
              rawData = omega64.OmegaMessage.encode(msg).finish();
-        } else if (packet.type === 'HALO_SYNC') {
-             const leftArr = packet.left ? new Uint8Array(Object.values(packet.left)) : new Uint8Array();
-             const rightArr = packet.right ? new Uint8Array(Object.values(packet.right)) : new Uint8Array();
-             
+        } else if (packet.type === 'IMPACT_EVENT' && packet.payload) {
              const msg = omega64.OmegaMessage.create({
-                 type: omega64.OmegaMessage.MessageType.HALO_SYNC,
-                 halo: { 
-                     left: leftArr, 
-                     right: rightArr 
-                 }
+                 type: omega64.OmegaMessage.MessageType.IMPACT_EVENT,
+                 impact: packet.payload
              });
              rawData = omega64.OmegaMessage.encode(msg).finish();
         } else if (packet.type === 'SYNC_METADATA') {

@@ -60,4 +60,8 @@
   - **144FPS Telemetry SAB:** Allocated dedicated 32-byte Float32Arrays for HUD `globalEntropy` polling bounded to `requestAnimationFrame` for stutter-free graphics.
   - **Web3 PoUW Ethers Validation:** Upgraded the `MockATPBridge` to `EthersATPBridge`, linking the WebRTC data channel with real-world Base Sepolia JSON RPC query endpoints ensuring `burning ATP` is cryptographically verified before plasmid injection.
 
+- **Era 810: SAB Memory Safety & WebWorker Mutexes [COMPLETE]**
+  - **Atomics.compareExchange Spinlocks:** Eliminated data races and memory panics (0xDEADBEEF) across the WASM boundary.
+  - **Exclusive Oracle/WASM Binding:** Enforced native structural integrity by providing explicit Thread-safe access via the new `oracle_lock` (i32) Mutex when mutating physics constants natively via JS Oracles.
+
 - **Era 900: Optical / Photonic Readiness (Pending)**. Неможливо розділити "людину", "LLM" і "систему".

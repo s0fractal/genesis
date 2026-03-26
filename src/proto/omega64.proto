@@ -26,9 +26,19 @@ message ForeignPlasmid {
   string burn_tx_hash = 13;
 }
 
-message HaloSync {
-  bytes left = 1;
-  bytes right = 2;
+message ImpactEvent {
+  uint32 x = 1;
+  uint32 y = 2;
+  float energy = 3;
+  string ast_hash = 4;
+  string signature = 5;
+}
+
+message SP1Receipt {
+  string verifying_key = 1;
+  string proof_bytes = 2;
+  string public_values = 3;
+  uint32 block_height = 4;
 }
 
 message OracleTelemetry {
@@ -53,12 +63,13 @@ message OmegaMessage {
   enum MessageType {
     UNKNOWN = 0;
     FOREIGN_PLASMID = 1;
-    HALO_SYNC = 2;
+    IMPACT_EVENT = 2;
     SYNC_METADATA = 3;
   }
   
   MessageType type = 1;
   ForeignPlasmid plasmid = 2;
-  HaloSync halo = 3;
+  ImpactEvent impact = 3;
   OracleTelemetry telemetry = 4;
+  SP1Receipt zk_receipt = 5;
 }

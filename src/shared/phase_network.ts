@@ -21,7 +21,7 @@ function verifyPayloadSignature(p: ForeignPlasmid): boolean {
 
 export class PhaseNetwork {
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
-    public onHaloReceived?: (left: Uint8Array, right: Uint8Array) => void;
+    public onImpactReceived?: (impact: {x: number, y: number, energy: number, ast_hash: string, signature: string}) => void;
     private broadcastFn: (packet: any) => void;
     public nodeId: string;
     
@@ -58,17 +58,9 @@ export class PhaseNetwork {
     public handleIncomingPacket(packet: any) {
         if (packet.type === "FOREIGN_PLASMID") {
             this.validateAndIngestPlasmid(packet.payload);
-        } else if (packet.type === "HALO_SYNC") {
-            // Era 260 Spatial Data
-            // We assume left and right are Base64 encoded or raw arrays if using Zero-Copy ArrayBuffers via DataChannel
-            // WebRTC DataChannels handle ArrayBuffer fine, but currently we stringify. So they are likely base64.
-            // Wait, for Halo sync we need binary efficiency. In Era 300 we will upgrade the WebRTC mesh data format.
-            if (this.onHaloReceived && packet.left && packet.right) {
-                try {
-                    const leftBuf = new Uint8Array(Object.values(packet.left));
-                    const rightBuf = new Uint8Array(Object.values(packet.right));
-                    this.onHaloReceived(leftBuf, rightBuf);
-                } catch(e) {}
+        } else if (packet.type === "IMPACT_EVENT") {
+            if (this.onImpactReceived && packet.payload) {
+                this.onImpactReceived(packet.payload);
             }
         }
     }
@@ -94,13 +86,11 @@ export class PhaseNetwork {
         }
     }
 
-    public broadcastHalos(left: Float32Array, right: Float32Array) {
-         // Pack float32 to uint8 for transport
+    public broadcastImpact(x: number, y: number, energy: number, ast_hash: string, signature: string) {
          this.broadcastFn({
-             type: 'HALO_SYNC',
-             origin: this.nodeId,
-             left: new Uint8Array(left.buffer),
-             right: new Uint8Array(right.buffer)
+             type: 'IMPACT_EVENT',
+             payload: { x, y, energy, ast_hash, signature }
          });
     }
+
 }

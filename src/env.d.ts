@@ -197,7 +197,8 @@ interface PhylogenyRecord {
 interface OracleCompatibleField {
     get_oracle_request_count(): number;
     ptr_oracle_requests(): number;
-    clear_oracle_requests(): void;
+    ptr_oracle_request_count(): number;
+    ptr_oracle_lock(): number;
     ptr_plasmids?(): number;
     ptr_cell_status?(): number;
     ptr_theta?(): number;

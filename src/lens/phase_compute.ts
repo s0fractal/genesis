@@ -479,47 +479,6 @@ export class PhaseComputeEngine {
         return data;
     }
 
-    async extractLocalHalosAsync(): Promise<{ left: Uint8Array, right: Uint8Array } | null> {
-        if (!this.device) return null;
-        
-        const activeBuffer = this.getActiveBuffer();
-        const AGENT_BYTES = 24;
-        const radialBins = this.field.radial_bins;
-        const sectors = this.field.sectors;
-        
-        const commandEncoder = this.device.createCommandEncoder();
-        
-        for (let rho = 0; rho < radialBins; rho++) {
-            const srcOffset = (rho * sectors + 0) * AGENT_BYTES;
-            const dstOffset = rho * AGENT_BYTES;
-            commandEncoder.copyBufferToBuffer(activeBuffer, srcOffset, this.haloOutBuffer, dstOffset, AGENT_BYTES);
-        }
-
-        for (let rho = 0; rho < radialBins; rho++) {
-            const srcOffset = (rho * sectors + (sectors - 1)) * AGENT_BYTES;
-            const dstOffset = (radialBins * AGENT_BYTES) + (rho * AGENT_BYTES);
-            commandEncoder.copyBufferToBuffer(activeBuffer, srcOffset, this.haloOutBuffer, dstOffset, AGENT_BYTES);
-        }
-
-        this.device.queue.submit([commandEncoder.finish()]);
-
-        await this.haloOutBuffer.mapAsync(GPUMapMode.READ);
-        const copyBuffer = this.haloOutBuffer.getMappedRange();
-        
-        const leftU8 = new Uint8Array(copyBuffer.slice(0, radialBins * AGENT_BYTES));
-        const rightU8 = new Uint8Array(copyBuffer.slice(radialBins * AGENT_BYTES, 2 * radialBins * AGENT_BYTES));
-        
-        this.haloOutBuffer.unmap();
-        
-        return { left: leftU8, right: rightU8 };
-    }
-
-    ingestRemoteHalos(left: Uint8Array, right: Uint8Array) {
-        if (!this.device) return;
-        this.device.queue.writeBuffer(this.haloLeftBuffer, 0, left.buffer as unknown as ArrayBuffer, left.byteOffset, left.byteLength);
-        this.device.queue.writeBuffer(this.haloRightBuffer, 0, right.buffer as unknown as ArrayBuffer, right.byteOffset, right.byteLength);
-    }
-
     injectGridState(_grid: Record<number, string>) {}
 
     // Era 265: Evolutionary Sandbox Physics (ESP) Overlays

@@ -77,13 +77,7 @@ async function physicsLoop() {
                 // Wait for the async WebGPU pipeline to finish the dispatch and map back to SharedArrayBuffer
                 await engine.tick();
                 
-                // Vector II: Periodic Spatial Halo Extraction (2 FPS)
-                if (tickCount % 30 === 0 && network) {
-                    const halos = await engine.extractLocalHalosAsync();
-                    if (halos) {
-                        network.broadcastHalos(new Float32Array(halos.left.buffer), new Float32Array(halos.right.buffer));
-                    }
-                }
+
             } else {
                 // CPU Fallback (WASM)
                 execute_phase_lattice_tick(field);
@@ -184,13 +178,12 @@ async function initEnvironment() {
     network = new PhaseNetwork((p) => {
         // Placeholder for remote plasmid ingestion
     }, (packet) => {
-        for (const port of connections) {
-            port.postMessage(packet);
-        }
+        self.postMessage(packet);
     });
 
-    network.onHaloReceived = (left: Uint8Array, right: Uint8Array) => {
-        if (engine) engine.ingestRemoteHalos(left, right);
+    network.onImpactReceived = (impact) => {
+        // Will be picked up and simulated deterministically by the Oracle
+        console.log(`[LatticeWorker] 🌌 Impact Event received at [${impact.x}, ${impact.y}]! Energy: ${impact.energy}`);
     };
 
     // The Oracle acts natively against either the WebGPU map or CPU mapping
@@ -213,44 +206,37 @@ async function initEnvironment() {
 }
 
 // deno-lint-ignore no-explicit-any
-(self as any).onconnect = (e: MessageEvent) => {
-    const port = e.ports[0];
-    connections.push(port);
-
-    port.addEventListener("message", async (msg) => {
-        if (msg.data.type === 'HELO') {
-            try {
-                await initEnvironment();
-                
-                port.postMessage({
-                    type: 'INIT_ACK',
-                    metadata: {
-                        sectors: field.sectors,
-                        radial_bins: field.radial_bins,
-                        harmonics: field.harmonics,
-                        tau_depth: field.tau_depth,
-                        cell_count: field.cell_count(),
-                        ptr_agents: field.ptr_agents(),
-                        ptr_header: field.ptr_header(),
-                        ptr_spatial_memory_theta: field.ptr_spatial_memory_theta(),
-                        ptr_spatial_memory_strength: field.ptr_spatial_memory_strength(),
-                        ring_buffer: ringBuffer,
-                        slot_size: ringSlotSize,
-                        telemetry_buffer: telemetryBuffer
-                    }
-                });
-            } catch (err: any) {
-                console.error("[LatticeWorker] FATAL BOOT ERROR:", err);
-                port.postMessage({ type: 'INIT_ERR', error: err.message || err.toString(), stack: err.stack });
-            }
+(self as any).onmessage = async (msg: MessageEvent) => {
+    if (msg.data.type === 'HELO') {
+        try {
+            await initEnvironment();
+            
+            self.postMessage({
+                type: 'INIT_ACK',
+                metadata: {
+                    sectors: field.sectors,
+                    radial_bins: field.radial_bins,
+                    harmonics: field.harmonics,
+                    tau_depth: field.tau_depth,
+                    cell_count: field.cell_count(),
+                    ptr_agents: field.ptr_agents(),
+                    ptr_header: field.ptr_header(),
+                    ptr_spatial_memory_theta: field.ptr_spatial_memory_theta(),
+                    ptr_spatial_memory_strength: field.ptr_spatial_memory_strength(),
+                    ring_buffer: ringBuffer,
+                    slot_size: ringSlotSize,
+                    telemetry_buffer: telemetryBuffer
+                }
+            });
+        } catch (err: any) {
+            console.error("[LatticeWorker] FATAL BOOT ERROR:", err);
+            self.postMessage({ type: 'INIT_ERR', error: err.message || err.toString(), stack: err.stack });
         }
-        
-        else if (msg.data.type === 'GOD_HAND_ENERGY') {
-            // Implement simple WASM memory injection or add to queue
-        } else if (msg.data.type === 'FOREIGN_PLASMID' || msg.data.type === 'HALO_SYNC') {
-            if (network) network.handleIncomingPacket(msg.data);
-        }
-    });
-
-    port.start();
+    }
+    
+    else if (msg.data.type === 'GOD_HAND_ENERGY') {
+        // Implement simple WASM memory injection or add to queue
+    } else if (msg.data.type === 'FOREIGN_PLASMID' || msg.data.type === 'IMPACT_EVENT') {
+        if (network) network.handleIncomingPacket(msg.data);
+    }
 };
