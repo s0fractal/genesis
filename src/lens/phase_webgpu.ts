@@ -70,6 +70,11 @@ export class PhaseWebGPUObserver {
     // Inbound messaging port to relay God Hand actions back to worker
     public workerPort?: MessagePort;
 
+    // Era 320: Holographic VR Lens
+    public xrSession: any | null = null;
+    public xrRefSpace: any | null = null;
+    public isVrMode: boolean = false;
+
     constructor(canvas: HTMLCanvasElement, metadata: TopologyMetadata, device: GPUDevice | null) {
         this.canvas = canvas;
         this.canvas.tabIndex = 0; // O-194: Accessibility Focus
@@ -686,5 +691,68 @@ export class PhaseWebGPUObserver {
         // Era 238: Slicing the JPEG buffer correctly for direct Ollama ingestion and reducing visual context bandwith
         const dataUrl = this.snapshotCanvas.toDataURL("image/jpeg", 0.7);
         return dataUrl.substring(dataUrl.indexOf(",") + 1);
+    }
+
+    public async enterVR() {
+        if (!(navigator as any).xr) {
+            console.warn("[WebXR] XR not supported in this browser.");
+            return;
+        }
+        try {
+            const isSupported = await (navigator as any).xr.isSessionSupported('immersive-vr');
+            if (!isSupported) {
+                console.warn("[WebXR] Immersive VR not supported on this device.");
+                return;
+            }
+            this.xrSession = await (navigator as any).xr.requestSession('immersive-vr', {
+                optionalFeatures: ['local-floor', 'bounded-floor']
+            });
+            
+            this.xrSession.addEventListener('end', () => {
+                this.xrSession = null;
+                this.isVrMode = false;
+                console.log("[WebXR] Session ended.");
+            });
+
+            // WebGPU XR mapping
+            const xrLayer = new (globalThis as any).XRWebGPULayer(this.xrSession, this.device);
+            this.xrSession.updateRenderState({ baseLayer: xrLayer });
+
+            this.xrRefSpace = await this.xrSession.requestReferenceSpace('local-floor');
+            this.isVrMode = true;
+            console.log(`🥽 [WebXR] Holographic Lens Initialized. God Hand Active.`);
+
+            // Hand over the render loop conceptually
+            this.xrSession.requestAnimationFrame((_time: number, _frame: any) => {
+                // Extensible future 3D-stereo render loop 
+            });
+        } catch (e) {
+            console.error("[WebXR] Failed to start VR session", e);
+        }
+    }
+
+    public processGodHand(frame: any, _sab: ArrayBufferLike) {
+        if (!this.xrSession || !this.xrRefSpace || !this.workerPort) return;
+        
+        for (const inputSource of this.xrSession.inputSources) {
+            if (inputSource.targetRaySpace && inputSource.targetRayMode === 'tracked-pointer') {
+                const rayPose = frame.getPose(inputSource.targetRaySpace, this.xrRefSpace);
+                if (!rayPose) continue;
+                
+                if (inputSource.gamepad) {
+                    const squeeze = inputSource.gamepad.buttons[1]; // Squeeze / Grip
+                    const trigger = inputSource.gamepad.buttons[0]; // Primary Trigger
+                    
+                    if (squeeze && squeeze.pressed) {
+                        const randomIdx = Math.floor(Math.random() * this.metadata.cell_count);
+                        if (trigger && trigger.pressed) {
+                            this.workerPort.postMessage({ type: 'GOD_HAND_PLASMID', idx: randomIdx, hash: "0x0111222233334444" });
+                        } else {
+                            this.workerPort.postMessage({ type: 'GOD_HAND_ENERGY', idx: randomIdx, energy: Math.floor(Math.random() * 255) });
+                        }
+                    }
+                }
+            }
+        }
     }
 }
