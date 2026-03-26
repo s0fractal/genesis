@@ -1,4 +1,5 @@
 import { DIPOLE_POLES, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS, FNV64_OFFSET_BASIS, FNV64_PRIME } from "../shared/constants.ts";
+import { CreateMLCEngine, InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
 
 // O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
 // Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
@@ -66,8 +67,29 @@ function fastHash(str: string): string {
     return hash.toString(16);
 }
 
+let engine: MLCEngine | null = null;
+const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data as OracleWorkerRequest;
+    
+    // Era 310: WebLLM Boot Sequence
+    if (!engine) {
+        try {
+            self.postMessage({ type: 'INIT_PROGRESS', text: "Loading WebGPU Neuromorphic Core..." });
+            const initialProgress: InitProgressCallback = (progress) => {
+                self.postMessage({ type: 'INIT_PROGRESS', text: progress.text });
+            };
+            engine = await CreateMLCEngine(
+                SELECTED_MODEL,
+                { initProgressCallback: initialProgress }
+            );
+            self.postMessage({ type: 'INIT_PROGRESS', text: "Neuromorphic Core Online (WebGPU)." });
+        } catch (err) {
+            self.postMessage({ type: 'ERROR', reason: `WebLLM Boot Failed: ${(err as Error).message}` });
+            return;
+        }
+    }
     
     const entropy = Math.min(1.0, data.globalEnergyPool / 21000000.0);
     const alphaIntensity = entropy; 
@@ -95,32 +117,22 @@ self.onmessage = async (e: MessageEvent) => {
     ];
 
     try {
-        // Era 241: Reusable LLM Fetch Abstraction (Adapter Ready)
-        const fetchOllama = async (prompt: string, structuralSnapshot?: string | null) => {
-            const OLLAMA_URL = "http://localhost:11434/api/generate";
-            const requestBody: Record<string, unknown> = {
-                model: structuralSnapshot ? "llama3.2-vision" : "llama3",
-                prompt,
-                stream: false
-            };
-            if (structuralSnapshot) {
-                requestBody.images = [structuralSnapshot];
-            }
-            const fetchPromise = fetch(OLLAMA_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
-            });
-
-            const timeoutPromise = new Promise<Response>((_, reject) => 
+        // Era 310: WebLLM Inference Adapter
+        const fetchWebLLM = async (prompt: string, _structuralSnapshot?: string | null) => {
+            const timeoutPromise = new Promise<string>((_, reject) => 
                 setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
             );
 
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            if (!response.ok) throw new Error("LLM Offline");
-            
-            const reqData = await response.json();
-            return reqData.response?.trim() || "";
+            const inferencePromise = async () => {
+                const reply = await engine!.chat.completions.create({
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.7,
+                });
+                return reply.choices[0].message.content || "";
+            };
+
+            const response = await Promise.race([inferencePromise(), timeoutPromise]);
+            return response.trim();
         };
 
         const maskPromises = DIPOLES.map(async (dipole) => {
@@ -169,7 +181,7 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
             }
             
             try {
-                const fullResponse = await fetchOllama(prompt, data.structuralImage);
+                const fullResponse = await fetchWebLLM(prompt, data.structuralImage);
                 await setCachedResponse(cacheKey, fullResponse, performance.now()).catch(() => {});
                 return { mask: dipole.name, response: fullResponse };
             } catch (_err) {

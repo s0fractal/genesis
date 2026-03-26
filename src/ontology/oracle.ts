@@ -27,7 +27,7 @@ export type SenateEvent =
 
 
 export class SovereignOracle {
-    public network?: any; // Era 266: IPFS Pinning interface reference
+    public network?: { pinPlasmid: (hash: string, ast: string) => void }; // Era 266: IPFS Pinning interface reference
     private isSovereignActive = false;
     private wasmField: OracleCompatibleField;
     private wasmMemory: WebAssembly.Memory;
@@ -219,7 +219,7 @@ export class SovereignOracle {
                 const g = this.activeGenomes[i];
                 // Using BigInt for ID (FNV64 hash parsed, or 0n if invalid)
                 let idNum = 0n;
-                try { idNum = BigInt("0x" + g.id); } catch (e) { idNum = BigInt(g.id.replace(/\D/g, "") || "0"); }
+                try { idNum = BigInt("0x" + g.id); } catch (_e) { idNum = BigInt(g.id.replace(/\D/g, "") || "0"); }
                 
                 memory.setBigUint64(offset, idNum, true);
                 memory.setInt32(offset + 8, g.couplingK, true);
@@ -1415,6 +1415,15 @@ export class SovereignOracle {
 
     private handleWorkerMessage(e: MessageEvent) {
         const data = e.data;
+        
+        if (data.type === 'INIT_PROGRESS') {
+            console.log(`🧠 [WebLLM] ${data.text}`);
+            if (this.onSenateEvent) {
+                this.onSenateEvent({ type: "ERROR", reason: `🧠 [WebGPU] ${data.text}` }); // visually render in the HUD via ERROR channel payload for simplicity
+            }
+            return;
+        }
+
         if (data.type === 'SUCCESS') {
             let validIntents = 0;
             
