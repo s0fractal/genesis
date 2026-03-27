@@ -1776,7 +1776,12 @@ export class SovereignOracle {
         if (!this.plasmidRegistry.has(hash)) {
             const decodedAst = lambda_decode_morphology(hash);
             const metrics = measureIR(decodedAst);
-            const sector = plasmid.targetBucket !== undefined ? this.getGeographicSector(plasmid.targetBucket) : 0;
+            
+            // Era 600 SSoT: Dimensionality Abstraction
+            // We transform the Universal Normalized Azimuth [0..1] directly into our localized WASM Grid dimension.
+            const sector = (plasmid.target !== undefined && this.wasmField.sectors) 
+                ? Math.floor(plasmid.target.u * this.wasmField.sectors) % this.wasmField.sectors
+                : 0;
             
             this.plasmidRegistry.set(hash, {
                 ast: decodedAst,

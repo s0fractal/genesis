@@ -158,9 +158,15 @@ interface NetworkPhenotype {
     target_alignment?: string;
 }
 
+interface UniversalCoordinate {
+    u: number;
+    v: number;
+    w: number;
+}
+
 interface ForeignPlasmid {
     hash: string;
-    targetBucket: number;
+    target?: UniversalCoordinate;
     origin: string;
     locks: number;
     energy: number;
@@ -211,6 +217,9 @@ interface OracleCompatibleField {
     ptr_spatial_memory_theta?(): number;
     ptr_spatial_memory_strength?(): number;
     cell_count?(): number;
+    sectors?: number;
+    radial_bins?: number;
+    harmonics?: number;
     width?: number;
     height?: number;
     ptr_header?(): number;

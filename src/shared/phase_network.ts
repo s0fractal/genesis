@@ -3,11 +3,17 @@ import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, MATH_Q_SCALE } f
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
+export interface UniversalCoordinate {
+    u: number;
+    v: number;
+    w: number;
+}
+
 export interface ForeignPlasmid {
     hash: string;
     astStr: string;
     energy: number;
-    targetBucket?: number;
+    target?: UniversalCoordinate;
     origin?: string;
     parents?: string[];
     signature?: string;
@@ -15,7 +21,8 @@ export interface ForeignPlasmid {
 
 function verifyPayloadSignature(p: ForeignPlasmid): boolean {
     const parentStr = p.parents ? p.parents.join(",") : "";
-    const expected = fnv1a_64(`${p.hash}:${p.targetBucket}:${p.origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
+    const targetStr = p.target ? `${p.target.u},${p.target.v},${p.target.w}` : "";
+    const expected = fnv1a_64(`${p.hash}:${targetStr}:${p.origin}:${parentStr}:${SYSTEMIC_O56_SALT}`).toString(16);
     return expected === p.signature;
 }
 
@@ -68,10 +75,10 @@ export class PhaseNetwork {
     private validateAndIngestPlasmid(plasmid: ForeignPlasmid) {
         if (this.removeSet.has(plasmid.hash) || this.addSet.has(plasmid.hash)) return;
 
-        if (plasmid.targetBucket !== undefined) {
-             const lower = Math.min(this.thetaLimits[0], this.thetaLimits[1]);
-             const upper = Math.max(this.thetaLimits[0], this.thetaLimits[1]);
-             if (plasmid.targetBucket < lower || plasmid.targetBucket > upper) {
+        if (plasmid.target !== undefined) {
+             const lower = Math.min(this.thetaLimits[0], this.thetaLimits[1]) / 1024.0;
+             const upper = Math.max(this.thetaLimits[0], this.thetaLimits[1]) / 1024.0;
+             if (plasmid.target.u < lower || plasmid.target.u > upper) {
                  return; // Not our slice
              }
         }

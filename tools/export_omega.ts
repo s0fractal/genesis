@@ -75,6 +75,18 @@ async function main() {
     if (entry.isFile) await addFile(entry.path);
   }
 
+  // Walk ZK Guest Core
+  console.log("\nSweeping omega_zk_guest/src/ ...");
+  await addFile("omega_zk_guest/Cargo.toml");
+  for await (
+    const entry of walk("omega_zk_guest/src", {
+      exts: TARGET_EXTS,
+      skip: EXCLUDE_DIRS,
+    })
+  ) {
+    if (entry.isFile) await addFile(entry.path);
+  }
+
   // Walk Docs
   console.log("\nSweeping docs/ ...");
   for await (

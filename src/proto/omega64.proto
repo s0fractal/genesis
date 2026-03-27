@@ -10,11 +10,17 @@ message NetworkPhenotype {
   string target_alignment = 5;
 }
 
+message UniversalCoordinate {
+  float u = 1;
+  float v = 2;
+  float w = 3;
+}
+
 message ForeignPlasmid {
   string hash = 1;
   string astStr = 2;
   float energy = 3;
-  uint32 targetBucket = 4;
+  UniversalCoordinate target = 4;
   string origin = 5;
   repeated string parents = 6;
   string signature = 7;
@@ -27,8 +33,7 @@ message ForeignPlasmid {
 }
 
 message ImpactEvent {
-  uint32 x = 1;
-  uint32 y = 2;
+  UniversalCoordinate target = 1;
   float energy = 3;
   string ast_hash = 4;
   string signature = 5;

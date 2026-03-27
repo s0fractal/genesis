@@ -124,6 +124,115 @@ export namespace omega64 {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
+    /** Properties of an UniversalCoordinate. */
+    interface IUniversalCoordinate {
+
+        /** UniversalCoordinate u */
+        u?: (number|null);
+
+        /** UniversalCoordinate v */
+        v?: (number|null);
+
+        /** UniversalCoordinate w */
+        w?: (number|null);
+    }
+
+    /** Represents an UniversalCoordinate. */
+    class UniversalCoordinate implements IUniversalCoordinate {
+
+        /**
+         * Constructs a new UniversalCoordinate.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: omega64.IUniversalCoordinate);
+
+        /** UniversalCoordinate u. */
+        public u: number;
+
+        /** UniversalCoordinate v. */
+        public v: number;
+
+        /** UniversalCoordinate w. */
+        public w: number;
+
+        /**
+         * Creates a new UniversalCoordinate instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns UniversalCoordinate instance
+         */
+        public static create(properties?: omega64.IUniversalCoordinate): omega64.UniversalCoordinate;
+
+        /**
+         * Encodes the specified UniversalCoordinate message. Does not implicitly {@link omega64.UniversalCoordinate.verify|verify} messages.
+         * @param message UniversalCoordinate message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: omega64.IUniversalCoordinate, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified UniversalCoordinate message, length delimited. Does not implicitly {@link omega64.UniversalCoordinate.verify|verify} messages.
+         * @param message UniversalCoordinate message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: omega64.IUniversalCoordinate, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an UniversalCoordinate message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns UniversalCoordinate
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): omega64.UniversalCoordinate;
+
+        /**
+         * Decodes an UniversalCoordinate message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns UniversalCoordinate
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): omega64.UniversalCoordinate;
+
+        /**
+         * Verifies an UniversalCoordinate message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an UniversalCoordinate message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns UniversalCoordinate
+         */
+        public static fromObject(object: { [k: string]: any }): omega64.UniversalCoordinate;
+
+        /**
+         * Creates a plain object from an UniversalCoordinate message. Also converts values to other types if specified.
+         * @param message UniversalCoordinate
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: omega64.UniversalCoordinate, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this UniversalCoordinate to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for UniversalCoordinate
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
     /** Properties of a ForeignPlasmid. */
     interface IForeignPlasmid {
 
@@ -136,8 +245,8 @@ export namespace omega64 {
         /** ForeignPlasmid energy */
         energy?: (number|null);
 
-        /** ForeignPlasmid targetBucket */
-        targetBucket?: (number|null);
+        /** ForeignPlasmid target */
+        target?: (omega64.IUniversalCoordinate|null);
 
         /** ForeignPlasmid origin */
         origin?: (string|null);
@@ -185,8 +294,8 @@ export namespace omega64 {
         /** ForeignPlasmid energy. */
         public energy: number;
 
-        /** ForeignPlasmid targetBucket. */
-        public targetBucket: number;
+        /** ForeignPlasmid target. */
+        public target?: (omega64.IUniversalCoordinate|null);
 
         /** ForeignPlasmid origin. */
         public origin: string;
@@ -296,11 +405,8 @@ export namespace omega64 {
     /** Properties of an ImpactEvent. */
     interface IImpactEvent {
 
-        /** ImpactEvent x */
-        x?: (number|null);
-
-        /** ImpactEvent y */
-        y?: (number|null);
+        /** ImpactEvent target */
+        target?: (omega64.IUniversalCoordinate|null);
 
         /** ImpactEvent energy */
         energy?: (number|null);
@@ -321,11 +427,8 @@ export namespace omega64 {
          */
         constructor(properties?: omega64.IImpactEvent);
 
-        /** ImpactEvent x. */
-        public x: number;
-
-        /** ImpactEvent y. */
-        public y: number;
+        /** ImpactEvent target. */
+        public target?: (omega64.IUniversalCoordinate|null);
 
         /** ImpactEvent energy. */
         public energy: number;

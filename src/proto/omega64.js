@@ -314,6 +314,258 @@ export const omega64 = $root.omega64 = (() => {
         return NetworkPhenotype;
     })();
 
+    omega64.UniversalCoordinate = (function() {
+
+        /**
+         * Properties of an UniversalCoordinate.
+         * @memberof omega64
+         * @interface IUniversalCoordinate
+         * @property {number|null} [u] UniversalCoordinate u
+         * @property {number|null} [v] UniversalCoordinate v
+         * @property {number|null} [w] UniversalCoordinate w
+         */
+
+        /**
+         * Constructs a new UniversalCoordinate.
+         * @memberof omega64
+         * @classdesc Represents an UniversalCoordinate.
+         * @implements IUniversalCoordinate
+         * @constructor
+         * @param {omega64.IUniversalCoordinate=} [properties] Properties to set
+         */
+        function UniversalCoordinate(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UniversalCoordinate u.
+         * @member {number} u
+         * @memberof omega64.UniversalCoordinate
+         * @instance
+         */
+        UniversalCoordinate.prototype.u = 0;
+
+        /**
+         * UniversalCoordinate v.
+         * @member {number} v
+         * @memberof omega64.UniversalCoordinate
+         * @instance
+         */
+        UniversalCoordinate.prototype.v = 0;
+
+        /**
+         * UniversalCoordinate w.
+         * @member {number} w
+         * @memberof omega64.UniversalCoordinate
+         * @instance
+         */
+        UniversalCoordinate.prototype.w = 0;
+
+        /**
+         * Creates a new UniversalCoordinate instance using the specified properties.
+         * @function create
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {omega64.IUniversalCoordinate=} [properties] Properties to set
+         * @returns {omega64.UniversalCoordinate} UniversalCoordinate instance
+         */
+        UniversalCoordinate.create = function create(properties) {
+            return new UniversalCoordinate(properties);
+        };
+
+        /**
+         * Encodes the specified UniversalCoordinate message. Does not implicitly {@link omega64.UniversalCoordinate.verify|verify} messages.
+         * @function encode
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {omega64.IUniversalCoordinate} message UniversalCoordinate message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UniversalCoordinate.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.u != null && Object.hasOwnProperty.call(message, "u"))
+                writer.uint32(/* id 1, wireType 5 =*/13).float(message.u);
+            if (message.v != null && Object.hasOwnProperty.call(message, "v"))
+                writer.uint32(/* id 2, wireType 5 =*/21).float(message.v);
+            if (message.w != null && Object.hasOwnProperty.call(message, "w"))
+                writer.uint32(/* id 3, wireType 5 =*/29).float(message.w);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified UniversalCoordinate message, length delimited. Does not implicitly {@link omega64.UniversalCoordinate.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {omega64.IUniversalCoordinate} message UniversalCoordinate message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UniversalCoordinate.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an UniversalCoordinate message from the specified reader or buffer.
+         * @function decode
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {omega64.UniversalCoordinate} UniversalCoordinate
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UniversalCoordinate.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.omega64.UniversalCoordinate();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.u = reader.float();
+                        break;
+                    }
+                case 2: {
+                        message.v = reader.float();
+                        break;
+                    }
+                case 3: {
+                        message.w = reader.float();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an UniversalCoordinate message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {omega64.UniversalCoordinate} UniversalCoordinate
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UniversalCoordinate.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an UniversalCoordinate message.
+         * @function verify
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        UniversalCoordinate.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.u != null && message.hasOwnProperty("u"))
+                if (typeof message.u !== "number")
+                    return "u: number expected";
+            if (message.v != null && message.hasOwnProperty("v"))
+                if (typeof message.v !== "number")
+                    return "v: number expected";
+            if (message.w != null && message.hasOwnProperty("w"))
+                if (typeof message.w !== "number")
+                    return "w: number expected";
+            return null;
+        };
+
+        /**
+         * Creates an UniversalCoordinate message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {omega64.UniversalCoordinate} UniversalCoordinate
+         */
+        UniversalCoordinate.fromObject = function fromObject(object) {
+            if (object instanceof $root.omega64.UniversalCoordinate)
+                return object;
+            let message = new $root.omega64.UniversalCoordinate();
+            if (object.u != null)
+                message.u = Number(object.u);
+            if (object.v != null)
+                message.v = Number(object.v);
+            if (object.w != null)
+                message.w = Number(object.w);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an UniversalCoordinate message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {omega64.UniversalCoordinate} message UniversalCoordinate
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        UniversalCoordinate.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.u = 0;
+                object.v = 0;
+                object.w = 0;
+            }
+            if (message.u != null && message.hasOwnProperty("u"))
+                object.u = options.json && !isFinite(message.u) ? String(message.u) : message.u;
+            if (message.v != null && message.hasOwnProperty("v"))
+                object.v = options.json && !isFinite(message.v) ? String(message.v) : message.v;
+            if (message.w != null && message.hasOwnProperty("w"))
+                object.w = options.json && !isFinite(message.w) ? String(message.w) : message.w;
+            return object;
+        };
+
+        /**
+         * Converts this UniversalCoordinate to JSON.
+         * @function toJSON
+         * @memberof omega64.UniversalCoordinate
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        UniversalCoordinate.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for UniversalCoordinate
+         * @function getTypeUrl
+         * @memberof omega64.UniversalCoordinate
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UniversalCoordinate.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/omega64.UniversalCoordinate";
+        };
+
+        return UniversalCoordinate;
+    })();
+
     omega64.ForeignPlasmid = (function() {
 
         /**
@@ -323,7 +575,7 @@ export const omega64 = $root.omega64 = (() => {
          * @property {string|null} [hash] ForeignPlasmid hash
          * @property {string|null} [astStr] ForeignPlasmid astStr
          * @property {number|null} [energy] ForeignPlasmid energy
-         * @property {number|null} [targetBucket] ForeignPlasmid targetBucket
+         * @property {omega64.IUniversalCoordinate|null} [target] ForeignPlasmid target
          * @property {string|null} [origin] ForeignPlasmid origin
          * @property {Array.<string>|null} [parents] ForeignPlasmid parents
          * @property {string|null} [signature] ForeignPlasmid signature
@@ -377,12 +629,12 @@ export const omega64 = $root.omega64 = (() => {
         ForeignPlasmid.prototype.energy = 0;
 
         /**
-         * ForeignPlasmid targetBucket.
-         * @member {number} targetBucket
+         * ForeignPlasmid target.
+         * @member {omega64.IUniversalCoordinate|null|undefined} target
          * @memberof omega64.ForeignPlasmid
          * @instance
          */
-        ForeignPlasmid.prototype.targetBucket = 0;
+        ForeignPlasmid.prototype.target = null;
 
         /**
          * ForeignPlasmid origin.
@@ -486,8 +738,8 @@ export const omega64 = $root.omega64 = (() => {
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.astStr);
             if (message.energy != null && Object.hasOwnProperty.call(message, "energy"))
                 writer.uint32(/* id 3, wireType 5 =*/29).float(message.energy);
-            if (message.targetBucket != null && Object.hasOwnProperty.call(message, "targetBucket"))
-                writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.targetBucket);
+            if (message.target != null && Object.hasOwnProperty.call(message, "target"))
+                $root.omega64.UniversalCoordinate.encode(message.target, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
             if (message.origin != null && Object.hasOwnProperty.call(message, "origin"))
                 writer.uint32(/* id 5, wireType 2 =*/42).string(message.origin);
             if (message.parents != null && message.parents.length)
@@ -557,7 +809,7 @@ export const omega64 = $root.omega64 = (() => {
                         break;
                     }
                 case 4: {
-                        message.targetBucket = reader.uint32();
+                        message.target = $root.omega64.UniversalCoordinate.decode(reader, reader.uint32());
                         break;
                     }
                 case 5: {
@@ -661,9 +913,11 @@ export const omega64 = $root.omega64 = (() => {
             if (message.energy != null && message.hasOwnProperty("energy"))
                 if (typeof message.energy !== "number")
                     return "energy: number expected";
-            if (message.targetBucket != null && message.hasOwnProperty("targetBucket"))
-                if (!$util.isInteger(message.targetBucket))
-                    return "targetBucket: integer expected";
+            if (message.target != null && message.hasOwnProperty("target")) {
+                let error = $root.omega64.UniversalCoordinate.verify(message.target);
+                if (error)
+                    return "target." + error;
+            }
             if (message.origin != null && message.hasOwnProperty("origin"))
                 if (!$util.isString(message.origin))
                     return "origin: string expected";
@@ -723,8 +977,11 @@ export const omega64 = $root.omega64 = (() => {
                 message.astStr = String(object.astStr);
             if (object.energy != null)
                 message.energy = Number(object.energy);
-            if (object.targetBucket != null)
-                message.targetBucket = object.targetBucket >>> 0;
+            if (object.target != null) {
+                if (typeof object.target !== "object")
+                    throw TypeError(".omega64.ForeignPlasmid.target: object expected");
+                message.target = $root.omega64.UniversalCoordinate.fromObject(object.target);
+            }
             if (object.origin != null)
                 message.origin = String(object.origin);
             if (object.parents) {
@@ -780,7 +1037,7 @@ export const omega64 = $root.omega64 = (() => {
                 object.hash = "";
                 object.astStr = "";
                 object.energy = 0;
-                object.targetBucket = 0;
+                object.target = null;
                 object.origin = "";
                 object.signature = "";
                 object.phenotype = null;
@@ -795,8 +1052,8 @@ export const omega64 = $root.omega64 = (() => {
                 object.astStr = message.astStr;
             if (message.energy != null && message.hasOwnProperty("energy"))
                 object.energy = options.json && !isFinite(message.energy) ? String(message.energy) : message.energy;
-            if (message.targetBucket != null && message.hasOwnProperty("targetBucket"))
-                object.targetBucket = message.targetBucket;
+            if (message.target != null && message.hasOwnProperty("target"))
+                object.target = $root.omega64.UniversalCoordinate.toObject(message.target, options);
             if (message.origin != null && message.hasOwnProperty("origin"))
                 object.origin = message.origin;
             if (message.parents && message.parents.length) {
@@ -860,8 +1117,7 @@ export const omega64 = $root.omega64 = (() => {
          * Properties of an ImpactEvent.
          * @memberof omega64
          * @interface IImpactEvent
-         * @property {number|null} [x] ImpactEvent x
-         * @property {number|null} [y] ImpactEvent y
+         * @property {omega64.IUniversalCoordinate|null} [target] ImpactEvent target
          * @property {number|null} [energy] ImpactEvent energy
          * @property {string|null} [astHash] ImpactEvent astHash
          * @property {string|null} [signature] ImpactEvent signature
@@ -883,20 +1139,12 @@ export const omega64 = $root.omega64 = (() => {
         }
 
         /**
-         * ImpactEvent x.
-         * @member {number} x
+         * ImpactEvent target.
+         * @member {omega64.IUniversalCoordinate|null|undefined} target
          * @memberof omega64.ImpactEvent
          * @instance
          */
-        ImpactEvent.prototype.x = 0;
-
-        /**
-         * ImpactEvent y.
-         * @member {number} y
-         * @memberof omega64.ImpactEvent
-         * @instance
-         */
-        ImpactEvent.prototype.y = 0;
+        ImpactEvent.prototype.target = null;
 
         /**
          * ImpactEvent energy.
@@ -946,10 +1194,8 @@ export const omega64 = $root.omega64 = (() => {
         ImpactEvent.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.x != null && Object.hasOwnProperty.call(message, "x"))
-                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.x);
-            if (message.y != null && Object.hasOwnProperty.call(message, "y"))
-                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.y);
+            if (message.target != null && Object.hasOwnProperty.call(message, "target"))
+                $root.omega64.UniversalCoordinate.encode(message.target, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
             if (message.energy != null && Object.hasOwnProperty.call(message, "energy"))
                 writer.uint32(/* id 3, wireType 5 =*/29).float(message.energy);
             if (message.astHash != null && Object.hasOwnProperty.call(message, "astHash"))
@@ -993,11 +1239,7 @@ export const omega64 = $root.omega64 = (() => {
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.x = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.y = reader.uint32();
+                        message.target = $root.omega64.UniversalCoordinate.decode(reader, reader.uint32());
                         break;
                     }
                 case 3: {
@@ -1047,12 +1289,11 @@ export const omega64 = $root.omega64 = (() => {
         ImpactEvent.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.x != null && message.hasOwnProperty("x"))
-                if (!$util.isInteger(message.x))
-                    return "x: integer expected";
-            if (message.y != null && message.hasOwnProperty("y"))
-                if (!$util.isInteger(message.y))
-                    return "y: integer expected";
+            if (message.target != null && message.hasOwnProperty("target")) {
+                let error = $root.omega64.UniversalCoordinate.verify(message.target);
+                if (error)
+                    return "target." + error;
+            }
             if (message.energy != null && message.hasOwnProperty("energy"))
                 if (typeof message.energy !== "number")
                     return "energy: number expected";
@@ -1077,10 +1318,11 @@ export const omega64 = $root.omega64 = (() => {
             if (object instanceof $root.omega64.ImpactEvent)
                 return object;
             let message = new $root.omega64.ImpactEvent();
-            if (object.x != null)
-                message.x = object.x >>> 0;
-            if (object.y != null)
-                message.y = object.y >>> 0;
+            if (object.target != null) {
+                if (typeof object.target !== "object")
+                    throw TypeError(".omega64.ImpactEvent.target: object expected");
+                message.target = $root.omega64.UniversalCoordinate.fromObject(object.target);
+            }
             if (object.energy != null)
                 message.energy = Number(object.energy);
             if (object.astHash != null)
@@ -1104,16 +1346,13 @@ export const omega64 = $root.omega64 = (() => {
                 options = {};
             let object = {};
             if (options.defaults) {
-                object.x = 0;
-                object.y = 0;
+                object.target = null;
                 object.energy = 0;
                 object.astHash = "";
                 object.signature = "";
             }
-            if (message.x != null && message.hasOwnProperty("x"))
-                object.x = message.x;
-            if (message.y != null && message.hasOwnProperty("y"))
-                object.y = message.y;
+            if (message.target != null && message.hasOwnProperty("target"))
+                object.target = $root.omega64.UniversalCoordinate.toObject(message.target, options);
             if (message.energy != null && message.hasOwnProperty("energy"))
                 object.energy = options.json && !isFinite(message.energy) ? String(message.energy) : message.energy;
             if (message.astHash != null && message.hasOwnProperty("astHash"))
