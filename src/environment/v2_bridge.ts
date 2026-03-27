@@ -97,9 +97,10 @@ export class OmegaV2Engine {
         // 1. Get raw WASM pointers offset integers
         const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
         const agentsPtr = (exports.v2_agents_ptr as CallableFunction)() as number;
+        const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
 
-        // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 = 32 bytes)
-        const LATTICE_UNIFORM_SIZE = 32;
+        // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + OntologicalIntent=16 = 48 bytes)
+        const LATTICE_UNIFORM_SIZE = 48;
 
         // 3. Gracefully Clamp WASM memory mapping just in case GPU VRAM > WASM .bss allocation
         const requestedBytes = this.currentTopology.maxAllocatedAgents * 16;
@@ -112,6 +113,7 @@ export class OmegaV2Engine {
         return {
             uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
             agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
+            sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
             wasmMemoryBuffer: this.memory.buffer 
         };
     }

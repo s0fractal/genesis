@@ -3,6 +3,21 @@
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
+pub struct OntologicalIntent {
+    pub focus_x: i32,
+    pub focus_y: i32,
+    pub mass: i32,
+    pub radius: i32,
+}
+
+impl OntologicalIntent {
+    pub fn empty() -> Self {
+        Self { focus_x: 0, focus_y: 0, mass: 0, radius: 0 }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
 pub struct PhaseTopology {
     /// Power of 2 determining phase resolution (e.g. 8 -> 2^8 = 256 states per wave cycle).
     pub q_phase: u32,

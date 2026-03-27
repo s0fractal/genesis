@@ -44,6 +44,12 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
         active_agent_count: 0,
         max_cells: 0,
     },
+    intent: crate::topology::OntologicalIntent {
+        focus_x: 0,
+        focus_y: 0,
+        mass: 0,
+        radius: 0,
+    },
     smart_agents_ptr: core::ptr::null_mut(),
     minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
     active_agent_count: 0,
@@ -61,6 +67,11 @@ pub extern "C" fn v2_lattice_ptr() -> *const u8 {
 #[no_mangle]
 pub extern "C" fn v2_agents_ptr() -> *const u8 {
     unsafe { AGENTS_MEMORY.as_ptr() as *const u8 }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_sine_lut_ptr() -> *const u8 {
+    crate::math::SINE_LUT_128.as_ptr() as *const u8
 }
 
 #[no_mangle]
@@ -89,5 +100,15 @@ pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
 pub extern "C" fn v2_tick() {
     unsafe {
         OMEGA_LATTICE.tick_physics();
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_set_intent(focus_x: i32, focus_y: i32, mass: i32, radius: i32) {
+    unsafe {
+        OMEGA_LATTICE.intent.focus_x = focus_x;
+        OMEGA_LATTICE.intent.focus_y = focus_y;
+        OMEGA_LATTICE.intent.mass = mass;
+        OMEGA_LATTICE.intent.radius = radius;
     }
 }

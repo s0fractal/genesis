@@ -73,7 +73,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     let energy_scale = f32(agent.energy) / 1000.0;
     
     // Increased particle_size significantly to fix sub-pixel smearing
-    let particle_size = 0.05 + (0.05 * energy_scale); 
+    let particle_size = 0.002 + (0.008 * energy_scale); 
     
     // Quick Aspect Ratio Hack for a square matrix on a widescreen
     let aspect_ratio = 1920.0 / 1080.0; 

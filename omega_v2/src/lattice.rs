@@ -3,7 +3,7 @@
 //! Since we are `#![no_std]`, we avoid complex Observer/FRP heap allocations.
 //! Instead, 1 Bit = 1 Signal.
 
-use crate::topology::PhaseTopology;
+use crate::topology::{PhaseTopology, OntologicalIntent};
 use crate::agent::{PhaseAgentMinimal, PhaseAgentSmart};
 
 // --- SIGNAL DEFINITIONS (Bitmask Dirty Flags) ---
@@ -24,6 +24,7 @@ pub struct SignalStore {
 pub struct PhaseLattice {
     pub topology: PhaseTopology,
     pub signals: SignalStore,
+    pub intent: OntologicalIntent,
     
     // We bind directly to the SharedArrayBuffer memory block passed from WebGPU/JS.
     // Instead of allocating a `Vec`, we slide pointers. Zero-Cost mapping.
@@ -47,6 +48,7 @@ impl PhaseLattice {
                 active_agent_count: 0,
                 max_cells: 0,
             },
+            intent: OntologicalIntent::empty(),
             smart_agents_ptr: smart_ptr,
             minimal_agents_ptr: min_ptr,
             active_agent_count: 0,
