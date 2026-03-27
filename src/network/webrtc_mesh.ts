@@ -89,17 +89,17 @@ export class WebRTCMesh {
         channel.onmessage = async (event) => {
             // Relay data straight to the Macro-Torus Worker!
             try {
-                let packet: any;
+                let packet: Record<string, unknown> | undefined;
                 if (event.data instanceof ArrayBuffer) {
                     // @ts-ignore: pbts generates strict signatures that expect a reader, length, error
-                    const decoded = omega64.OmegaMessage.decode(new Uint8Array(event.data)) as any;
+                    const decoded = omega64.OmegaMessage.decode(new Uint8Array(event.data)) as Record<string, unknown>;
                     
                     if (decoded.type === omega64.OmegaMessage.MessageType.FOREIGN_PLASMID && decoded.plasmid) {
-                        packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid };
+                        packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid as Record<string, unknown> };
                     } else if (decoded.type === omega64.OmegaMessage.MessageType.IMPACT_EVENT && decoded.impact) {
-                        packet = { type: 'IMPACT_EVENT', payload: decoded.impact };
+                        packet = { type: 'IMPACT_EVENT', payload: decoded.impact as Record<string, unknown> };
                     } else if (decoded.type === omega64.OmegaMessage.MessageType.SYNC_METADATA && decoded.telemetry) {
-                        packet = decoded.telemetry;
+                        packet = decoded.telemetry as Record<string, unknown>;
                         packet.type = 'SYNC_METADATA';
                     }
                 } else if (typeof event.data === "string") {
@@ -107,18 +107,19 @@ export class WebRTCMesh {
                 }
 
                 if (packet && packet.type === 'FOREIGN_PLASMID' && packet.payload) {
+                    const payload = packet.payload as Record<string, string>;
                     // Era 280: Validate SP1 STARK ZK-Proof receipt before injection!
-                    if (packet.payload.proof_bytes) {
+                    if (payload.proof_bytes) {
                         const proof = NomosGate.verify_sp1_receipt(
-                            packet.payload.proof_bytes,
-                            { morphology: packet.payload.morphology_hash, steps: packet.payload.steps_cost }
+                            payload.proof_bytes,
+                            { morphology: payload.morphology_hash, steps: parseInt(payload.steps_cost) }
                         );
 
                         if (proof.valid) {
                             // Era 300: ATP Osmosis Verification
                             let isBurnValid = false;
-                            if (packet.payload.burn_tx_hash) {
-                                isBurnValid = await this.atpBridge.verifyBurnTx(packet.payload.burn_tx_hash);
+                            if (payload.burn_tx_hash) {
+                                isBurnValid = await this.atpBridge.verifyBurnTx(payload.burn_tx_hash);
                             }
 
                             if (isBurnValid) {
@@ -182,7 +183,7 @@ export class WebRTCMesh {
     }
     
     // Called by the DOM (phase.ts) when the Worker wants to broadcast to the P2P Mesh
-    public broadcast(packet: Record<string, any>) {
+    public broadcast(packet: Record<string, unknown>) {
         let rawData: Uint8Array | string;
         
         if (packet.type === 'FOREIGN_PLASMID' && packet.payload) {
@@ -209,7 +210,8 @@ export class WebRTCMesh {
 
         for (const channel of this.channels.values()) {
             if (channel.readyState === "open") {
-                channel.send(rawData as any);
+                // @ts-ignore - Uint8Array wraps ArrayBufferLike locally but channel expects explicit ArrayBufferView
+                channel.send(rawData as Uint8Array);
             }
         }
     }

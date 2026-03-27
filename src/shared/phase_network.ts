@@ -1,5 +1,5 @@
 import { fnv1a_64 } from "@wasm";
-import { SENATE_MYCELIUM_MIN_LOCKS, SENATE_MYCELIUM_MIN_ENERGY, MATH_Q_SCALE } from "./constants.ts";
+import { SENATE_MYCELIUM_MIN_ENERGY } from "./constants.ts";
 
 const SYSTEMIC_O56_SALT = "OMEGA_64_VAULT_130_ABSOLUTE_PHASE";
 
@@ -29,7 +29,7 @@ function verifyPayloadSignature(p: ForeignPlasmid): boolean {
 export class PhaseNetwork {
     private onPlasmidReceived: (plasmid: ForeignPlasmid) => void;
     public onImpactReceived?: (impact: {x: number, y: number, energy: number, ast_hash: string, signature: string}) => void;
-    private broadcastFn: (packet: any) => void;
+    private broadcastFn: (packet: Record<string, unknown>) => void;
     public nodeId: string;
     
     // Era 247: Plasmid Delta-State CRDT (LWW-Element Set)
@@ -43,7 +43,7 @@ export class PhaseNetwork {
 
     constructor(
         onPlasmidReceived: (plasmid: ForeignPlasmid) => void,
-        broadcastFn: (packet: any) => void
+        broadcastFn: (packet: Record<string, unknown>) => void
     ) {
         this.onPlasmidReceived = onPlasmidReceived;
         this.broadcastFn = broadcastFn;
@@ -62,12 +62,12 @@ export class PhaseNetwork {
         });
     }
 
-    public handleIncomingPacket(packet: any) {
+    public handleIncomingPacket(packet: Record<string, unknown>) {
         if (packet.type === "FOREIGN_PLASMID") {
-            this.validateAndIngestPlasmid(packet.payload);
+            this.validateAndIngestPlasmid(packet.payload as ForeignPlasmid);
         } else if (packet.type === "IMPACT_EVENT") {
             if (this.onImpactReceived && packet.payload) {
-                this.onImpactReceived(packet.payload);
+                this.onImpactReceived(packet.payload as {x: number, y: number, energy: number, ast_hash: string, signature: string});
             }
         }
     }

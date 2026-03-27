@@ -98,7 +98,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   });
 
   // Track synchronized values from Headless Sandbox
-  let current_tau = 0;
+  let _current_tau = 0;
   let currentEntropy = 2.5;
   let globalEnergy = 0;
   let climate = "SPRING (Mutation)";
@@ -111,7 +111,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
   workerPort.addEventListener('message', (e: Event) => {
       const msg = (e as MessageEvent).data;
         if (msg.type === 'SYNC_METADATA') {
-            current_tau = msg.current_tau;
+            _current_tau = msg.current_tau;
             currentEntropy = msg.entropy;
             globalEnergy = msg.globalEnergy;
             climate = msg.climate;
@@ -146,7 +146,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
           let lastFlag = Atomics.load(header, 0);
           while (true) {
               if (header.buffer instanceof SharedArrayBuffer) {
-                  const result = (Atomics as any).waitAsync(header, 0, lastFlag);
+                  const result = (Atomics as unknown as { waitAsync: (a: Int32Array, b: number, c: number) => { async: boolean, value: Promise<string> } }).waitAsync(header, 0, lastFlag);
                   if (result.async) {
                       await result.value;
                   }
@@ -158,7 +158,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
                   const view = new Uint8Array(ringBuffer, offset, slotSize);
                   
                   observer.render(view, tau);
-                  current_tau = tau;
+                  _current_tau = tau;
                   
                   await new Promise(r => requestAnimationFrame(r));
               } else {
@@ -172,7 +172,7 @@ export async function renderClientLoop(canvas: HTMLCanvasElement, device: GPUDev
                   
                   const view = new Uint8Array(frame.buffer);
                   observer.render(view, frame.tau);
-                  current_tau = frame.tau;
+                  _current_tau = frame.tau;
                   
                   // Recycle the buffer to prevent WASM clones leaking memory over the event loop
                   workerPort.postMessage({ type: 'RECYCLE_BUFFER', buffer: frame.buffer }, [frame.buffer]);

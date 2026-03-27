@@ -10,9 +10,7 @@ let oracle: SovereignOracle;
 let engine: PhaseComputeEngine | undefined;
 let network: PhaseNetwork | undefined;
 let sharedMemory: WebAssembly.Memory;
-let ringBuffer: SharedArrayBuffer;
 let ringSlotSize = 0;
-let telemetryBuffer: SharedArrayBuffer;
 
 let isInitialized = false;
 let isPhysicsRunning = false;
@@ -23,8 +21,8 @@ const bufferPool: ArrayBuffer[] = [];
 const connections: MessagePort[] = [];
 
 // Vector III: Meta-Compilation Physics Bridge
-globalThis.addEventListener("substratePhysicsDelta", (e: any) => {
-    const detail = e.detail;
+globalThis.addEventListener("substratePhysicsDelta", (e: Event) => {
+    const detail = (e as CustomEvent).detail;
     if (field && field.set_physics_parameter) {
          field.set_physics_parameter(detail.key, detail.value);
     }
@@ -193,7 +191,7 @@ async function initEnvironment() {
     }
 
     // Instantiate Macro-Torus Network Mycelium
-    network = new PhaseNetwork((p) => {
+    network = new PhaseNetwork((_p) => {
         // Placeholder for remote plasmid ingestion
     }, (packet) => {
         self.postMessage(packet);
@@ -205,7 +203,7 @@ async function initEnvironment() {
     };
 
     // The Oracle acts natively against either the WebGPU map or CPU mapping
-    oracle = new SovereignOracle(field, sharedMemory, engine);
+    oracle = new SovereignOracle(field as unknown as OracleCompatibleField, sharedMemory, engine);
     oracle.boot();
 
     // Era 850: Using WASM Native Ring Buffer bounds
@@ -249,9 +247,11 @@ async function initEnvironment() {
                     slot_size: ringSlotSize
                 }
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("[LatticeWorker] FATAL BOOT ERROR:", err);
-            self.postMessage({ type: 'INIT_ERR', error: err.message || err.toString(), stack: err.stack });
+            const msg = err instanceof Error ? err.message : String(err);
+            const stack = err instanceof Error ? err.stack : undefined;
+            self.postMessage({ type: 'INIT_ERR', error: msg, stack });
         }
     }
     
