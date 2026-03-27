@@ -1,5 +1,14 @@
 [workspace]
 members = [
-    "omega_core",
+    "omega_core", "omega_v2",
     "omega_zk_guest"
 ]
+
+resolver = "2"
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true

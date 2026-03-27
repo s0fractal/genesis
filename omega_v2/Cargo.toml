@@ -1,0 +1,12 @@
+[package]
+name = "omega_v2"
+version = "0.1.0"
+edition = "2021"
+authors = ["Genesis Architect"]
+description = "Era 920+ Bare-Metal Phase Lattice Engine (no_std, Zero-Cost Reactivity)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# We only use core and alloc, so dependencies must also be no_std
