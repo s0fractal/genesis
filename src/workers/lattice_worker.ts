@@ -221,6 +221,14 @@ async function initEnvironment() {
 
 // deno-lint-ignore no-explicit-any
 (self as any).onmessage = async (msg: MessageEvent) => {
+    if (msg.data.type === 'COSMIC_ENTROPY') {
+        if (field && field.set_physics_parameter) {
+            field.set_physics_parameter('kuramoto_base', msg.data.payload.kuramoto_base);
+            field.set_physics_parameter('kuramoto_diffusion_rate', msg.data.payload.kuramoto_diffusion_rate);
+            console.log(`[LatticeWorker] 🌌 Absolute Thermodynamics Updated via Blockchain! Base: ${msg.data.payload.kuramoto_base}, Diff: ${msg.data.payload.kuramoto_diffusion_rate}`);
+        }
+        return;
+    }
     if (msg.data.type === 'RECYCLE_BUFFER') {
         bufferPool.push(msg.data.buffer);
         return;

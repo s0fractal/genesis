@@ -13,6 +13,12 @@ export class WebRTCMesh {
     constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev") {
         this.workerPort = workerPort;
         this.atpBridge = new EthersATPBridge(); // Era 800: Real Web3 Token Osmosis Bridge
+        
+        // Era 920: The Cosmic Entropy Heartbeat
+        this.atpBridge.subscribeToCosmicEntropy((entropy) => {
+            this.workerPort.postMessage({ type: 'COSMIC_ENTROPY', payload: entropy });
+        });
+
         this.signaling = new WebSocket(signalingUrl);
 
         this.signaling.onmessage = this.handleSignalingMessage.bind(this);

@@ -16,6 +16,7 @@ export interface IATPBridge {
     burnATP(amount: number, morphologyHash: string, wallet: string): Promise<ATPTransactionReceipt>;
     getBalance(wallet: string): Promise<number>;
     verifyBurnTx(txHash: string): Promise<boolean>;
+    subscribeToCosmicEntropy(callback: (entropy: { kuramoto_base: number, kuramoto_diffusion_rate: number, hash: string }) => void): void;
 }
 
 export class MockATPBridge implements IATPBridge {
@@ -58,6 +59,15 @@ export class MockATPBridge implements IATPBridge {
     async verifyBurnTx(txHash: string): Promise<boolean> {
         await new Promise(resolve => setTimeout(resolve, 10)); // In reality, this queries an RPC provider for the tx log.
         return this.validBurns.has(txHash);
+    }
+
+    subscribeToCosmicEntropy(callback: (entropy: { kuramoto_base: number, kuramoto_diffusion_rate: number, hash: string }) => void): void {
+        setInterval(() => {
+            const mockHash = "0x" + Math.random().toString(16).substring(2, 10);
+            const kuramoto_base = 100 + Math.floor(Math.random() * 2900);
+            const kuramoto_diffusion_rate = 10 + Math.floor(Math.random() * 1000);
+            callback({ kuramoto_base, kuramoto_diffusion_rate, hash: mockHash });
+        }, 12000); // Standard EVM block time
     }
 }
 
@@ -132,5 +142,33 @@ export class EthersATPBridge implements IATPBridge {
         } catch (_e) {
             return false;
         }
+    }
+
+    subscribeToCosmicEntropy(callback: (entropy: { kuramoto_base: number, kuramoto_diffusion_rate: number, hash: string }) => void): void {
+        this.provider.on("block", async (blockNumber) => {
+            try {
+                const block = await this.provider.getBlock(blockNumber);
+                if (!block || !block.hash) return;
+                
+                // Deterministic conversion of block hash to Q10 physics constants
+                const hex1 = block.hash.substring(2, 10);
+                const hex2 = block.hash.substring(10, 18);
+                
+                const val1 = parseInt(hex1, 16);
+                const val2 = parseInt(hex2, 16);
+                
+                // KURAMOTO_BASE (default was ~0.2 i.e. 200 in Q10, max ~5.0 i.e. 5120)
+                const kuramoto_base = 100 + (val1 % 2900);
+                
+                // KURAMOTO_DIFFUSION (default was ~0.05 i.e. 50 in Q10, max ~1.0 i.e. 1024)
+                const kuramoto_diffusion_rate = 10 + (val2 % 1000);
+                
+                console.log(`[Cosmic Entropy] New Block ${blockNumber} | Hash: ${block.hash.substring(0, 10)}... | Base: ${kuramoto_base}, Diff: ${kuramoto_diffusion_rate}`);
+                
+                callback({ kuramoto_base, kuramoto_diffusion_rate, hash: block.hash });
+            } catch (e) {
+                console.error("[Cosmic Entropy] Failed to fetch block hash", e);
+            }
+        });
     }
 }
