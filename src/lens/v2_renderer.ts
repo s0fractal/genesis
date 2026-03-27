@@ -17,6 +17,7 @@ export class PhaseV2Renderer {
     private signalsBuffer!: GPUBuffer;
     private intentBuffer!: GPUBuffer;
     private agentsBuffer!: GPUBuffer;
+    private stagingAgentsBuffer!: GPUBuffer;
     private sineLutBuffer!: GPUBuffer;
     private _mouseBound: boolean = false;
 
@@ -51,6 +52,14 @@ export class PhaseV2Renderer {
             size: pointers.agentBytes.byteLength,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
+
+        this.stagingAgentsBuffer = this.device.createBuffer({
+            size: pointers.agentBytes.byteLength,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+
+        // Initialize GPU with the Genesis State once
+        this.device.queue.writeBuffer(this.agentsBuffer, 0, pointers.agentBytes);
 
         // 128 elements * 4 bytes (i32) = 512 bytes tightly packed Read-Only Storage Array
         this.sineLutBuffer = this.device.createBuffer({
@@ -125,7 +134,10 @@ export class PhaseV2Renderer {
         this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
         this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
         this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 64);
-        this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
+        
+        // Removed: this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
+        // We do NOT overwrite the GPU state every frame anymore. WebGPU owns the matrix math.
+
 
         // Upload LUT (Only once per frame is redundant since it's static, but ensures zero-cost pointer persistence)
         this.device.queue.writeBuffer(this.sineLutBuffer, 0, ptrs.sineLutBytes);
@@ -188,5 +200,43 @@ export class PhaseV2Renderer {
         renderPassEncoder.end();
         
         this.device.queue.submit([commandEncoder.finish()]);
+    }
+
+    /** 
+     * Era 2020: WebRTC Snapshot Extraction
+     * Maps the GPU agents buffer into JS memory, then copies it into the Zero-Copy WASM pointer
+     * Finally computes the deterministic Golden Trace checksum.
+     */
+    public async readStateFromGPUAndHash(): Promise<{ goldenTrace: string, snapshot: Uint8Array }> {
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(
+            this.agentsBuffer, 0,
+            this.stagingAgentsBuffer, 0,
+            this.stagingAgentsBuffer.size
+        );
+        this.device.queue.submit([commandEncoder.finish()]);
+        
+        await this.stagingAgentsBuffer.mapAsync(GPUMapMode.READ);
+        const copyArray = new Uint8Array(this.stagingAgentsBuffer.getMappedRange());
+        
+        // Make a clone of the snapshot to return to WebRTC
+        const snapshot = new Uint8Array(copyArray);
+        
+        const ptrs = this.engine.getMemoryPointers();
+        ptrs.agentBytes.set(snapshot); // Flush the memory back into the bare-metal Rust `.bss`
+        
+        this.stagingAgentsBuffer.unmap();
+        
+        // Execute the fast cryptographic O(N/1024) matrix hashing in WASM
+        const traceNum = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)();
+        return {
+            goldenTrace: traceNum.toString(16).toUpperCase(),
+            snapshot
+        };
+    }
+
+    /** Overwrites the entire local GPU state with a WebRTC rollback snapshot */
+    public overwriteGPUState(snapshot: Uint8Array) {
+        this.device.queue.writeBuffer(this.agentsBuffer, 0, snapshot.buffer as ArrayBuffer, snapshot.byteOffset, snapshot.byteLength);
     }
 }

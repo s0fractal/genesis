@@ -34,7 +34,9 @@ export async function bootstrapV2() {
         await engine.boot(adapter);
         
         // Boot V2 Mesh Network for Golden Trace syncing
-        const mesh = new WebRTCV2Mesh(engine);
+        const mesh = new WebRTCV2Mesh(engine, (snapshot) => {
+            renderer.overwriteGPUState(snapshot);
+        });
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
 
@@ -46,22 +48,36 @@ export async function bootstrapV2() {
         await renderer.initialize();
 
         // 3. The Holy Tick Loop
+        let frameCount = 0;
+        let isReadingGPU = false;
+
         const loop = () => {
             tickFps();
-            renderer.tick();
+            
+            // Halt Local Thermodynamics if reconstructing from a peer Snapshot
+            if (!mesh.isSyncFrozen) {
+                renderer.tick();
+            }
             
             // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)
             const ptrs = engine.getMemoryPointers();
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
 
-            // Extract the Golden Trace
-            const getGoldenTrace = engine.wasm?.exports.v2_get_golden_trace as CallableFunction;
-            if (getGoldenTrace) {
-                const hash = getGoldenTrace() as number;
-                setHudStat("c", "GOLDEN TRACE", hash.toString(16).toUpperCase().padStart(8, '0'));
+            // Asynchronous 1Hz GPU State Extraction via Staging Buffers
+            if (frameCount % 60 === 0 && !isReadingGPU) {
+                isReadingGPU = true;
+                renderer.readStateFromGPUAndHash().then(({ goldenTrace, snapshot }) => {
+                    setHudStat("c", "GOLDEN TRACE", goldenTrace);
+                    mesh.setLatestState(goldenTrace, snapshot);
+                    isReadingGPU = false;
+                }).catch(err => {
+                    console.error("[V2] GPU Read Error:", err);
+                    isReadingGPU = false;
+                });
             }
 
+            frameCount++;
             requestAnimationFrame(loop);
         };
         

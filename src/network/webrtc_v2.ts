@@ -12,12 +12,19 @@ export class WebRTCV2Mesh {
     private localId: string = "";
     private engine: OmegaV2Engine;
     
-    // Peer slot mapping (We have 4 Intention slots in WASM. Slot 0 is local user)
     private peerSlots: Map<string, number> = new Map();
     private nextSlot = 1;
 
-    constructor(engine: OmegaV2Engine, signalingUrl: string = "wss://omega-federation.deno.dev") {
+    public isSyncFrozen: boolean = false;
+    private overwriteCallback: (snapshot: Uint8Array) => void;
+
+    // Snapshot Reassembly State
+    private incomingSnapshot: Uint8Array | null = null;
+    private incomingBytesReceived: number = 0;
+
+    constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev") {
         this.engine = engine;
+        this.overwriteCallback = overwriteCallback;
         this.signaling = new WebSocket(signalingUrl);
 
         this.signaling.onmessage = this.handleSignalingMessage.bind(this);
@@ -65,11 +72,11 @@ export class WebRTCV2Mesh {
             }
         };
 
-        pc.ondatachannel = (event) => this.setupDataChannel(peerId, event.channel);
-
-        pc.onconnectionstatechange = () => {
-            if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-                this.closePeer(peerId);
+        pc.ondatachannel = (event) => {
+            if (event.channel.label === "v2-sync") {
+                this.setupDataChannel(peerId, event.channel);
+            } else if (event.channel.label === "v2-state") {
+                this.setupStateChannel(peerId, event.channel);
             }
         };
 
@@ -117,10 +124,20 @@ export class WebRTCV2Mesh {
                         }
                     }
                     
+                    
                     // Golden Trace Validation
                     const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
-                    if (localTrace !== packet.gt) {
-                        console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE with ${peerId}! (Local: ${localTrace.toString(16)} | Remote: ${packet.gt.toString(16)})`);
+                    if (localTrace !== packet.gt && !this.isSyncFrozen) {
+                        console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${packet.gt.toString(16)})`);
+                        // Simplistic tie-breaker for Authority: The higher Hash rules.
+                        if (packet.gt > localTrace) {
+                             console.log(`[V2-MESH] Requesting Overmind State Snapshot from Authority...`);
+                             this.isSyncFrozen = true;
+                             const stateChannel = this.getOrOpenStateChannel(peerId);
+                             if (stateChannel?.readyState === 'open') {
+                                 stateChannel.send(JSON.stringify({ t: 'REQ_SNAPSHOT' }));
+                             }
+                        }
                     }
                 }
             } catch (e) {
@@ -129,9 +146,66 @@ export class WebRTCV2Mesh {
         };
     }
 
+    private stateChannels: Map<string, RTCDataChannel> = new Map();
+
+    private getOrOpenStateChannel(peerId: string): RTCDataChannel | undefined {
+        let sc = this.stateChannels.get(peerId);
+        if (!sc) {
+            const pc = this.peers.get(peerId);
+            if (pc) {
+                sc = pc.createDataChannel("v2-state", { ordered: true });
+                sc.binaryType = "arraybuffer";
+                this.setupStateChannel(peerId, sc);
+            }
+        }
+        return sc;
+    }
+
+    private setupStateChannel(peerId: string, channel: RTCDataChannel) {
+        this.stateChannels.set(peerId, channel);
+        channel.binaryType = "arraybuffer";
+        channel.onopen = () => console.log(`[V2-STATE] TCP-Style State Channel OPEN with ${peerId}`);
+        channel.onmessage = (event) => {
+            if (typeof event.data === 'string') {
+                const msg = JSON.parse(event.data);
+                if (msg.t === 'REQ_SNAPSHOT') {
+                    if (this.latestSnapshot) {
+                        console.log(`[V2-STATE] Sending 32MB Snapshot to ${peerId}...`);
+                        channel.send(JSON.stringify({ t: 'SNAPSHOT_HEADER', size: this.latestSnapshot.byteLength }));
+                        
+                        // Blast 64KB chunks
+                        const CHUNK_SIZE = 64000;
+                        for (let i = 0; i < this.latestSnapshot.byteLength; i += CHUNK_SIZE) {
+                            const chunk = this.latestSnapshot.slice(i, i + CHUNK_SIZE);
+                            channel.send(chunk);
+                        }
+                    }
+                } else if (msg.t === 'SNAPSHOT_HEADER') {
+                    console.log(`[V2-STATE] Incoming 32MB Snapshot (${msg.size} bytes)...`);
+                    this.incomingSnapshot = new Uint8Array(msg.size);
+                    this.incomingBytesReceived = 0;
+                    this.isSyncFrozen = true;
+                }
+            } else if (event.data instanceof ArrayBuffer) {
+                if (this.incomingSnapshot) {
+                    const chunk = new Uint8Array(event.data);
+                    this.incomingSnapshot.set(chunk, this.incomingBytesReceived);
+                    this.incomingBytesReceived += chunk.byteLength;
+                    
+                    if (this.incomingBytesReceived >= this.incomingSnapshot.byteLength) {
+                        console.log(`[V2-STATE] Snapshot Assembly Complete! Injecting to GPU Memory.`);
+                        this.overwriteCallback(this.incomingSnapshot);
+                        this.incomingSnapshot = null;
+                        this.isSyncFrozen = false;
+                    }
+                }
+            }
+        };
+    }
+
     private async initiateConnection(peerId: string) {
         const pc = this.createPeerConnection(peerId);
-        // Create an UNRELIABLE, UNORDERED channel for max speed
+        // Create an UNRELIABLE, UNORDERED channel for max speed intentions
         const channel = pc.createDataChannel("v2-sync", { ordered: false, maxRetransmits: 0 });
         this.setupDataChannel(peerId, channel);
 
@@ -185,12 +259,16 @@ export class WebRTCV2Mesh {
     }
     
     public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
+    private latestGoldenTrace: string = "0";
+    private latestSnapshot: Uint8Array | null = null;
+    
+    public setLatestState(gt: string, snapshot: Uint8Array) {
+        this.latestGoldenTrace = gt;
+        this.latestSnapshot = snapshot;
+    }
     
     private broadcastV2State() {
         if (this.channels.size === 0) return;
-        
-        const getGoldenTrace = this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction;
-        const hash = getGoldenTrace ? getGoldenTrace() as number : 0;
         
         const payload = JSON.stringify({
             t: 'V2_SYNC',
@@ -198,7 +276,7 @@ export class WebRTCV2Mesh {
             y: this.__lastLocalIntent.y,
             m: this.__lastLocalIntent.m,
             r: this.__lastLocalIntent.r,
-            gt: hash
+            gt: this.latestGoldenTrace
         });
         
         for (const [id, channel] of this.channels.entries()) {
