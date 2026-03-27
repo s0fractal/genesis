@@ -4,7 +4,7 @@
 //! Minimum unit is 16 bytes for perfect GPU `vec4<u32>` alignment.
 
 #[derive(Clone, Copy, Debug)]
-#[repr(C, align(16))]
+#[repr(C, align(32))]
 pub struct PhaseAgentMinimal {
     /// High-precision Q20 or continuous integer mapping of the 0..255 phase.
     pub phase: u32,
@@ -17,6 +17,13 @@ pub struct PhaseAgentMinimal {
     
     /// Bitmask for status: [1: is_locked] [7: species] [24: reserved custom traits]
     pub state_flags: u32,
+
+    // ---- Neural Phase Extensions (Era 2000) ----
+    /// Cellular Automata state vector or Species Genome
+    pub genome: u32,      
+    
+    /// 3-Dimensional payload for Gradient memory natively mapped avoiding WGSL padding faults
+    pub memory: [u32; 3], 
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -49,6 +56,8 @@ impl Default for PhaseAgentMinimal {
             energy: 1000,
             base_freq: 0,
             state_flags: 0,
+            genome: 0,
+            memory: [0; 3],
         }
     }
 }

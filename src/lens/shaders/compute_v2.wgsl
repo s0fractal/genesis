@@ -23,25 +23,33 @@ struct OntologicalIntent {
     radius: i32,
 }
 
-// Exactly 16 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal 
-// and naturally aligns to vec4<u32> for maximum GPU coalesced reads.
+struct IntentArray {
+    intents: array<OntologicalIntent, 4>,
+}
+
+// Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal 
+// and naturally aligns to vec4<u32> x 2 for maximum GPU coalesced reads.
 struct PhaseAgentMinimal {
     phase: u32,
     energy: u32,
     base_freq: i32,     // signed Q20
     state_flags: u32,
+    genome: u32,
+    memory_x: u32,
+    memory_y: u32,
+    memory_z: u32,
 }
 
 // Standard Uniforms (Written directly by Rust without per-frame JS mapping)
 @group(0) @binding(0) var<uniform> topology: PhaseTopology;
 @group(0) @binding(1) var<uniform> signals: SignalStore;
-@group(0) @binding(4) var<uniform> intent: OntologicalIntent;
+@group(0) @binding(4) var<uniform> intent_array: IntentArray;
 
 // The Shared Array Buffer View
 @group(0) @binding(2) var<storage, read_write> agents: array<PhaseAgentMinimal>;
 
 // The 128-element Deterministic Lookup Table (Q20 Fixed-Point)
-@group(0) @binding(3) var<storage, read> sine_lut: array<i32>;
+@group(0) @binding(3) var<storage, read> sine_lut: array<i32, 128>;
 
 // O(1) Constant Time Deterministic Trigonometry
 fn deterministic_sin(phase: u32, q_phase: u32) -> i32 {
@@ -104,47 +112,73 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let my_x = deterministic_cos(agent.phase, topology.q_phase);
     let my_y = deterministic_sin(agent.phase, topology.q_phase);
     
-    // 3. Integer Kuramoto Coupling + Ontological Gravity
+    // 3. Integer Kuramoto Coupling + Ontological Gravity (Multi-Intent)
     let k_coupling = min(agent.energy, 1000u); 
     
     var force_x = my_x + (((anchor_x - my_x) * i32(k_coupling)) >> 10u);
     var force_y = my_y + (((anchor_y - my_y) * i32(k_coupling)) >> 10u);
     
-    // Evaluate Gravity Well (-1000 to 1000 space)
-    if (intent.mass > 0) {
-        // Find screen-space position of agent to compare with Intent focus
-        let radial_idx = f32(index % (1u << topology.q_radial));
-        let sector_idx = f32(index / (1u << topology.q_radial));
-        let max_r = f32(1u << topology.q_radial);
-        let max_s = f32(1u << topology.q_sectors);
-        
-        let phase_norm = f32(agent.phase) / f32(max_phase_mask);
-        let dynamic_r = (radial_idx / max_r) + (phase_norm * 0.05);
-        let angle = (sector_idx / max_s) * 6.283185;
-        
-        let screen_x = i32(cos(angle) * dynamic_r * 1000.0 * 1.777); // Aspect ratio adjusted
-        let screen_y = i32(sin(angle) * dynamic_r * 1000.0);
-        
-        let dx = intent.focus_x - screen_x;
-        let dy = intent.focus_y - screen_y;
-        
-        // Manhattan distance approximation
-        let dist = abs(dx) + abs(dy);
-        
-        if (dist < intent.radius) {
-            // Apply massive local pull
-            force_x += (dx * intent.mass) >> 8u;
-            force_y += (dy * intent.mass) >> 8u;
+    // Convert Agent Space to Interaction Output Screen Space Once
+    let radial_idx = f32(index % (1u << topology.q_radial));
+    let sector_idx = f32(index / (1u << topology.q_radial));
+    let max_r = f32(1u << topology.q_radial);
+    let max_s = f32(1u << topology.q_sectors);
+    
+    let phase_norm = f32(agent.phase) / f32(max_phase_mask);
+    let dynamic_r = (radial_idx / max_r) + (phase_norm * 0.05);
+    let angle = (sector_idx / max_s) * 6.283185;
+    
+    let screen_x = i32(cos(angle) * dynamic_r * 1000.0 * 1.777); // Aspect ratio adjusted
+    let screen_y = i32(sin(angle) * dynamic_r * 1000.0);
+
+    // Accumulate pull from all 4 Intent Nodes (Remote Peers / Local Mouse)
+    for (var i = 0u; i < 4u; i++) {
+        let intent = intent_array.intents[i];
+        if (intent.mass > 0) {
+            let dx = intent.focus_x - screen_x;
+            let dy = intent.focus_y - screen_y;
+            
+            // Manhattan distance approximation
+            let dist = abs(dx) + abs(dy);
+            
+            if (dist < intent.radius) {
+                // Apply massive local pull
+                force_x += (dx * intent.mass) >> 8u;
+                force_y += (dy * intent.mass) >> 8u;
+            }
         }
     }
     
-    // Re-resolve the new phase using deterministic atan2
+    // Re-resolve the new aggregate phase using deterministic atan2
     let coupled_phase = deterministic_atan2(force_y, force_x, topology.q_phase);
     
     // 4. Mutate Phase directly based on base_freq & coupling
     // (agent.base_freq is Q20, q_math is 20, so shift gives an integer tick jump)
-    agent.phase = (coupled_phase + u32(agent.base_freq >> topology.q_math)) & max_phase_mask;
+    let new_phase = (coupled_phase + u32(agent.base_freq >> topology.q_math)) & max_phase_mask;
+    let new_energy = agent.energy; // Assuming energy is not mutated in this snippet
 
-    // 5. Memory Store
-    agents[index] = agent;
+    // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA)
+    // Mutate the genome via a basic XR-Shift utilizing the new forces
+    var new_genome = agent.genome;
+    new_genome ^= u32(abs(force_x)) << 2u;
+    new_genome ^= u32(abs(force_y)) >> (agent.energy % 4u);
+    new_genome ^= agent.memory_z;
+    
+    // Trade memory gradient via the coupled interaction using aggregate forces
+    var new_mem_x = agent.memory_x + (u32(abs(force_x)) % 255u);
+    var new_mem_y = agent.memory_y + (u32(abs(force_y)) % 255u);
+    var new_mem_z = (agent.memory_z + new_genome) % 255u;
+    
+    if (new_mem_x > 255u) { new_mem_x = 0u; }
+    if (new_mem_y > 255u) { new_mem_y = 0u; }
+    
+    // Export the Turing-Complete Neural State Back to 32-Byte VRAM Slice
+    agents[index].phase = new_phase;
+    agents[index].energy = new_energy;
+    agents[index].base_freq = agent.base_freq;
+    agents[index].state_flags = agent.state_flags;
+    agents[index].genome = new_genome;
+    agents[index].memory_x = new_mem_x;
+    agents[index].memory_y = new_mem_y;
+    agents[index].memory_z = new_mem_z;
 }

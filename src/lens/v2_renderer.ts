@@ -18,6 +18,7 @@ export class PhaseV2Renderer {
     private intentBuffer!: GPUBuffer;
     private agentsBuffer!: GPUBuffer;
     private sineLutBuffer!: GPUBuffer;
+    private _mouseBound: boolean = false;
 
     constructor(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat, engine: OmegaV2Engine) {
         this.context = context;
@@ -42,7 +43,7 @@ export class PhaseV2Renderer {
         });
 
         this.intentBuffer = this.device.createBuffer({
-            size: 16,
+            size: 64, // 4 intents * 16 bytes each
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -90,7 +91,7 @@ export class PhaseV2Renderer {
             }
         });
 
-        const bindEntries = [
+        const computeBindEntries = [
             { binding: 0, resource: { buffer: this.topologyBuffer } },
             { binding: 1, resource: { buffer: this.signalsBuffer } },
             { binding: 2, resource: { buffer: this.agentsBuffer } },
@@ -100,12 +101,18 @@ export class PhaseV2Renderer {
 
         this.computeBindGroup = this.device.createBindGroup({
             layout: this.computePipeline.getBindGroupLayout(0),
-            entries: bindEntries,
+            entries: computeBindEntries,
         });
+
+        const renderBindEntries = [
+            { binding: 0, resource: { buffer: this.topologyBuffer } },
+            { binding: 1, resource: { buffer: this.signalsBuffer } },
+            { binding: 2, resource: { buffer: this.agentsBuffer } },
+        ];
 
         this.renderBindGroup = this.device.createBindGroup({
             layout: this.renderPipeline.getBindGroupLayout(0),
-            entries: bindEntries,
+            entries: renderBindEntries,
         });
 
         console.log("✅ [V2-WEBGPU] Pipeline Assembled.");
@@ -117,7 +124,7 @@ export class PhaseV2Renderer {
 
         this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
         this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
-        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 16);
+        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 64);
         this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
 
         // Upload LUT (Only once per frame is redundant since it's static, but ensures zero-cost pointer persistence)
@@ -149,6 +156,7 @@ export class PhaseV2Renderer {
         if (!this._mouseBound) {
             this._mouseBound = true;
             window.addEventListener('mousemove', (e) => {
+                if (!(this.context.canvas instanceof HTMLCanvasElement)) return;
                 const rect = this.context.canvas.getBoundingClientRect();
                 const x = ((e.clientX - rect.left) / rect.width) * 2.0 - 1.0;
                 const y = -(((e.clientY - rect.top) / rect.height) * 2.0 - 1.0);
@@ -156,12 +164,21 @@ export class PhaseV2Renderer {
                 const ix = Math.floor(x * 1000);
                 const iy = Math.floor(y * 1000);
                 
-                const setIntent = this.engine.wasmInstance?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(ix, iy, 1000, 200);
+                // Update Mesh broadcasting intent
+                if ((window as any)._v2Mesh) {
+                    (window as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: 1000, r: 200 };
+                }
+                
+                // Target Intent Slot 0 for local mouse
+                const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                if (setIntent) setIntent(0, ix, iy, 1000, 200);
             });
             window.addEventListener('mouseout', () => {
-                const setIntent = this.engine.wasmInstance?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(0, 0, 0, 0);
+                if ((window as any)._v2Mesh) {
+                    (window as any)._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
+                }
+                const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                if (setIntent) setIntent(0, 0, 0, 0, 0);
             });
         }
         

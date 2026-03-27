@@ -25,9 +25,11 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 pub const MAX_MINIMAL_AGENTS: usize = 1_000_000;
 static mut AGENTS_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
     phase: 0,
-    energy: 0,  // MUST BE 0 to place this 16MB block in the .bss section instead of .data!!
+    energy: 0,  // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
     base_freq: 0,
     state_flags: 0,
+    genome: 0,
+    memory: [0; 3],
 }; MAX_MINIMAL_AGENTS];
 
 /// The Global Engine Singleton for #![no_std] execution.
@@ -44,12 +46,12 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
         active_agent_count: 0,
         max_cells: 0,
     },
-    intent: crate::topology::OntologicalIntent {
+    intents: [crate::topology::OntologicalIntent {
         focus_x: 0,
         focus_y: 0,
         mass: 0,
         radius: 0,
-    },
+    }; 4],
     smart_agents_ptr: core::ptr::null_mut(),
     minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
     active_agent_count: 0,
@@ -104,11 +106,19 @@ pub extern "C" fn v2_tick() {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_intent(focus_x: i32, focus_y: i32, mass: i32, radius: i32) {
+pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32) {
+    if index >= 4 { return; }
     unsafe {
-        OMEGA_LATTICE.intent.focus_x = focus_x;
-        OMEGA_LATTICE.intent.focus_y = focus_y;
-        OMEGA_LATTICE.intent.mass = mass;
-        OMEGA_LATTICE.intent.radius = radius;
+        OMEGA_LATTICE.intents[index as usize].focus_x = focus_x;
+        OMEGA_LATTICE.intents[index as usize].focus_y = focus_y;
+        OMEGA_LATTICE.intents[index as usize].mass = mass;
+        OMEGA_LATTICE.intents[index as usize].radius = radius;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_get_golden_trace() -> u32 {
+    unsafe {
+        OMEGA_LATTICE.get_golden_trace()
     }
 }

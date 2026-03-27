@@ -16,11 +16,16 @@ struct SignalStore {
     max_cells: u32,
 }
 
+// Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal.
 struct PhaseAgentMinimal {
     phase: u32,
     energy: u32,
     base_freq: i32,
     state_flags: u32,
+    genome: u32,
+    memory_x: u32,
+    memory_y: u32,
+    memory_z: u32,
 }
 
 @group(0) @binding(0) var<uniform> topology: PhaseTopology;
@@ -70,10 +75,10 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     );
     
     // Scale particle size slightly by energy
-    let energy_scale = f32(agent.energy) / 1000.0;
+    let energy_ratio = f32(agent.energy) / 1000.0;
     
     // Increased particle_size significantly to fix sub-pixel smearing
-    let particle_size = 0.002 + (0.008 * energy_scale); 
+    let particle_size = 0.002 + (0.008 * energy_ratio); 
     
     // Quick Aspect Ratio Hack for a square matrix on a widescreen
     let aspect_ratio = 1920.0 / 1080.0; 
@@ -82,10 +87,17 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     // Transform to screen space
     out.position = vec4<f32>((x + offset.x) / aspect_ratio, y + offset.y, 0.0, 1.0);
     
-    // 5. Chromatic Phase Mapping
-    // 7 Notes, 7 Colors mapping. We use HSV-to-RGB approximation.
-    let hue = phase_norm; 
-    out.color = vec4<f32>(hue, 0.5 + (energy_scale * 0.5), 1.0 - hue, 1.0);
+    // 5. Era 2000 Neural Chromatic Mapping
+    // Mutate color based on NCA memory structures 
+    let r_tint = f32(agent.memory_x % 255u) / 255.0;
+    let b_tint = f32(agent.memory_z % 255u) / 255.0;
+    let hue_shift = f32(agent.genome % 360u) / 360.0;
+
+    let r_col = min(0.3 + r_tint, 1.0) * energy_ratio;
+    let g_col = (0.5 + hue_shift * 0.5) * energy_ratio;
+    let b_col = min(0.4 + b_tint, 1.0) * energy_ratio;
+    
+    out.color = vec4<f32>(r_col, g_col, b_col, 1.0);
     
     return out;
 }

@@ -24,7 +24,7 @@ pub struct SignalStore {
 pub struct PhaseLattice {
     pub topology: PhaseTopology,
     pub signals: SignalStore,
-    pub intent: OntologicalIntent,
+    pub intents: [OntologicalIntent; 4],
     
     // We bind directly to the SharedArrayBuffer memory block passed from WebGPU/JS.
     // Instead of allocating a `Vec`, we slide pointers. Zero-Cost mapping.
@@ -48,7 +48,7 @@ impl PhaseLattice {
                 active_agent_count: 0,
                 max_cells: 0,
             },
-            intent: OntologicalIntent::empty(),
+            intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
             minimal_agents_ptr: min_ptr,
             active_agent_count: 0,
@@ -94,17 +94,29 @@ impl PhaseLattice {
                 
                 seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
                 let energy = (seed % 900) + 100; // 100 to 1000
-                
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
                 // Frequency mapped to Q20 (-2.0 to 2.0 rads per tick)
                 let base_freq = ((seed % 4000) as i32 - 2000) * 1024;
                 
                 let agent_ptr = self.minimal_agents_ptr.add(i as usize);
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let phase = (seed % 256) as u32;
+                
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let energy = (seed % 900) + 100;
+                
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let base_freq = ((seed % 4000) as i32 - 2000) * 1024;
+                
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let genome = (seed % 256) as u32;
+
                 *agent_ptr = crate::agent::PhaseAgentMinimal {
                     phase,
                     energy,
                     base_freq,
-                    state_flags: 1, // ALIVE flag
+                    state_flags: 0,
+                    genome,
+                    memory: [0, 0, 0],
                 };
             }
         }
@@ -131,5 +143,26 @@ impl PhaseLattice {
         }
 
         // ... O(1) mathematical compute loop iterating over `agents_ptr` using `self.topology` shifts ...
+    }
+
+    /// Fast stochastic hash of the physical lattice matrix to prove networking determinism.
+    pub fn get_golden_trace(&self) -> u32 {
+        if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
+            return 0;
+        }
+
+        let mut hash = 0u32;
+        // Sample every 1024th agent to avoid locking the CPU (O(N) -> O(N/1024)).
+        // This acts as a robust probabilistic signature of the deterministic field.
+        let skip = 1024; 
+        
+        unsafe {
+            for i in (0..self.signals.active_agent_count).step_by(skip) {
+                let agent = &*(self.minimal_agents_ptr.add(i as usize));
+                hash = hash.wrapping_add(agent.phase).wrapping_mul(31);
+                hash ^= agent.energy;
+            }
+        }
+        hash
     }
 }
