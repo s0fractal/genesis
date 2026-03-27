@@ -22,7 +22,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 /// Static Memory Pre-Allocation for Bare-Metal Environment.
 /// 16MB of contiguous RAM allocated exactly at compile time.
-const MAX_MINIMAL_AGENTS: usize = 1_000_000;
+pub const MAX_MINIMAL_AGENTS: usize = 1_000_000;
 static mut AGENTS_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
     phase: 0,
     energy: 0,  // MUST BE 0 to place this 16MB block in the .bss section instead of .data!!
@@ -75,6 +75,13 @@ pub extern "C" fn v2_boot_engine() {
 pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, q_harmonics: u32) {
     unsafe {
         OMEGA_LATTICE.set_environment(q_sectors, q_radial, q_harmonics);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
+    unsafe {
+        OMEGA_LATTICE.ignite_big_bang(seed, agent_count);
     }
 }
 

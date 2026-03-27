@@ -1,5 +1,6 @@
 import { bootstrapPhase } from "./bootstrap/phase.ts";
 import { bootstrapReplay } from "./bootstrap/replay.ts";
+import { bootstrapV2 } from "./bootstrap/v2.ts";
 
 export const START_MS = performance.now();
 
@@ -10,7 +11,9 @@ console.log("[O-64] Bootstrapping Genesis Ontology 10 Environment...");
 
 async function boot() {
     try {
-        if (mode === "replay") {
+        if (mode === "v2") {
+            await bootstrapV2();
+        } else if (mode === "replay") {
             await bootstrapReplay(replayStack);
         } else {
             // Era 250: WASM Instantiation is now exclusively handled by the SharedWorker

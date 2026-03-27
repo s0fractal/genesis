@@ -72,6 +72,42 @@ impl PhaseLattice {
         self.signals.dirty_flags |= SIGNAL_CONSENSUS_SHIFT;
     }
 
+    /// Pre-populates the `.bss` static memory with randomized kinetic energy and base frequencies
+    /// using a hyper-minimal Linear Congruential Generator (LCG).
+    pub fn ignite_big_bang(&mut self, root_seed: u32, initial_population: u32) {
+        if self.minimal_agents_ptr.is_null() { return; }
+        
+        // Critical: Prevent C-style buffer overflow if JS asks for more than .bss can hold!
+        let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
+        
+        self.signals.active_agent_count = safe_population;
+        let mut seed = root_seed;
+        let max_phase = (1u32 << self.topology.q_phase) - 1;
+
+        unsafe {
+            for i in 0..safe_population {
+                // Pseudo-random LCG
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let phase = seed & max_phase;
+                
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let energy = (seed % 900) + 100; // 100 to 1000
+                
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                // Frequency mapped to Q20 (-2.0 to 2.0 rads per tick)
+                let base_freq = ((seed % 4000) as i32 - 2000) * 1024;
+                
+                let agent_ptr = self.minimal_agents_ptr.add(i as usize);
+                *agent_ptr = crate::agent::PhaseAgentMinimal {
+                    phase,
+                    energy,
+                    base_freq,
+                    state_flags: 1, // ALIVE flag
+                };
+            }
+        }
+    }
+
     /// The Hot Path Physics Loop
     pub fn tick_physics(&mut self) {
         self.signals.absolute_tick += 1;

@@ -41,8 +41,19 @@ export class OmegaV2Engine {
 
         console.log(`✅ [OMEGA-V2] Engine Instantiated. Memory Pages: ${this.memory.buffer.byteLength / 65536}`);
 
-        // 4. Inject Environmental Constants directly via Fast-FFI
+        // 4. Initialize the internal Lattice state before calling any physics
+        const exportBootEngine = instance.exports.v2_boot_engine as CallableFunction;
+        if (exportBootEngine) { exportBootEngine(); }
+
+        // 5. Inject Environmental Constants directly via Fast-FFI
         this.injectClimate();
+        
+        // 6. Ignite the Big Bang (Populate WASM .bss memory with initial stars)
+        const exportBigBang = instance.exports.v2_ignite_big_bang as CallableFunction;
+        if (exportBigBang && this.currentTopology) {
+            exportBigBang(Math.floor(Math.random() * 1000000), this.currentTopology.maxAllocatedAgents);
+            console.log(`🎆 [V2-BRIDGE] The Big Bang was ignited.`);
+        }
     }
 
     /**
@@ -81,8 +92,7 @@ export class OmegaV2Engine {
         if (!this.wasmInstance || !this.memory || !this.currentTopology) throw new Error("V2 Engine Not Initialized");
         const exports = this.wasmInstance.exports;
 
-        // Ensure the static Agents buffer in .bss is linked to the Lattice
-        (exports.v2_boot_engine as CallableFunction)();
+        // 1. Get raw WASM pointers offset integers
 
         // 1. Get raw WASM pointers offset integers
         const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
@@ -91,14 +101,17 @@ export class OmegaV2Engine {
         // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 = 32 bytes)
         const LATTICE_UNIFORM_SIZE = 32;
 
+        // 3. Gracefully Clamp WASM memory mapping just in case GPU VRAM > WASM .bss allocation
+        const requestedBytes = this.currentTopology.maxAllocatedAgents * 16;
+        const maxSafeBytes = this.memory.buffer.byteLength - agentsPtr;
+        const actualBytes = Math.min(requestedBytes, maxSafeBytes);
+
+        // Update Darwinian limits down to the WASM bottleneck if necessary
+        this.currentTopology.maxAllocatedAgents = Math.floor(actualBytes / 16);
+
         return {
-            // Buffer to bind directly to WebGPU @group(0) @binding(1)
             uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
-            
-            // Buffer to bind directly to WebGPU @group(0) @binding(2)
-            agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, this.currentTopology.maxAllocatedAgents * 16),
-            
-            // Raw shared memory for WebGPU writeBuffer logic
+            agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
             wasmMemoryBuffer: this.memory.buffer 
         };
     }

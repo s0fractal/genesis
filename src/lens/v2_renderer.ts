@@ -1,18 +1,25 @@
 import computeV2Src from './shaders/compute_v2.wgsl?raw';
+import renderV2Src from './shaders/render_v2.wgsl?raw';
 import { OmegaV2Engine } from '../environment/v2_bridge.ts';
 
 export class PhaseV2Renderer {
     private device: GPUDevice;
     private engine: OmegaV2Engine;
+    private context: GPUCanvasContext;
+    private format: GPUTextureFormat;
 
-    private pipeline!: GPUComputePipeline;
-    private bindGroup!: GPUBindGroup;
+    private computePipeline!: GPUComputePipeline;
+    private renderPipeline!: GPURenderPipeline;
+    private computeBindGroup!: GPUBindGroup;
+    private renderBindGroup!: GPUBindGroup;
 
     private topologyBuffer!: GPUBuffer;
     private signalsBuffer!: GPUBuffer;
     private agentsBuffer!: GPUBuffer;
 
-    constructor(device: GPUDevice, engine: OmegaV2Engine) {
+    constructor(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat, engine: OmegaV2Engine) {
+        this.context = context;
+        this.format = format;
         this.device = device;
         this.engine = engine;
     }
@@ -37,25 +44,93 @@ export class PhaseV2Renderer {
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
 
-        const shaderModule = this.device.createShaderModule({ code: computeV2Src });
+        const computeModule = this.device.createShaderModule({ code: computeV2Src });
+        const renderModule = this.device.createShaderModule({ code: renderV2Src });
         
-        this.pipeline = await this.device.createComputePipelineAsync({
+        this.computePipeline = await this.device.createComputePipelineAsync({
             layout: 'auto',
             compute: {
-                module: shaderModule,
+                module: computeModule,
                 entryPoint: 'compute_main',
             },
         });
 
-        this.bindGroup = this.device.createBindGroup({
-            layout: this.pipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: { buffer: this.topologyBuffer } },
-                { binding: 1, resource: { buffer: this.signalsBuffer } },
-                { binding: 2, resource: { buffer: this.agentsBuffer } },
-            ],
+        this.renderPipeline = await this.device.createRenderPipelineAsync({
+            layout: 'auto',
+            vertex: {
+                module: renderModule,
+                entryPoint: 'vs_main',
+            },
+            fragment: {
+                module: renderModule,
+                entryPoint: 'fs_main',
+                targets: [{
+                    format: this.format,
+                    blend: {
+                        color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+                        alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' }
+                    }
+                }],
+            },
+            primitive: {
+                topology: 'triangle-list',
+            }
+        });
+
+        const bindEntries = [
+            { binding: 0, resource: { buffer: this.topologyBuffer } },
+            { binding: 1, resource: { buffer: this.signalsBuffer } },
+            { binding: 2, resource: { buffer: this.agentsBuffer } },
+        ];
+
+        this.computeBindGroup = this.device.createBindGroup({
+            layout: this.computePipeline.getBindGroupLayout(0),
+            entries: bindEntries,
+        });
+
+        this.renderBindGroup = this.device.createBindGroup({
+            layout: this.renderPipeline.getBindGroupLayout(0),
+            entries: bindEntries,
         });
 
         console.log("✅ [V2-WEBGPU] Pipeline Assembled.");
+    }
+
+    public tick() {
+        this.engine.tick();
+        const ptrs = this.engine.getMemoryPointers();
+
+        this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
+        this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
+        this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
+
+        const commandEncoder = this.device.createCommandEncoder();
+        
+        // 1. Compute Pass
+        const passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(this.computePipeline);
+        passEncoder.setBindGroup(0, this.computeBindGroup);
+        
+        const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
+        const dispatchSize = Math.ceil(activeCount / 64);
+        if (dispatchSize > 0) { passEncoder.dispatchWorkgroups(dispatchSize); }
+        passEncoder.end();
+        
+        // 2. Render Pass
+        const renderPassEncoder = commandEncoder.beginRenderPass({
+            colorAttachments: [{
+                view: this.context.getCurrentTexture().createView(),
+                clearValue: { r: 0.02, g: 0.02, b: 0.02, a: 1.0 },
+                loadOp: 'clear',
+                storeOp: 'store',
+            }]
+        });
+        
+        renderPassEncoder.setPipeline(this.renderPipeline);
+        renderPassEncoder.setBindGroup(0, this.renderBindGroup);
+        if (activeCount > 0) { renderPassEncoder.draw(6, activeCount, 0, 0); }
+        renderPassEncoder.end();
+        
+        this.device.queue.submit([commandEncoder.finish()]);
     }
 }
