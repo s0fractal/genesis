@@ -127,6 +127,13 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     
     out.color = vec4<f32>(r_col, g_col, b_col, 1.0);
     
+    // ERA 1000: Neural White Flash (Packet Visualization)
+    // If this cell is holding a routing packet, it glows blinding white.
+    if (agent.memory_z > 0u) {
+        // Boost size slightly for visibility and set pure white
+        out.color = vec4<f32>(1.5, 1.5, 1.5, 1.0); 
+    }
+    
     return out;
 }
 

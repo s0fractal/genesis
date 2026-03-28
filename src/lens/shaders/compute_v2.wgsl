@@ -64,6 +64,13 @@ fn deterministic_sin(phase: u32, q_phase: u32) -> i32 {
     return sine_lut[index]; 
 }
 
+// ERA 1000: Phase Distance Function (Circular topology modulo wrapping)
+fn phase_dist(p1: u32, p2: u32, max_p: u32) -> u32 {
+    let diff = max(p1, p2) - min(p1, p2);
+    if (diff > (max_p >> 1u)) { return max_p - diff; }
+    return diff;
+}
+
 fn deterministic_cos(phase: u32, q_phase: u32) -> i32 {
     let offset_phase = phase + (1u << (q_phase - 2u)); // Shift by PI/2 (32 if q_phase=7)
     let index = offset_phase & ((1u << q_phase) - 1u);
@@ -119,6 +126,19 @@ fn compute_main(
             var force_x = 0;
             var force_y = 0;
             var intent_energy_bonus: i32 = 0;
+            var intent_injected = false;
+            
+            var new_mem_x = agent.memory_x;
+            var new_mem_y = agent.memory_y;
+            var new_mem_z = agent.memory_z;
+            
+            let max_r_cells = 1u << topology.q_radial;
+            let n_indices = array<u32, 4>(
+                (index + signals.active_agent_count - 1u) % signals.active_agent_count,
+                (index + 1u) % signals.active_agent_count,
+                (index + max_r_cells) % signals.active_agent_count,
+                (index + signals.active_agent_count - max_r_cells) % signals.active_agent_count
+            );
     
     // 2. ERA 4000: Compute Target Phase Using Global Order Parameter (Mean Field)
     var swarm_x = old_mean_field[0] / i32(signals.active_agent_count);
@@ -160,7 +180,12 @@ fn compute_main(
     // Accumulate pull from all 4 Intent Nodes (Remote Peers / Local Mouse)
     for (var i = 0u; i < 4u; i++) {
         let intent = intent_array.intents[i];
-        if (intent.mass > 0) {
+        let unsigned_mass = u32(intent.mass);
+        let actual_mass = i32(unsigned_mass & 65535u);
+        let target_phase = (unsigned_mass >> 16u) & 255u;
+        let p_payload = (unsigned_mass >> 24u) & 255u;
+        
+        if (actual_mass > 0) {
             let dx = intent.focus_x - screen_x;
             let dy = intent.focus_y - screen_y;
             
@@ -169,12 +194,20 @@ fn compute_main(
             
             if (dist < intent.radius) {
                 // Apply massive local pull
-                force_x += (dx * intent.mass) >> 8u;
-                force_y += (dy * intent.mass) >> 8u;
+                force_x += (dx * actual_mass) >> 8u;
+                force_y += (dy * actual_mass) >> 8u;
                 
                 // ERA 3000: Intent Feeding
                 // Being within the gravitational well grants explosive energy for sudden Mitosis.
                 intent_energy_bonus += 200;
+                
+                // ERA 1000: Injection of Packets into the grid via Intent
+                if (actual_mass >= 1000) {
+                    new_mem_x = target_phase;
+                    new_mem_y = p_payload;
+                    new_mem_z = 255u; // Maximum TTL
+                    intent_injected = true;
+                }
             }
         }
     }
@@ -183,18 +216,6 @@ fn compute_main(
     // ERA 5000: QUANTUM CHROMODYNAMICS (GENETIC BATTLE ROYALE)
     // -------------------------------------------------------------
     if (signals.active_agent_count > 4u) {
-        let max_r_cells = 1u << topology.q_radial;
-        
-        // Cardinal Polar Grid Neighbors:
-        // Left/Right = Radial movement
-        // Up/Down = Sector (angular) movement
-        let n_indices = array<u32, 4>(
-            (index + signals.active_agent_count - 1u) % signals.active_agent_count,
-            (index + 1u) % signals.active_agent_count,
-            (index + max_r_cells) % signals.active_agent_count,
-            (index + signals.active_agent_count - max_r_cells) % signals.active_agent_count
-        );
-        
         // Calibrated force: 1200 allows 4-way stable emergent crystallization
         let chr_force = 1200i; 
         
@@ -245,13 +266,56 @@ fn compute_main(
     // Genome is now structurally deeply stable! Only mutates during Mitosis (Rust CPU side).
     let new_genome = agent.genome;
     
-    // Trade memory gradient via the coupled interaction using aggregate forces
-    var new_mem_x = agent.memory_x + (u32(abs(force_x)) % 255u);
-    var new_mem_y = agent.memory_y + (u32(abs(force_y)) % 255u);
-    var new_mem_z = (agent.memory_z + new_genome) % 255u;
-    
-    if (new_mem_x > 255u) { new_mem_x = 0u; }
-    if (new_mem_y > 255u) { new_mem_y = 0u; }
+    // -------------------------------------------------------------
+    // ERA 1000: HYPERBOLIC DNS (TAYLOR PHASE ROUTING)
+    // -------------------------------------------------------------
+    if (!intent_injected) {
+        if (agent.memory_z > 0u) {
+            // Actively Holding a Packet. Determine if it flows DOWN the gradient to a neighbor.
+            let target_p = agent.memory_x;
+            let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);
+            var lose_packet = false;
+            
+            for (var i = 0u; i < 4u; i++) {
+                let n_opt = agents[n_indices[i]];
+                if (n_opt.energy > 0u && n_opt.memory_z == 0u) {
+                    let n_dist = phase_dist(n_opt.phase, target_p, max_phase_mask);
+                    if (n_dist < my_dist) {
+                        lose_packet = true; // Flushes towards a steeper gradient
+                        break;
+                    }
+                }
+            }
+            
+            if (lose_packet) {
+                new_mem_x = 0u; new_mem_y = 0u; new_mem_z = 0u;
+            } else {
+                new_mem_z = agent.memory_z - 1u; // Trapped, entropy decays TTL
+                if (new_mem_z == 0u) { new_mem_x = 0u; new_mem_y = 0u; }
+            }
+        } else {
+            // Receptive Empty Cell. Poll neighbors for incoming Gradient Pull.
+            var best_gradient = 0i;
+            for (var i = 0u; i < 4u; i++) {
+                let n_opt = agents[n_indices[i]];
+                if (n_opt.memory_z > 0u) {
+                    let target_p = n_opt.memory_x;
+                    let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);
+                    let n_dist = phase_dist(n_opt.phase, target_p, max_phase_mask);
+                    
+                    if (my_dist < n_dist) {
+                        let pull_force = i32(n_dist) - i32(my_dist);
+                        if (pull_force > best_gradient) {
+                            best_gradient = pull_force;
+                            new_mem_x = n_opt.memory_x;
+                            new_mem_y = n_opt.memory_y;
+                            new_mem_z = n_opt.memory_z - 1u; // Hop tax
+                        }
+                    }
+                }
+            }
+        }
+    }
     
             // Save Phase, Genomes, and Life Force (ATP)
             agents[index].phase = new_phase;

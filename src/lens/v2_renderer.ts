@@ -25,6 +25,7 @@ export class PhaseV2Renderer {
     private oldMeanFieldBuffer!: GPUBuffer;
     
     private _mouseBound: boolean = false;
+    private activeDNSPhase: number = 0; // ERA 1000: Target Routing Phase
 
     constructor(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat, engine: OmegaV2Engine) {
         this.context = context;
@@ -193,8 +194,29 @@ export class PhaseV2Renderer {
         // --- 1010 Event Mapping ---
         if (!this._mouseBound) {
             this._mouseBound = true;
+            
+            // ERA 1000: Semantic DNS Routing Keyboard Selection
+            globalThis.addEventListener('keydown', (e: Event) => {
+                const map: Record<string, number> = {
+                    '1': 0,    // Aries
+                    '2': 64,   // Cancer
+                    '3': 128,  // Libra
+                    '4': 192   // Capricorn
+                };
+                const key = (e as KeyboardEvent).key;
+                if (map[key] !== undefined) {
+                    this.activeDNSPhase = map[key];
+                    const names = {0: "ARIES", 64: "CANCER", 128: "LIBRA", 192: "CAPRICORN"};
+                    const HUD_ELEM = document.getElementById("hud-stat-c-val");
+                    if (HUD_ELEM) HUD_ELEM.innerText = `ROUTING: ${names[this.activeDNSPhase as keyof typeof names]}`;
+                }
+            });
+
             globalThis.addEventListener('mousemove', (e: Event) => {
                 const mouseEvent = e as MouseEvent;
+                // Only inject if mouse is held down (drags)
+                if (mouseEvent.buttons !== 1) return;
+                
                 if (!(this.context.canvas instanceof HTMLCanvasElement)) return;
                 const rect = this.context.canvas.getBoundingClientRect();
                 const x = ((mouseEvent.clientX - rect.left) / rect.width) * 2.0 - 1.0;
@@ -203,19 +225,28 @@ export class PhaseV2Renderer {
                 const ix = Math.floor(x * 1000);
                 const iy = Math.floor(y * 1000);
                 
+                // ERA 1000: DNS Packet Encoding
+                const payload = 42; // Example data
+                const baseMass = 2000; // Triggers packet injection logic (> 1000)
+                const packedMass = (payload << 24) | (this.activeDNSPhase << 16) | baseMass;
+                
                 // Update Mesh broadcasting intent
                 if ((globalThis as any)._v2Mesh) {
-                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: 1000, r: 200 };
+                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: packedMass, r: 200 };
                 }
                 
                 // Target Intent Slot 0 for local mouse
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(0, ix, iy, 1000, 200);
+                if (setIntent) setIntent(0, ix, iy, packedMass, 200);
             });
             globalThis.addEventListener('mouseout', () => {
                 if ((globalThis as any)._v2Mesh) {
                     (globalThis as any)._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
                 }
+                const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                if (setIntent) setIntent(0, 0, 0, 0, 0);
+            });
+            globalThis.addEventListener('mouseup', () => {
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
                 if (setIntent) setIntent(0, 0, 0, 0, 0);
             });
