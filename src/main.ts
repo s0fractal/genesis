@@ -11,15 +11,7 @@ console.log("[O-64] Bootstrapping Genesis Ontology 10 Environment...");
 
 async function boot() {
     try {
-        if (mode === "v2") {
-            await bootstrapV2();
-        } else if (mode === "replay") {
-            await bootstrapReplay(replayStack);
-        } else {
-            // Era 250: WASM Instantiation is now exclusively handled by the SharedWorker
-            // The Main Thread acts purely as a Dumb Terminal
-            await bootstrapPhase();
-        }
+        await bootstrapV2(); // Hardcoded for Era 3000 Autonomous Testing
     } catch (e) {
         console.error("[Genesis] Master routing collapse:", e);
     }

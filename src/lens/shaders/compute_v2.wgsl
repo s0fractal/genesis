@@ -44,6 +44,12 @@ struct PhaseAgentMinimal {
 @group(0) @binding(0) var<uniform> topology: PhaseTopology;
 @group(0) @binding(1) var<uniform> signals: SignalStore;
 @group(0) @binding(4) var<uniform> intent_array: IntentArray;
+@group(0) @binding(5) var<storage, read_write> new_mean_field: array<atomic<i32>>;
+@group(0) @binding(6) var<storage, read> old_mean_field: array<i32>;
+
+// ERA 4000: Workgroup Internal Reduction State
+var<workgroup> wg_cos: array<i32, 64>;
+var<workgroup> wg_sin: array<i32, 64>;
 
 // The Shared Array Buffer View
 @group(0) @binding(2) var<storage, read_write> agents: array<PhaseAgentMinimal>;
@@ -89,25 +95,45 @@ fn deterministic_atan2(y: i32, x: i32, q_phase: u32) -> u32 {
 }
 
 @compute @workgroup_size(64)
-fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn compute_main(
+    @builtin(global_invocation_id) global_id: vec3<u32>,
+    @builtin(local_invocation_id) local_id: vec3<u32>
+) {
     let index = global_id.x;
     
+    // ERA 4000: We must initialize workgroup memory unconditionally to prevent race conditions.
+    var my_cos = 0i;
+    var my_sin = 0i;
+    
     // Darwinian cull: Do not process memory outside the active hardware budget
-    if (index >= signals.active_agent_count) {
-        return;
-    }
+    if (index < signals.active_agent_count) {
+        // 1. Memory Fetch
+        var agent = agents[index];
+        let max_phase_mask = (1u << topology.q_phase) - 1u;
+        
+        // ERA 3000: DEAD CELLS DO NOTHING
+        // If energy reaches absolute zero, the neural phase structure halts entirely.
+        if (agent.energy > 0u) {
 
-    // 1. Memory Fetch
-    var agent = agents[index];
-    let max_phase_mask = (1u << topology.q_phase) - 1u;
+            var coupled_phase: u32 = agent.phase;
+            var force_x = 0;
+            var force_y = 0;
+            var intent_energy_bonus: i32 = 0;
     
-    // 2. Compute Target Phase (For Era 1000 Phase 1, we sync to a Global Deterministic Anchor)
-    // The anchor rotates smoothly based on the absolute tick
-    let global_anchor_phase = signals.absolute_tick & max_phase_mask;
+    // 2. ERA 4000: Compute Target Phase Using Global Order Parameter (Mean Field)
+    var swarm_x = old_mean_field[0] / i32(signals.active_agent_count);
+    var swarm_y = old_mean_field[1] / i32(signals.active_agent_count);
     
-    // Convert current phase and anchor to Cartesian vectors using our 128-LUT
-    let anchor_x = deterministic_cos(global_anchor_phase, topology.q_phase);
-    let anchor_y = deterministic_sin(global_anchor_phase, topology.q_phase);
+    // Shift back up to Q20 space for integer Kuramoto calculations
+    var anchor_x = swarm_x << 10u;
+    var anchor_y = swarm_y << 10u;
+    
+    // Absolute Cold Start or Complete Destructive Interference Fallback
+    if (swarm_x == 0 && swarm_y == 0) {
+        let global_anchor_phase = signals.absolute_tick & max_phase_mask;
+        anchor_x = deterministic_cos(global_anchor_phase, topology.q_phase);
+        anchor_y = deterministic_sin(global_anchor_phase, topology.q_phase);
+    }
     
     let my_x = deterministic_cos(agent.phase, topology.q_phase);
     let my_y = deterministic_sin(agent.phase, topology.q_phase);
@@ -115,8 +141,8 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // 3. Integer Kuramoto Coupling + Ontological Gravity (Multi-Intent)
     let k_coupling = min(agent.energy, 1000u); 
     
-    var force_x = my_x + (((anchor_x - my_x) * i32(k_coupling)) >> 10u);
-    var force_y = my_y + (((anchor_y - my_y) * i32(k_coupling)) >> 10u);
+    force_x = my_x + (((anchor_x - my_x) * i32(k_coupling)) >> 10u);
+    force_y = my_y + (((anchor_y - my_y) * i32(k_coupling)) >> 10u);
     
     // Convert Agent Space to Interaction Output Screen Space Once
     let radial_idx = f32(index % (1u << topology.q_radial));
@@ -145,17 +171,35 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 // Apply massive local pull
                 force_x += (dx * intent.mass) >> 8u;
                 force_y += (dy * intent.mass) >> 8u;
+                
+                // ERA 3000: Intent Feeding
+                // Being within the gravitational well grants explosive energy for sudden Mitosis.
+                intent_energy_bonus += 200;
             }
         }
     }
     
     // Re-resolve the new aggregate phase using deterministic atan2
-    let coupled_phase = deterministic_atan2(force_y, force_x, topology.q_phase);
+    coupled_phase = deterministic_atan2(force_y, force_x, topology.q_phase);
     
     // 4. Mutate Phase directly based on base_freq & coupling
     // (agent.base_freq is Q20, q_math is 20, so shift gives an integer tick jump)
     let new_phase = (coupled_phase + u32(agent.base_freq >> topology.q_math)) & max_phase_mask;
-    let new_energy = agent.energy; // Assuming energy is not mutated in this snippet
+    
+    // ERA 3000: ATP METABOLISM
+    var metabolic_delta: i32 = -1; // Entropy (Base Burn)
+    
+    // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
+    if (new_phase % 64u == 0u) {
+        metabolic_delta += 150; 
+    }
+    
+    let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;
+    var new_energy: u32 = 0u;
+    if (new_energy_calc > 0) {
+        new_energy = u32(new_energy_calc);
+        if (new_energy > 4000u) { new_energy = 4000u; } // Maximum ATP Capacity
+    }
 
     // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA)
     // Mutate the genome via a basic XR-Shift utilizing the new forces
@@ -172,13 +216,47 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (new_mem_x > 255u) { new_mem_x = 0u; }
     if (new_mem_y > 255u) { new_mem_y = 0u; }
     
-    // Export the Turing-Complete Neural State Back to 32-Byte VRAM Slice
-    agents[index].phase = new_phase;
-    agents[index].energy = new_energy;
-    agents[index].base_freq = agent.base_freq;
-    agents[index].state_flags = agent.state_flags;
-    agents[index].genome = new_genome;
-    agents[index].memory_x = new_mem_x;
-    agents[index].memory_y = new_mem_y;
-    agents[index].memory_z = new_mem_z;
+            // Save Phase, Genomes, and Life Force (ATP)
+            agents[index].phase = new_phase;
+            agents[index].energy = new_energy;
+            agents[index].base_freq = agent.base_freq;
+            agents[index].state_flags = agent.state_flags;
+            agents[index].genome = new_genome;
+            agents[index].memory_x = new_mem_x;
+            agents[index].memory_y = new_mem_y;
+            agents[index].memory_z = new_mem_z;
+            
+            // Output this thread's phase geometry for Mean Field Reduction
+            my_cos = deterministic_cos(new_phase, topology.q_phase);
+            my_sin = deterministic_sin(new_phase, topology.q_phase);
+        }
+    }
+    
+    // -------------------------------------------------------------
+    // ERA 4000: MASSIVE PARALLEL WGSL REDUCTION (GLOBAL MEAN FIELD)
+    // -------------------------------------------------------------
+    let local_index = local_id.x;
+    
+    // Phase 1: Local Load
+    // Downshift by 10 bit logic so 1M sums definitively fit in an accumulative i32 (-1.0B to 1.0B max peak)
+    wg_cos[local_index] = my_cos >> 10u; 
+    wg_sin[local_index] = my_sin >> 10u;
+    
+    workgroupBarrier(); // Synchronize the 64-thread sector
+    
+    // Phase 2: Binary Tree Collapse Factor O(log N)
+    for (var stride: u32 = 32u; stride > 0u; stride >>= 1u) {
+        if (local_index < stride) {
+            wg_cos[local_index] += wg_cos[local_index + stride];
+            wg_sin[local_index] += wg_sin[local_index + stride];
+        }
+        workgroupBarrier();
+    }
+    
+    // Phase 3: Apical Output
+    // The Apex thread (0) atomicaly injects the sector sum into the Global State
+    if (local_index == 0u) {
+        atomicAdd(&new_mean_field[0], wg_cos[0]);
+        atomicAdd(&new_mean_field[1], wg_sin[0]);
+    }
 }

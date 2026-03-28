@@ -122,3 +122,10 @@ pub extern "C" fn v2_get_golden_trace() -> u32 {
         OMEGA_LATTICE.get_golden_trace()
     }
 }
+
+#[no_mangle]
+pub extern "C" fn v2_mitosis_sweep() -> u32 {
+    unsafe {
+        OMEGA_LATTICE.darwinian_mitosis()
+    }
+}

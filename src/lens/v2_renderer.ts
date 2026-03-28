@@ -19,6 +19,11 @@ export class PhaseV2Renderer {
     private agentsBuffer!: GPUBuffer;
     private stagingAgentsBuffer!: GPUBuffer;
     private sineLutBuffer!: GPUBuffer;
+    
+    // Era 4000: Global Order Parameter Feedback Loop
+    private newMeanFieldBuffer!: GPUBuffer;
+    private oldMeanFieldBuffer!: GPUBuffer;
+    
     private _mouseBound: boolean = false;
 
     constructor(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat, engine: OmegaV2Engine) {
@@ -66,6 +71,17 @@ export class PhaseV2Renderer {
             size: 512,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
+        
+        // Era 4000: Ping-Pong Global Order Accumulator (8 bytes: i32 Cos, i32 Sin)
+        this.newMeanFieldBuffer = this.device.createBuffer({
+            size: 8,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        
+        this.oldMeanFieldBuffer = this.device.createBuffer({
+            size: 8,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
 
         const computeModule = this.device.createShaderModule({ code: computeV2Src });
         const renderModule = this.device.createShaderModule({ code: renderV2Src });
@@ -106,6 +122,8 @@ export class PhaseV2Renderer {
             { binding: 2, resource: { buffer: this.agentsBuffer } },
             { binding: 3, resource: { buffer: this.sineLutBuffer } },
             { binding: 4, resource: { buffer: this.intentBuffer } },
+            { binding: 5, resource: { buffer: this.newMeanFieldBuffer } },
+            { binding: 6, resource: { buffer: this.oldMeanFieldBuffer } },
         ];
 
         this.computeBindGroup = this.device.createBindGroup({
@@ -144,6 +162,9 @@ export class PhaseV2Renderer {
 
         const commandEncoder = this.device.createCommandEncoder();
         
+        // ERA 4000: Clear the atomic aggregation buffer for this frame's Mean Field reduction
+        commandEncoder.clearBuffer(this.newMeanFieldBuffer);
+        
         // 1. Compute Pass
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(this.computePipeline);
@@ -153,6 +174,11 @@ export class PhaseV2Renderer {
         const dispatchSize = Math.ceil(activeCount / 64);
         if (dispatchSize > 0) { passEncoder.dispatchWorkgroups(dispatchSize); }
         passEncoder.end();
+        
+        // ERA 4000: Map the newly reduced Global Vector into the historical reader buffer for the subsequent frame
+        if (dispatchSize > 0) {
+            commandEncoder.copyBufferToBuffer(this.newMeanFieldBuffer, 0, this.oldMeanFieldBuffer, 0, 8);
+        }
         
         // 2. Render Pass
         const renderPassEncoder = commandEncoder.beginRenderPass({
@@ -167,27 +193,28 @@ export class PhaseV2Renderer {
         // --- 1010 Event Mapping ---
         if (!this._mouseBound) {
             this._mouseBound = true;
-            window.addEventListener('mousemove', (e) => {
+            globalThis.addEventListener('mousemove', (e: Event) => {
+                const mouseEvent = e as MouseEvent;
                 if (!(this.context.canvas instanceof HTMLCanvasElement)) return;
                 const rect = this.context.canvas.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 2.0 - 1.0;
-                const y = -(((e.clientY - rect.top) / rect.height) * 2.0 - 1.0);
+                const x = ((mouseEvent.clientX - rect.left) / rect.width) * 2.0 - 1.0;
+                const y = -(((mouseEvent.clientY - rect.top) / rect.height) * 2.0 - 1.0);
                 
                 const ix = Math.floor(x * 1000);
                 const iy = Math.floor(y * 1000);
                 
                 // Update Mesh broadcasting intent
-                if ((window as any)._v2Mesh) {
-                    (window as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: 1000, r: 200 };
+                if ((globalThis as any)._v2Mesh) {
+                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: 1000, r: 200 };
                 }
                 
                 // Target Intent Slot 0 for local mouse
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
                 if (setIntent) setIntent(0, ix, iy, 1000, 200);
             });
-            window.addEventListener('mouseout', () => {
-                if ((window as any)._v2Mesh) {
-                    (window as any)._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
+            globalThis.addEventListener('mouseout', () => {
+                if ((globalThis as any)._v2Mesh) {
+                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
                 }
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
                 if (setIntent) setIntent(0, 0, 0, 0, 0);
@@ -224,6 +251,16 @@ export class PhaseV2Renderer {
         
         const ptrs = this.engine.getMemoryPointers();
         ptrs.agentBytes.set(snapshot); // Flush the memory back into the bare-metal Rust `.bss`
+        
+        // Era 3000: Execute the single-threaded CPU Darwinian Mitosis Sweep
+        const mitosis = this.engine.wasm?.exports.v2_mitosis_sweep as CallableFunction;
+        const numReplications = mitosis ? mitosis() as number : 0;
+        
+        // If the CPU mutated the matrix (cells died or split), we must re-upload the modified .bss to the GPU instantly
+        if (numReplications > 0) {
+             this.overwriteGPUState(ptrs.agentBytes);
+             snapshot.set(ptrs.agentBytes); // Update the WebRTC snapshot reference to the post-mitosis state
+        }
         
         this.stagingAgentsBuffer.unmap();
         

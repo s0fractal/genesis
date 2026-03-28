@@ -145,6 +145,48 @@ impl PhaseLattice {
         // ... O(1) mathematical compute loop iterating over `agents_ptr` using `self.topology` shifts ...
     }
 
+    /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
+    /// Finds thriving cells (>2000 ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
+    pub fn darwinian_mitosis(&mut self) -> u32 {
+        if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
+            return 0;
+        }
+
+        let mut next_dead_idx = 0;
+        let mut replications = 0;
+        
+        unsafe {
+            let active = self.signals.active_agent_count as usize;
+            for i in 0..active {
+                let parent = &mut *self.minimal_agents_ptr.add(i);
+                
+                // If a cell has amassed massive ATP via resonance or gravity, it splits
+                if parent.energy >= 2000 {
+                    parent.energy -= 1000; // Mitosis friction
+                    
+                    // Slide the dead pointer forward to find a hollow shell in the matrix
+                    while next_dead_idx < active && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0 {
+                        next_dead_idx += 1;
+                    }
+                    
+                    if next_dead_idx < active {
+                        // Resurrect the shell with a cloned genome + mutation
+                        let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                        child.phase = parent.phase.wrapping_add(128); // Opposite phase harmonic
+                        child.energy = 1000;
+                        child.base_freq = parent.base_freq;
+                        child.state_flags = parent.state_flags;
+                        child.genome = parent.genome ^ 0b01010101; // XOR shift mutation
+                        child.memory = parent.memory.clone();
+                        
+                        replications += 1;
+                    }
+                }
+            }
+        }
+        replications
+    }
+
     /// Fast stochastic hash of the physical lattice matrix to prove networking determinism.
     pub fn get_golden_trace(&self) -> u32 {
         if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {

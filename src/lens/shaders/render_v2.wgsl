@@ -49,6 +49,13 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
 
     let agent = agents[instance_idx];
     
+    // ERA 3000: Dark Matter Filtering
+    // Do not draw dead cellular shells or let them occlude active organisms.
+    if (agent.energy == 0u) {
+        out.position = vec4<f32>(2.0, 2.0, 2.0, 1.0);
+        return out;
+    }
+    
     // 1. Decode Matrix Topology limits
     let max_sectors = f32(1u << topology.q_sectors);
     let max_radius = f32(1u << topology.q_radial);
