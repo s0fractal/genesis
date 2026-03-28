@@ -183,36 +183,39 @@ fn compute_main(
     // ERA 5000: QUANTUM CHROMODYNAMICS (GENETIC BATTLE ROYALE)
     // -------------------------------------------------------------
     if (signals.active_agent_count > 4u) {
-        let left_1 = agents[(index + signals.active_agent_count - 1u) % signals.active_agent_count];
-        let right_1 = agents[(index + 1u) % signals.active_agent_count];
+        let max_r_cells = 1u << topology.q_radial;
         
-        let dx_l1 = deterministic_cos(left_1.phase, topology.q_phase) - my_x;
-        let dy_l1 = deterministic_sin(left_1.phase, topology.q_phase) - my_y;
+        // Cardinal Polar Grid Neighbors:
+        // Left/Right = Radial movement
+        // Up/Down = Sector (angular) movement
+        let n_indices = array<u32, 4>(
+            (index + signals.active_agent_count - 1u) % signals.active_agent_count,
+            (index + 1u) % signals.active_agent_count,
+            (index + max_r_cells) % signals.active_agent_count,
+            (index + signals.active_agent_count - max_r_cells) % signals.active_agent_count
+        );
         
-        let dx_r1 = deterministic_cos(right_1.phase, topology.q_phase) - my_x;
-        let dy_r1 = deterministic_sin(right_1.phase, topology.q_phase) - my_y;
+        // Calibrated force: 1200 allows 4-way stable emergent crystallization
+        let chr_force = 1200i; 
         
-        let xor_l1 = countOneBits(agent.genome ^ left_1.genome);
-        let xor_r1 = countOneBits(agent.genome ^ right_1.genome);
-        
-        // Chromodynamic Strong Force: ~1500 coupling
-        // XOR distance threshold determines attraction vs. lethal repulsion
-        let chr_force = 1500i;
-        
-        if (xor_l1 < 12u) {
-            force_x += (dx_l1 * chr_force) >> 10u;
-            force_y += (dy_l1 * chr_force) >> 10u;
-        } else if (xor_l1 > 20u) {
-            force_x -= (dx_l1 * chr_force) >> 10u;
-            force_y -= (dy_l1 * chr_force) >> 10u;
-        }
-        
-        if (xor_r1 < 12u) {
-            force_x += (dx_r1 * chr_force) >> 10u;
-            force_y += (dy_r1 * chr_force) >> 10u;
-        } else if (xor_r1 > 20u) {
-            force_x -= (dx_r1 * chr_force) >> 10u;
-            force_y -= (dy_r1 * chr_force) >> 10u;
+        for (var i = 0u; i < 4u; i++) {
+            let n = agents[n_indices[i]];
+            if (n.energy > 0u) {
+                let dx_n = deterministic_cos(n.phase, topology.q_phase) - my_x;
+                let dy_n = deterministic_sin(n.phase, topology.q_phase) - my_y;
+                let xor_dist = countOneBits(agent.genome ^ n.genome);
+                
+                // Attraction bounds (Clannish coherence)
+                if (xor_dist <= 10u) {
+                    force_x += (dx_n * chr_force) >> 10u;
+                    force_y += (dy_n * chr_force) >> 10u;
+                } 
+                // Xenobiological Repulsion (Lethal territorial exclusion)
+                else if (xor_dist >= 22u) {
+                    force_x -= (dx_n * (chr_force / 2)) >> 10u; 
+                    force_y -= (dy_n * (chr_force / 2)) >> 10u;
+                }
+            }
         }
     }
     

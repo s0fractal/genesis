@@ -35,6 +35,7 @@ struct PhaseAgentMinimal {
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) uv: vec2<f32>,
 }
 
 @vertex
@@ -93,6 +94,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     
     // Transform to screen space
     out.position = vec4<f32>((x + offset.x) / aspect_ratio, y + offset.y, 0.0, 1.0);
+    out.uv = quad_pos[vertex_idx];
     
     // 5. Era 5000: Quantum Chromodynamics (Semantic Routing)
     // Genome determines the agent's Archetype (Aries, Cancer, Libra, Capricorn)
@@ -130,6 +132,13 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Add simple circular glow to the quad
-    return in.color;
+    // Elegant exponential SDF (Signed Distance Field) for soft organic cell membranes
+    let dist = dot(in.uv, in.uv);
+    if (dist > 1.0) {
+        discard;
+    }
+    
+    // Smooth plasma glow with high central concentration
+    let alpha = exp(-dist * 4.0) * in.color.a; 
+    return vec4<f32>(in.color.rgb, alpha);
 }
