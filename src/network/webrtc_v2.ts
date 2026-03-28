@@ -118,9 +118,9 @@ export class WebRTCV2Mesh {
                             const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
                             if (setIntent) {
                                 if (packet.m > 0) {
-                                    setIntent(slot, packet.x, packet.y, packet.m, packet.r);
+                                    setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
                                 } else {
-                                    setIntent(slot, 0, 0, 0, 0);
+                                    setIntent(slot, 0, 0, 0, 0, 0, 0);
                                 }
                             }
                         }
@@ -278,13 +278,13 @@ export class WebRTCV2Mesh {
         const slot = this.peerSlots.get(peerId);
         if (slot !== undefined) {
              const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-             if (setIntent) setIntent(slot, 0, 0, 0, 0);
+             if (setIntent) setIntent(slot, 0, 0, 0, 0, 0, 0);
              this.peerSlots.delete(peerId);
         }
         console.log(`[V2-MESH] Connection closed: ${peerId}`);
     }
     
-    public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
+    public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
     private latestGoldenTrace: string = "0";
     private latestSnapshot: Uint8Array | null = null;
     
@@ -302,6 +302,8 @@ export class WebRTCV2Mesh {
             y: this.__lastLocalIntent.y,
             m: this.__lastLocalIntent.m,
             r: this.__lastLocalIntent.r,
+            g: this.__lastLocalIntent.g,
+            o: this.__lastLocalIntent.op,
             gt: this.latestGoldenTrace
         });
         

@@ -21,6 +21,10 @@ struct OntologicalIntent {
     focus_y: i32,
     mass: i32,
     radius: i32,
+    semantic_genome: u32,
+    op_mode: u32,
+    _pad1: u32,
+    _pad2: u32,
 }
 
 struct IntentArray {
@@ -207,6 +211,24 @@ fn compute_main(
                     new_mem_y = p_payload;
                     new_mem_z = 255u; // Maximum TTL
                     intent_injected = true;
+                }
+                
+                // ERA 7000: God Injection (Text-to-Matrix Override)
+                if (intent.op_mode == 1u) {
+                    // Force the cell onto the exact new timeline
+                    // We modify variables that get written back at the end of compute_main
+                    agent.genome = intent.semantic_genome;
+                    
+                    // Artificially peak energy for exponential blast radiation
+                    intent_energy_bonus += 3000;
+                    
+                    // Lock the cell's physical coordinate trajectory into the Semantic Array
+                    // By shifting the intrinsic phase to match the genome's MSB.
+                    // This forces immediate spatial clustering after explosion.
+                    agent.phase = intent.semantic_genome & max_phase_mask;
+                    
+                    // Scrub neural packets to prevent inherited trauma
+                    new_mem_x = 0u; new_mem_y = 0u; new_mem_z = 0u;
                 }
             }
         }

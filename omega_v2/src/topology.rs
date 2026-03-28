@@ -8,11 +8,18 @@ pub struct OntologicalIntent {
     pub focus_y: i32,
     pub mass: i32,
     pub radius: i32,
+    pub semantic_genome: u32,
+    pub op_mode: u32, // 1 = God Injection (Text-to-Matrix)
+    pub _pad1: u32,
+    pub _pad2: u32,
 }
 
 impl OntologicalIntent {
     pub fn empty() -> Self {
-        Self { focus_x: 0, focus_y: 0, mass: 0, radius: 0 }
+        Self { 
+            focus_x: 0, focus_y: 0, mass: 0, radius: 0, 
+            semantic_genome: 0, op_mode: 0, _pad1: 0, _pad2: 0 
+        }
     }
 }
 

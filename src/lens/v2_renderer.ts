@@ -26,6 +26,18 @@ export class PhaseV2Renderer {
     
     private _mouseBound: boolean = false;
     private activeDNSPhase: number = 0; // ERA 1000: Target Routing Phase
+    
+    // ERA 7000: Semantic Logos state
+    private activeGodWord: string = "GENESIS";
+    private activeGodHash: number = 0;
+    
+    private djb2Hash(str: string): number {
+        let hash = 5381;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) + hash) + str.charCodeAt(i);
+        }
+        return hash >>> 0;
+    }
 
     constructor(context: GPUCanvasContext, device: GPUDevice, format: GPUTextureFormat, engine: OmegaV2Engine) {
         this.context = context;
@@ -50,7 +62,7 @@ export class PhaseV2Renderer {
         });
 
         this.intentBuffer = this.device.createBuffer({
-            size: 64, // 4 intents * 16 bytes each
+            size: 128, // 4 intents * 32 bytes each
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -152,7 +164,7 @@ export class PhaseV2Renderer {
 
         this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
         this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
-        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 64);
+        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 128);
         
         // Removed: this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
         // We do NOT overwrite the GPU state every frame anymore. WebGPU owns the matrix math.
@@ -195,6 +207,19 @@ export class PhaseV2Renderer {
         if (!this._mouseBound) {
             this._mouseBound = true;
             
+            // ERA 7000: Semantic Input Listener
+            const semanticInput = document.getElementById("semantic-input") as HTMLInputElement;
+            if (semanticInput) {
+                const updateGodWord = () => {
+                    const inputStr = semanticInput.value.trim().toUpperCase() || "GENESIS";
+                    this.activeGodWord = inputStr;
+                    this.activeGodHash = this.djb2Hash(inputStr);
+                };
+                semanticInput.addEventListener('keyup', updateGodWord);
+                semanticInput.addEventListener('change', updateGodWord);
+                updateGodWord();
+            }
+            
             // ERA 1000: Semantic DNS Routing Keyboard Selection
             globalThis.addEventListener('keydown', (e: Event) => {
                 const map: Record<string, number> = {
@@ -225,30 +250,45 @@ export class PhaseV2Renderer {
                 const ix = Math.floor(x * 1000);
                 const iy = Math.floor(y * 1000);
                 
-                // ERA 1000: DNS Packet Encoding
-                const payload = 42; // Example data
-                const baseMass = 2000; // Triggers packet injection logic (> 1000)
-                const packedMass = (payload << 24) | (this.activeDNSPhase << 16) | baseMass;
+                const isGodMode = mouseEvent.shiftKey;
+                const opMode = isGodMode ? 1 : 0;
+                
+                let packedMass = 0;
+                let semanticGenome = 0;
+                
+                // ERA 7000 vs ERA 1000 Branching
+                if (isGodMode) {
+                    packedMass = 3000; // Pure Gravity
+                    semanticGenome = this.activeGodHash;
+                    // Flash HUD safely
+                    const HUD_ELEM = document.getElementById("hud-stat-c-val");
+                    if (HUD_ELEM) HUD_ELEM.innerText = `[LOGOS INJECTION]: ${this.activeGodWord}`;
+                } else {
+                    const payload = 42; 
+                    const baseMass = 2000; 
+                    packedMass = (payload << 24) | (this.activeDNSPhase << 16) | baseMass;
+                    semanticGenome = 0;
+                }
                 
                 // Update Mesh broadcasting intent
-                if ((globalThis as any)._v2Mesh) {
-                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: packedMass, r: 200 };
+                if ((globalThis as unknown as { _v2Mesh: any })._v2Mesh) {
+                    (globalThis as unknown as { _v2Mesh: any })._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: packedMass, r: 200, g: semanticGenome, op: opMode };
                 }
                 
                 // Target Intent Slot 0 for local mouse
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(0, ix, iy, packedMass, 200);
+                if (setIntent) setIntent(0, ix, iy, packedMass, 200, semanticGenome, opMode);
             });
             globalThis.addEventListener('mouseout', () => {
-                if ((globalThis as any)._v2Mesh) {
-                    (globalThis as any)._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0 };
+                if ((globalThis as unknown as { _v2Mesh: any })._v2Mesh) {
+                    (globalThis as unknown as { _v2Mesh: any })._v2Mesh.__lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
                 }
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(0, 0, 0, 0, 0);
+                if (setIntent) setIntent(0, 0, 0, 0, 0, 0, 0);
             });
             globalThis.addEventListener('mouseup', () => {
                 const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) setIntent(0, 0, 0, 0, 0);
+                if (setIntent) setIntent(0, 0, 0, 0, 0, 0, 0);
             });
         }
         

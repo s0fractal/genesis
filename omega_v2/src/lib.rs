@@ -69,6 +69,10 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
         focus_y: 0,
         mass: 0,
         radius: 0,
+        semantic_genome: 0,
+        op_mode: 0,
+        _pad1: 0,
+        _pad2: 0,
     }; 4],
     smart_agents_ptr: core::ptr::null_mut(),
     minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
@@ -124,13 +128,15 @@ pub extern "C" fn v2_tick() {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32) {
+pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32, semantic_genome: u32, op_mode: u32) {
     if index >= 4 { return; }
     unsafe {
         OMEGA_LATTICE.intents[index as usize].focus_x = focus_x;
         OMEGA_LATTICE.intents[index as usize].focus_y = focus_y;
         OMEGA_LATTICE.intents[index as usize].mass = mass;
         OMEGA_LATTICE.intents[index as usize].radius = radius;
+        OMEGA_LATTICE.intents[index as usize].semantic_genome = semantic_genome;
+        OMEGA_LATTICE.intents[index as usize].op_mode = op_mode;
     }
 }
 

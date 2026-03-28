@@ -104,8 +104,8 @@ export class OmegaV2Engine {
         const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
         const deltaPtr = (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
 
-        // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=64 -> Total 96 bytes)
-        const LATTICE_UNIFORM_SIZE = 96;
+        // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=128 -> Total 160 bytes)
+        const LATTICE_UNIFORM_SIZE = 160;
 
         // 3. Gracefully Clamp WASM memory mapping just in case GPU VRAM > WASM .bss allocation
         const requestedBytes = this.currentTopology.maxAllocatedAgents * 32; // Era 2000: 32 bytes per agent
