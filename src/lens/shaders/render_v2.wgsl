@@ -94,15 +94,34 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     // Transform to screen space
     out.position = vec4<f32>((x + offset.x) / aspect_ratio, y + offset.y, 0.0, 1.0);
     
-    // 5. Era 2000 Neural Chromatic Mapping
-    // Mutate color based on NCA memory structures 
-    let r_tint = f32(agent.memory_x % 255u) / 255.0;
-    let b_tint = f32(agent.memory_z % 255u) / 255.0;
-    let hue_shift = f32(agent.genome % 360u) / 360.0;
+    // 5. Era 5000: Quantum Chromodynamics (Semantic Routing)
+    // Genome determines the agent's Archetype (Aries, Cancer, Libra, Capricorn)
+    let archetype = agent.genome % 4u;
+    var r_col = 0.0;
+    var g_col = 0.0;
+    var b_col = 0.0;
+    
+    if (archetype == 0u) {
+        // Aries (Neon Red)
+        r_col = 1.0; g_col = 0.1; b_col = 0.1;
+    } else if (archetype == 1u) {
+        // Cancer (Neon Blue)
+        r_col = 0.1; g_col = 0.6; b_col = 1.0;
+    } else if (archetype == 2u) {
+        // Libra (Neon Emerald)
+        r_col = 0.2; g_col = 1.0; b_col = 0.3;
+    } else {
+        // Capricorn (Neon Purple/Pink)
+        r_col = 0.9; g_col = 0.2; b_col = 1.0;
+    }
+    
+    // Subtle memory noise
+    let r_tint = f32(agent.memory_x % 32u) / 128.0;
+    let b_tint = f32(agent.memory_z % 32u) / 128.0;
 
-    let r_col = min(0.3 + r_tint, 1.0) * energy_ratio;
-    let g_col = (0.5 + hue_shift * 0.5) * energy_ratio;
-    let b_col = min(0.4 + b_tint, 1.0) * energy_ratio;
+    r_col = min(r_col + r_tint, 1.0) * energy_ratio;
+    g_col = g_col * energy_ratio;
+    b_col = min(b_col + b_tint, 1.0) * energy_ratio;
     
     out.color = vec4<f32>(r_col, g_col, b_col, 1.0);
     

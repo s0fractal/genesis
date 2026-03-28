@@ -179,6 +179,43 @@ fn compute_main(
         }
     }
     
+    // -------------------------------------------------------------
+    // ERA 5000: QUANTUM CHROMODYNAMICS (GENETIC BATTLE ROYALE)
+    // -------------------------------------------------------------
+    if (signals.active_agent_count > 4u) {
+        let left_1 = agents[(index + signals.active_agent_count - 1u) % signals.active_agent_count];
+        let right_1 = agents[(index + 1u) % signals.active_agent_count];
+        
+        let dx_l1 = deterministic_cos(left_1.phase, topology.q_phase) - my_x;
+        let dy_l1 = deterministic_sin(left_1.phase, topology.q_phase) - my_y;
+        
+        let dx_r1 = deterministic_cos(right_1.phase, topology.q_phase) - my_x;
+        let dy_r1 = deterministic_sin(right_1.phase, topology.q_phase) - my_y;
+        
+        let xor_l1 = countOneBits(agent.genome ^ left_1.genome);
+        let xor_r1 = countOneBits(agent.genome ^ right_1.genome);
+        
+        // Chromodynamic Strong Force: ~1500 coupling
+        // XOR distance threshold determines attraction vs. lethal repulsion
+        let chr_force = 1500i;
+        
+        if (xor_l1 < 12u) {
+            force_x += (dx_l1 * chr_force) >> 10u;
+            force_y += (dy_l1 * chr_force) >> 10u;
+        } else if (xor_l1 > 20u) {
+            force_x -= (dx_l1 * chr_force) >> 10u;
+            force_y -= (dy_l1 * chr_force) >> 10u;
+        }
+        
+        if (xor_r1 < 12u) {
+            force_x += (dx_r1 * chr_force) >> 10u;
+            force_y += (dy_r1 * chr_force) >> 10u;
+        } else if (xor_r1 > 20u) {
+            force_x -= (dx_r1 * chr_force) >> 10u;
+            force_y -= (dy_r1 * chr_force) >> 10u;
+        }
+    }
+    
     // Re-resolve the new aggregate phase using deterministic atan2
     coupled_phase = deterministic_atan2(force_y, force_x, topology.q_phase);
     
@@ -201,12 +238,9 @@ fn compute_main(
         if (new_energy > 4000u) { new_energy = 4000u; } // Maximum ATP Capacity
     }
 
-    // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA)
-    // Mutate the genome via a basic XR-Shift utilizing the new forces
-    var new_genome = agent.genome;
-    new_genome ^= u32(abs(force_x)) << 2u;
-    new_genome ^= u32(abs(force_y)) >> (agent.energy % 4u);
-    new_genome ^= agent.memory_z;
+    // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA) -> ERA 5000: QCD Stability
+    // Genome is now structurally deeply stable! Only mutates during Mitosis (Rust CPU side).
+    let new_genome = agent.genome;
     
     // Trade memory gradient via the coupled interaction using aggregate forces
     var new_mem_x = agent.memory_x + (u32(abs(force_x)) % 255u);
