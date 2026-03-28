@@ -23,9 +23,9 @@ export class PhaseV2Renderer {
     // Era 4000: Global Order Parameter Feedback Loop
     private newMeanFieldBuffer!: GPUBuffer;
     private oldMeanFieldBuffer!: GPUBuffer;
-    
     private _mouseBound: boolean = false;
     private activeDNSPhase: number = 0; // ERA 1000: Target Routing Phase
+    private activeOpcode: number = 0;   // ERA 8000: Active Viral Payload
     
     // ERA 7000: Semantic Logos state
     private activeGodWord: string = "GENESIS";
@@ -220,20 +220,33 @@ export class PhaseV2Renderer {
                 updateGodWord();
             }
             
-            // ERA 1000: Semantic DNS Routing Keyboard Selection
             globalThis.addEventListener('keydown', (e: Event) => {
-                const map: Record<string, number> = {
+                const navMap: Record<string, number> = {
                     '1': 0,    // Aries
                     '2': 64,   // Cancer
                     '3': 128,  // Libra
                     '4': 192   // Capricorn
                 };
-                const key = (e as KeyboardEvent).key;
-                if (map[key] !== undefined) {
-                    this.activeDNSPhase = map[key];
+                const opMap: Record<string, number> = {
+                    'q': 1, // Opcode 1: Lysogenic Mutagenesis
+                    'w': 2, // Opcode 2: Somatic Mitosis Burst
+                    'e': 3, // Opcode 3: Neural Paralysis
+                    'r': 0  // Opcode 0: Safe data routing
+                };
+                
+                const key = (e as KeyboardEvent).key.toLowerCase();
+                const HUD_ELEM = document.getElementById("hud-stat-c-val");
+                
+                if (navMap[key] !== undefined) {
+                    this.activeDNSPhase = navMap[key];
                     const names = {0: "ARIES", 64: "CANCER", 128: "LIBRA", 192: "CAPRICORN"};
-                    const HUD_ELEM = document.getElementById("hud-stat-c-val");
                     if (HUD_ELEM) HUD_ELEM.innerText = `ROUTING: ${names[this.activeDNSPhase as keyof typeof names]}`;
+                }
+                
+                if (opMap[key] !== undefined) {
+                    this.activeOpcode = opMap[key];
+                    const vNames = {0: "BENIGN_DATA", 1: "LYSOGENIC_VIRUS", 2: "SOMATIC_BURST", 3: "NEURAL_PARALYSIS"};
+                    if (HUD_ELEM) HUD_ELEM.innerText = `[VIRUS ARMED]: ${vNames[this.activeOpcode as keyof typeof vNames]}`;
                 }
             });
 
@@ -264,7 +277,7 @@ export class PhaseV2Renderer {
                     const HUD_ELEM = document.getElementById("hud-stat-c-val");
                     if (HUD_ELEM) HUD_ELEM.innerText = `[LOGOS INJECTION]: ${this.activeGodWord}`;
                 } else {
-                    const payload = 42; 
+                    const payload = this.activeOpcode; // ERA 8000: Embed the Viral Opcode
                     const baseMass = 2000; 
                     packedMass = (payload << 24) | (this.activeDNSPhase << 16) | baseMass;
                     semanticGenome = 0;

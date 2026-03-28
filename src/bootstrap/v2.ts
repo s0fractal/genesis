@@ -16,6 +16,10 @@ export async function bootstrapV2() {
         if (!adapter) throw new Error("WebGPU adapter unavailable");
         device = await adapter.requestDevice();
         
+        device.onuncapturederror = (event) => {
+            console.error("🛑 [WGSL VALIDATION ERROR]:", event.error.message);
+        };
+        
         const context = canvas.getContext("webgpu") as GPUCanvasContext;
         context.configure({
             device,
@@ -83,7 +87,7 @@ export async function bootstrapV2() {
         
         requestAnimationFrame(loop);
 
-    } catch (err) {
-        console.error("🛑 [V2 FATAL] Initialization Failed!", err);
+    } catch (err: any) {
+        console.error("🛑 [V2 FATAL] Initialization Failed!", err.toString(), err.message);
     }
 }

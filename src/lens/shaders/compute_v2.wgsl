@@ -286,7 +286,8 @@ fn compute_main(
 
     // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA) -> ERA 5000: QCD Stability
     // Genome is now structurally deeply stable! Only mutates during Mitosis (Rust CPU side).
-    let new_genome = agent.genome;
+    var new_genome = agent.genome;
+    var new_base_freq = agent.base_freq;
     
     // -------------------------------------------------------------
     // ERA 1000: HYPERBOLIC DNS (TAYLOR PHASE ROUTING)
@@ -312,8 +313,28 @@ fn compute_main(
             if (lose_packet) {
                 new_mem_x = 0u; new_mem_y = 0u; new_mem_z = 0u;
             } else {
-                new_mem_z = agent.memory_z - 1u; // Trapped, entropy decays TTL
-                if (new_mem_z == 0u) { new_mem_x = 0u; new_mem_y = 0u; }
+                // ERA 8000: BIOLOGICAL RISC (VIRAL OPCODES)
+                let opcode = agent.memory_y;
+                if (opcode == 1u) {
+                    // Opcode 1: Lysogenic Viral Integration (XOR Inversion)
+                    new_genome = new_genome ^ 0xFFFFFFFFu;
+                    new_mem_z = 0u; // Consume packet
+                } else if (opcode == 2u) {
+                    // Opcode 2: Somatic Burst (Forced Mitosis prep)
+                    new_energy = 4000u; // Immediate peak ATP
+                    new_mem_z = 0u;
+                } else if (opcode == 3u) {
+                    // Opcode 3: Neural Paralysis (Deep Freeze)
+                    new_base_freq = 0i;
+                    new_mem_z = 0u;
+                } else {
+                    // Not a weaponized opcode, just standard data packet
+                    new_mem_z = agent.memory_z - 1u; // Trapped, entropy decays TTL
+                }
+                
+                if (new_mem_z == 0u) { 
+                    new_mem_x = 0u; new_mem_y = 0u; 
+                }
             }
         } else {
             // Receptive Empty Cell. Poll neighbors for incoming Gradient Pull.
@@ -342,7 +363,7 @@ fn compute_main(
             // Save Phase, Genomes, and Life Force (ATP)
             agents[index].phase = new_phase;
             agents[index].energy = new_energy;
-            agents[index].base_freq = agent.base_freq;
+            agents[index].base_freq = new_base_freq;
             agents[index].state_flags = agent.state_flags;
             agents[index].genome = new_genome;
             agents[index].memory_x = new_mem_x;
