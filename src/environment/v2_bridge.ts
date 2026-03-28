@@ -102,6 +102,7 @@ export class OmegaV2Engine {
         const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
         const agentsPtr = (exports.v2_agents_ptr as CallableFunction)() as number;
         const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
+        const deltaPtr = (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
 
         // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=64 -> Total 96 bytes)
         const LATTICE_UNIFORM_SIZE = 96;
@@ -109,7 +110,7 @@ export class OmegaV2Engine {
         // 3. Gracefully Clamp WASM memory mapping just in case GPU VRAM > WASM .bss allocation
         const requestedBytes = this.currentTopology.maxAllocatedAgents * 32; // Era 2000: 32 bytes per agent
         const maxSafeBytes = this.memory.buffer.byteLength - agentsPtr;
-        const safeAgentsBytes = Math.min(requestedBytes, this.memory.buffer.byteLength - agentsPtr);
+        const _safeAgentsBytes = Math.min(requestedBytes, this.memory.buffer.byteLength - agentsPtr);
         const actualBytes = Math.min(requestedBytes, maxSafeBytes);
 
         // Update Darwinian limits down to the WASM bottleneck if necessary
@@ -119,6 +120,7 @@ export class OmegaV2Engine {
             uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
             agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
             sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
+            deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16), // MAX_DELTA_ITEMS * 16 bytes
             wasmMemoryBuffer: this.memory.buffer 
         };
     }

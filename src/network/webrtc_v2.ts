@@ -108,40 +108,64 @@ export class WebRTCV2Mesh {
         };
         
         channel.onmessage = (event) => {
-            try {
-                // Parse lightweight UDP packet
-                const packet = JSON.parse(event.data);
-                if (packet.t === 'V2_SYNC') {
-                    const slot = this.peerSlots.get(peerId);
-                    if (slot !== undefined) {
-                        const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                        if (setIntent) {
-                            if (packet.m > 0) {
-                                setIntent(slot, packet.x, packet.y, packet.m, packet.r);
-                            } else {
-                                setIntent(slot, 0, 0, 0, 0);
+            if (typeof event.data === 'string') {
+                try {
+                    // Parse lightweight UDP packet
+                    const packet = JSON.parse(event.data);
+                    if (packet.t === 'V2_SYNC') {
+                        const slot = this.peerSlots.get(peerId);
+                        if (slot !== undefined) {
+                            const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                            if (setIntent) {
+                                if (packet.m > 0) {
+                                    setIntent(slot, packet.x, packet.y, packet.m, packet.r);
+                                } else {
+                                    setIntent(slot, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+                        
+                        
+                        // Golden Trace Validation
+                        const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
+                        if (localTrace !== packet.gt && !this.isSyncFrozen) {
+                            console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${packet.gt.toString(16)})`);
+                            // Simplistic tie-breaker for Authority: The higher Hash rules.
+                            if (packet.gt > localTrace) {
+                                 console.log(`[V2-MESH] Requesting Overmind State Snapshot from Authority...`);
+                                 this.isSyncFrozen = true;
+                                 const stateChannel = this.getOrOpenStateChannel(peerId);
+                                 if (stateChannel?.readyState === 'open') {
+                                     stateChannel.send(JSON.stringify({ t: 'REQ_SNAPSHOT' }));
+                                 }
                             }
                         }
                     }
-                    
-                    
-                    // Golden Trace Validation
-                    const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
-                    if (localTrace !== packet.gt && !this.isSyncFrozen) {
-                        console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${packet.gt.toString(16)})`);
-                        // Simplistic tie-breaker for Authority: The higher Hash rules.
-                        if (packet.gt > localTrace) {
-                             console.log(`[V2-MESH] Requesting Overmind State Snapshot from Authority...`);
-                             this.isSyncFrozen = true;
-                             const stateChannel = this.getOrOpenStateChannel(peerId);
-                             if (stateChannel?.readyState === 'open') {
-                                 stateChannel.send(JSON.stringify({ t: 'REQ_SNAPSHOT' }));
-                             }
-                        }
-                    }
+                } catch (_e) {
+                    // Ignore parse errors on UDP layer
                 }
-            } catch (e) {
-                // Ignore parse errors on UDP layer
+            } else if (event.data instanceof ArrayBuffer) {
+                // ERA 6000: Continuous Delta Mutagens
+                const ptrs = this.engine.getMemoryPointers();
+                if (!ptrs) return;
+                
+                const deltasU32 = new Uint32Array(event.data);
+                const gridU32 = new Uint32Array(ptrs.wasmMemoryBuffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
+                
+                const numMutations = deltasU32.length / 4;
+                console.log(`[V2-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`);
+                
+                for (let i = 0; i < numMutations; i++) {
+                    const index = deltasU32[i * 4 + 0];
+                    const phase = deltasU32[i * 4 + 1];
+                    const energy = deltasU32[i * 4 + 2];
+                    const genome = deltasU32[i * 4 + 3];
+                    
+                    // Update 32-byte PhaseAgentMinimal (8x u32s)
+                    gridU32[index * 8 + 0] = phase;
+                    gridU32[index * 8 + 1] = energy;
+                    gridU32[index * 8 + 4] = genome;
+                }
             }
         };
     }
@@ -207,6 +231,8 @@ export class WebRTCV2Mesh {
         const pc = this.createPeerConnection(peerId);
         // Create an UNRELIABLE, UNORDERED channel for max speed intentions
         const channel = pc.createDataChannel("v2-sync", { ordered: false, maxRetransmits: 0 });
+        // ER-6000: Set DataChannel explicitly to accept raw ArrayBuffers to decode Deltas instantly
+        channel.binaryType = "arraybuffer";
         this.setupDataChannel(peerId, channel);
 
         const offer = await pc.createOffer();
@@ -279,9 +305,24 @@ export class WebRTCV2Mesh {
             gt: this.latestGoldenTrace
         });
         
-        for (const [id, channel] of this.channels.entries()) {
+        let deltaBuffer: ArrayBuffer | null = null;
+        if (this.engine.wasm?.exports.v2_generate_delta_snapshot) {
+            const numMutations = (this.engine.wasm.exports.v2_generate_delta_snapshot as CallableFunction)();
+            if (numMutations > 0 && numMutations <= 6400) {
+                 const ptrs = this.engine.getMemoryPointers();
+                 if (ptrs) {
+                     // Slice the exact mutation bytes for transport (zero-garbage networking)
+                     deltaBuffer = ptrs.deltaBufferBytes.slice(0, numMutations * 16).buffer;
+                 }
+            }
+        }
+        
+        for (const [_id, channel] of this.channels.entries()) {
             if (channel.readyState === 'open') {
                 channel.send(payload);
+                if (deltaBuffer) {
+                    channel.send(deltaBuffer);
+                }
             }
         }
     }

@@ -13,6 +13,15 @@ pub const SIGNAL_CONSENSUS_SHIFT: u32    = 1 << 2; // Bitcoin hash arrived (Glob
 pub const SIGNAL_MUTATION_TRIGGER: u32   = 1 << 3; // LERP orthogonal deviation needed
 
 #[repr(C)]
+#[derive(Clone, Copy)]
+pub struct DeltaItem {
+    pub index: u32,
+    pub phase: u32,
+    pub energy: u32,
+    pub genome: u32,
+}
+
+#[repr(C)]
 pub struct SignalStore {
     pub dirty_flags: u32,
     pub absolute_tick: u32,
@@ -206,5 +215,50 @@ impl PhaseLattice {
             }
         }
         hash
+    }
+
+    /// ERA 6000: Continuous Delta Networking
+    /// Evaluates `minimal_agents_ptr` against `last_snapshot` and populates `delta_buffer`.
+    pub unsafe fn generate_delta_snapshot(
+        &self,
+        current_agents: *const PhaseAgentMinimal,
+        last_snapshot: *mut PhaseAgentMinimal,
+        delta_buffer: *mut DeltaItem,
+        max_deltas: usize,
+    ) -> u32 {
+        if current_agents.is_null() || last_snapshot.is_null() || delta_buffer.is_null() {
+            return 0;
+        }
+
+        let mut delta_count = 0;
+        let active = self.signals.active_agent_count as usize;
+
+        for i in 0..active {
+            let curr = &*current_agents.add(i);
+            let prev = &mut *last_snapshot.add(i);
+
+            // Calculate exact divergence
+            let energy_diff = if curr.energy > prev.energy { curr.energy - prev.energy } else { prev.energy - curr.energy };
+            let phase_diff = if curr.phase > prev.phase { curr.phase - prev.phase } else { prev.phase - curr.phase };
+            let genome_changed = curr.genome != prev.genome;
+
+            // Radical difference threshold (Mitosis clashing or huge gravity)
+            if energy_diff > 10 || genome_changed || phase_diff > 40 {
+                if delta_count < max_deltas {
+                    let d_item = &mut *delta_buffer.add(delta_count);
+                    d_item.index = i as u32;
+                    d_item.phase = curr.phase;
+                    d_item.energy = curr.energy;
+                    d_item.genome = curr.genome;
+                    
+                    delta_count += 1;
+                }
+                
+                // Immediately synchronize the shadow matrix to prevent redundant broadcasting
+                *prev = *curr;
+            }
+        }
+        
+        delta_count as u32
     }
 }

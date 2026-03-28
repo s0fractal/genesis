@@ -32,6 +32,24 @@ static mut AGENTS_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentM
     memory: [0; 3],
 }; MAX_MINIMAL_AGENTS];
 
+// ERA 6000: 32MB Shadow Memory + Differential Output Buffer
+static mut LAST_SNAPSHOT_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
+    phase: 0,
+    energy: 0,
+    base_freq: 0,
+    state_flags: 0,
+    genome: 0,
+    memory: [0; 3],
+}; MAX_MINIMAL_AGENTS];
+
+pub const MAX_DELTA_ITEMS: usize = 6400; // Limits extreme mutations to ~100KB per UDP packet
+static mut DELTA_BUFFER: [crate::lattice::DeltaItem; MAX_DELTA_ITEMS] = [crate::lattice::DeltaItem {
+    index: 0,
+    phase: 0,
+    energy: 0,
+    genome: 0,
+}; MAX_DELTA_ITEMS];
+
 /// The Global Engine Singleton for #![no_std] execution.
 static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
     topology: PhaseTopology {
@@ -127,5 +145,23 @@ pub extern "C" fn v2_get_golden_trace() -> u32 {
 pub extern "C" fn v2_mitosis_sweep() -> u32 {
     unsafe {
         OMEGA_LATTICE.darwinian_mitosis()
+    }
+}
+
+// ERA 6000 FFI
+#[no_mangle]
+pub extern "C" fn v2_delta_buffer_ptr() -> *const u8 {
+    unsafe { DELTA_BUFFER.as_ptr() as *const u8 }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
+    unsafe {
+        OMEGA_LATTICE.generate_delta_snapshot(
+            AGENTS_MEMORY.as_ptr(),
+            LAST_SNAPSHOT_MEMORY.as_mut_ptr(),
+            DELTA_BUFFER.as_mut_ptr(),
+            MAX_DELTA_ITEMS
+        )
     }
 }
