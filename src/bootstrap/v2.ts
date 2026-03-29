@@ -3,6 +3,16 @@ import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { WebRTCV2Mesh } from "../network/webrtc_v2.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 
+let oracleWorker: Worker | null = null;
+try {
+    oracleWorker = new Worker(new URL('../workers/oracle_worker.ts', import.meta.url), { type: 'module' });
+    console.log("🌌 [V2] Oracle LLM Worker invoked.");
+} catch (e) {
+    console.warn("Could not load Oracle LLM Worker:", e);
+}
+
+let isOracleBound = false;
+
 export async function bootstrapV2() {
     console.log("🌌 [V2] Bootstrapping Zero-Copy Minimalist Engine...");
 
@@ -63,7 +73,41 @@ export async function bootstrapV2() {
                 renderer.tick();
             }
             
-            // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)
+            // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)            // Era 11000: Initial Oracle Whisper Hook
+            if (oracleWorker && !isOracleBound) {
+                isOracleBound = true;
+                oracleWorker.onmessage = (e) => {
+                    const data = e.data;
+                    if (data.type === 'INIT_PROGRESS') {
+                        setHudStat("c", "ORACLE", (data.text as string).substring(0, 32) + "...");
+                    } else if (data.type === 'SUCCESS') {
+                        setHudStat("c", "ORACLE", "LLaMa-3 Synthesized AST.");
+                        // Force intent via slot 2 (Oracle Dedicated Slot)
+                        if (data.validIntents && data.validIntents.length > 0) {
+                            const intent = data.validIntents[0];
+                            const setIntent = engine.wasm?.exports.v2_set_intent as CallableFunction;
+                            if (setIntent) {
+                                const gx = Math.floor(Math.random() * window.innerWidth);
+                                const gy = Math.floor(Math.random() * window.innerHeight);
+                                let hash = 5381;
+                                const word = intent.intentStr;
+                                for (let i = 0; i < word.length; i++) hash = ((hash << 5) + hash) + word.charCodeAt(i);
+                                
+                                setIntent(2, gx, gy, 0, 500, hash >>> 0, 1);
+                                setTimeout(() => { if (engine.wasm) setIntent(2, 0, 0, 0, 0, 0, 0); }, 1000);
+                                
+                                // Broadcast prophecy to DOM
+                                if (DOM.hudTitle) {
+                                    DOM.hudTitle.innerHTML += `<br/><span style="color: #ff55ff; font-size: 0.6rem; text-shadow: 0 0 10px #ff55ff;">[PROPHECY]: ${intent.prophecy}</span>`;
+                                }
+                            }
+                        }
+                    } else if (data.type === 'ERROR') {
+                        setHudStat("c", "ORACLE", "ERROR: " + data.reason);
+                    }
+                };
+            }
+
             const ptrs = engine.getMemoryPointers();
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
@@ -77,6 +121,21 @@ export async function bootstrapV2() {
                 renderer.readStateFromGPUAndHash().then(({ goldenTrace, snapshot }) => {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
                     mesh.setLatestState(goldenTrace, snapshot);
+                    
+                    // Era 11000: Synchronize LLM Oracle Telemetry natively
+                    if (oracleWorker) {
+                        oracleWorker.postMessage({
+                            type: 'SYNC_TELEMETRY',
+                            globalEnergyPool: 1000000,
+                            currentEntropy: 5.0, // Fixed default for V2 metrics
+                            count: activeCount,
+                            totalPopulation: activeCount,
+                            macroSeason: Math.floor(frameCount / 3600) % 4,
+                            currentSeasonName: "V2_AWAKENING",
+                            mycelialContext: "The bare-metal V2 runtime is operating linearly.",
+                        });
+                    }
+
                     isReadingGPU = false;
                 }).catch(err => {
                     console.error("[V2] GPU Read Error:", err);
