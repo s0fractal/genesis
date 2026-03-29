@@ -120,8 +120,13 @@ export class OmegaV2Engine {
             uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
             agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
             sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
-            deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16), // MAX_DELTA_ITEMS * 16 bytes
+            deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16),
             wasmMemoryBuffer: this.memory.buffer 
         };
+    }
+
+    public injectCosmicEntropy(rawHashBigInt: bigint) {
+        if (!this.wasmInstance) return;
+        (this.wasmInstance.exports.v2_ingest_cosmic_entropy as CallableFunction)(rawHashBigInt);
     }
 }

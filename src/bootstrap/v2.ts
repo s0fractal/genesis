@@ -2,6 +2,7 @@ import { configureCanvas, DOM, setInputMode, tickFps, setHudStat } from "./dom.t
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { WebRTCV2Mesh } from "../network/webrtc_v2.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
+import { EthersATPBridge } from "../network/atp_bridge.ts";
 
 let oracleWorker: Worker | null = null;
 try {
@@ -60,6 +61,19 @@ export async function bootstrapV2() {
         // 2. Initialize the WebGPU Hardware Pipeline
         const renderer = new PhaseV2Renderer(context, device, format, engine);
         await renderer.initialize();
+
+        // 2.5 Era 12000 Integration: EVM ATP Blockchain Link
+        const atpBridge = new EthersATPBridge();
+        atpBridge.subscribeToCosmicEntropy((entropy) => {
+            const hashPrefix = entropy.hash.substring(0, 18);
+            try {
+                const hexVal = BigInt(hashPrefix);
+                engine.injectCosmicEntropy(hexVal);
+                setHudStat("c", "COSMIC ENTROPY", `EVM Blk: ${hashPrefix}`);
+            } catch (e) {
+                console.error("[V2 EVM] Cosmic Payload Error", e);
+            }
+        });
 
         // 3. The Holy Tick Loop
         let frameCount = 0;

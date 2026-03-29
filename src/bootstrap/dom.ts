@@ -34,6 +34,7 @@ export const DOM = {
     // O-59 Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
     btnLoadGenesis: document.getElementById("btn-load-genesis") as HTMLButtonElement | null,
+    btnConnectWallet: document.getElementById("btn-connect-wallet") as HTMLButtonElement | null,
     fileLoadGenesis: document.getElementById("file-load-genesis") as HTMLInputElement | null,
 };
 
@@ -67,6 +68,28 @@ export function wireSemanticInput(coupler: SemanticCoupler, placeholder: string)
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") dispatchIntent();
   });
+  
+  // ZK-Wallet EVM Integration (Era 12000: Proof of Useful Work)
+  if (DOM.btnConnectWallet) {
+      DOM.btnConnectWallet.addEventListener("click", async () => {
+          const ethWindow = globalThis as any;
+          if (typeof ethWindow.ethereum !== 'undefined') {
+              try {
+                  const accounts = await ethWindow.ethereum.request({ method: 'eth_requestAccounts' });
+                  const account = accounts[0];
+                  if (DOM.btnConnectWallet) {
+                      DOM.btnConnectWallet.innerText = `🟢 ${account.substring(0,6)}...${account.substring(38)}`;
+                      DOM.btnConnectWallet.style.borderColor = "#00ffcc";
+                      DOM.btnConnectWallet.style.color = "#00ffcc";
+                  }
+              } catch (error) {
+                  console.error("User denied wallet connection", error);
+              }
+          } else {
+              alert("Please install MetaMask or another Web3 EVM wallet to connect as a Verifier!");
+          }
+      });
+  }
 }
 
 export function tickFps() {
