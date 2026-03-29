@@ -24,8 +24,12 @@ export class PhaseV2Renderer {
     private newMeanFieldBuffer!: GPUBuffer;
     private oldMeanFieldBuffer!: GPUBuffer;
     private _mouseBound: boolean = false;
-    private activeDNSPhase: number = 0; // ERA 1000: Target Routing Phase
-    private activeOpcode: number = 0;   // ERA 8000: Active Viral Payload
+    private activeDNSPhase: number = 0; // Era 8000: Target Routing
+    private activeOpcode: number = 0;   // Era 8000: Default Safe
+
+    // Era 9000: The Autopoiesis Daemon State
+    public daemonState: string = "OBSERVING";
+    private lastDaemonTick: number = 0;
     
     // ERA 7000: Semantic Logos state
     private activeGodWord: string = "GENESIS";
@@ -128,6 +132,9 @@ export class PhaseV2Renderer {
                 topology: 'triangle-list',
             }
         });
+
+        // Ensure Daemon starts quietly
+        this.lastDaemonTick = performance.now();
 
         const computeBindEntries = [
             { binding: 0, resource: { buffer: this.topologyBuffer } },
@@ -309,6 +316,48 @@ export class PhaseV2Renderer {
         renderPassEncoder.setBindGroup(0, this.renderBindGroup);
         if (activeCount > 0) { renderPassEncoder.draw(6, activeCount, 0, 0); }
         renderPassEncoder.end();
+        
+        // --- ERA 9000: THE AUTOPOIESIS DAEMON ---
+        // Algorithmic Ecosystem Watchdog (Runs dynamically post-render phase)
+        const now = performance.now();
+        if (now - this.lastDaemonTick > 2000) { // Evaluate every 2 seconds
+            this.lastDaemonTick = now;
+            const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction | undefined;
+            
+            if (setIntent) {
+                // Rule of Genesis: Prevent Extinction
+                if (activeCount < 100000) {
+                    this.daemonState = "INTERVENING (GENESIS)";
+                    const gx = Math.floor(Math.random() * window.innerWidth);
+                    const gy = Math.floor(Math.random() * window.innerHeight);
+                    // Force shift+click like behavior (God Mode | OpMode 1)
+                    let hash = 5381;
+                    const word = "AUTOPOIESIS";
+                    for (let i = 0; i < word.length; i++) hash = ((hash << 5) + hash) + word.charCodeAt(i);
+                    // Broadcast autonomous intent via Slot 1 (Daemon Dedicated Slot)
+                    setIntent(1, gx, gy, 0, 400, hash >>> 0, 1);
+                    
+                    // Clear the intent after 500ms
+                    setTimeout(() => { if (this.engine.wasm) setIntent(1, 0, 0, 0, 0, 0, 0); }, 500);
+                } 
+                // Rule of Decay: Overpopulation Check
+                else if (activeCount > 900000) {
+                    this.daemonState = "INTERVENING (CULLING)";
+                    // Inject Neural Paralysis
+                    const gx = Math.floor(Math.random() * window.innerWidth);
+                    const gy = Math.floor(Math.random() * window.innerHeight);
+                    // Opcode 3 Neural Freeze, Mass = 2000
+                    const packedMass = (3 << 24) | (0 << 16) | 2000;
+                    setIntent(1, gx, gy, packedMass, 300, 0, 0); // No OpMode, normal routing
+                    
+                    setTimeout(() => { if (this.engine.wasm) setIntent(1, 0, 0, 0, 0, 0, 0); }, 1000);
+                }
+                else {
+                    this.daemonState = "OBSERVING";
+                    setIntent(1, 0, 0, 0, 0, 0, 0);
+                }
+            }
+        }
         
         this.device.queue.submit([commandEncoder.finish()]);
     }

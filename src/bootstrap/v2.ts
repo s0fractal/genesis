@@ -67,6 +67,9 @@ export async function bootstrapV2() {
             const ptrs = engine.getMemoryPointers();
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
+            
+            // Era 9000: Display Daemon Status
+            setHudStat("d", "DAEMON", renderer.daemonState);
 
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {

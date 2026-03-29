@@ -12,6 +12,8 @@ export const DOM = {
     statBValue: document.getElementById("stat-b-value") as HTMLSpanElement | null,
     statCLabel: document.getElementById("stat-c-label") as HTMLSpanElement | null,
     statCValue: document.getElementById("stat-c-value") as HTMLSpanElement | null,
+    statDLabel: document.getElementById("stat-d-label") as HTMLSpanElement | null,
+    statDValue: document.getElementById("stat-d-value") as HTMLSpanElement | null,
     semanticInputGroup: document.getElementById("semantic-input-group") as HTMLDivElement | null,
     replayControls: document.getElementById("replay-controls") as HTMLDivElement | null,
     replayPlayButton: document.getElementById("replay-play") as HTMLButtonElement | null,
@@ -81,9 +83,10 @@ const STAT_SLOTS = {
     a: { label: () => DOM.statALabel, value: () => DOM.statAValue },
     b: { label: () => DOM.statBLabel, value: () => DOM.statBValue },
     c: { label: () => DOM.statCLabel, value: () => DOM.statCValue },
+    d: { label: () => DOM.statDLabel, value: () => DOM.statDValue },
 } as const;
 
-export function setHudStat(slot: "a" | "b" | "c", label: string, value: string) {
+export function setHudStat(slot: "a" | "b" | "c" | "d", label: string, value: string) {
     STAT_SLOTS[slot].label()?.replaceChildren(label);
     STAT_SLOTS[slot].value()?.replaceChildren(value);
 }
