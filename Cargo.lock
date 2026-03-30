@@ -307,7 +307,7 @@ version = "0.1.0"
 name = "omega_zk_guest"
 version = "42.0.0"
 dependencies = [
- "omega_core",
+ "omega_v2",
  "sp1-zkvm",
 ]
 

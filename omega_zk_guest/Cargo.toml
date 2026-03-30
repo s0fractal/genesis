@@ -4,7 +4,7 @@ version = "42.0.0"
 edition = "2021"
 
 [dependencies]
-omega_core = { path = "../omega_core" }
+omega_v2 = { path = "../omega_v2" }
 sp1-zkvm = "3.0.0"
 
 [profile.release]

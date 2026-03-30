@@ -8,13 +8,14 @@ pub mod topology;
 pub mod math;
 pub mod agent;
 pub mod lattice;
+pub mod pouw;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
 use agent::PhaseAgentMinimal;
 
 // Primitive panic handler for no_std WASM/Bare metal environments
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "wasm32"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
