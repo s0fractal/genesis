@@ -533,3 +533,55 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
         }
     }
 }
+
+// ------------------------------------------------------------------------------
+// Era 1000: Taylor Series Phase Routing FFI
+// ------------------------------------------------------------------------------
+
+use routing::PhaseAddress;
+
+/// Derive a PhaseAddress from the agent at `index`.
+/// Returns 0 if the index is out of bounds or the lattice is not booted.
+#[no_mangle]
+pub extern "C" fn v2_route_address_from_agent(index: u32) -> u32 {
+    unsafe {
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count;
+        if (*lattice).minimal_agents_ptr.is_null() || index >= active {
+            return 0;
+        }
+        let agent = &*((*lattice).minimal_agents_ptr.add(index as usize));
+        PhaseAddress::from_agent(agent, (*lattice).topology.q_phase).raw
+    }
+}
+
+/// Hyperbolic distance between two PhaseAddresses (scaled ×8).
+/// Divide by 8 to get the true distance.
+#[no_mangle]
+pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, b_raw: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw);
+    let b = PhaseAddress::from_raw(b_raw);
+    a.hyperbolic_distance_scaled(b)
+}
+
+/// First-order Taylor step from `src_raw` toward `dst_raw`, clamped to `max_step` per level.
+#[no_mangle]
+pub extern "C" fn v2_route_taylor_step(src_raw: u32, dst_raw: u32, max_step: u8) -> u32 {
+    let src = PhaseAddress::from_raw(src_raw);
+    let dst = PhaseAddress::from_raw(dst_raw);
+    src.taylor_step_toward(dst, max_step).raw
+}
+
+/// Second-order Taylor step with curvature vector `curv_raw` (Q7 signed per byte).
+#[no_mangle]
+pub extern "C" fn v2_route_taylor_step_curvature(
+    src_raw: u32,
+    dst_raw: u32,
+    max_step: u8,
+    curv_raw: u32,
+) -> u32 {
+    let src = PhaseAddress::from_raw(src_raw);
+    let dst = PhaseAddress::from_raw(dst_raw);
+    let curv = PhaseAddress::from_raw(curv_raw);
+    src.taylor_step_with_curvature(dst, max_step, curv).raw
+}
