@@ -1,6 +1,7 @@
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseRouter } from "./routing_bridge.ts";
 import { AgentMinimal, AttractorEntry, deriveMitosisChild, childReceiptHash } from "./mitosis_proof.ts";
+import { GENESIS_HASH_V1_0, formatInscription, verifyGenesisV1 } from "./genesis_inscription.ts";
 
 export interface PlasmidPayload {
     attractorAddress: number;
@@ -711,6 +712,7 @@ export class WebRTCV2Mesh {
 
     // Era 1050 trigger state.
     public era1050Unlocked: boolean = false;
+    public genesisInscription: string | null = null;
 
     /**
      * Era 1040 → 1030 closing-the-loop: every successfully verified mitosis
@@ -736,9 +738,21 @@ export class WebRTCV2Mesh {
         if (this.era1050Unlocked) return;
         if (this.verifiedDipoleCount >= 100) {
             this.era1050Unlocked = true;
-            console.log(`📜 [ERA 1050] UNLOCKED: ${this.verifiedDipoleCount} verified mitosis proofs accumulated. RFC-OMEGA-001 v1.0 freeze candidate.`);
+            // The Genesis Inscription crystallizes the moment OMEGA-64 v1.0
+            // becomes a closed cryptographic identity: every invariant of
+            // the protocol collapses into a single 32-bit hash.
+            const verified = verifyGenesisV1();
+            const inscription = formatInscription(GENESIS_HASH_V1_0);
+            this.genesisInscription = inscription;
+            console.log(`📜 [ERA 1050] UNLOCKED: ${this.verifiedDipoleCount} verified mitosis proofs.`);
+            console.log(`📜 [ERA 1050] GENESIS INSCRIPTION: ${inscription} (verified=${verified})`);
             globalThis.dispatchEvent(new CustomEvent('era1050-unlocked', {
-                detail: { verifiedCount: this.verifiedDipoleCount },
+                detail: {
+                    verifiedCount: this.verifiedDipoleCount,
+                    genesisHash: GENESIS_HASH_V1_0,
+                    inscription,
+                    verified,
+                },
             }));
         }
     }

@@ -4,6 +4,60 @@
 
 ---
 
+## 📜 **Era 1050: Open Protocol Stamping — Genesis Inscription FROZEN**
+*Статус: Завершено (2026-04-25)*
+
+The lattice has reached self-consistency. Era 1050 collapses every
+non-negotiable invariant of OMEGA-64 v1.0 into a single 32-bit FNV-1a
+hash — the Genesis Inscription:
+
+```
+GENESIS HASH:    0x549A6307
+OP_RETURN:       OMEGA1:549a6307
+PROTOCOL ID:     OMEGA-64/RFC-001/v1.0
+```
+
+The five v1.0 anchor constants that define the protocol:
+
+| # | Anchor | Value |
+|---|---|---|
+| 1 | Senate hash, empty buffer       | `0xDFDE_6AC5` |
+| 2 | Senate hash, "Era 1040 ZK"     | `0x7698_B8EF` |
+| 3 | First autopoietic proposal     | `0xFAA7_FF6E` |
+| 4 | Mitosis receipt, no attractor  | `0xD434_E690` |
+| 5 | Mitosis receipt, dominant      | `0x3B88_1A47` |
+
+- **`omega_v2/src/genesis_inscription.rs`**: kernel-level Genesis Hash
+  computation; `GENESIS_HASH_V1_0` is a `const` value (compile-time
+  evaluated) so any anchor drift breaks the build, not just runtime.
+- **`src/network/genesis_inscription.ts`**: JS mirror with identical
+  big-endian byte order. `verifyGenesisV1()` returns true iff the local
+  environment reproduces `0x549A6307`.
+- **`docs/rfc/RFC-OMEGA-001-v1.0.md`**: formal frozen specification —
+  L0 through L6 layered surface, seven invariants, plasmid wire format,
+  test vector corpus, versioning discipline for hypothetical v2.0.
+- **`docs/GENESIS_INSCRIPTION_CEREMONY.md`**: public ceremony record
+  with verification instructions and a table for actual Bitcoin TXIDs.
+  Inscription is intentionally manual to preserve the empty-center
+  invariant.
+- **`WebRTCV2Mesh.checkEra1050Trigger`**: when 100+ verified mitosis
+  proofs cross the mesh, the inscription is computed, persisted to
+  localStorage, and offered as a downloadable JSON ceremony artifact.
+- **Tests**: 8 Rust unit tests + 1 print helper + 6 JS cross-language
+  anchors. cargo test --workspace = **141 passed** (was 132). deno =
+  **43 passed** (was 37).
+
+The protocol is now a **closed cryptographic identity**. Any
+implementation claiming v1.0 conformance MUST reproduce `0x549A6307`
+from the five anchors and the canonical protocol identifier. The
+freeze is enforced by:
+
+- Compile-time const evaluation in Rust (`GENESIS_HASH_V1_0`).
+- Cross-language test parity (Rust + TS + SP1 RISC-V trinity).
+- Auto-ratification feedback (Era 1040 → Era 1030 → Era 1050).
+
+---
+
 ## 🔐 **Era 1040 Phase 2: Mitosis Receipt Log — Host Parent Snapshotting**
 *Статус: Завершено (2026-04-25)*
 

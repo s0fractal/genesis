@@ -97,6 +97,43 @@ export async function bootstrapV2() {
             mesh.proposeFromLocal(description, top.matrix, top.inverse);
         }) as EventListener);
 
+        // Era 1050: When 100 verified mitosis proofs cross the mesh, the Genesis
+        // Inscription is announced. Persist it locally and offer a downloadable
+        // ceremony.md that the user can stamp into Bitcoin OP_RETURN.
+        globalThis.addEventListener('era1050-unlocked', ((e: CustomEvent) => {
+            const { verifiedCount, genesisHash, inscription, verified } = e.detail;
+            const ceremony = {
+                event: "OMEGA-64 v1.0 GENESIS INSCRIPTION",
+                timestamp: new Date().toISOString(),
+                protocol: "OMEGA-64/RFC-001/v1.0",
+                genesisHash: `0x${(genesisHash >>> 0).toString(16)}`,
+                opReturnPayload: inscription,
+                verifiedHere: verified,
+                proofCountAtCeremony: verifiedCount,
+                anchors: {
+                    senateHashEmpty: "0xdfde6ac5",
+                    senateHashShort: "0x7698b8ef",
+                    firstProposalHash: "0xfaa7ff6e",
+                    mitosisReceiptNoAttr: "0xd434e690",
+                    mitosisReceiptAttr: "0x3b881a47",
+                },
+            };
+            localStorage.setItem('omega_genesis_inscription', JSON.stringify(ceremony));
+            console.log(`📜 [GENESIS] Inscription persisted to localStorage:`, ceremony);
+            try {
+                const blob = new Blob(
+                    [JSON.stringify(ceremony, null, 2)],
+                    { type: 'application/json' },
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `omega_genesis_v1_0_${(genesisHash >>> 0).toString(16)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch { /* non-browser env */ }
+        }) as EventListener);
+
         // Era 1030: When the Senate accepts a proposal, materialize it as a tasks/ entry.
         globalThis.addEventListener('era1030-task-accepted', ((e: CustomEvent) => {
             const { hash, description, proposerMatrix, ayes, nays, proposedAt } = e.detail;

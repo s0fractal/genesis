@@ -20,6 +20,7 @@ pub mod attractor;
 pub mod senate;
 pub mod mitosis_proof;
 pub mod mitosis_log;
+pub mod genesis_inscription;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -743,6 +744,26 @@ pub extern "C" fn v2_senate_is_accepted(hash: u32) -> u32 {
         let idx = (*s).find(hash);
         if idx == usize::MAX { 0 } else if (*s).proposals[idx].is_accepted() { 1 } else { 0 }
     }
+}
+
+// ------------------------------------------------------------------------------
+// Era 1050: Genesis Inscription FFI
+// ------------------------------------------------------------------------------
+
+/// The frozen Genesis Hash for OMEGA-64 v1.0.
+/// Returns 0x549A6307 unless the kernel has drifted from the canonical anchors.
+#[no_mangle]
+pub extern "C" fn v2_genesis_hash_v1() -> u32 {
+    crate::genesis_inscription::GENESIS_HASH_V1_0
+}
+
+/// Compute the Genesis Hash from the lattice's current invariant state.
+/// Returns the same value as `v2_genesis_hash_v1` if no drift has occurred.
+#[no_mangle]
+pub extern "C" fn v2_genesis_hash_compute() -> u32 {
+    crate::genesis_inscription::compute_genesis_hash(
+        &crate::genesis_inscription::GenesisAnchors::V1_0,
+    )
 }
 
 /// Number of proposals that have transitioned to ACCEPTED state since boot.
