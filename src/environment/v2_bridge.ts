@@ -131,6 +131,43 @@ export class OmegaV2Engine {
     }
 
     // -----------------------------------------------------------------------
+    // ERA 970+ EpicyclicSoul Resonance Tensor Bridge
+    // -----------------------------------------------------------------------
+
+    public scanResonance(): { r_q10: number; sum_cos: bigint; sum_sin: bigint; total_energy: bigint; active_count: number } {
+        if (!this.wasmInstance) {
+            return { r_q10: 0, sum_cos: 0n, sum_sin: 0n, total_energy: 0n, active_count: 0 };
+        }
+        (this.wasmInstance.exports.v2_resonance_scan as CallableFunction)();
+        return {
+            r_q10: (this.wasmInstance.exports.v2_resonance_r_q10 as CallableFunction)() as number,
+            sum_cos: (this.wasmInstance.exports.v2_resonance_sum_cos as CallableFunction)() as bigint,
+            sum_sin: (this.wasmInstance.exports.v2_resonance_sum_sin as CallableFunction)() as bigint,
+            total_energy: (this.wasmInstance.exports.v2_resonance_total_energy as CallableFunction)() as bigint,
+            active_count: (this.wasmInstance.exports.v2_resonance_active_count as CallableFunction)() as number,
+        };
+    }
+
+    // -----------------------------------------------------------------------
+    // ERA 970+ Φ-Message Buffer (Compost / Intent / Delta)
+    // -----------------------------------------------------------------------
+
+    public getPhiBufferPtr(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_phi_buffer_ptr as CallableFunction)() as number;
+    }
+
+    public getPhiBufferLen(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_phi_buffer_len as CallableFunction)() as number;
+    }
+
+    public getPhiBufferDrops(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_phi_buffer_drops as CallableFunction)() as number;
+    }
+
+    // -----------------------------------------------------------------------
     // ERA 950+ Epigenetic Memory Bridge
     // -----------------------------------------------------------------------
 

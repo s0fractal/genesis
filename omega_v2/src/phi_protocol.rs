@@ -59,11 +59,10 @@ impl PhiMessage {
 
     /// Кодує подію compost (смерть агента).
     /// Liquid може перетворити це на новий Σ-нейрон.
+    /// Payload layout: (agent_id << 32) | genome — передає genome і agent_id в одному u64.
     pub fn encode_compost(agent: &PhaseAgentMinimal, agent_id: u64) -> Self {
-        // φ агента = його phase (фізичний кут)
-        // energy = його остання energy (як ρ повідомлення)
-        // payload = agent_id (для ідентифікації в Liquid)
-        Self::new(PHI_MSG_COMPOST, 0, agent.phase, agent.energy, agent_id)
+        let payload = (agent_id << 32) | (agent.genome as u64);
+        Self::new(PHI_MSG_COMPOST, 0, agent.phase, agent.energy, payload)
     }
 
     /// Кодує інтент як φ-повідомлення.
@@ -87,10 +86,13 @@ impl PhiMessage {
         Some((trace, tick))
     }
 
-    /// Декодує compost payload → agent_id
-    pub fn decode_compost(&self) -> Option<u64> {
+    /// Декодує compost payload → (genome, agent_id).
+    /// Payload layout: (agent_id << 32) | genome
+    pub fn decode_compost(&self) -> Option<(u32, u64)> {
         if self.msg_type != PHI_MSG_COMPOST { return None; }
-        Some(self.payload)
+        let genome = self.payload as u32;
+        let agent_id = self.payload >> 32;
+        Some((genome, agent_id))
     }
 
     /// Декодує intent payload → (intent_phase, intent_energy, intent_id)
@@ -232,7 +234,8 @@ mod tests {
         assert_eq!(msg.phi, 123);
         assert_eq!(msg.energy, 456);
 
-        let agent_id = msg.decode_compost().unwrap();
+        let (genome, agent_id) = msg.decode_compost().unwrap();
+        assert_eq!(genome, 0xCAFEBABE);
         assert_eq!(agent_id, 0xF00D);
     }
 

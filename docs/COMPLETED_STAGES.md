@@ -214,6 +214,17 @@
 - Enables STARK proofs for collective OMEGA dynamics — Liquid can verify
   resonance calculations cryptographically without trusting the host.
 
+### 7. Liquid Compost Consumer (TypeScript)
+- `src/liquid/compost_consumer.ts` — reads COMPOST events from Φ-Message Buffer.
+  - Parses `PhiMessage` directly from WASM memory (zero-copy).
+  - Tracks `write_head` watermark to avoid double-processing.
+  - Decodes payload: `(agent_id << 32) | genome` — preserving agent DNA for Σ-neuron training.
+  - Reports drop count (overflow) and pending count for telemetry.
+- `encode_compost()` updated to pack genome + agent_id into 64-bit payload.
+- `OmegaV2Engine` extended with `scanResonance()`, `getPhiBufferPtr/Len/Drops()`.
+- Completes the death → Σ-neuron lifecycle: OMEGA physics produces compost,
+  Liquid ontology consumes it for evolutionary training.
+
 ---
 
 ## 🌌 Era 100-200: Genesis & Bio-Acoustics

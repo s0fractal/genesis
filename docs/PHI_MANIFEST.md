@@ -212,6 +212,13 @@ Bitcoin обраний не через популярність. Bitcoin обр�
 - Комітує криптографічно верифіковані метрики: `r_q10`, `sum_cos`, `sum_sin`, `total_energy`.
 - Liquid може довіряти resonance-даним без довіри до host — STARK proof гарантує коректність обчислень.
 
+### `src/liquid/compost_consumer.ts` — Liquid Ontology Bridge
+- **CompostConsumer**: читає COMPOST повідомлення з Φ-Message Buffer (WASM memory).
+  - Zero-copy парсинг: читає `PhiMessage` напряму з `DataView` над WASM буфером.
+  - Payload decode: `(agent_id << 32) | genome` — зберігає повний DNA агента.
+  - Watermark tracking: `lastWriteHead` запобігає повторній обробці.
+- Завершує цикл смерть → Σ-нейрон: OMEGA виробляє compost, Liquid споживає для навчання.
+
 ### `omega_v2/src/phi_protocol.rs`
 - **PhiMessage** — уніфікований формат повідомлень (16 bytes, repr(C)).
   - HEARTBEAT: Golden Trace + absolute_tick
