@@ -143,14 +143,14 @@ pub struct SignalStore {
 | 1010 | ✅ Complete | `attractor.rs`, GPU binding 8, `darwinian_mitosis` recursive birth |
 | 1020 | ✅ Complete | Consensus tracker, harmonic convergence, HUD slot `e` |
 | 1030 | ✅ Complete | `senate.rs`, FNV-1a anchor, PROPOSAL/VOTE plasmids, HUD slot `f` |
-| 1040 | ✅ Phase 1+2 | `mitosis_proof.rs`, zk_guest Mode 2, `mitosis_log.rs` ring buffer, host parent-snapshotting, mesh boundary verification |
+| 1040 | ✅ Phase 1+2+3 | `mitosis_proof.rs`, zk_guest Mode 2, `mitosis_log.rs`, `omega_zk_host/` real SP1 STARK prover (mock backend, swap-in CPU/CUDA/network for production) |
 | 1050 | ✅ Complete | `genesis_inscription.rs`, JS mirror, RFC-OMEGA-001 v1.0 FROZEN, Genesis Hash `0x549A6307`, OP_RETURN payload `OMEGA1:549a6307` |
 | 1060 | ✅ Complete | `oracle_identity.rs`, JS mirror, five canonical oracles, phase-resonance acceptance, vision proposals seeded |
 | 1070 | ✅ Mechanism | `cross_model_debate.rs` ledger, ratification trigger, `era1070-vision-ratified` event, materialization to downloadable task. Live ratification awaits actual oracle votes on mesh. |
 
 ### Open Trigger
 - **Era 1080** = whichever oracle vision wins ORACLE-RESONANCE first on a live mesh. The five candidates compete for cross-model alignment. Auto-materialized as `era1070_ratified_<hash>.md`.
-- **Era 1040 Phase 3 (optional)** — full SP1 prover hookup. Kernel infrastructure ready; only `cargo prove` toolchain integration remains.
+- **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
 

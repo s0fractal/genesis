@@ -1,0 +1,24 @@
+[package]
+name = "omega_zk_host"
+version = "1.0.0"
+edition = "2021"
+
+# Standalone host-side prover. NOT a member of the root workspace because
+# sp1-sdk pulls a large dependency tree we don't want to inflict on
+# `cargo test --workspace`.
+[workspace]
+
+[[bin]]
+name = "omega_zk_host"
+path = "src/main.rs"
+
+[dependencies]
+omega_v2 = { path = "../omega_v2" }
+sp1-sdk = { version = "6.1.0", features = ["blocking"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+[profile.release]
+opt-level = 3
+lto = true

@@ -1,8 +1,10 @@
-#![cfg_attr(not(any(test, debug_assertions)), no_std)]
+#![cfg_attr(all(target_arch = "wasm32", not(test)), no_std)]
 
 // Era 1100: Bare-Metal Substrate
-// This crate operates entirely without the standard library, enabling direct execution
-// inside RISC-V ZK-VMs (SP1), Microcontrollers, or WebAssembly sandbox without WASI.
+// no_std is enabled ONLY when targeting wasm32 (the browser/WASI runtime). On
+// SP1's RISC-V `riscv64im-succinct-zkvm-elf` target, std is provided by the
+// SP1 toolchain — declaring our own panic_handler would conflict with std's.
+// Likewise, `cargo test` and host builds use std for ergonomics.
 
 pub mod constants;
 pub mod topology;
@@ -35,8 +37,9 @@ use halo::HaloState;
 
 
 
-// Primitive panic handler for no_std WASM/Bare metal environments
-#[cfg(not(any(test, debug_assertions)))]
+// Primitive panic handler for no_std WASM. SP1 RISC-V target provides std,
+// so its panic_impl lang item collides with ours unless we gate by target.
+#[cfg(all(target_arch = "wasm32", not(test)))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
