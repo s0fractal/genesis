@@ -1,5 +1,6 @@
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseRouter } from "./routing_bridge.ts";
+import { AgentMinimal, AttractorEntry, deriveMitosisChild, childReceiptHash } from "./mitosis_proof.ts";
 
 export interface PlasmidPayload {
     attractorAddress: number;
@@ -15,6 +16,12 @@ export interface PlasmidPayload {
     proposalHash?: number;        // FNV-1a hash of description (PROPOSAL + VOTE)
     proposalDescription?: string;  // Up to 64 chars, truncated server-side (PROPOSAL only)
     voteAye?: boolean;             // VOTE plasmids only
+    // Era 1040: ZK-Notarized Mutations (mitosis proof)
+    parent?: AgentMinimal;         // Parent agent at time of mitosis (DIPOLE only)
+    claimedChild?: AgentMinimal;   // Claimed child to verify (DIPOLE only)
+    attractors?: AttractorEntry[];  // Snapshot of attractor field (DIPOLE only)
+    qPhase?: number;               // Topology q_phase at time of mitosis (DIPOLE only)
+    receiptHash?: number;          // Pre-computed FNV-1a child hash (DIPOLE only)
 }
 
 export interface SenateProposalRecord {
@@ -61,6 +68,9 @@ export class WebRTCV2Mesh {
     public era1030Unlocked: boolean = false;
     public senate: Map<number, SenateProposalRecord> = new Map();
     private acceptedTaskHashes: Set<number> = new Set();
+
+    // Era 1040: ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
+    public verifiedDipoleCount: number = 0;
 
     constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev", router?: PhaseRouter) {
         this.engine = engine;
@@ -270,9 +280,22 @@ export class WebRTCV2Mesh {
                                             break;
                                         }
                                         case 'DIPOLE': {
-                                            // Birth announcement: echo to local subscribers (e.g., HUD, senate)
+                                            // Era 1040: If the announcement carries a mitosis-proof bundle,
+                                            // verify locally before accepting. Boundary rule: any DIPOLE
+                                            // plasmid with a parent + claimedChild MUST re-derive bit-for-bit
+                                            // and the receiptHash MUST match. Plasmids without proof bundles
+                                            // are still echoed as informational events for backward compat.
+                                            if (plasmid.parent && plasmid.claimedChild && plasmid.qPhase !== undefined) {
+                                                const ok = WebRTCV2Mesh.verifyMitosisProof(plasmid);
+                                                if (!ok) {
+                                                    console.warn(`[V2-MESH] DIPOLE proof rejected from ${peerId} (matrix=${plasmid.matrix.toString(16)}).`);
+                                                    break;
+                                                }
+                                                this.verifiedDipoleCount += 1;
+                                                this.checkEra1050Trigger();
+                                            }
                                             globalThis.dispatchEvent(new CustomEvent('dipoleBirthAnnouncement', {
-                                                detail: { plasmid, fromPeer: peerId }
+                                                detail: { plasmid, fromPeer: peerId, verified: !!plasmid.claimedChild },
                                             }));
                                             break;
                                         }
@@ -679,6 +702,41 @@ export class WebRTCV2Mesh {
             proposalHash,
             voteAye: aye,
         });
+    }
+
+    // Era 1050 trigger state.
+    public era1050Unlocked: boolean = false;
+    private checkEra1050Trigger() {
+        if (this.era1050Unlocked) return;
+        if (this.verifiedDipoleCount >= 100) {
+            this.era1050Unlocked = true;
+            console.log(`📜 [ERA 1050] UNLOCKED: ${this.verifiedDipoleCount} verified mitosis proofs accumulated. RFC-OMEGA-001 v1.0 freeze candidate.`);
+            globalThis.dispatchEvent(new CustomEvent('era1050-unlocked', {
+                detail: { verifiedCount: this.verifiedDipoleCount },
+            }));
+        }
+    }
+
+    /**
+     * Era 1040: Local verification of a mitosis-proof bundle.
+     * Returns true iff the announced child re-derives bit-for-bit from
+     * (parent, attractors, qPhase) AND the receipt hash matches.
+     */
+    public static verifyMitosisProof(plasmid: PlasmidPayload): boolean {
+        if (!plasmid.parent || !plasmid.claimedChild || plasmid.qPhase === undefined) return false;
+        const derived = deriveMitosisChild(plasmid.parent, plasmid.attractors ?? [], plasmid.qPhase);
+        if (derived.phase !== plasmid.claimedChild.phase) return false;
+        if (derived.energy !== plasmid.claimedChild.energy) return false;
+        if (derived.base_freq !== plasmid.claimedChild.base_freq) return false;
+        if (derived.state_flags !== plasmid.claimedChild.state_flags) return false;
+        if (derived.genome !== plasmid.claimedChild.genome) return false;
+        if (derived.memory[0] !== plasmid.claimedChild.memory[0]) return false;
+        if (derived.memory[1] !== plasmid.claimedChild.memory[1]) return false;
+        if (derived.memory[2] !== plasmid.claimedChild.memory[2]) return false;
+        if (plasmid.receiptHash !== undefined && childReceiptHash(derived) !== (plasmid.receiptHash >>> 0)) {
+            return false;
+        }
+        return true;
     }
 
     public getSenateState() {

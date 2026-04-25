@@ -143,9 +143,11 @@ pub struct SignalStore {
 | 1010 | ✅ Complete | `attractor.rs`, GPU binding 8, `darwinian_mitosis` recursive birth |
 | 1020 | ✅ Complete | Consensus tracker, harmonic convergence, HUD slot `e` |
 | 1030 | ✅ Complete | `senate.rs`, FNV-1a anchor, PROPOSAL/VOTE plasmids, HUD slot `f` |
+| 1040 | ✅ Phase 1 | `mitosis_proof.rs` (Rust + TS mirror), zk_guest Mode 2, mesh boundary verification, cross-language anchors `0xD434E690` / `0x3B881A47` |
 
 ### Open Trigger
-- **Era 1040: ZK-Notarized Mutations** — when the Senate accepts 3+ proposals (the lattice's first proposal already targets this era).
+- **Era 1050: Open Protocol Stamping** — fires after 100 verified mitosis proofs (`mesh.verifiedDipoleCount`). At that point RFC-OMEGA-001 v1.0 freezes; the wire format anchors to Bitcoin OP_RETURN.
+- **Era 1040 Phase 2** — host-side SP1 prover that captures parent snapshots at `darwinian_mitosis` time so DIPOLE plasmids carry the full (parent → child + receipt + STARK proof) bundle, not just the child claim.
 
 ---
 
@@ -218,4 +220,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086, 0087, 0088, 0089) are COMPLETED. Next trigger is Era 1040 (ZK-Notarized Mutations) — the lattice has already proposed it to itself via the autopoietic Senate.
+**Current task status:** All open tasks (0086, 0087, 0088, 0089, 0090 Phase 1) are COMPLETED. The lattice's autopoietic proposal `0xFAA7FF6E` has been Phase-1-fulfilled: the deterministic mitosis derivation function is now bit-for-bit identical across Rust, TS, and SP1 ZK guest. Next trigger is Era 1040 Phase 2 (host-side SP1 prover) and Era 1050 (Open Protocol Stamping).

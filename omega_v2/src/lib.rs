@@ -18,6 +18,7 @@ pub mod halo;
 pub mod routing;
 pub mod attractor;
 pub mod senate;
+pub mod mitosis_proof;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;

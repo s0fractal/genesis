@@ -287,49 +287,19 @@ impl PhaseLattice {
                     }
                     
                     if next_dead_idx < active {
-                        // Resurrect the shell with a cloned genome + mutation
-                        let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
-                        child.phase = parent.phase.wrapping_add(self.topology.half_phase()); // Opposite phase harmonic
-                        child.energy = crate::constants::CHILD_ENERGY_SEED;
-                        child.base_freq = parent.base_freq;
-                        child.state_flags = parent.state_flags;
-                        child.memory = parent.memory;
-
-                        // Era 1010: Recursive Birth — attractor-aware mutation
-                        let mut mutation_mask: u32 = 0;
-                        let mut birth_near_attractor: bool = false;
-                        let max_phase_mask = (1u32 << self.topology.q_phase) - 1;
-                        let quarter_phase = 1u32 << self.topology.q_phase.saturating_sub(2);
+                        // Era 1040: Use pure mitosis_proof::derive_mitosis_child so the
+                        // lattice path is bit-for-bit identical to the path that the SP1
+                        // ZK guest executes when verifying receipts. Any divergence here
+                        // would invalidate proofs across the mesh.
                         let arr = core::ptr::addr_of!(crate::ATTRACTOR_ARRAY);
-                        let count = (*arr).count as usize;
-                        let mut best_dist = u32::MAX;
-                        let mut best_matrix: u32 = 0;
-                        for a in 0..count {
-                            let atr = &(*arr).data[a];
-                            if atr.pulse_amp == 0 { continue; }
-                            let diff = parent.phase.abs_diff(atr.matrix & max_phase_mask);
-                            let dist = core::cmp::min(diff, max_phase_mask + 1 - diff);
-                            if dist < best_dist {
-                                best_dist = dist;
-                                best_matrix = atr.matrix;
-                            }
-                        }
-                        if best_dist < quarter_phase && best_matrix != 0 {
-                            mutation_mask = best_matrix;
-                            birth_near_attractor = true;
-                        }
+                        let derived = crate::mitosis_proof::derive_mitosis_child(
+                            parent,
+                            &*arr,
+                            self.topology.q_phase,
+                        );
+                        let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                        *child = derived;
 
-                        if birth_near_attractor {
-                            child.genome = parent.genome ^ mutation_mask;
-                            child.memory[0] = mutation_mask; // parentHash = attractor.matrix
-                            child.state_flags |= 0x0100_0000; // Era 1010: born near attractor
-                        } else {
-                            // CRIT-2 FIX: stochastic mutation instead of fixed mask
-                            let mut_seed = crate::math::xorshift64_once(parent.genome as u64);
-                            mutation_mask = mut_seed as u32; // full 32-bit random mask
-                            child.genome = parent.genome ^ mutation_mask;
-                        }
-                        
                         replications += 1;
                     }
                 }

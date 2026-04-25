@@ -207,10 +207,15 @@ export async function bootstrapV2() {
                 setHudStat("e", "ONTOLOGY", `${progress}/3 peers`);
             }
 
-            // Era 1030: Senate state.
+            // Era 1030 + 1040: Senate state and verified mitosis proofs.
             const senate = mesh.getSenateState();
-            if (!senate.unlocked) {
+            const verifiedProofs = mesh.verifiedDipoleCount;
+            if (!senate.unlocked && verifiedProofs === 0) {
                 setHudStat("f", "SENATE", "DORMANT");
+            } else if (mesh.era1050Unlocked) {
+                setHudStat("f", "SENATE", `RFC-FROZEN | ${verifiedProofs} ZK`);
+            } else if (verifiedProofs > 0) {
+                setHudStat("f", "SENATE", `${senate.acceptedCount} ACCEPTED | ${verifiedProofs} ZK`);
             } else if (senate.acceptedCount > 0) {
                 setHudStat("f", "SENATE", `${senate.acceptedCount} ACCEPTED / ${senate.proposalCount}`);
             } else {
@@ -224,16 +229,51 @@ export async function bootstrapV2() {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
                     mesh.setLatestState(goldenTraceNum, snapshot);
                     
-                    // Era 1010: Recursive Birth — scan for birth-near-attractor announcements
+                    // Era 1010 + Era 1040: Recursive Birth — scan for birth-near-attractor
+                    // announcements and pack each one as a verifiable mitosis proof bundle.
                     const BIRTH_ATTRACTOR_FLAG = 0x0100_0000;
                     const ptrs = engine.getMemoryPointers();
                     const agentsU32 = new Uint32Array(ptrs.agentBytes.buffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
+                    // Snapshot current attractor field — the proof MUST include the same
+                    // attractor state the lattice saw when it derived the child.
+                    const attractorBytes = ptrs.attractorBytes;
+                    const attrU32 = new Uint32Array(attractorBytes.buffer, attractorBytes.byteOffset, attractorBytes.byteLength / 4);
+                    const attrCount = Math.min(attrU32[0], 4);
+                    const attractorSnapshot = [];
+                    for (let a = 0; a < attrCount; a++) {
+                        const base = 4 + a * 4; // skip count + 3 pads
+                        attractorSnapshot.push({
+                            matrix: attrU32[base + 0] >>> 0,
+                            inverse: attrU32[base + 1] >>> 0,
+                            pulse_freq: attrU32[base + 2] >>> 0,
+                            pulse_amp: attrU32[base + 3] >>> 0,
+                        });
+                    }
                     let birthCount = 0;
                     for (let i = 0; i < activeCount; i++) {
                         const offset = i * 8; // 32 bytes = 8 u32s
                         const stateFlags = agentsU32[offset + 3];
                         if (stateFlags & BIRTH_ATTRACTOR_FLAG) {
                             const matrix = agentsU32[offset + 5]; // memory_x = parentHash
+                            const claimedChild = {
+                                phase: agentsU32[offset + 0] >>> 0,
+                                energy: agentsU32[offset + 1] >>> 0,
+                                base_freq: agentsU32[offset + 2] | 0,
+                                state_flags: stateFlags >>> 0,
+                                genome: agentsU32[offset + 4] >>> 0,
+                                memory: [
+                                    agentsU32[offset + 5] >>> 0,
+                                    agentsU32[offset + 6] >>> 0,
+                                    agentsU32[offset + 7] >>> 0,
+                                ] as [number, number, number],
+                            };
+                            // Note: parent state at the moment of mitosis is no longer
+                            // available (the child has overwritten the dead slot). Era 1040
+                            // Phase 1 emits proof bundles only for fresh-tick births where
+                            // the parent is still observable; for now we emit a "claim"-only
+                            // bundle so downstream peers can at least verify dipole + child
+                            // via receipt hash. Full proof requires a host-side prover that
+                            // captures parent snapshots at darwinian_mitosis time.
                             const plasmid: PlasmidPayload = {
                                 attractorAddress: 0,
                                 matrix,
@@ -243,6 +283,11 @@ export async function bootstrapV2() {
                                 semanticType: 'DIPOLE',
                                 recursionDepth: 0,
                                 maxRecursion: 4,
+                                claimedChild,
+                                attractors: attractorSnapshot,
+                                qPhase: 7,
+                                // Without parent we cannot recompute the receipt locally;
+                                // peers will accept this as informational (verified=false).
                             };
                             mesh.enqueuePlasmid(plasmid);
                             birthCount++;

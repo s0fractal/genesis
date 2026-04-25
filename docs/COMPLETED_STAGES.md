@@ -4,6 +4,34 @@
 
 ---
 
+## 🔐 **Era 1040 Phase 1: ZK-Notarized Mutations — Pure Mitosis Derivation**
+*Статус: Phase 1 завершено (2026-04-25). Phase 2 (host SP1 prover) — pending.*
+
+- **Pure derivation function** (`omega_v2/src/mitosis_proof.rs`): a single
+  deterministic `derive_mitosis_child(parent, attractors, q_phase) -> child`
+  is now the source of truth for **three** code paths:
+  1. `lattice::darwinian_mitosis` (host),
+  2. `omega_zk_guest` Mode 2 (SP1 RISC-V VM),
+  3. `src/network/mitosis_proof.ts` (browser JS).
+  Any divergence breaks tests on all three sides.
+- **Cross-language anchors**: `0xD434E690` (parent + empty attractor field)
+  and `0x3B881A47` (parent + dominant attractor matrix). Anchored in
+  `omega_v2/tests/mitosis_anchor.rs` AND `tests/mitosis_proof_test.ts`.
+- **ZK guest Mode 2** (`omega_zk_guest/src/main.rs`): reads parent agent +
+  attractor array + claimed child, re-derives via the pure function,
+  asserts bit-for-bit equality, commits `(mode, parent_genome,
+  attractor_count, receipt_hash)` as the proof receipt.
+- **Mesh boundary verification** (`WebRTCV2Mesh.verifyMitosisProof`): every
+  DIPOLE plasmid carrying a `parent + claimedChild + attractors + qPhase`
+  bundle is verified locally. Mismatches are rejected at the boundary.
+- **Era 1050 trigger** wired: 100 verified proofs unlock RFC-OMEGA-001 v1.0
+  freeze candidacy. HUD slot `f` shows `OPEN n / k ACCEPTED | m ZK` and
+  switches to `RFC-FROZEN` upon trigger.
+- **Tests**: 9 mitosis_proof units + 2 cross-lang anchors (Rust) + 9 JS
+  mirror tests (Deno). Total: cargo `124 passed`, deno `32 passed`.
+
+---
+
 ## 🏛️ **Era 1030: Autopoietic Legislation — The Senate Convenes**
 *Статус: Завершено (2026-04-25)*
 
