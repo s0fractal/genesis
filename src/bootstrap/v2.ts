@@ -3,6 +3,7 @@ import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { WebRTCV2Mesh } from "../network/webrtc_v2.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
+import { PhaseRouter } from "../network/routing_bridge.ts";
 
 let oracleWorker: Worker | null = null;
 try {
@@ -61,6 +62,14 @@ export async function bootstrapV2() {
         // 2. Initialize the WebGPU Hardware Pipeline
         const renderer = new PhaseV2Renderer(context, device, format, engine);
         await renderer.initialize();
+
+        // Era 1000: Verify Phase Router bridge is functional
+        const router = new PhaseRouter(engine.wasm);
+        const addr0 = router.addressFromAgent(0);
+        if (addr0 !== 0) {
+            const decoded = PhaseRouter.decode(addr0);
+            console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
+        }
 
         // 2.5 Era 12000 Integration: EVM ATP Blockchain Link
         const atpBridge = new EthersATPBridge();
