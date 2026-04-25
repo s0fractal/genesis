@@ -301,10 +301,14 @@ LCG з period 2^32. Кореляції між сусідніми виклика�
 `(to_theta + 256 - from_theta) % 256` — `% 256` на гарячому шляху.  
 **Виправлення:** `sin_q10` і `cos_q10` тепер використовують `& 0xFF` замість `% 256`.
 
-### HIGH-4: Космічна ентропія — magic mapping (F-26) ✅ FIXED
+### HIGH-4: Космічна ентропія — magic mapping + Math.random (F-26) ✅ FIXED
 **Файл:** `src/network/atp_bridge.ts:161`  
 `kuramoto_base = 100 + (val1 % 2900)` — діапазон [100, 2999]. Без явних констант.  
-**Виправлення:** Винесено magic numbers у named constants (`KURAMOTO_BASE_MIN`, `KURAMOTO_BASE_RANGE`, `KURAMOTO_DIFF_MIN`, `KURAMOTO_DIFF_RANGE`, `Q10_MAX_KURAMOTO`, `Q10_MAX_DIFFUSION`, `EVM_BLOCK_TIME_MS`, `MOCK_NETWORK_DELAY_MS`).
+**Виправлення (частина 1):** Винесено magic numbers у named constants (`KURAMOTO_BASE_MIN`, `KURAMOTO_BASE_RANGE`, `KURAMOTO_DIFF_MIN`, `KURAMOTO_DIFF_RANGE`, `Q10_MAX_KURAMOTO`, `Q10_MAX_DIFFUSION`, `EVM_BLOCK_TIME_MS`, `MOCK_NETWORK_DELAY_MS`).
+
+**Файл:** `src/network/atp_bridge.ts:89-91`  
+`Math.random()` у `MockATPBridge.subscribeToCosmicEntropy` — non-deterministic, неперевірюваний, не відповідає Rust kernel RNG.  
+**Виправлення (частина 2):** Створено `src/math/xorshift.ts` — порт xorshift64* з `omega_v2/src/math.rs` на TypeScript (BigInt). `MockATPBridge` тепер використовує `Xorshift64TS` з seedable deterministic entropy. 7 TS unit tests verify determinism, bounds, period, hex output.
 
 ### HIGH-5: Асинхронна консонанс-функція (F-24) ✅ FIXED
 **Файл:** `src/compiler/pure_lambda.ts:99`  

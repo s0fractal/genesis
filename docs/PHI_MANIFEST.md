@@ -219,6 +219,13 @@ Bitcoin обраний не через популярність. Bitcoin обр�
   - Watermark tracking: `lastWriteHead` запобігає повторній обробці.
 - Завершує цикл смерть → Σ-нейрон: OMEGA виробляє compost, Liquid споживає для навчання.
 
+### `src/math/xorshift.ts` — TypeScript RNG Mirror (HIGH-4)
+- **Xorshift64TS**: порт xorshift64* на TypeScript (BigInt), ідентичний алгоритм Rust kernel.
+- `nextU32()`, `nextRange(max)`, `nextHex(byteLen)`, `createSeededRng(string|number|bigint)`.
+- Використовується в `MockATPBridge` замість `Math.random()` — детермінована ентропія.
+- Гарантує однакові spectral properties на обох боках WASM/TS boundary.
+- 7 TS unit tests: determinism, bounds, hex output, string seed, no early repeat.
+
 ### `omega_v2/src/halo.rs` — Distributed Federation Halo
 - **HaloState**: лівий/правий boundary агенти для distributed toroidal lattice.
   - `extract()`: захоплює local boundary з монотонним sequence counter.

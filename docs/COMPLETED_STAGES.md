@@ -156,6 +156,7 @@
 - Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
 - Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
 - `cargo test --workspace --lib` passes 52/52 tests (omega_v2), `clippy --workspace -D warnings` clean.
+- `deno test tests/xorshift_test.ts`: 7/7 TS tests pass.
 
 ### 6. TypeScript FFI Declarations
 - Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
@@ -240,6 +241,14 @@
 - FFI exports: `v2_halo_extract`, `v2_halo_left/right_ptr`, `v2_halo_inject`.
 - Enables WebRTC-based cross-node sync: Node A's right boundary → Node B's left halo.
 - 4 unit tests (extract, empty, connected, sequence increments).
+
+### 10. HIGH-4 FIX: Deterministic TS RNG (xorshift64*)
+- `src/math/xorshift.ts` — TypeScript port of Rust `omega_v2/src/math.rs` xorshift64*.
+  - BigInt-based, period 2^64-1, SplitMix64 seeding, identical algorithm to kernel.
+  - `nextU32()`, `nextRange(max)`, `nextHex(byteLen)`, `createSeededRng(seed)`.
+- `MockATPBridge` updated: `Math.random()` → `Xorshift64TS` with seedable entropy.
+- 7 TS unit tests: determinism, different seeds, bounds, hex length/ determinism,
+  string seed hashing, no early repeat (< 10000 steps).
 
 ---
 

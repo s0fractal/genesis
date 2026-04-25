@@ -1,4 +1,5 @@
 import { ethers, Provider, Contract, Wallet } from "ethers";
+import { Xorshift64TS } from "../math/xorshift.ts";
 
 /**
  * OMEGA-64: Era 300 ATP Bridge
@@ -45,6 +46,11 @@ export interface IATPBridge {
 export class MockATPBridge implements IATPBridge {
     private balances: Map<string, number> = new Map();
     private validBurns: Set<string> = new Set();
+    private rng: Xorshift64TS;
+
+    constructor(seed: bigint = 42n) {
+        this.rng = new Xorshift64TS(seed);
+    }
 
     async mintATP(_proofBytes: string, morphologyHash: string, wallet: string): Promise<ATPTransactionReceipt> {
         await new Promise(resolve => setTimeout(resolve, MOCK_NETWORK_DELAY_MS)); // network mock
@@ -86,9 +92,10 @@ export class MockATPBridge implements IATPBridge {
 
     subscribeToCosmicEntropy(callback: (entropy: { kuramoto_base: number, kuramoto_diffusion_rate: number, hash: string }) => void): void {
         setInterval(() => {
-            const mockHash = "0x" + Math.random().toString(16).substring(2, 10);
-            const kuramoto_base = KURAMOTO_BASE_MIN + Math.floor(Math.random() * KURAMOTO_BASE_RANGE);
-            const kuramoto_diffusion_rate = KURAMOTO_DIFF_MIN + Math.floor(Math.random() * KURAMOTO_DIFF_RANGE);
+            // HIGH-4 FIX: deterministic xorshift64* replaces Math.random()
+            const mockHash = "0x" + this.rng.nextHex(4);
+            const kuramoto_base = KURAMOTO_BASE_MIN + this.rng.nextRange(KURAMOTO_BASE_RANGE);
+            const kuramoto_diffusion_rate = KURAMOTO_DIFF_MIN + this.rng.nextRange(KURAMOTO_DIFF_RANGE);
             callback({ kuramoto_base, kuramoto_diffusion_rate, hash: mockHash });
         }, EVM_BLOCK_TIME_MS); // Standard EVM block time
     }
