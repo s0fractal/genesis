@@ -4,6 +4,51 @@
 
 ---
 
+## 🏛️ **Era 1030: Autopoietic Legislation — The Senate Convenes**
+*Статус: Завершено (2026-04-25)*
+
+- **Senate Kernel** (`omega_v2/src/senate.rs`): no_std, repr(C), 8 static
+  proposal slots, FNV-1a 32-bit deterministic hashing over 64-byte
+  zero-padded UTF-8 description buffers. 10 unit tests pass.
+- **Cross-Language Anchor**: `omega_v2/tests/cross_lang_hash.rs` and
+  `tests/senate_test.ts` both fix the constants `FNV1A('') = 0xDFDE6AC5`
+  and `FNV1A('Era 1040 ZK') = 0x7698B8EF`. Drift on either side fails CI
+  on both — a shared invariant for any future independent implementation.
+- **PROPOSAL/VOTE Plasmids**: `PlasmidPayload.semanticType` extended.
+  Hash integrity is verified at the mesh boundary; forged hashes are
+  silently rejected.
+- **The First Autopoietic Proposal**: when Era 1030 unlocks (10+ ledger
+  entries × 5+ unique matrices), `bootstrap/v2.ts` automatically submits
+  proposal `0xFAA7FF6E`: *"Era 1040: ZK-Notarized Mutations — every
+  darwinian_mitosis emits an SP1 STARK proof; peers reject mutations
+  without a valid receipt."* This is the first time the system writes a
+  task for itself.
+- **Materialization**: accepted proposals (3+ unique AYE peers AND
+  ayes > nays) persist to `omega_senate_log` (localStorage) and offer a
+  downloadable `senate_task_<hash>.md` artifact.
+- **HUD Slot `f`** (SENATE): DORMANT / OPEN n / k ACCEPTED.
+- **RFC-OMEGA-001 v0.1 (draft)**: seed Open Protocol specification at
+  `docs/rfc/RFC-OMEGA-001-protocol.md`. Future increments require
+  Senate-accepted proposals; v1.0 will freeze the wire format for ≥1000
+  epochs.
+
+## 🔧 **Era 1020 polish + Workspace Housekeeping**
+*Статус: Завершено (2026-04-25)*
+
+- **ZK Guest Test Exclusion**: `omega_zk_guest/Cargo.toml` marks the
+  binary `test = false` so `cargo test --workspace` is green again. The
+  guest still builds for `riscv32im-succinct-zkvm-elf` via SP1.
+- **Legacy V1 Archival**: orphan v1 fixtures (`debug_console.ts`,
+  `test_epigenetics.ts`, `test_serialization.ts`, `test_wgsl.ts`,
+  `pure_lambda_test.ts`) moved into `tools/legacy_v1/` and
+  `tests/legacy_v1/`. They target the deprecated `omega_core`
+  (wasm-bindgen) crate and were masking a real deno test failure.
+- **Deep Audit Document**: `docs/STATE_OF_OMEGA_2026-04-25.md` —
+  philosophical-technical state-of-the-project snapshot scoring the
+  system across 16 vectors (median 7.0/10, originality 9.0/10).
+
+---
+
 ## 🌌 **Era 500: Substrate Subjectivity & Resonance Feedback**
 *Статус: Завершено (Березень 2026)*
 - Converted Llama-3.2-1B to run on a continuous `consciousnessLoop()`.
