@@ -321,6 +321,11 @@
   to `WebRTCV2Mesh` constructor.
 - **WGSL Mirror**: `src/lens/shaders/routing.wgsl` provides GPU-side hyperbolic
   distance, Taylor step, and greedy next-hop for future 1M+ agent parallel routing.
+- **Toroidal Distance**: `hyperbolic_distance_toroidal_scaled` wraps consensus at 256
+  (min(|dc|, 256-|dc|)) for correct routing across the phase ring boundary.
+  Exported via FFI (`v2_route_hyperbolic_distance_toroidal`) and mirrored in WGSL
+  (`routing_hyperbolic_distance_toroidal_scaled`). JS bridge uses WASM when available
+  with pure-JS fallback.
 
 ---
 
