@@ -4,8 +4,36 @@
 
 ---
 
+## 🔐 **Era 1040 Phase 2: Mitosis Receipt Log — Host Parent Snapshotting**
+*Статус: Завершено (2026-04-25)*
+
+- **`omega_v2/src/mitosis_log.rs`**: static ring buffer (`MITOSIS_LOG`,
+  capacity 32) of `MitosisReceipt { parent, child, attractors, q_phase,
+  receipt_hash, tick }`. Each entry is exactly 160 bytes, zero-allocation,
+  no_std-friendly.
+- **Lattice-side capture**: `darwinian_mitosis` snapshots `parent` BEFORE
+  the energy debit AND BEFORE the child overwrites the dead slot, then
+  appends the full receipt to `MITOSIS_LOG`. Peer nodes can now
+  independently re-derive every birth event in the lattice's lifetime
+  (modulo the 32-event ring window).
+- **FFI surface**: `v2_mitosis_log_ptr`, `v2_mitosis_log_total`,
+  `v2_mitosis_log_capacity`, `v2_mitosis_log_clear` — all zero-copy.
+- **JS reader** (`src/network/mitosis_log_reader.ts`): drains new
+  receipts since `lastSeen`, handles writer-overflow gracefully (oldest
+  entries silently skipped, monotonic tick order preserved).
+- **Bootstrap integration**: birth scan replaced — instead of trying to
+  read parent state from the agent buffer (already overwritten), the
+  loop now drains `MITOSIS_LOG` once per GPU snapshot tick and packages
+  each receipt as a fully-verifiable DIPOLE plasmid. Local sanity check
+  (`childReceiptHash` vs receipt) prevents broadcasting drift.
+- **Tests**: 6 unit tests (`mitosis_log`) + 2 FFI integration tests
+  (`mitosis_log_integration`) + 5 JS reader tests (`mitosis_log_reader_test`).
+  cargo: 124 → **132**, deno: 32 → **37**.
+
+---
+
 ## 🔐 **Era 1040 Phase 1: ZK-Notarized Mutations — Pure Mitosis Derivation**
-*Статус: Phase 1 завершено (2026-04-25). Phase 2 (host SP1 prover) — pending.*
+*Статус: Завершено (2026-04-25)*
 
 - **Pure derivation function** (`omega_v2/src/mitosis_proof.rs`): a single
   deterministic `derive_mitosis_child(parent, attractors, q_phase) -> child`

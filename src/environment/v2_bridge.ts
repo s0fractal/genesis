@@ -104,6 +104,9 @@ export class OmegaV2Engine {
         const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
         const deltaPtr = (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
         const attractorPtr = (exports.v2_attractor_array_ptr as CallableFunction)() as number;
+        // Era 1040 Phase 2: Mitosis receipt log (16-byte aligned ring buffer).
+        const mitosisLogPtrFn = exports.v2_mitosis_log_ptr as CallableFunction | undefined;
+        const mitosisLogPtr = mitosisLogPtrFn ? (mitosisLogPtrFn() as number) : 0;
 
         // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=128 -> Total 160 bytes)
         const LATTICE_UNIFORM_SIZE = 160;
@@ -117,14 +120,32 @@ export class OmegaV2Engine {
         // Update Darwinian limits down to the WASM bottleneck if necessary
         this.currentTopology.maxAllocatedAgents = Math.floor(actualBytes / 16);
 
+        // MitosisLog: head(4) + total_written(4) + _pad(8) + 32 × MitosisReceipt(160).
+        // Receipt layout: parent(32) + child(32) + attractors(80) + q_phase(4) + receipt_hash(4) + tick(4) + _pad(4).
+        const MITOSIS_LOG_HEADER = 16;
+        const MITOSIS_RECEIPT_SIZE = 160;
+        const MITOSIS_LOG_CAPACITY = 32;
+        const MITOSIS_LOG_BYTES = MITOSIS_LOG_HEADER + MITOSIS_RECEIPT_SIZE * MITOSIS_LOG_CAPACITY;
+
         return {
             uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
             agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
             sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
             deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16),
             attractorBytes: new Uint8Array(this.memory.buffer, attractorPtr, 80),
-            wasmMemoryBuffer: this.memory.buffer 
+            mitosisLogBytes: mitosisLogPtr !== 0
+                ? new Uint8Array(this.memory.buffer, mitosisLogPtr, MITOSIS_LOG_BYTES)
+                : null,
+            wasmMemoryBuffer: this.memory.buffer
         };
+    }
+
+    /** Era 1040 Phase 2: total mitosis receipts written since boot. */
+    public getMitosisLogTotal(): number {
+        if (!this.wasmInstance) return 0;
+        const fn = this.wasmInstance.exports.v2_mitosis_log_total as CallableFunction | undefined;
+        if (!fn) return 0;
+        return fn() as number;
     }
 
     public injectCosmicEntropy(rawHashBigInt: bigint) {

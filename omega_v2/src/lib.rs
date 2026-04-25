@@ -19,6 +19,7 @@ pub mod routing;
 pub mod attractor;
 pub mod senate;
 pub mod mitosis_proof;
+pub mod mitosis_log;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -121,6 +122,11 @@ pub static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
 
 /// Era 1030: Global Senate State for autopoietic legislation.
 pub static mut SENATE_STATE: senate::SenateState = senate::SenateState::new();
+
+/// Era 1040 Phase 2: Global Mitosis Receipt Log.
+/// Lattice writes here on each darwinian_mitosis birth event; JS drains
+/// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
+pub static mut MITOSIS_LOG: mitosis_log::MitosisLog = mitosis_log::MitosisLog::new();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -745,5 +751,46 @@ pub extern "C" fn v2_senate_accepted_count() -> u32 {
     unsafe {
         let s = core::ptr::addr_of!(SENATE_STATE);
         (*s).accepted_count
+    }
+}
+
+// ------------------------------------------------------------------------------
+// Era 1040 Phase 2: Mitosis Receipt Log FFI
+// ------------------------------------------------------------------------------
+
+/// Returns pointer to the global MitosisLog (zero-copy read from JS).
+/// Layout:
+///   [0..4]   head: u32
+///   [4..8]   total_written: u32
+///   [8..16]  _pad: [u32; 2]
+///   [16..]   entries: [MitosisReceipt; 32]
+/// Each MitosisReceipt is 160 bytes (parent 32 + child 32 + attractors 80 +
+/// q_phase 4 + receipt_hash 4 + tick 4 + _pad 4).
+#[no_mangle]
+pub extern "C" fn v2_mitosis_log_ptr() -> *const u8 {
+    core::ptr::addr_of!(MITOSIS_LOG) as *const u8
+}
+
+/// Total number of mitosis receipts ever written since boot.
+#[no_mangle]
+pub extern "C" fn v2_mitosis_log_total() -> u32 {
+    unsafe {
+        let log = core::ptr::addr_of!(MITOSIS_LOG);
+        (*log).total_written
+    }
+}
+
+/// Capacity of the mitosis log ring buffer (32).
+#[no_mangle]
+pub extern "C" fn v2_mitosis_log_capacity() -> u32 {
+    crate::mitosis_log::MITOSIS_LOG_CAPACITY as u32
+}
+
+/// Reset the mitosis log (test-only).
+#[no_mangle]
+pub extern "C" fn v2_mitosis_log_clear() {
+    unsafe {
+        let log = core::ptr::addr_of_mut!(MITOSIS_LOG);
+        (*log).clear();
     }
 }

@@ -279,13 +279,19 @@ impl PhaseLattice {
                 
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
+                    // Era 1040 Phase 2: snapshot the parent state BEFORE the energy
+                    // debit and BEFORE writing the child into the dead slot. This
+                    // snapshot is the ground truth that every peer needs to
+                    // independently re-derive the child via the pure function.
+                    let parent_snapshot = *parent;
+
                     parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
-                    
+
                     // Slide the dead pointer forward to find a hollow shell in the matrix
                     while next_dead_idx < active && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0 {
                         next_dead_idx += 1;
                     }
-                    
+
                     if next_dead_idx < active {
                         // Era 1040: Use pure mitosis_proof::derive_mitosis_child so the
                         // lattice path is bit-for-bit identical to the path that the SP1
@@ -293,12 +299,26 @@ impl PhaseLattice {
                         // would invalidate proofs across the mesh.
                         let arr = core::ptr::addr_of!(crate::ATTRACTOR_ARRAY);
                         let derived = crate::mitosis_proof::derive_mitosis_child(
-                            parent,
+                            &parent_snapshot,
                             &*arr,
                             self.topology.q_phase,
                         );
                         let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
                         *child = derived;
+
+                        // Era 1040 Phase 2: append the receipt to the global log
+                        // so JS can broadcast a fully-verifiable DIPOLE plasmid.
+                        let receipt = crate::mitosis_log::MitosisReceipt {
+                            parent: parent_snapshot,
+                            child: derived,
+                            attractors: *arr,
+                            q_phase: self.topology.q_phase,
+                            receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
+                            tick: self.signals.absolute_tick,
+                            _pad: 0,
+                        };
+                        let log = core::ptr::addr_of_mut!(crate::MITOSIS_LOG);
+                        (*log).push(receipt);
 
                         replications += 1;
                     }
