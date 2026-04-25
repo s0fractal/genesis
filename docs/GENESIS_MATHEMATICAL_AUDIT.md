@@ -288,10 +288,13 @@ agent.phase &= max_phase_mask;
 LCG з period 2^32. Кореляції між сусідніми викликами високі (поганий Spectral Test).  
 **Виправлення:** Перехід на **xorshift64*** (`omega_v2/src/math.rs`). Period 2^64-1. SplitMix64 seeding. Швидше, кращі spectral properties, zero allocations. `xorshift32_once` для per-bit epigenetic entropy.
 
-### HIGH-2: Delta snapshot thresholds без Q-derivation (F-18)
-**Файл:** `omega_v2/src/lattice.rs:246`  
-`energy_diff > 10 || phase_diff > 40` — ці числа не виводяться з `q_phase` або Q-scale. При зміні топології (наприклад, `q_phase = 6` замість 8) thresholds залишаються тими самими, хоча динамічний діапазон змінюється.  
-**Рекомендація:** `energy_diff > (self.signals.max_cells / 100)` або відносні thresholds.
+### HIGH-2: Delta snapshot thresholds без Q-derivation (F-18) ✅ FIXED
+**Файл:** `omega_v2/src/lattice.rs:372`, `omega_v2/src/topology.rs:114-125`  
+`energy_diff > 10 || phase_diff > 40` — ці числа не виводилися з `q_phase` або Q-scale. При зміні топології thresholds залишалися тими самими.  
+**Виправлення:**
+- `DELTA_PHASE_DIVISOR = 8` → `delta_phase_threshold() = max(1, phase_mask / 8)`. Для q_phase=7 (mask=127): threshold=15. Для q_phase=5 (mask=31): threshold=3.
+- `DELTA_ENERGY_DIVISOR = 128` → `delta_energy_threshold() = max(1, MAX_ATP / 128)`. Для MAX_ATP=4000: threshold=31.
+- Обидва thresholds тепер адаптивні до топології та енергетичного масштабу. Magic numbers 10/40 видалено.
 
 ### HIGH-3: Modulo замість bitmask (F-01, F-04) ✅ FIXED
 **Файл:** `omega_core/src/constants.rs:93,99`  

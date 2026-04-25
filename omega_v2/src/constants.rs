@@ -48,11 +48,13 @@ pub const ENERGY_DECAY_PER_TICK: u32 = 1;
 /// Phase drift divisor: base_freq >> Q_SHIFT applied per tick
 pub const PHASE_DRIFT_Q_SHIFT: u32 = 20;
 
-// --- Delta Snapshot Thresholds ---
-/// Minimum energy difference to trigger a delta broadcast
-pub const DELTA_ENERGY_THRESHOLD: u32 = 10;
-/// Minimum phase difference to trigger a delta broadcast
-pub const DELTA_PHASE_THRESHOLD: u32 = 40;
+// --- Delta Snapshot Thresholds (HIGH-2 FIX: Q-derived from topology) ---
+/// Divisor for adaptive phase threshold: threshold = phase_mask / DIVISOR
+/// Represents "1/8 of full period is a significant phase change".
+pub const DELTA_PHASE_DIVISOR: u32 = 8;
+/// Divisor for adaptive energy threshold: threshold = MAX_ATP / DIVISOR
+/// Represents "1/128 of max capacity is a significant energy change".
+pub const DELTA_ENERGY_DIVISOR: u32 = 128;
 
 // --- Golden Trace ---
 /// Target number of samples for golden trace fingerprinting
@@ -79,5 +81,10 @@ mod tests {
         assert!(RESONANCE_PHASE_MODULUS.is_power_of_two(),
             "Resonance modulus must be power-of-2");
         // xorshift64* parameters are hardcoded in math.rs (SplitMix64 + xorshift)
+        // HIGH-2: Divisors must be positive
+        assert!(DELTA_PHASE_DIVISOR > 0, "Phase divisor must be positive");
+        assert!(DELTA_ENERGY_DIVISOR > 0, "Energy divisor must be positive");
+        // HIGH-2: Adaptive thresholds must be non-zero
+        assert!(MAX_ATP / DELTA_ENERGY_DIVISOR > 0, "Energy threshold would be zero");
     }
 }

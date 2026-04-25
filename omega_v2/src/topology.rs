@@ -106,4 +106,55 @@ impl PhaseTopology {
     pub fn phase_mask(&self) -> u32 {
         (1u32 << self.q_phase) - 1
     }
+
+    /// HIGH-2 FIX: Adaptive phase delta threshold derived from q_phase.
+    /// threshold = max(1, phase_mask / DELTA_PHASE_DIVISOR)
+    /// For q_phase=7 (mask=127): threshold = 15. For q_phase=5 (mask=31): threshold = 3.
+    #[inline(always)]
+    pub fn delta_phase_threshold(&self) -> u32 {
+        let mask = self.phase_mask();
+        core::cmp::max(1, mask / crate::constants::DELTA_PHASE_DIVISOR)
+    }
+
+    /// HIGH-2 FIX: Adaptive energy delta threshold derived from energy scale.
+    /// threshold = max(1, MAX_ATP / DELTA_ENERGY_DIVISOR)
+    /// With MAX_ATP=4000: threshold = 31.
+    #[inline(always)]
+    pub fn delta_energy_threshold(&self) -> u32 {
+        core::cmp::max(1, crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_delta_phase_threshold_adaptive() {
+        // q_phase=2 (mask=3): threshold = max(1, 3/8) = 1
+        let t2 = PhaseTopology::new(2, 2, 2, 20);
+        assert_eq!(t2.delta_phase_threshold(), 1, "Low q_phase should have minimum threshold");
+
+        // q_phase=5 (mask=31): threshold = max(1, 31/8) = 3
+        let t5 = PhaseTopology::new(5, 5, 5, 20);
+        assert_eq!(t5.delta_phase_threshold(), 3, "q_phase=5 threshold should be 3");
+
+        // q_phase=7 (mask=127): threshold = max(1, 127/8) = 15
+        let t7 = PhaseTopology::new(7, 7, 7, 20);
+        assert_eq!(t7.delta_phase_threshold(), 15, "q_phase=7 threshold should be 15");
+    }
+
+    #[test]
+    fn test_delta_energy_threshold_constant() {
+        let t = PhaseTopology::new(7, 7, 7, 20);
+        // MAX_ATP=4000, DIVISOR=128 -> 4000/128 = 31
+        assert_eq!(t.delta_energy_threshold(), 31, "Energy threshold should be MAX_ATP/DIVISOR");
+    }
+
+    #[test]
+    fn test_phase_mask_pow2() {
+        let t = PhaseTopology::new(7, 7, 6, 20);
+        assert_eq!(t.phase_mask(), 0x7F, "q_phase=7 mask must be 127");
+        assert_eq!(t.half_phase(), 64, "q_phase=7 half_phase must be 64");
+    }
 }

@@ -368,8 +368,10 @@ impl PhaseLattice {
             let phase_diff = curr.phase.abs_diff(prev.phase);
             let genome_changed = curr.genome != prev.genome;
 
-            // Radical difference threshold (Mitosis clashing or huge gravity)
-            if energy_diff > crate::constants::DELTA_ENERGY_THRESHOLD || genome_changed || phase_diff > crate::constants::DELTA_PHASE_THRESHOLD {
+            // HIGH-2 FIX: Q-derived adaptive thresholds from topology
+            let energy_threshold = self.topology.delta_energy_threshold();
+            let phase_threshold = self.topology.delta_phase_threshold();
+            if energy_diff > energy_threshold || genome_changed || phase_diff > phase_threshold {
                 if delta_count < max_deltas {
                     let d_item = &mut *delta_buffer.add(delta_count);
                     d_item.index = i as u32;

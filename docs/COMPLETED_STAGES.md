@@ -155,7 +155,7 @@
 ### 5. Named Constants & Compile-Time Guards
 - Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
 - Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
-- `cargo test --workspace --lib` passes 34/34 tests (omega_v2), `clippy --workspace -D warnings` clean.
+- `cargo test --workspace --lib` passes 37/37 tests (omega_v2), `clippy --workspace -D warnings` clean.
 
 ### 6. TypeScript FFI Declarations
 - Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
@@ -176,6 +176,14 @@
   - **Resonance replenish**: `+150 ATP` when `phase % 64 == 0` (harmonic zero alignment).
   - **Phase drift**: `base_freq` (Q20) added directly to phase, masked by `phase_mask`.
 - Deterministic across all platforms: zero float operations, 100% integer math.
+
+### 2. Adaptive Delta Thresholds (HIGH-2 FIX)
+- Removed magic numbers 10/40 from delta snapshot logic.
+- `delta_phase_threshold() = max(1, phase_mask / 8)` — scales with q_phase resolution.
+  - q_phase=7 (mask=127): threshold=15. q_phase=5 (mask=31): threshold=3.
+- `delta_energy_threshold() = max(1, MAX_ATP / 128)` — scales with energy capacity.
+  - MAX_ATP=4000: threshold=31.
+- Topology-aware: changing q_phase automatically adjusts sensitivity.
 
 ### 2. Compost Bridge (Death → Σ-Neuron)
 - Auto-publishes `PhiMessage::encode_compost()` on agent death (`energy == 0`).
