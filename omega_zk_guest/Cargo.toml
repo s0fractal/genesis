@@ -3,6 +3,13 @@ name = "omega_zk_guest"
 version = "42.0.0"
 edition = "2021"
 
+[[bin]]
+name = "omega_zk_guest"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+
 [dependencies]
 omega_v2 = { path = "../omega_v2" }
 sp1-zkvm = "3.0.0"
