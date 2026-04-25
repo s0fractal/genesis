@@ -155,7 +155,7 @@
 ### 5. Named Constants & Compile-Time Guards
 - Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
 - Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
-- `cargo test --workspace --lib` passes 44/44 tests (omega_v2), `clippy --workspace -D warnings` clean.
+- `cargo test --workspace --lib` passes 48/48 tests (omega_v2), `clippy --workspace -D warnings` clean.
 
 ### 6. TypeScript FFI Declarations
 - Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
@@ -214,7 +214,14 @@
 - Enables STARK proofs for collective OMEGA dynamics — Liquid can verify
   resonance calculations cryptographically without trusting the host.
 
-### 7. Liquid Compost Consumer (TypeScript)
+### 7. Property-Based Physics Invariants (12 tick_physics tests)
+- `test_tick_physics_energy_non_negative`: no agent exceeds MAX_ATP after tick.
+- `test_tick_physics_phase_in_range`: all phases remain within [0, phase_mask].
+- `test_tick_physics_dead_stay_dead`: energy==0 agents never resurrect; death flag set.
+- `test_tick_physics_determinism`: two identical lattices produce bit-identical results.
+- Plus 8 functional tests (coupling, drift, decay, dirty flags, mitosis, etc.).
+
+### 8. Liquid Compost Consumer (TypeScript)
 - `src/liquid/compost_consumer.ts` — reads COMPOST events from Φ-Message Buffer.
   - Parses `PhiMessage` directly from WASM memory (zero-copy).
   - Tracks `write_head` watermark to avoid double-processing.

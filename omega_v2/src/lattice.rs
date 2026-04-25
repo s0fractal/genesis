@@ -610,4 +610,87 @@ mod tests {
         assert_eq!(lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED, 0, "TOPOLOGY_CHANGED should be cleared");
         assert_eq!(lattice.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT, 0, "CONSENSUS_SHIFT should be cleared");
     }
+
+    #[test]
+    fn test_tick_physics_energy_non_negative() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        // Mix of alive and dead agents
+        agents[0].energy = 1; agents[0].phase = 1;
+        agents[1].energy = 0; agents[1].phase = 0;
+        agents[2].energy = 4000; agents[2].phase = 63; // resonance trigger
+        lattice.tick_physics();
+        for i in 0..10 {
+            assert!(
+                agents[i].energy <= crate::constants::MAX_ATP,
+                "Agent {} energy {} exceeds MAX_ATP {}", i, agents[i].energy, crate::constants::MAX_ATP
+            );
+        }
+    }
+
+    #[test]
+    fn test_tick_physics_phase_in_range() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        for i in 0..10 {
+            agents[i].phase = (i * 37) as u32; // pseudo-random spread
+            agents[i].energy = 500;
+            agents[i].base_freq = (i as i32) * 10000; // varied frequencies
+        }
+        lattice.tick_physics();
+        let mask = lattice.topology.phase_mask();
+        for i in 0..10 {
+            assert!(
+                agents[i].phase <= mask,
+                "Agent {} phase {} out of range [0, {}]", i, agents[i].phase, mask
+            );
+        }
+    }
+
+    #[test]
+    fn test_tick_physics_dead_stay_dead() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(5);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 5;
+        for i in 0..5 {
+            agents[i].energy = 0;
+            agents[i].state_flags = 0;
+        }
+        lattice.tick_physics();
+        for i in 0..5 {
+            assert_eq!(agents[i].energy, 0, "Dead agent {} should not resurrect", i);
+            assert!(agents[i].state_flags & 0x01 != 0, "Dead agent {} should have death flag set", i);
+        }
+    }
+
+    #[test]
+    fn test_tick_physics_determinism() {
+        // Run two identical lattices independently — results must match bit-for-bit.
+        let mut setups: [(PhaseLattice, Vec<PhaseAgentMinimal>); 2] = {
+            let (l1, a1, _, _) = make_lattice(8);
+            let (l2, a2, _, _) = make_lattice(8);
+            [(l1, a1), (l2, a2)]
+        };
+
+        for (ref mut lattice, ref mut agents) in &mut setups {
+            lattice.minimal_agents_ptr = agents.as_mut_ptr();
+            lattice.signals.active_agent_count = 8;
+            for i in 0..8 {
+                agents[i].phase = (i * 17) as u32;
+                agents[i].energy = 800;
+                agents[i].base_freq = (i as i32) * 5000;
+            }
+            lattice.tick_physics();
+        }
+
+        let (_, ref agents1) = setups[0];
+        let (_, ref agents2) = setups[1];
+        for i in 0..8 {
+            assert_eq!(agents1[i].phase, agents2[i].phase, "Phase must be deterministic");
+            assert_eq!(agents1[i].energy, agents2[i].energy, "Energy must be deterministic");
+            assert_eq!(agents1[i].base_freq, agents2[i].base_freq, "Base freq must be deterministic");
+        }
+    }
 }
