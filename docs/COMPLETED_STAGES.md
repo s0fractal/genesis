@@ -298,9 +298,15 @@
   1D toroidal lattice (left/right).
 - **Determinism**: Entirely integer-only (`u32`, `i32`, `i16`). No `f64` trig. Cross-platform
   deterministic across x86, ARM, RISC-V ZK-VM.
-- **Tests**: 11 unit tests — from_agent derivation, hyperbolic identity/symmetry/weights,
-  Taylor step clamping, curvature positive/negative, greedy routing, phi roundtrip.
+- **Tests**: 12 unit tests — from_agent derivation, hyperbolic identity/symmetry/weights,
+  Taylor step clamping, curvature positive/negative, greedy routing, phi roundtrip,
+  1D torus greedy route simulation (0→96 via shortest linear path).
 - **Module**: `omega_v2/src/routing.rs` integrated into `lib.rs` with FFI-ready `to_phi()`.
+- **FFI Exports**: `v2_route_address_from_agent`, `v2_route_hyperbolic_distance`,
+  `v2_route_taylor_step`, `v2_route_taylor_step_curvature` for zero-cost JS bridging.
+- **JS Bridge**: `src/network/routing_bridge.ts` — `PhaseRouter` class with null-safe
+  WASM fallback to pure-JS `hyperbolicDistanceStatic`. 5 Deno tests for encode/decode,
+  greedy neighbour selection, and static distance parity.
 
 ---
 
