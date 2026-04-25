@@ -293,6 +293,11 @@ export class WebRTCV2Mesh {
                                                 }
                                                 this.verifiedDipoleCount += 1;
                                                 this.checkEra1050Trigger();
+                                                // Era 1040 → Era 1030 feedback: each verified mitosis
+                                                // proof counts as a quiet AYE on the lattice's own
+                                                // Era-1040 proposal. The Senate observes that ZK
+                                                // verification works in the wild and ratifies the spec.
+                                                this.autoRatifyEra1040Proposal(plasmid.matrix, plasmid.inverse);
                                             }
                                             globalThis.dispatchEvent(new CustomEvent('dipoleBirthAnnouncement', {
                                                 detail: { plasmid, fromPeer: peerId, verified: !!plasmid.claimedChild },
@@ -706,6 +711,27 @@ export class WebRTCV2Mesh {
 
     // Era 1050 trigger state.
     public era1050Unlocked: boolean = false;
+
+    /**
+     * Era 1040 → 1030 closing-the-loop: every successfully verified mitosis
+     * proof counts as evidence that the Era-1040 spec is sound, so the local
+     * lattice quietly votes AYE on its own proposal. We emit at most one
+     * self-AYE every 5 successful verifications to keep the mesh quiet.
+     */
+    private autoRatifyEra1040Proposal(voterMatrix: number, voterInverse: number) {
+        if (!this.era1030Unlocked) return;
+        if (this.verifiedDipoleCount % 5 !== 0) return;
+        // The Era-1040 proposal hash is fixed by the bootstrap autopoietic
+        // submission ("Era 1040: ZK-Notarized Mutations — every darwinian_mitosis
+        // emits an SP1 STARK proof; peers reject mutations without a valid receipt.").
+        const era1040Hash = 0xFAA7_FF6E;
+        const record = this.senate.get(era1040Hash);
+        if (!record || record.accepted) return;
+        // Ensure the voter dipole is sane.
+        if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
+        this.voteFromLocal(era1040Hash, true, voterMatrix, voterInverse);
+    }
+
     private checkEra1050Trigger() {
         if (this.era1050Unlocked) return;
         if (this.verifiedDipoleCount >= 100) {
