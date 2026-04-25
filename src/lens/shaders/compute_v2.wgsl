@@ -55,17 +55,20 @@ struct PhaseAgentMinimal {
 var<workgroup> wg_cos: array<i32, 64>;
 var<workgroup> wg_sin: array<i32, 64>;
 
-// The Shared Array Buffer View
-@group(0) @binding(2) var<storage, read_write> agents: array<PhaseAgentMinimal>;
+// The Shared Array Buffer View (Ping-Pong: Read from agents_in, Write to agents_out)
+@group(0) @binding(2) var<storage, read> agents_in: array<PhaseAgentMinimal>;
+@group(0) @binding(7) var<storage, read_write> agents_out: array<PhaseAgentMinimal>;
 
 // The 128-element Deterministic Lookup Table (Q20 Fixed-Point)
 @group(0) @binding(3) var<storage, read> sine_lut: array<i32, 128>;
 
 // O(1) Constant Time Deterministic Trigonometry
+// Matches Rust topology.get_sin(): shift_up = 7 - q_phase for lower-resolution phases
 fn deterministic_sin(phase: u32, q_phase: u32) -> i32 {
-    let index = phase & ((1u << q_phase) - 1u);
-    // Since q_phase is 7 (128), we map perfectly to the 128-LUT natively!
-    return sine_lut[index]; 
+    let mask = (1u << q_phase) - 1u;
+    let index = phase & mask;
+    let shift_up = 7u - q_phase;
+    return sine_lut[index << shift_up]; 
 }
 
 // ERA 1000: Phase Distance Function (Circular topology modulo wrapping)
@@ -76,33 +79,60 @@ fn phase_dist(p1: u32, p2: u32, max_p: u32) -> u32 {
 }
 
 fn deterministic_cos(phase: u32, q_phase: u32) -> i32 {
-    let offset_phase = phase + (1u << (q_phase - 2u)); // Shift by PI/2 (32 if q_phase=7)
-    let index = offset_phase & ((1u << q_phase) - 1u);
-    return sine_lut[index];
+    let quarter_wave = 1u << (q_phase - 2u); // PI/2 offset
+    let mask = (1u << q_phase) - 1u;
+    let index = (phase + quarter_wave) & mask;
+    let shift_up = 7u - q_phase;
+    return sine_lut[index << shift_up];
 }
 
-// 🧠 O(Q_PHASE) Deterministic ArcTangent Approximation
-// Prevents Apple/Nvidia f32 rounding discrepancies by doing a strict integer dot-product scan.
+// O(1) fast abs for i32 (two's complement, works for all except i32::MIN)
+fn fast_abs(v: i32) -> i32 {
+    let mask = v >> 31u;
+    return (v ^ mask) - mask;
+}
+
+// CORDIC-inspired ATAN LUT: ratio -> octant angle (0..32 maps to 0..90 degrees in 256-step circle)
+const ATAN_LUT = array<u32, 129>(
+    0u, 0u, 1u, 1u, 1u, 2u, 2u, 2u, 3u, 3u, 3u, 3u, 4u, 4u, 4u, 5u,
+    5u, 5u, 6u, 6u, 6u, 7u, 7u, 7u, 8u, 8u, 8u, 8u, 9u, 9u, 9u, 10u,
+    10u, 10u, 11u, 11u, 11u, 11u, 12u, 12u, 12u, 13u, 13u, 13u, 13u, 14u, 14u, 14u,
+    15u, 15u, 15u, 15u, 16u, 16u, 16u, 17u, 17u, 17u, 17u, 18u, 18u, 18u, 18u, 19u,
+    19u, 19u, 19u, 20u, 20u, 20u, 20u, 21u, 21u, 21u, 21u, 22u, 22u, 22u, 22u, 23u,
+    23u, 23u, 23u, 23u, 24u, 24u, 24u, 24u, 25u, 25u, 25u, 25u, 25u, 26u, 26u, 26u,
+    26u, 26u, 27u, 27u, 27u, 27u, 27u, 28u, 28u, 28u, 28u, 28u, 29u, 29u, 29u, 29u,
+    29u, 29u, 30u, 30u, 30u, 30u, 30u, 31u, 31u, 31u, 31u, 31u, 31u, 32u, 32u, 32u,
+    32u,
+);
+
+// O(1) Deterministic ArcTangent via CORDIC-inspired LUT (0..255 full circle)
+fn atan2_fast(y: i32, x: i32) -> i32 {
+    if (x == 0 && y == 0) { return 0i; }
+    let abs_y = fast_abs(y);
+    let abs_x = fast_abs(x);
+    let a = min(abs_y, abs_x);
+    let b = max(abs_y, abs_x);
+    var ratio = 0i;
+    if (b != 0) { ratio = (a * 128) / b; }
+    if (ratio > 128) { ratio = 128; }
+    let octant_angle = i32(ATAN_LUT[ratio]);
+    var quadrant_angle = octant_angle;
+    if (abs_y > abs_x) { quadrant_angle = 64 - octant_angle; }
+    if (x < 0) {
+        if (y < 0) { return (128 + quadrant_angle) & 255; }
+        else { return (128 - quadrant_angle) & 255; }
+    } else {
+        if (y < 0) { return (256 - quadrant_angle) & 255; }
+        else { return quadrant_angle & 255; }
+    }
+}
+
+// O(1) Deterministic ArcTangent scaled to target q_phase resolution
 fn deterministic_atan2(y: i32, x: i32, q_phase: u32) -> u32 {
     if (x == 0 && y == 0) { return 0u; }
-    
-    var best_phase = 0u;
-    var max_dot = -2147483648; // minimum i32
-    let steps = 1u << q_phase;
-    
-    for (var p = 0u; p < steps; p++) {
-        let sx = deterministic_cos(p, q_phase);
-        let sy = deterministic_sin(p, q_phase);
-        
-        // Q20 * Q20 overflows i32, so we downshift by 10 before multiplying (Q10 * Q10 -> Q20)
-        let dot = (x >> 10) * (sx >> 10) + (y >> 10) * (sy >> 10);
-        
-        if (dot > max_dot) {
-            max_dot = dot;
-            best_phase = p;
-        }
-    }
-    return best_phase;
+    let full_angle = atan2_fast(y, x); // 0..255
+    let shift_down = 8u - q_phase;
+    return (u32(full_angle) >> shift_down) & ((1u << q_phase) - 1u);
 }
 
 @compute @workgroup_size(64)
@@ -119,7 +149,7 @@ fn compute_main(
     // Darwinian cull: Do not process memory outside the active hardware budget
     if (index < signals.active_agent_count) {
         // 1. Memory Fetch
-        var agent = agents[index];
+        var agent = agents_in[index];
         let max_phase_mask = (1u << topology.q_phase) - 1u;
         
         // ERA 3000: DEAD CELLS DO NOTHING
@@ -361,14 +391,14 @@ fn compute_main(
     }
     
             // Save Phase, Genomes, and Life Force (ATP)
-            agents[index].phase = new_phase;
-            agents[index].energy = new_energy;
-            agents[index].base_freq = new_base_freq;
-            agents[index].state_flags = agent.state_flags;
-            agents[index].genome = new_genome;
-            agents[index].memory_x = new_mem_x;
-            agents[index].memory_y = new_mem_y;
-            agents[index].memory_z = new_mem_z;
+            agents_out[index].phase = new_phase;
+            agents_out[index].energy = new_energy;
+            agents_out[index].base_freq = new_base_freq;
+            agents_out[index].state_flags = agent.state_flags;
+            agents_out[index].genome = new_genome;
+            agents_out[index].memory_x = new_mem_x;
+            agents_out[index].memory_y = new_mem_y;
+            agents_out[index].memory_z = new_mem_z;
             
             // Output this thread's phase geometry for Mean Field Reduction
             my_cos = deterministic_cos(new_phase, topology.q_phase);

@@ -221,7 +221,7 @@ mod tests {
         let fake = chain.derive_phi(0, 78, 7);
         assert!(!chain.verify_coherence(fake, 0, 77, 7, 0));
         // Але з достатнім tolerance — проходить (для демонстрації)
-        let diff = if expected > fake { expected - fake } else { fake - expected };
+        let diff = expected.abs_diff(fake);
         assert!(chain.verify_coherence(fake, 0, 77, 7, diff));
     }
 

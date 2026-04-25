@@ -920,7 +920,7 @@ mod alloc_tests {
     #[test]
     fn test_huge_alloc() {
         let field = PhaseLatticeField::new(256, 256, 1);
-        assert_eq!(field.cell_count(), 256 * 256 * 1);
+        assert_eq!(field.cell_count(), 256 * 256);
     }
 }
 

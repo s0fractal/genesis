@@ -107,3 +107,95 @@ pub fn evaluate_poeuw_trace(
 
     (agent.genome, agent.base_freq, agent.energy)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pouw_survives_short_trace() {
+        // Low-complexity genome (few set bits = low burn), short cycle
+        let (final_genome, _final_freq, final_energy) = evaluate_poeuw_trace(
+            0x0000_0001, // minimal genome
+            1_048_576,   // Q20 = 1.0 Hz
+            42,          // diffusion seed
+            10,
+        );
+        assert!(final_energy > 0, "Agent should survive 10 ticks with minimal genome");
+        // Genome should be unchanged (no opcodes triggered with this seed in 10 ticks)
+        assert_eq!(final_genome, 0x0000_0001);
+    }
+
+    #[test]
+    fn test_pouw_high_burn_reduces_energy() {
+        // Max-complexity genome (32 set bits = 8 extra burn per tick)
+        // Base burn = 1 + 32/4 = 9 per tick.
+        // Use diffusion=3 to avoid opcodes for first 5 ticks (stressor_mod never hits 0/1/2).
+        let (_genome, _freq, energy) = evaluate_poeuw_trace(
+            0xFFFF_FFFF, // max complexity
+            1_048_576,   // Q20 = 1.0 Hz → drift = 1
+            3,           // stressor seed 3 → no opcodes in ticks 0..4
+            5,
+        );
+        // tick0: phase=0, resonance +150, burn -9 → cap 4000
+        // tick1: phase=1, burn -9 → 3991
+        // tick2: phase=2, burn -9 → 3982
+        // tick3: phase=3, burn -9 → 3973
+        // tick4: phase=4, burn -9 → 3964
+        assert!(energy < crate::constants::MAX_ATP, "High-burn agent should lose energy within 5 ticks");
+    }
+
+    #[test]
+    fn test_pouw_neural_paralysis_resets_freq() {
+        // Find a seed where stressor_mod == 0 (neural paralysis) occurs early
+        // stressor_mod = (kuramoto_diffusion ^ (tick * 17)) % 100
+        // We need diffusion such that tick=0 gives 0: diffusion % 100 == 0
+        let (_genome, freq, energy) = evaluate_poeuw_trace(
+            0x0000_0001,
+            1_048_576,   // Q20 = 1.0
+            100,         // diffusion % 100 == 0 → paralysis at tick 0
+            2,
+        );
+        // After paralysis, base_freq should be 0, then homeostasis restores it slowly
+        // But with only 2 ticks, it stays 0 or very low
+        assert!(freq < 1_048_576, "Neural paralysis should reset or lower base_freq");
+        assert!(energy > 0, "Agent should survive 2 ticks");
+    }
+
+    #[test]
+    fn test_pouw_lysogenic_inversion() {
+        // stressor_mod == 1 → lysogenic integration at tick 0
+        // diffusion % 100 == 1
+        let (genome, _freq, energy) = evaluate_poeuw_trace(
+            0xAAAA_BBBB,
+            1_048_576,
+            101,         // 101 % 100 == 1 → lysogenic at tick 0
+            2,
+        );
+        assert!(energy > 0, "Agent should survive 2 ticks");
+        // Genome should be inverted by XOR with 0xFFFFFFFF
+        assert_eq!(genome, 0xAAAA_BBBB ^ 0xFFFF_FFFF, "Lysogenic opcode should invert genome");
+    }
+
+    #[test]
+    fn test_pouw_determinism() {
+        let result1 = evaluate_poeuw_trace(0x1234_5678, 2_000_000, 77, 100);
+        let result2 = evaluate_poeuw_trace(0x1234_5678, 2_000_000, 77, 100);
+        assert_eq!(result1, result2, "PoUW trace must be deterministic for same inputs");
+    }
+
+    #[test]
+    fn test_pouw_resonance_replenish() {
+        // base_freq = 0 means phase never moves, so phase stays 0.
+        // phase % 64 == 0 → resonance triggers every tick!
+        let (_g, _f, energy) = evaluate_poeuw_trace(
+            0x0000_0001, // low burn
+            0,           // no phase movement
+            0,           // no stressors
+            100,
+        );
+        // Burn = 1 per tick. Resonance = +150 per tick.
+        // Net = +149 per tick. Should cap at MAX_ATP = 4000.
+        assert_eq!(energy, crate::constants::MAX_ATP, "Agent should cap at MAX_ATP with continuous resonance");
+    }
+}

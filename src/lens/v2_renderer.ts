@@ -1,4 +1,5 @@
 import computeV2Src from './shaders/compute_v2.wgsl?raw';
+import computeToroidalSrc from './shaders/compute_toroidal.wgsl?raw';
 import renderV2Src from './shaders/render_v2.wgsl?raw';
 import { OmegaV2Engine } from '../environment/v2_bridge.ts';
 
@@ -9,15 +10,19 @@ export class PhaseV2Renderer {
     private format: GPUTextureFormat;
 
     private computePipeline!: GPUComputePipeline;
+    private toroidalComputePipeline!: GPUComputePipeline;
     private renderPipeline!: GPURenderPipeline;
+    private useToroidalShader: boolean = false;
     private computeBindGroup!: GPUBindGroup;
     private renderBindGroup!: GPUBindGroup;
 
     private topologyBuffer!: GPUBuffer;
     private signalsBuffer!: GPUBuffer;
     private intentBuffer!: GPUBuffer;
-    private agentsBuffer!: GPUBuffer;
+    private agentsBufferA!: GPUBuffer;
+    private agentsBufferB!: GPUBuffer;
     private stagingAgentsBuffer!: GPUBuffer;
+    private agentsPingPong: number = 0; // 0 = A is source, B is target; 1 = vice versa
     private sineLutBuffer!: GPUBuffer;
     
     // Era 4000: Global Order Parameter Feedback Loop
@@ -70,7 +75,11 @@ export class PhaseV2Renderer {
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
-        this.agentsBuffer = this.device.createBuffer({
+        this.agentsBufferA = this.device.createBuffer({
+            size: pointers.agentBytes.byteLength,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        });
+        this.agentsBufferB = this.device.createBuffer({
             size: pointers.agentBytes.byteLength,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
@@ -80,14 +89,16 @@ export class PhaseV2Renderer {
             usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
         });
 
-        // Initialize GPU with the Genesis State once
-        this.device.queue.writeBuffer(this.agentsBuffer, 0, pointers.agentBytes);
+        // Initialize GPU with the Genesis State once (write to both so first ping-pong is valid)
+        this.device.queue.writeBuffer(this.agentsBufferA, 0, pointers.agentBytes);
+        this.device.queue.writeBuffer(this.agentsBufferB, 0, pointers.agentBytes);
 
         // 128 elements * 4 bytes (i32) = 512 bytes tightly packed Read-Only Storage Array
         this.sineLutBuffer = this.device.createBuffer({
             size: 512,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
+        this.device.queue.writeBuffer(this.sineLutBuffer, 0, pointers.sineLutBytes);
         
         // Era 4000: Ping-Pong Global Order Accumulator (8 bytes: i32 Cos, i32 Sin)
         this.newMeanFieldBuffer = this.device.createBuffer({
@@ -99,6 +110,8 @@ export class PhaseV2Renderer {
             size: 8,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
+        // Initialize to zero so first-frame cold-start fallback works correctly
+        this.device.queue.writeBuffer(this.oldMeanFieldBuffer, 0, new Uint8Array(8));
 
         const computeModule = this.device.createShaderModule({ code: computeV2Src });
         const renderModule = this.device.createShaderModule({ code: renderV2Src });
@@ -107,6 +120,15 @@ export class PhaseV2Renderer {
             layout: 'auto',
             compute: {
                 module: computeModule,
+                entryPoint: 'compute_main',
+            },
+        });
+
+        const toroidalModule = this.device.createShaderModule({ code: computeToroidalSrc });
+        this.toroidalComputePipeline = await this.device.createComputePipelineAsync({
+            layout: 'auto',
+            compute: {
+                module: toroidalModule,
                 entryPoint: 'compute_main',
             },
         });
@@ -136,59 +158,88 @@ export class PhaseV2Renderer {
         // Ensure Daemon starts quietly
         this.lastDaemonTick = performance.now();
 
-        const computeBindEntries = [
-            { binding: 0, resource: { buffer: this.topologyBuffer } },
-            { binding: 1, resource: { buffer: this.signalsBuffer } },
-            { binding: 2, resource: { buffer: this.agentsBuffer } },
-            { binding: 3, resource: { buffer: this.sineLutBuffer } },
-            { binding: 4, resource: { buffer: this.intentBuffer } },
-            { binding: 5, resource: { buffer: this.newMeanFieldBuffer } },
-            { binding: 6, resource: { buffer: this.oldMeanFieldBuffer } },
-        ];
-
-        this.computeBindGroup = this.device.createBindGroup({
-            layout: this.computePipeline.getBindGroupLayout(0),
-            entries: computeBindEntries,
-        });
-
-        const renderBindEntries = [
-            { binding: 0, resource: { buffer: this.topologyBuffer } },
-            { binding: 1, resource: { buffer: this.signalsBuffer } },
-            { binding: 2, resource: { buffer: this.agentsBuffer } },
-        ];
-
-        this.renderBindGroup = this.device.createBindGroup({
-            layout: this.renderPipeline.getBindGroupLayout(0),
-            entries: renderBindEntries,
-        });
+        const computeSource = this.agentsPingPong === 0 ? this.agentsBufferA : this.agentsBufferB;
+        const computeTarget = this.agentsPingPong === 0 ? this.agentsBufferB : this.agentsBufferA;
+        // Bind groups are recreated per-frame in tick() for ping-pong
 
         console.log("✅ [V2-WEBGPU] Pipeline Assembled.");
     }
 
+    public setComputeMode(mode: 'v2' | 'toroidal') {
+        this.useToroidalShader = mode === 'toroidal';
+        console.log(`[V2-WEBGPU] Compute mode switched to: ${mode}`);
+    }
+
     public tick() {
-        this.engine.tick();
+        // GPU owns physics: do NOT run CPU tick_physics here.
+        // CPU-side WASM is only used for mitosis, resonance, and phi-buffer (via readStateFromGPUAndHash).
         const ptrs = this.engine.getMemoryPointers();
+
+        // Increment absolute_tick in WASM memory so GPU cold-start fallback advances
+        const tickView = new DataView(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16, 16);
+        const currentTick = tickView.getUint32(4, true);
+        tickView.setUint32(4, currentTick + 1, true);
 
         this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
         this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
-        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 128);
-        
-        // Removed: this.device.queue.writeBuffer(this.agentsBuffer, 0, ptrs.agentBytes);
-        // We do NOT overwrite the GPU state every frame anymore. WebGPU owns the matrix math.
-
-
-        // Upload LUT (Only once per frame is redundant since it's static, but ensures zero-cost pointer persistence)
-        this.device.queue.writeBuffer(this.sineLutBuffer, 0, ptrs.sineLutBytes);
 
         const commandEncoder = this.device.createCommandEncoder();
         
-        // ERA 4000: Clear the atomic aggregation buffer for this frame's Mean Field reduction
-        commandEncoder.clearBuffer(this.newMeanFieldBuffer);
+        // Ping-pong: determine source (read) and target (write) for this frame
+        const computeSource = this.agentsPingPong === 0 ? this.agentsBufferA : this.agentsBufferB;
+        const computeTarget = this.agentsPingPong === 0 ? this.agentsBufferB : this.agentsBufferA;
+        const renderSource = computeTarget; // Render the freshly computed state
+        
+        let computePipeline: GPUComputePipeline;
+        let computeBindGroup: GPUBindGroup;
+        
+        if (this.useToroidalShader) {
+            // Era 960 Toroidal: exact Rust tick_physics() parity
+            computePipeline = this.toroidalComputePipeline;
+            computeBindGroup = this.device.createBindGroup({
+                layout: this.toroidalComputePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: this.topologyBuffer } },
+                    { binding: 1, resource: { buffer: this.signalsBuffer } },
+                    { binding: 2, resource: { buffer: computeSource } },
+                    { binding: 3, resource: { buffer: this.sineLutBuffer } },
+                    { binding: 7, resource: { buffer: computeTarget } },
+                ],
+            });
+        } else {
+            // Era 950 V2: mean field + intents + QCD + DNS
+            this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 128);
+            commandEncoder.clearBuffer(this.newMeanFieldBuffer);
+            
+            computePipeline = this.computePipeline;
+            computeBindGroup = this.device.createBindGroup({
+                layout: this.computePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: this.topologyBuffer } },
+                    { binding: 1, resource: { buffer: this.signalsBuffer } },
+                    { binding: 2, resource: { buffer: computeSource } },
+                    { binding: 3, resource: { buffer: this.sineLutBuffer } },
+                    { binding: 4, resource: { buffer: this.intentBuffer } },
+                    { binding: 5, resource: { buffer: this.newMeanFieldBuffer } },
+                    { binding: 6, resource: { buffer: this.oldMeanFieldBuffer } },
+                    { binding: 7, resource: { buffer: computeTarget } },
+                ],
+            });
+        }
+        
+        const renderBindGroup = this.device.createBindGroup({
+            layout: this.renderPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.topologyBuffer } },
+                { binding: 1, resource: { buffer: this.signalsBuffer } },
+                { binding: 2, resource: { buffer: renderSource } },
+            ],
+        });
         
         // 1. Compute Pass
         const passEncoder = commandEncoder.beginComputePass();
-        passEncoder.setPipeline(this.computePipeline);
-        passEncoder.setBindGroup(0, this.computeBindGroup);
+        passEncoder.setPipeline(computePipeline);
+        passEncoder.setBindGroup(0, computeBindGroup);
         
         const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
         const dispatchSize = Math.ceil(activeCount / 64);
@@ -196,9 +247,13 @@ export class PhaseV2Renderer {
         passEncoder.end();
         
         // ERA 4000: Map the newly reduced Global Vector into the historical reader buffer for the subsequent frame
-        if (dispatchSize > 0) {
+        // (Only needed for V2 mean-field shader; toroidal shader does not use mean field)
+        if (!this.useToroidalShader && dispatchSize > 0) {
             commandEncoder.copyBufferToBuffer(this.newMeanFieldBuffer, 0, this.oldMeanFieldBuffer, 0, 8);
         }
+        
+        // Ping-pong: swap source/target for next frame
+        this.agentsPingPong = 1 - this.agentsPingPong;
         
         // 2. Render Pass
         const renderPassEncoder = commandEncoder.beginRenderPass({
@@ -262,8 +317,9 @@ export class PhaseV2Renderer {
                 // Only inject if mouse is held down (drags)
                 if (mouseEvent.buttons !== 1) return;
                 
-                if (!(this.context.canvas instanceof HTMLCanvasElement)) return;
-                const rect = this.context.canvas.getBoundingClientRect();
+                const canvas = (this.context as any).canvas as HTMLCanvasElement;
+                if (!(canvas instanceof HTMLCanvasElement)) return;
+                const rect = canvas.getBoundingClientRect();
                 const x = ((mouseEvent.clientX - rect.left) / rect.width) * 2.0 - 1.0;
                 const y = -(((mouseEvent.clientY - rect.top) / rect.height) * 2.0 - 1.0);
                 
@@ -313,7 +369,7 @@ export class PhaseV2Renderer {
         }
         
         renderPassEncoder.setPipeline(this.renderPipeline);
-        renderPassEncoder.setBindGroup(0, this.renderBindGroup);
+        renderPassEncoder.setBindGroup(0, renderBindGroup);
         if (activeCount > 0) { renderPassEncoder.draw(6, activeCount, 0, 0); }
         renderPassEncoder.end();
         
@@ -367,10 +423,12 @@ export class PhaseV2Renderer {
      * Maps the GPU agents buffer into JS memory, then copies it into the Zero-Copy WASM pointer
      * Finally computes the deterministic Golden Trace checksum.
      */
-    public async readStateFromGPUAndHash(): Promise<{ goldenTrace: string, snapshot: Uint8Array }> {
+    public async readStateFromGPUAndHash(): Promise<{ goldenTrace: string, goldenTraceNum: number, snapshot: Uint8Array }> {
         const commandEncoder = this.device.createCommandEncoder();
+        // The last written state is the upcoming source (since ping-pong already swapped in tick())
+        const currentStateBuffer = this.agentsPingPong === 0 ? this.agentsBufferA : this.agentsBufferB;
         commandEncoder.copyBufferToBuffer(
-            this.agentsBuffer, 0,
+            currentStateBuffer, 0,
             this.stagingAgentsBuffer, 0,
             this.stagingAgentsBuffer.size
         );
@@ -398,15 +456,18 @@ export class PhaseV2Renderer {
         this.stagingAgentsBuffer.unmap();
         
         // Execute the fast cryptographic O(N/1024) matrix hashing in WASM
-        const traceNum = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)();
+        const traceNum = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)() as number;
         return {
             goldenTrace: traceNum.toString(16).toUpperCase(),
+            goldenTraceNum: traceNum,
             snapshot
         };
     }
 
     /** Overwrites the entire local GPU state with a WebRTC rollback snapshot */
     public overwriteGPUState(snapshot: Uint8Array) {
-        this.device.queue.writeBuffer(this.agentsBuffer, 0, snapshot.buffer as ArrayBuffer, snapshot.byteOffset, snapshot.byteLength);
+        // Write to both buffers so ping-pong is always consistent
+        this.device.queue.writeBuffer(this.agentsBufferA, 0, snapshot.buffer as ArrayBuffer, snapshot.byteOffset, snapshot.byteLength);
+        this.device.queue.writeBuffer(this.agentsBufferB, 0, snapshot.buffer as ArrayBuffer, snapshot.byteOffset, snapshot.byteLength);
     }
 }

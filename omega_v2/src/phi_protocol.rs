@@ -195,6 +195,13 @@ impl PhiMessageBuffer {
         let idx = ((self.write_head.wrapping_sub(1).wrapping_sub(n as u32)) as usize) % PHI_BUFFER_SIZE;
         Some(self.messages[idx])
     }
+
+    /// Скидає буфер до початкового стану (для тестів).
+    pub fn reset(&mut self) {
+        self.write_head = 0;
+        self.read_head = 0;
+        self.drops = 0;
+    }
 }
 
 impl Default for PhiMessageBuffer {
@@ -296,6 +303,22 @@ mod tests {
         assert_eq!(latest.decode_heartbeat().unwrap().0, 222);
         // Peek не видаляє
         assert_eq!(buf.len(), 2);
+    }
+
+    #[test]
+    fn test_buffer_reset() {
+        let mut buf = PhiMessageBuffer::new();
+        buf.push(PhiMessage::encode_heartbeat(1, 1, 0));
+        buf.push(PhiMessage::encode_heartbeat(2, 2, 0));
+        assert_eq!(buf.len(), 2);
+        buf.reset();
+        assert!(buf.is_empty());
+        assert_eq!(buf.drops, 0);
+        // After reset, push continues from start
+        buf.push(PhiMessage::encode_heartbeat(3, 3, 0));
+        assert_eq!(buf.len(), 1);
+        let m = buf.pop().unwrap();
+        assert_eq!(m.decode_heartbeat().unwrap().0, 3);
     }
 
     #[test]

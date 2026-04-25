@@ -250,6 +250,40 @@
 - 7 TS unit tests: determinism, different seeds, bounds, hex length/ determinism,
   string seed hashing, no early repeat (< 10000 steps).
 
+### 11. WebGPU Compute Shader Hardening (HIGH-10/11/12)
+- **HIGH-10 Race Condition Fix**: `compute_v2.wgsl` читав/писав в один `agents` буфер.
+  Реалізовано ping-pong: `agents_in` (binding 2, `read`) + `agents_out` (binding 7, `read_write`).
+  `v2_renderer.ts` створює `agentsBufferA/B`, swap кожен кадр, bind groups перестворюються в `tick()`.
+- **HIGH-11 CPU-GPU Deduplication**: Прибрано `this.engine.tick()` з `tick()`. GPU монопольно володіє
+  physics loop. CPU WASM використовується тільки для mitosis, resonance, phi-buffer.
+  `absolute_tick` інкрементується в JS перед `writeBuffer` для GPU cold-start fallback.
+- **HIGH-12 WGSL LUT Sync**: `deterministic_sin/cos` тепер використовують `shift_up = 7u - q_phase`,
+  ідентично Rust `PhaseTopology::get_sin/get_cos`. Усунено розбіжність при `q_phase < 7`.
+- **HIGH-13 WebRTC Golden Trace**: `packet.gt` передається як `number`, не hex string.
+  Усунено `NaN > number = false` баг у tie-breaker при розсинхронізації.
+- **HIGH-14 Delta Bounds Check**: Додано `index >= maxAgents` guard при застосуванні
+  remote delta mutations. Запобігає out-of-bounds запису від зловмисної P2P ноди.
+  `numMutations` тепер `Math.floor()` для захисту від неповних пакетів.
+- **HIGH-15 WebGPU Zero-Init**: `oldMeanFieldBuffer` ініціалізується нулями в `initialize()`
+  для коректного cold-start fallback на першому кадрі.
+- **HIGH-16 LUT Upload Optimization**: Статичний `sineLutBuffer` записується одноразово
+  в `initialize()` замість надмірного копіювання 60×/с в `tick()`.
+- **Math Unit Tests**: 7 тестів для `omega_v2/src/math.rs` — xorshift64* determinism,
+  period (no early repeat < 10000), seed uniqueness; sin_q10 zero, symmetry,
+  periodicity (& 0xFF bitmask для довільних значень).
+- **Q-Phase Property Tests**: 3 тести для `tick_physics()` з q_phase=2, 5, 7 —
+  phase_in_range, determinism при різних роздільностях.
+- **Delta Overflow Test**: `test_delta_snapshot_respects_max_deltas` — перевіряє
+  кап на max_deltas та коректну snapshot синхронізацію overflowed агентів.
+- **PoUW ZK Tests**: 6 тестів для `evaluate_poeuw_trace` — survival, high-burn,
+  neural paralysis, lysogenic inversion, determinism, resonance cap.
+- **HIGH-17 GPU atan2 Optimization**: Brute-force O(128) `deterministic_atan2`
+  замінено на O(1) CORDIC-inspired `atan2_fast` з 129-entry LUT. ~10 операцій
+  замість 128 ітерацій на thread. Верифіковано brute-force reference в Rust
+  (71 тестів, ±1 tolerance для 64 точок).
+- **Math Unit Tests (extended)**: 2 додаткових тести для CORDIC atan2 —
+  brute-force validation та quadrant coverage.
+
 ---
 
 ## 🌌 Era 100-200: Genesis & Bio-Acoustics

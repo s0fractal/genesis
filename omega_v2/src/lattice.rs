@@ -392,6 +392,7 @@ impl PhaseLattice {
 }
 
 #[cfg(test)]
+#[allow(clippy::needless_range_loop)]
 mod tests {
     use super::*;
     use crate::agent::PhaseAgentMinimal;
@@ -400,10 +401,14 @@ mod tests {
     use std::vec;
 
     fn make_lattice(agent_count: usize) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
+        make_lattice_with_q_phase(agent_count, 7)
+    }
+
+    fn make_lattice_with_q_phase(agent_count: usize, q_phase: u32) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
         let mut agents = vec![PhaseAgentMinimal::default(); agent_count];
         let snapshot = vec![PhaseAgentMinimal::default(); agent_count];
         let deltas = vec![DeltaItem { index: 0, phase: 0, energy: 0, genome: 0 }; 100];
-        let topology = PhaseTopology::new(7, 7, 6, 20);
+        let topology = PhaseTopology::new(q_phase, 7, 6, 20);
         let mut lattice = PhaseLattice::new_from_host_memory(topology, core::ptr::null_mut(), agents.as_mut_ptr());
         lattice.signals.max_cells = agent_count as u32;
         (lattice, agents, snapshot, deltas)
@@ -519,6 +524,34 @@ mod tests {
     }
 
     #[test]
+    fn test_delta_snapshot_respects_max_deltas() {
+        let (mut lattice, mut agents, mut snapshot, mut deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        lattice.ignite_big_bang(99, 10);
+        // Limit deltas to 3 — only first 3 changes should be reported
+        let count = unsafe {
+            lattice.generate_delta_snapshot(
+                agents.as_ptr(),
+                snapshot.as_mut_ptr(),
+                deltas.as_mut_ptr(),
+                3
+            )
+        };
+        assert_eq!(count, 3, "Should cap at max_deltas even if more agents changed");
+        // Snapshot should still be synchronized for ALL changed agents (not just first 3)
+        let count2 = unsafe {
+            lattice.generate_delta_snapshot(
+                agents.as_ptr(),
+                snapshot.as_mut_ptr(),
+                deltas.as_mut_ptr(),
+                deltas.len()
+            )
+        };
+        assert_eq!(count2, 0, "All agents should be synced after first call, even those beyond max_deltas");
+    }
+
+    #[test]
     fn test_delta_snapshot_zero_on_identical() {
         let (mut lattice, mut agents, mut snapshot, mut deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
@@ -630,6 +663,57 @@ mod tests {
     }
 
     #[test]
+    fn test_tick_physics_phase_in_range_q2() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice_with_q_phase(10, 2);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        lattice.ignite_big_bang(42, 10);
+        for _ in 0..20 {
+            lattice.tick_physics();
+        }
+        let mask = lattice.topology.phase_mask();
+        for i in 0..10 {
+            assert!(agents[i].phase <= mask, "q_phase=2: phase must be in [0, {}]", mask);
+        }
+    }
+
+    #[test]
+    fn test_tick_physics_phase_in_range_q5() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice_with_q_phase(10, 5);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        lattice.ignite_big_bang(42, 10);
+        for _ in 0..20 {
+            lattice.tick_physics();
+        }
+        let mask = lattice.topology.phase_mask();
+        for i in 0..10 {
+            assert!(agents[i].phase <= mask, "q_phase=5: phase must be in [0, {}]", mask);
+        }
+    }
+
+    #[test]
+    fn test_tick_physics_determinism_q5() {
+        let (mut lattice1, mut agents1, _snapshot, _deltas) = make_lattice_with_q_phase(20, 5);
+        lattice1.minimal_agents_ptr = agents1.as_mut_ptr();
+        lattice1.signals.active_agent_count = 20;
+        lattice1.ignite_big_bang(77, 20);
+        for _ in 0..10 { lattice1.tick_physics(); }
+
+        let (mut lattice2, mut agents2, _snapshot, _deltas) = make_lattice_with_q_phase(20, 5);
+        lattice2.minimal_agents_ptr = agents2.as_mut_ptr();
+        lattice2.signals.active_agent_count = 20;
+        lattice2.ignite_big_bang(77, 20);
+        for _ in 0..10 { lattice2.tick_physics(); }
+
+        for i in 0..20 {
+            assert_eq!(agents1[i].phase, agents2[i].phase, "Determinism failed at agent {} (phase)", i);
+            assert_eq!(agents1[i].energy, agents2[i].energy, "Determinism failed at agent {} (energy)", i);
+            assert_eq!(agents1[i].genome, agents2[i].genome, "Determinism failed at agent {} (genome)", i);
+        }
+    }
+
+    #[test]
     fn test_tick_physics_phase_in_range() {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
@@ -663,6 +747,86 @@ mod tests {
             assert_eq!(agents[i].energy, 0, "Dead agent {} should not resurrect", i);
             assert!(agents[i].state_flags & 0x01 != 0, "Dead agent {} should have death flag set", i);
         }
+    }
+
+    #[test]
+    fn test_tick_physics_compost_published() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(3);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 3;
+        // Agent 0 will die in one tick: burn = 1 + 24/4 = 7 for 0xDEADBEEF genome
+        agents[0].energy = 7;
+        agents[0].state_flags = 0;
+        agents[0].genome = 0xDEADBEEF;
+        agents[1].energy = 1000;
+        agents[1].state_flags = 0;
+        agents[2].energy = 1000;
+        agents[2].state_flags = 0;
+        
+        // Clear phi buffer before test
+        unsafe {
+            let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
+            (*buf).reset();
+        }
+        
+        lattice.tick_physics();
+        
+        unsafe {
+            let buf = core::ptr::addr_of!(crate::PHI_MESSAGE_BUFFER);
+            let len = (*buf).len();
+            assert!(len > 0, "At least one compost message should be published");
+            
+            // Verify the compost message contains correct genome
+            let msg = (*buf).peek_latest().unwrap();
+            assert_eq!(msg.msg_type, crate::phi_protocol::PHI_MSG_COMPOST);
+            let (genome, agent_id) = msg.decode_compost().unwrap();
+            assert_eq!(genome, 0xDEADBEEF, "Compost should preserve agent genome");
+            assert!(agent_id < 3, "Agent ID should be valid");
+        }
+    }
+
+    #[test]
+    #[ignore = "benchmark — run manually with cargo test -- --ignored"]
+    fn bench_tick_physics_100k_10ticks() {
+        let agent_count = 100_000;
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(agent_count);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = agent_count as u32;
+        for i in 0..agent_count {
+            agents[i].phase = (i * 7) as u32;
+            agents[i].energy = 500 + ((i * 3) % 3000) as u32;
+            agents[i].base_freq = ((i as i32 * 1000) % 4000) - 2000;
+        }
+        let start = std::time::Instant::now();
+        for _ in 0..10 {
+            lattice.tick_physics();
+        }
+        let elapsed = start.elapsed();
+        let ns_per_agent = elapsed.as_nanos() / (agent_count as u128 * 10);
+        println!("\n[BENCH] tick_physics: {} agents × 10 ticks in {:?}", agent_count, elapsed);
+        println!("[BENCH] ~{} ns per agent per tick", ns_per_agent);
+        assert!(elapsed.as_secs() < 5, "tick_physics too slow: {:?}", elapsed);
+    }
+
+    #[test]
+    #[ignore = "benchmark — run manually with cargo test -- --ignored"]
+    fn bench_tick_physics_1m_1tick() {
+        let agent_count = 1_000_000;
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(agent_count);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = agent_count as u32;
+        for i in 0..agent_count {
+            agents[i].phase = (i * 7) as u32;
+            agents[i].energy = 500 + ((i * 3) % 3000) as u32;
+            agents[i].base_freq = ((i as i32 * 1000) % 4000) - 2000;
+        }
+        let start = std::time::Instant::now();
+        lattice.tick_physics();
+        let elapsed = start.elapsed();
+        let ns_per_agent = elapsed.as_nanos() / agent_count as u128;
+        println!("\n[BENCH] tick_physics: {} agents × 1 tick in {:?}", agent_count, elapsed);
+        println!("[BENCH] ~{} ns per agent per tick", ns_per_agent);
+        assert!(elapsed.as_secs() < 2, "tick_physics too slow for 1M: {:?}", elapsed);
     }
 
     #[test]

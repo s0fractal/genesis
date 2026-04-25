@@ -27,11 +27,11 @@ export async function bootstrapV2() {
         if (!adapter) throw new Error("WebGPU adapter unavailable");
         device = await adapter.requestDevice();
         
-        device.onuncapturederror = (event) => {
+        (device as any).onuncapturederror = (event: { error: { message: string } }) => {
             console.error("🛑 [WGSL VALIDATION ERROR]:", event.error.message);
         };
         
-        const context = canvas.getContext("webgpu") as GPUCanvasContext;
+        const context = canvas.getContext("webgpu") as unknown as GPUCanvasContext;
         context.configure({
             device,
             format,
@@ -132,9 +132,9 @@ export async function bootstrapV2() {
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {
                 isReadingGPU = true;
-                renderer.readStateFromGPUAndHash().then(({ goldenTrace, snapshot }) => {
+                renderer.readStateFromGPUAndHash().then(({ goldenTrace, goldenTraceNum, snapshot }) => {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
-                    mesh.setLatestState(goldenTrace, snapshot);
+                    mesh.setLatestState(goldenTraceNum, snapshot);
                     
                     // Era 11000: Synchronize LLM Oracle Telemetry natively
                     if (oracleWorker) {

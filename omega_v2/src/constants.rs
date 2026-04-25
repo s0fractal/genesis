@@ -65,6 +65,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
     fn constant_consistency() {
         // Big Bang energy range must fit within ATP cap
         assert!(BB_ENERGY_BASE + BB_ENERGY_RANGE <= MAX_ATP,

@@ -128,10 +128,11 @@ export class WebRTCV2Mesh {
                         
                         // Golden Trace Validation
                         const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
-                        if (localTrace !== packet.gt && !this.isSyncFrozen) {
-                            console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${packet.gt.toString(16)})`);
+                        const remoteGt = packet.gt as number;
+                        if (localTrace !== remoteGt && !this.isSyncFrozen) {
+                            console.warn(`[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
                             // Simplistic tie-breaker for Authority: The higher Hash rules.
-                            if (packet.gt > localTrace) {
+                            if (remoteGt > localTrace) {
                                  console.log(`[V2-MESH] Requesting Overmind State Snapshot from Authority...`);
                                  this.isSyncFrozen = true;
                                  const stateChannel = this.getOrOpenStateChannel(peerId);
@@ -151,8 +152,9 @@ export class WebRTCV2Mesh {
                 
                 const deltasU32 = new Uint32Array(event.data);
                 const gridU32 = new Uint32Array(ptrs.wasmMemoryBuffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
+                const maxAgents = gridU32.length / 8;
                 
-                const numMutations = deltasU32.length / 4;
+                const numMutations = Math.floor(deltasU32.length / 4);
                 console.log(`[V2-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`);
                 
                 for (let i = 0; i < numMutations; i++) {
@@ -160,6 +162,12 @@ export class WebRTCV2Mesh {
                     const phase = deltasU32[i * 4 + 1];
                     const energy = deltasU32[i * 4 + 2];
                     const genome = deltasU32[i * 4 + 3];
+                    
+                    // SECURITY: Bounds check against malicious remote index
+                    if (index >= maxAgents) {
+                        console.warn(`[V2-MESH] ⚠️ Delta index ${index} out of bounds (max ${maxAgents}), dropping mutation.`);
+                        continue;
+                    }
                     
                     // Update 32-byte PhaseAgentMinimal (8x u32s)
                     gridU32[index * 8 + 0] = phase;
@@ -285,11 +293,11 @@ export class WebRTCV2Mesh {
     }
     
     public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
-    private latestGoldenTrace: string = "0";
+    private latestGoldenTraceNum: number = 0;
     private latestSnapshot: Uint8Array | null = null;
     
-    public setLatestState(gt: string, snapshot: Uint8Array) {
-        this.latestGoldenTrace = gt;
+    public setLatestState(gt: number, snapshot: Uint8Array) {
+        this.latestGoldenTraceNum = gt;
         this.latestSnapshot = snapshot;
     }
     
@@ -304,7 +312,7 @@ export class WebRTCV2Mesh {
             r: this.__lastLocalIntent.r,
             g: this.__lastLocalIntent.g,
             o: this.__lastLocalIntent.op,
-            gt: this.latestGoldenTrace
+            gt: this.latestGoldenTraceNum
         });
         
         let deltaBuffer: ArrayBuffer | null = null;

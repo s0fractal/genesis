@@ -9,6 +9,7 @@ use omega_v2::resonance::scan_resonance_field;
 ///
 /// Mode 0: Legacy PoUW single-agent trace verification.
 /// Mode 1: Resonance field verification for small lattice (≤16 agents).
+#[allow(clippy::needless_range_loop)]
 pub fn main() {
     let mode = sp1_zkvm::io::read::<u8>();
 

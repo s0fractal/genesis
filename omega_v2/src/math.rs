@@ -110,3 +110,149 @@ pub fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
     let index = to_theta.wrapping_sub(from_theta) & 0xFF;
     SINE_LUT[index as usize]
 }
+
+/// O(1) CORDIC-inspired atan2 (0..255 full-circle) matching compute_v2.wgsl.
+/// This replaces the O(2^q_phase) brute-force scan with a fixed ~10 ops.
+pub fn atan2_fast(y: i32, x: i32) -> i32 {
+    if x == 0 && y == 0 { return 0; }
+    let abs_y = y.abs();
+    let abs_x = x.abs();
+    let a = core::cmp::min(abs_y, abs_x);
+    let b = core::cmp::max(abs_y, abs_x);
+    let mut ratio = 0i32;
+    if b != 0 { ratio = (a * 128) / b; }
+    if ratio > 128 { ratio = 128; }
+    // ATAN_LUT from generated_constants.wgsl
+    const ATAN_LUT: [u32; 129] = [
+        0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5,
+        5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 10,
+        10, 10, 11, 11, 11, 11, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14,
+        15, 15, 15, 15, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19,
+        19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 22, 22, 22, 22, 23,
+        23, 23, 23, 23, 24, 24, 24, 24, 25, 25, 25, 25, 25, 26, 26, 26,
+        26, 26, 27, 27, 27, 27, 27, 28, 28, 28, 28, 28, 29, 29, 29, 29,
+        29, 29, 30, 30, 30, 30, 30, 31, 31, 31, 31, 31, 31, 32, 32, 32,
+        32,
+    ];
+    let octant_angle = ATAN_LUT[ratio as usize] as i32;
+    let mut quadrant_angle = octant_angle;
+    if abs_y > abs_x { quadrant_angle = 64 - octant_angle; }
+    if x < 0 {
+        if y < 0 { (128 + quadrant_angle) & 255 }
+        else { (128 - quadrant_angle) & 255 }
+    } else {
+        if y < 0 { (256 - quadrant_angle) & 255 }
+        else { quadrant_angle & 255 }
+    }
+}
+
+/// Brute-force O(N) atan2 for validation against atan2_fast.
+/// Uses i64 dot product to avoid overflow and correctly handle small x/y.
+pub fn atan2_brute_256(y: i32, x: i32) -> i32 {
+    if x == 0 && y == 0 { return 0; }
+    let mut best = 0i32;
+    let mut max_dot = i64::MIN;
+    for p in 0..256 {
+        let sx = SINE_LUT[(p + 64) % 256] as i64;
+        let sy = SINE_LUT[p] as i64;
+        let dot = (x as i64) * sx + (y as i64) * sy;
+        if dot > max_dot {
+            max_dot = dot;
+            best = p as i32;
+        }
+    }
+    best
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_xorshift_determinism() {
+        let mut rng1 = Xorshift64::new(42);
+        let mut rng2 = Xorshift64::new(42);
+        for _ in 0..100 {
+            assert_eq!(rng1.next_u32(), rng2.next_u32());
+        }
+    }
+
+    #[test]
+    fn test_xorshift_period_no_early_repeat() {
+        let mut rng = Xorshift64::new(12345);
+        let first = rng.next_u32();
+        for _ in 1..10_000 {
+            assert_ne!(rng.next_u32(), first, "xorshift repeated within 10000 steps");
+        }
+    }
+
+    #[test]
+    fn test_xorshift_different_seeds() {
+        let mut rng1 = Xorshift64::new(1);
+        let mut rng2 = Xorshift64::new(2);
+        assert_ne!(rng1.next_u32(), rng2.next_u32());
+    }
+
+    #[test]
+    fn test_sin_q10_zero() {
+        assert_eq!(sin_q10(0, 0), 0);
+        assert_eq!(sin_q10(100, 100), 0);
+    }
+
+    #[test]
+    fn test_sin_q10_symmetry() {
+        // sin(π/2) at index 64 should be max positive (1024)
+        assert_eq!(sin_q10(0, 64), 1024);
+        // sin(π) at index 128 should be 0
+        assert_eq!(sin_q10(0, 128), 0);
+        // sin(3π/2) at index 192 should be max negative (-1024)
+        assert_eq!(sin_q10(0, 192), -1024);
+    }
+
+    #[test]
+    fn test_sin_q10_periodicity() {
+        for i in 0..256u32 {
+            assert_eq!(sin_q10(0, i), sin_q10(0, i + 256));
+            assert_eq!(sin_q10(0, i), sin_q10(0, i + 512));
+        }
+    }
+
+    #[test]
+    fn test_sin_q10_bitmask() {
+        // HIGH-3: bitmask & 0xFF should work for large values
+        assert_eq!(sin_q10(1000, 1000), 0);
+        assert_eq!(sin_q10(u32::MAX, u32::MAX), 0);
+    }
+
+    #[test]
+    fn test_atan2_fast_matches_brute_force() {
+        // Compare CORDIC-inspired atan2_fast against brute-force O(256) scan
+        // for a grid of (x, y) values. Tolerance ±1 is acceptable due to quantization.
+        let test_values = [0, 100, 500, 1000, 5000, 10000, 50000, 100000];
+        for &x in &test_values {
+            for &y in &test_values {
+                let fast = atan2_fast(y, x);
+                let brute = atan2_brute_256(y, x);
+                let diff = (fast - brute).abs();
+                assert!(
+                    diff <= 1,
+                    "atan2_fast({},{}) = {}, brute = {}, diff = {}",
+                    y, x, fast, brute, diff
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_atan2_fast_quadrants() {
+        // +x, +y -> 0..64
+        assert!(atan2_fast(1000, 1000) >= 0 && atan2_fast(1000, 1000) <= 64);
+        // +x, +y large -> ~32 (45 degrees)
+        assert!(atan2_fast(100000, 100000) >= 30 && atan2_fast(100000, 100000) <= 34);
+        // +x, -y -> 192..256 (wraps to 0)
+        let v = atan2_fast(-1000, 1000);
+        assert!(v >= 192 || v <= 64, "Expected lower half for -y, got {}", v);
+        // -x, +y -> 64..128
+        assert!(atan2_fast(1000, -1000) >= 64 && atan2_fast(1000, -1000) <= 128);
+    }
+}

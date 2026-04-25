@@ -3,3 +3,4 @@ node_modules/
 dist/
 
 OMEGA_EXPORT.md
+.DS_Store

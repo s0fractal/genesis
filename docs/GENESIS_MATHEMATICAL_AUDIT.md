@@ -337,6 +337,59 @@ LCG з period 2^32. Кореляції між сусідніми виклика�
 **Проблема:** Результати `atan2` можуть відрізнятися на останніх бітах між x86 (glibc) і ARM (musl).  
 **Виправлення:** Додано HIGH-9 коментар до `phenotype_hue`, який документує обмеження і рекомендує LUT-based trig (`atan2_u8`) або `libm` soft-float для ZK-VM.
 
+### HIGH-10: WebGPU Compute Shader Race Condition ✅ FIXED
+**Файл:** `src/lens/shaders/compute_v2.wgsl`  
+**Проблема:** Compute shader читав і писав в один і той же `agents` буфер (`storage, read_write`). Паралельні workgroup threads могли оновлювати сусідів, поки інші threads їх ще читали — data race з невизначеною поведінкою.  
+**Виправлення:** Реалізовано ping-pong подвійну буферизацію:
+- `agents_in` (binding 2, `read`) — джерело для читання сусідів і поточного агента.
+- `agents_out` (binding 7, `read_write`) — ціль для запису оновленого state.
+- `v2_renderer.ts` створює `agentsBufferA` / `agentsBufferB`, swap кожен кадр. Bind groups перестворюються в `tick()` з актуальними буферами.
+
+### HIGH-11: CPU-GPU Physics Tick Duplication ✅ FIXED
+**Файл:** `src/lens/v2_renderer.ts`  
+**Проблема:** `tick()` викликав `this.engine.tick()` (CPU WASM `tick_physics`) і потім запускав WebGPU compute pass. Фізика виконувалась двічі на різних даних (WASM memory vs GPU buffer), створюючи повний розсинхрон state.  
+**Виправлення:** Прибрано `this.engine.tick()` з `tick()`. GPU тепер монопольно володіє physics loop. CPU WASM використовується тільки для:
+- `v2_mitosis_sweep()` (через `readStateFromGPUAndHash`)
+- `v2_resonance_scan()` та golden trace
+- Phi-message buffer (compost/intent/delta)
+- `absolute_tick` інкрементується в JS напряму перед `writeBuffer`, щоб GPU cold-start fallback (`signals.absolute_tick & max_phase_mask`) просувався.
+
+### HIGH-12: WGSL `deterministic_sin` не синхронізований з Rust `get_sin` ✅ FIXED
+**Файл:** `src/lens/shaders/compute_v2.wgsl`  
+**Проблема:** `deterministic_sin` використовував `sine_lut[index]` без зсуву `7 - q_phase`. Для `q_phase < 7` Rust виконує `idx << (7 - q_phase)`, тоді як WGSL брав прямий індекс — різні значення LUT та некоректна тригонометрія.  
+**Виправлення:** Оновлено `deterministic_sin` і `deterministic_cos` у WGSL:
+```wgsl
+let shift_up = 7u - q_phase;
+return sine_lut[index << shift_up];
+```
+Тепер WGSL LUT lookup ідентичний Rust `PhaseTopology::get_sin/get_cos`.
+
+### HIGH-13: WebRTC Golden Trace порівняння через hex string (NaN) ✅ FIXED
+**Файл:** `src/network/webrtc_v2.ts:130-134`  
+**Проблема:** `packet.gt` передавався як hex string (наприклад `"AB12"`), а `localTrace` — number. Порівняння `packet.gt > localTrace` конвертувало hex string в `NaN`, і `NaN > anything` завжди `false`. Tie-breaker при розсинхронізації ніколи не спрацьовував.  
+**Виправлення:** `latestGoldenTrace` змінено з `string` на `number`. `setLatestState()` приймає `number`. `broadcastV2State` серіалізує число. При отриманні `remoteGt = packet.gt as number` — порівняння строго числове. `v2_renderer.ts` і `bootstrap/v2.ts` оновлені для передачі `goldenTraceNum`.
+
+### HIGH-14: Remote Delta Mutation без bounds check ✅ FIXED
+**Файл:** `src/network/webrtc_v2.ts:147-168`  
+**Проблема:** При застосуванні delta mutations від віддаленої ноди, `index` з пакета використовувався напряму для доступу до `gridU32[index * 8]` без перевірки меж. Зловмисна нода могла передати `index >= maxAgents` і спричинити out-of-bounds запис у WASM/GPU пам'ять.  
+**Виправлення:** Додано `const maxAgents = gridU32.length / 8;` та `if (index >= maxAgents) continue;` з логуванням попередження. Також `numMutations` тепер `Math.floor(deltasU32.length / 4)` для запобігання читанню неповних deltas.
+
+### HIGH-15: `oldMeanFieldBuffer` неініціалізований на першому кадрі ✅ FIXED
+**Файл:** `src/lens/v2_renderer.ts`  
+**Проблема:** `oldMeanFieldBuffer` створювався через `device.createBuffer()` без ініціалізації. На першому кадрі `compute_v2.wgsl` читав неініціалізовану пам'ять для global mean field, що давало невизначений cold-start behavior.  
+**Виправлення:** Додано `device.queue.writeBuffer(this.oldMeanFieldBuffer, 0, new Uint8Array(8))` в `initialize()` для zero-initialization.
+
+### HIGH-16: `sineLutBuffer` надмірно копіюється кожен кадр ✅ FIXED
+**Файл:** `src/lens/v2_renderer.ts`  
+**Проблема:** `this.device.queue.writeBuffer(this.sineLutBuffer, 0, ptrs.sineLutBytes)` викликався в `tick()` кожен кадр (60×/с), хоча LUT статичний і ніколи не змінюється.  
+**Виправлення:** Перенесено запис LUT в `initialize()` (одноразово). Економія ~30KB/s PCIe трафіку.
+
+### HIGH-17: `deterministic_atan2` brute-force O(128) на GPU-hot-path ✅ FIXED
+**Файл:** `src/lens/shaders/compute_v2.wgsl`  
+**Проблема:** `deterministic_atan2` виконував brute-force dot-product scan по всій фазовій сітці (128 ітерацій для q_phase=7). Для 1M агентів це 128M ітерацій на кадр — найдорожча операція в шейдері.  
+**Виправлення:** Замінено на O(1) CORDIC-inspired atan2 з 129-entry LUT (`atan2_fast`), скопійований з `generated_constants.wgsl` (V1 kernel). Алгоритм: ratio = min(|y|,|x|) * 128 / max(|y|,|x|), LUT lookup, quadrant correction. ~10 операцій замість 128.  
+**Валідація:** `omega_v2/src/math.rs` — `atan2_fast` портовано в Rust і верифіковано brute-force O(256) scan з i64 dot product для 64 точок (±1 tolerance). Додано 2 unit tests.
+
 ---
 
 ## 7. Medium Issues (architecture smell)
