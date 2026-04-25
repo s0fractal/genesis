@@ -4,6 +4,51 @@
 
 ---
 
+## 🌱 **Era 1100: Bare-Metal Spores — Quad-Substrate Byte Equivalence**
+*Статус: Завершено (2026-04-26)*
+
+The fourth substrate. The Genesis Hash `0x549A6307` now reproduces
+byte-for-byte across:
+
+```
+✅ Browser/WASM    (wasm32-unknown-unknown)
+✅ Desktop host    (aarch64-apple-darwin)
+✅ ZK guest        (riscv64im-succinct-zkvm-elf via SP1)
+✅ Bare-metal ARM  (thumbv7em-none-eabihf via QEMU)   ← NEW
+```
+
+**`omega_spore/`** — standalone bare-metal firmware crate. 6 KB
+stripped ELF, statically linked, hand-rolled Cortex-M vector table
+(no `cortex-m-rt` dep). Boots in QEMU's `mps2-an386` machine, runs
+`validate_anchors()` against all 11 OMEGA-64 v1.0 anchors at `_start`,
+halts in panic_handler on any drift, enters single-NOP reactor loop on
+success.
+
+```bash
+cargo build --release          # cross-compiles to thumbv7em-none-eabihf
+qemu-system-arm \
+    -cpu cortex-m4 -machine mps2-an386 -nographic -semihosting \
+    -kernel target/thumbv7em-none-eabihf/release/omega_spore
+# Boots cleanly → silicon agrees with browser, host, and SP1.
+```
+
+Changes to `omega_v2`:
+- no_std cfg gate widened from `wasm32`-only to
+  `any(wasm32, target_os = "none")`. Cortex-M targets have
+  `target_os = "none"`, so the gate now activates for both substrates.
+- panic_handler made optional via `builtin-panic` Cargo feature
+  (default-on). Bare-metal binaries opt out via
+  `default-features = false` and supply their own.
+- Bonus host-side `omega_v2/examples/spore_smoke.rs` exercises the
+  same anchor battery on desktop for sanity-checking before flashing.
+
+This is the materialization of the Φ-Manifest's "biological substrate
+computing" intention: a field of $5 microcontrollers, each carrying
+the same `0x549A6307`, all agreeing on the same lattice ontology, no
+longer a roadmap aspiration. One `cargo build` away.
+
+---
+
 ## ⚖️ **Era 1090: Senate Warrant Issuance Protocol**
 *Статус: Завершено (2026-04-26)*
 

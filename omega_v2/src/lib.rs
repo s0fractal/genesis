@@ -1,10 +1,14 @@
-#![cfg_attr(all(target_arch = "wasm32", not(test)), no_std)]
-
-// Era 1100: Bare-Metal Substrate
-// no_std is enabled ONLY when targeting wasm32 (the browser/WASI runtime). On
-// SP1's RISC-V `riscv64im-succinct-zkvm-elf` target, std is provided by the
-// SP1 toolchain — declaring our own panic_handler would conflict with std's.
-// Likewise, `cargo test` and host builds use std for ergonomics.
+// Era 1100: Bare-Metal Substrate.
+//
+// no_std is enabled when targeting any of:
+//   - wasm32 (browser / WASI runtime)
+//   - thumb* (ARM Cortex-M microcontrollers — ESP32-C3, Pi Pico, STM32, etc.)
+//
+// On SP1's RISC-V `riscv64im-succinct-zkvm-elf` target, std is provided by
+// the SP1 toolchain — declaring our own panic_handler would conflict with
+// std's. Host (`cargo test`) builds also use std for ergonomics.
+#![cfg_attr(any(target_arch = "wasm32", target_os = "none"), no_std)]
+#![cfg_attr(any(target_arch = "wasm32", target_os = "none"), no_main)]
 
 pub mod constants;
 pub mod topology;
@@ -39,9 +43,13 @@ use halo::HaloState;
 
 
 
-// Primitive panic handler for no_std WASM. SP1 RISC-V target provides std,
-// so its panic_impl lang item collides with ours unless we gate by target.
-#[cfg(all(target_arch = "wasm32", not(test)))]
+// Primitive panic handler for no_std environments. Gated behind the
+// `builtin-panic` feature so downstream bare-metal binaries can supply
+// their own panic_handler without colliding on the lang item.
+//
+// SP1 RISC-V target provides std (its own panic_impl), so this is also
+// excluded from std targets via the no_std cfg.
+#[cfg(all(any(target_arch = "wasm32", target_os = "none"), feature = "builtin-panic"))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}

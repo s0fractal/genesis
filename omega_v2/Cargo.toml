@@ -8,5 +8,13 @@ description = "Era 920+ Bare-Metal Phase Lattice Engine (no_std, Zero-Cost React
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# Default builds (cdylib for WASM) include the kernel's own panic handler.
+# Downstream bare-metal binaries (`omega_spore`) opt OUT to provide
+# their own — otherwise rustc complains about a duplicate `panic_impl`
+# lang item.
+default = ["builtin-panic"]
+builtin-panic = []
+
 [dependencies]
 # We only use core and alloc, so dependencies must also be no_std

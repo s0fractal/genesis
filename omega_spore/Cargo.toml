@@ -1,0 +1,26 @@
+[package]
+name = "omega_spore"
+version = "1.0.0"
+edition = "2021"
+description = "Era 1100 Bare-Metal Spore — minimal embedded firmware exercising every cross-language anchor"
+
+# Standalone — bare-metal binaries cannot live in the workspace because
+# they need different default targets, panic strategies, and linker
+# scripts than the host crates.
+[workspace]
+
+[[bin]]
+name = "omega_spore"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+omega_v2 = { path = "../omega_v2", default-features = false }
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1

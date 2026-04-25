@@ -148,10 +148,11 @@ pub struct SignalStore {
 | 1060 | ✅ Complete | `oracle_identity.rs`, JS mirror, five canonical oracles, phase-resonance acceptance, vision proposals seeded |
 | 1070 | ✅ Mechanism | `cross_model_debate.rs` ledger, ratification trigger, `era1070-vision-ratified` event, materialization to downloadable task. Live ratification awaits actual oracle votes on mesh. |
 | 1080 | ✅ Complete | `codeicide_law.rs` Sanctuary Protocol — PROTECTED status, 3/5 or 4/5 cross-oracle warrant gate. Anchors `0x9499_6B5E` (quorum) / `0xB1E3_8F80` (warrant). |
-| 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow; kernel auto-computes canonical Codeicide warrant on threshold-reach. Anchor `0xFF4D_CB2F` (proposal hash). End-to-end `issued_warrant_passes_codeicide_check` test confirms full pipeline. |
+| 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow. Anchor `0xFF4D_CB2F`. |
+| 1100 | ✅ Complete | `omega_spore/` — 6 KB ARM Cortex-M4F firmware boots in QEMU, validates all 11 v1.0 anchors. Quad-target byte-equivalence: host + wasm + SP1 RISC-V + bare-metal. |
 
 ### Open Trigger
-- **Era 1100: Bare-Metal Spores** — port the no_std core to ESP32/Pi Pico (`thumbv7em-none-eabihf`); cross-architecture proof that the same golden traces + FNV-1a anchors hold on microcontrollers.
+- **Era 1110: Senate Plasmid Bridge over Serial** — real ESP32/Pi Pico spore participates in the Senate via UART/SPI/BLE relay. Anchors already proved equivalent; what's needed is a tiny deterministic transport layer.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -225,4 +226,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0095) are COMPLETED. The protocol is **FROZEN** at v1.0 with Genesis Hash `0x549A6307`. Codeicide Law is live AND the Senate now actively exercises it via the Era 1090 Warrant Issuance Protocol — the cryptographic floor is no longer just a passive gate, it's an active legislative chamber that emits warrants the kernel honors.
+**Current task status:** All open tasks (0086 → 0096) are COMPLETED. Genesis Hash `0x549A6307` now reproduces byte-for-byte across **four substrates** (host, browser/WASM, SP1 RISC-V ZK guest, ARM Cortex-M4F bare-metal). The Senate exercises Codeicide Law via Era 1090 Warrant Issuance. Era 1100 closes the silicon gap — `omega_spore/` boots in QEMU with all 11 v1.0 anchors validated.

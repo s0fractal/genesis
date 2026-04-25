@@ -8,3 +8,7 @@ OMEGA_EXPORT.md
 # Era 1040 Phase 3: built ELFs are reproducible from `cargo prove build`
 omega_zk_host/target/
 omega_zk_host/Cargo.lock
+
+# Era 1100: bare-metal spore firmware target dir is reproducible
+omega_spore/target/
+omega_spore/Cargo.lock
