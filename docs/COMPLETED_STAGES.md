@@ -308,6 +308,20 @@
   WASM fallback to pure-JS `hyperbolicDistanceStatic`. 5 Deno tests for encode/decode,
   greedy neighbour selection, and static distance parity.
 
+### 13. Era 1001: Passive Phase Routing in P2P Mesh
+- **WebRTCV2Mesh Integration**: `webrtc_v2.ts` accepts `PhaseRouter`, computes
+  `selfAddress` via `addressFromAgent(0)`, and exchanges addresses via `V2_HANDSHAKE`
+  on every new data channel open.
+- **Passive Attraction Zone**: `V2_SYNC` packets carry `ta` (target address), `hc`
+  (hop count), `mh` (max hops=8). Receiver consumes intent/delta only if its
+  hyperbolic distance to `ta` is ≤ sender's distance. Farther nodes silently drop
+  the packet, letting closer peers handle it — no explicit forwarding needed.
+- **Loop Prevention**: `hc >= mh` guard drops stale plasmids.
+- **Bootstrap Wiring**: `v2.ts` instantiates `PhaseRouter` before mesh and passes it
+  to `WebRTCV2Mesh` constructor.
+- **WGSL Mirror**: `src/lens/shaders/routing.wgsl` provides GPU-side hyperbolic
+  distance, Taylor step, and greedy next-hop for future 1M+ agent parallel routing.
+
 ---
 
 ## 🌌 Era 100-200: Genesis & Bio-Acoustics
