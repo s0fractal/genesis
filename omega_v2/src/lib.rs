@@ -390,6 +390,18 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
     }
 }
 
+// ------------------------------------------------------------------------------
+// Era 1010: Attractor Matrix FFI
+// ------------------------------------------------------------------------------
+
+/// Validate that matrix and inverse form a perfect dipole (bitwise complements).
+/// Returns 1 if valid, 0 if invalid.
+#[no_mangle]
+pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
+    let m = AttractorMatrix::new(matrix, inverse, 0, 0);
+    if m.is_valid_dipole() { 1 } else { 0 }
+}
+
 // --- EpicyclicSoul: Resonance Tensor FFI ---
 
 /// Scan all living agents and update the global ResonanceField.
@@ -540,6 +552,7 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
 // ------------------------------------------------------------------------------
 
 use routing::PhaseAddress;
+use attractor::AttractorMatrix;
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns 0 if the index is out of bounds or the lattice is not booted.
