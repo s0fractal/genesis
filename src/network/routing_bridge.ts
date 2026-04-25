@@ -9,6 +9,7 @@ export interface WasmExports {
     v2_route_hyperbolic_distance_toroidal?: (a: number, b: number) => number;
     v2_route_taylor_step?: (src: number, dst: number, maxStep: number) => number;
     v2_route_taylor_step_curvature?: (src: number, dst: number, maxStep: number, curv: number) => number;
+    v2_validate_dipole?: (matrix: number, inverse: number) => number;
 }
 
 /**
@@ -51,6 +52,20 @@ export class PhaseRouter {
         const fn = this.exports.v2_route_hyperbolic_distance_toroidal;
         if (!fn) return PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
         return fn(a, b);
+    }
+
+    /**
+     * Validate that matrix and inverse form a perfect dipole (bitwise complements).
+     * Returns true if valid, false otherwise.
+     */
+    validateDipole(matrix: number, inverse: number): boolean {
+        const fn = this.exports.v2_validate_dipole;
+        if (!fn) {
+            // Pure-JS fallback: XOR in JS is signed 32-bit, so we compare with -1
+            // (0xFFFFFFFF signed) or use >>> 0 for unsigned.
+            return (matrix ^ inverse) === -1;
+        }
+        return fn(matrix, inverse) !== 0;
     }
 
     /**

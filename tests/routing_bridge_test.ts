@@ -69,3 +69,9 @@ Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", ()
         PhaseRouter.hyperbolicDistanceToroidalStatic(a, b),
     );
 });
+
+Deno.test("PhaseRouter validateDipole without WASM uses JS fallback", () => {
+    const router = new PhaseRouter(null);
+    assertEquals(router.validateDipole(0xDEADBEEF, ~0xDEADBEEF), true);
+    assertEquals(router.validateDipole(0xDEADBEEF, 0xCAFEBABE), false);
+});
