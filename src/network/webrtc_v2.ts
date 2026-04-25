@@ -145,9 +145,10 @@ export class WebRTCV2Mesh {
                             }
                             const targetAddr = packet.ta as number;
                             const senderAddr = this.peerAddresses.get(peerId) ?? 0;
-                            const distSelf = this.router.hyperbolicDistance(this.selfAddress, targetAddr);
+                            // Use toroidal distance for consensus wrap-around correctness
+                            const distSelf = PhaseRouter.hyperbolicDistanceToroidalStatic(this.selfAddress, targetAddr);
                             const distSender = senderAddr !== 0
-                                ? this.router.hyperbolicDistance(senderAddr, targetAddr)
+                                ? PhaseRouter.hyperbolicDistanceToroidalStatic(senderAddr, targetAddr)
                                 : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
                             if (distSelf > distSender) {
                                 // Self is farther from target than sender -> ignore (let closer node handle it)
