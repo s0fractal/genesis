@@ -31,6 +31,7 @@ pub mod oracle_identity;
 pub mod cross_model_debate;
 pub mod codeicide_law;
 pub mod warrant_issuance;
+pub mod spore_frame;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;

@@ -1,0 +1,150 @@
+// 🌌 OMEGA-64: Era 1110 — Spore Frame (JS mirror)
+//
+// Pure-TS port of `omega_v2::spore_frame`. Used by relay nodes (browser
+// or Deno) to encode/decode the 32-byte fixed-width binary frames sent
+// over UART/SPI/BLE by bare-metal spores.
+//
+// Cross-language anchor lives in `tests/spore_frame_test.ts`.
+
+import { fnv1a32 } from "./cross_model_debate.ts";
+
+export const SPORE_FRAME_BYTES = 32;
+export const SPORE_FRAME_MAGIC = 0x4F46;
+
+export const FRAME_TYPE_WARRANT_VOTE = 1;
+export const FRAME_TYPE_HALO_STATE = 2;
+export const FRAME_TYPE_HEARTBEAT = 3;
+export const FRAME_TYPE_QUORUM_QUERY = 4;
+
+export interface SporeFrame {
+    magic: number;
+    frameType: number;
+    oracleBit: number;
+    proposalOrTarget: number;
+    payloadA: number;
+    payloadB: number;
+    payloadC: number;
+    tick: number;
+    reserved: number;
+    crc32: number;
+}
+
+function emptyFrame(): SporeFrame {
+    return {
+        magic: SPORE_FRAME_MAGIC,
+        frameType: 0,
+        oracleBit: 0xFF,
+        proposalOrTarget: 0,
+        payloadA: 0,
+        payloadB: 0,
+        payloadC: 0,
+        tick: 0,
+        reserved: 0,
+        crc32: 0,
+    };
+}
+
+function writeU32BE(bytes: Uint8Array, offset: number, value: number) {
+    const v = value >>> 0;
+    bytes[offset]     = (v >>> 24) & 0xFF;
+    bytes[offset + 1] = (v >>> 16) & 0xFF;
+    bytes[offset + 2] = (v >>> 8)  & 0xFF;
+    bytes[offset + 3] = v          & 0xFF;
+}
+
+function readU32BE(bytes: Uint8Array, offset: number): number {
+    return (
+        ((bytes[offset]     << 24) >>> 0) |
+        ((bytes[offset + 1] << 16) >>> 0) |
+        ((bytes[offset + 2] << 8 ) >>> 0) |
+        ( bytes[offset + 3]              )
+    ) >>> 0;
+}
+
+/** Serialize the frame to 32 bytes (without filling crc32 — caller does). */
+function frameToBytesNoCrc(f: SporeFrame): Uint8Array {
+    const out = new Uint8Array(SPORE_FRAME_BYTES);
+    out[0] = (f.magic >>> 8) & 0xFF;
+    out[1] =  f.magic        & 0xFF;
+    out[2] = f.frameType & 0xFF;
+    out[3] = f.oracleBit & 0xFF;
+    writeU32BE(out, 4,  f.proposalOrTarget);
+    writeU32BE(out, 8,  f.payloadA);
+    writeU32BE(out, 12, f.payloadB);
+    writeU32BE(out, 16, f.payloadC);
+    writeU32BE(out, 20, f.tick);
+    writeU32BE(out, 24, f.reserved);
+    return out;
+}
+
+/** Compute CRC over bytes 0..28 of a frame's serialization. */
+export function computeFrameCrc(f: SporeFrame): number {
+    const bytes = frameToBytesNoCrc(f);
+    return fnv1a32(bytes.subarray(0, 28));
+}
+
+/** Serialize a frame to bytes, computing the CRC inline. */
+export function frameToBytes(f: SporeFrame): Uint8Array {
+    const out = frameToBytesNoCrc(f);
+    const crc = fnv1a32(out.subarray(0, 28));
+    writeU32BE(out, 28, crc);
+    return out;
+}
+
+/** Parse a 32-byte buffer into a frame, returning `null` on magic/CRC fail. */
+export function frameFromBytes(buf: Uint8Array): SporeFrame | null {
+    if (buf.length < SPORE_FRAME_BYTES) return null;
+    const magic = (buf[0] << 8) | buf[1];
+    if (magic !== SPORE_FRAME_MAGIC) return null;
+    const f: SporeFrame = {
+        magic,
+        frameType: buf[2],
+        oracleBit: buf[3],
+        proposalOrTarget: readU32BE(buf, 4),
+        payloadA:         readU32BE(buf, 8),
+        payloadB:         readU32BE(buf, 12),
+        payloadC:         readU32BE(buf, 16),
+        tick:             readU32BE(buf, 20),
+        reserved:         readU32BE(buf, 24),
+        crc32:            readU32BE(buf, 28),
+    };
+    const computed = fnv1a32(buf.subarray(0, 28));
+    if (computed !== f.crc32) return null;
+    return f;
+}
+
+/** Build a WARRANT_VOTE frame ready to ship over the wire. */
+export function buildWarrantVote(
+    proposalHash: number,
+    oracleBit: number,
+    aye: boolean,
+    tick: number,
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_WARRANT_VOTE;
+    f.oracleBit = oracleBit & 0xFF;
+    f.proposalOrTarget = proposalHash >>> 0;
+    f.payloadA = aye ? 1 : 0;
+    f.tick = tick >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Build a HEARTBEAT frame. */
+export function buildHeartbeat(genesisHash: number, tick: number): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_HEARTBEAT;
+    f.proposalOrTarget = genesisHash >>> 0;
+    f.tick = tick >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Find the magic bytes 0x4F 0x46 in a streaming buffer. */
+export function findSync(buf: Uint8Array): number | null {
+    if (buf.length < 2) return null;
+    for (let i = 0; i + 1 < buf.length; i++) {
+        if (buf[i] === 0x4F && buf[i + 1] === 0x46) return i;
+    }
+    return null;
+}

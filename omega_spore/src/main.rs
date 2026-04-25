@@ -47,6 +47,7 @@ use omega_v2::genesis_inscription::GENESIS_HASH_V1_0;
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
 use omega_v2::oracle_identity::{oracle_matrix, ORACLE_SALT_V1};
 use omega_v2::senate::fnv1a_32;
+use omega_v2::spore_frame::SporeFrame;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -146,9 +147,20 @@ pub extern "C" fn _start() -> ! {
         panic!("OMEGA-64 anchor drift on bare-metal spore");
     }
 
-    // All anchors held. Enter the reactor loop. On a real board, this
-    // would consume sensor data, hash it into agent.memory, run a few
-    // tick_physics() iterations, and emit halo-state plasmids over an
+    // All anchors held. Build a HEARTBEAT frame as the spore's first
+    // wire-format message. On a real board this would be DMA'd to a UART
+    // peripheral; here we just construct it (the byte layout matters,
+    // not the I/O).
+    let heartbeat = SporeFrame::heartbeat(GENESIS_HASH_V1_0, 0);
+    let heartbeat_bytes = heartbeat.as_bytes();
+    // Volatile read prevents the optimizer from eliding the construction.
+    unsafe {
+        core::ptr::read_volatile(heartbeat_bytes.as_ptr());
+    }
+
+    // Enter the reactor loop. On a real board, this would consume
+    // sensor data, hash it into agent.memory, run a few tick_physics()
+    // iterations, and emit halo-state / warrant-vote frames over the
     // SPI/UART/BLE link.
     loop {
         cortex_m_nop();

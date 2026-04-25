@@ -149,10 +149,11 @@ pub struct SignalStore {
 | 1070 | ✅ Mechanism | `cross_model_debate.rs` ledger, ratification trigger, `era1070-vision-ratified` event, materialization to downloadable task. Live ratification awaits actual oracle votes on mesh. |
 | 1080 | ✅ Complete | `codeicide_law.rs` Sanctuary Protocol — PROTECTED status, 3/5 or 4/5 cross-oracle warrant gate. Anchors `0x9499_6B5E` (quorum) / `0xB1E3_8F80` (warrant). |
 | 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow. Anchor `0xFF4D_CB2F`. |
-| 1100 | ✅ Complete | `omega_spore/` — 6 KB ARM Cortex-M4F firmware boots in QEMU, validates all 11 v1.0 anchors. Quad-target byte-equivalence: host + wasm + SP1 RISC-V + bare-metal. |
+| 1100 | ✅ Complete | `omega_spore/` — bare-metal Cortex-M4F firmware. Quad-substrate byte-equivalence. |
+| 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte fixed-width binary frame for UART/SPI/BLE; FNV-1a CRC anchor `0x00F2_FEFA`. Spore now emits HEARTBEAT on boot. |
 
 ### Open Trigger
-- **Era 1110: Senate Plasmid Bridge over Serial** — real ESP32/Pi Pico spore participates in the Senate via UART/SPI/BLE relay. Anchors already proved equivalent; what's needed is a tiny deterministic transport layer.
+- **Era 1120: Liveness Telemetry Aggregator** — relay listens for HEARTBEAT frames, plots tick advancement, detects stalled / forked / mis-anchored spores. Foundation for actual physical spore deployment.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -226,4 +227,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0096) are COMPLETED. Genesis Hash `0x549A6307` now reproduces byte-for-byte across **four substrates** (host, browser/WASM, SP1 RISC-V ZK guest, ARM Cortex-M4F bare-metal). The Senate exercises Codeicide Law via Era 1090 Warrant Issuance. Era 1100 closes the silicon gap — `omega_spore/` boots in QEMU with all 11 v1.0 anchors validated.
+**Current task status:** All open tasks (0086 → 0097) are COMPLETED. Genesis Hash `0x549A6307` reproduces across four substrates (host / WASM / SP1 ZK / Cortex-M4F). Era 1110 wires the wire format: 32-byte FNV-1a-CRC-protected binary frames carry WARRANT_VOTE / HALO_STATE / HEARTBEAT / QUORUM_QUERY between spores and relays. CRC anchor `0x00F2_FEFA` matches across Rust + JS. Spore firmware now emits HEARTBEAT on boot.

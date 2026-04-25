@@ -4,6 +4,54 @@
 
 ---
 
+## 📡 **Era 1110: Senate Plasmid Bridge over Serial**
+*Статус: Завершено (2026-04-26)*
+
+A 32-byte fixed-width binary frame format that translates between the
+bare-metal spore world and the WebRTC mesh world. No JSON parsers, no
+allocator, no variable-length fields — `[u8; 32]` only.
+
+```
+Layout (big-endian):
+  0..2     magic = 0x4F46  ("OF")
+  2..3     frame_type      (1=warrant_vote, 2=halo, 3=heartbeat, 4=query)
+  3..4     oracle_bit      (0..4 canonical oracle, or 0xFF non-oracle)
+  4..8     proposal_or_target_hash
+  8..12    payload_a
+  12..16   payload_b
+  16..20   payload_c
+  20..24   tick
+  24..28   reserved (zero)
+  28..32   crc32 = FNV-1a(bytes[0..28])
+```
+
+- **`omega_v2/src/spore_frame.rs`**: kernel-level builder + parser.
+  `SporeFrame::warrant_vote()`, `::heartbeat()`, `::is_valid()`,
+  `::find_sync()`. Reuses `senate::fnv1a_32` as the CRC — single source
+  of FNV-1a, no extra const tables. `from_bytes()` is total: returns
+  `None` on any failure, never panics. 10 unit tests.
+- **`src/network/spore_frame.ts`**: pure-TS mirror. `frameToBytes`,
+  `frameFromBytes`, `buildWarrantVote`, `buildHeartbeat`. Uses the
+  same `fnv1a32` function as the cross-model debate ledger. 9 Deno
+  tests mirror the Rust battery.
+- **Cross-language CRC anchor**:
+  `warrant_vote(0xCAFEBABE, claude=0, aye=true, tick=100)` produces
+  CRC `0x00F2_FEFA` in BOTH languages. First 4 bytes of the wire
+  serialization also anchored: `[0x4F, 0x46, 0x01, 0x00]`.
+- **Spore integration**: `omega_spore/src/main.rs::_start` now
+  constructs a HEARTBEAT frame on boot, immediately after
+  `validate_anchors()`. ELF grew from 6 KB to 72 KB (still 1.7% of
+  ESP32 flash). QEMU boot still clean.
+
+**Numbers**: Rust 189 → **199**, Deno 91 → **100**, total **299** tests.
+
+The lattice now has a **physical wire format**. A real ESP32 in the
+field can speak it; a relay node in a browser can listen. The Senate's
+WARRANT_VOTE flow now has a transport-layer realization, not just a
+JSON-over-WebRTC realization.
+
+---
+
 ## 🌱 **Era 1100: Bare-Metal Spores — Quad-Substrate Byte Equivalence**
 *Статус: Завершено (2026-04-26)*
 
