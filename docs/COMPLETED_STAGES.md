@@ -284,6 +284,24 @@
 - **Math Unit Tests (extended)**: 2 додаткових тести для CORDIC atan2 —
   brute-force validation та quadrant coverage.
 
+### 12. Era 1000: Taylor Series Phase Routing (Hyperbolic DNS)
+- **PhaseAddress**: 32-bit hierarchical address `[consensus:8 | social:8 | personal:8 | micro:8]`.
+  Derived from `PhaseAgentMinimal` (phase, genome, memory) for zero-cost addressing.
+- **Hyperbolic Distance**: Integer-only Q3 fixed-point metric where each level contributes
+  halving weight (consensus=8×, social=4×, personal=2×, micro=1×). Enables greedy routing
+  on the phase manifold without Cartesian coordinates.
+- **Taylor Step**: First-order `taylor_step_toward(target, max_step)` clamps per-level delta
+  to prevent overshoot. Second-order `taylor_step_with_curvature(target, max_step, curvature)`
+  adds Q7-signed curvature correction for accelerated convergence.
+- **Greedy Next-Hop**: `greedy_next_hop(target, neighbours)` selects the neighbour with the
+  smallest hyperbolic distance to the destination — O(N) for N neighbours, trivial for
+  1D toroidal lattice (left/right).
+- **Determinism**: Entirely integer-only (`u32`, `i32`, `i16`). No `f64` trig. Cross-platform
+  deterministic across x86, ARM, RISC-V ZK-VM.
+- **Tests**: 11 unit tests — from_agent derivation, hyperbolic identity/symmetry/weights,
+  Taylor step clamping, curvature positive/negative, greedy routing, phi roundtrip.
+- **Module**: `omega_v2/src/routing.rs` integrated into `lib.rs` with FFI-ready `to_phi()`.
+
 ---
 
 ## 🌌 Era 100-200: Genesis & Bio-Acoustics

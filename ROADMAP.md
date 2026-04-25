@@ -149,8 +149,15 @@
 - Rust тримає `LatticeMetrics` (кеш констант). При зміні середовища піднімаються `dirty_flags`.
 - На наступному $\tau$-тіку рекалькулюється матриця, відкидаються слабкі агенти (Дарвінізм), а нові константи пишуться в `UniformBuffer` для WebGPU. Жодних виділень пам'яті (allocations).
 
-### Era 1000: Fourier/Taylor Phase Routing (Hyperbolic DNS)
+### Era 1000: Fourier/Taylor Phase Routing (Hyperbolic DNS) [IN PROGRESS]
 **Ontology Direction: «The Math of Addressing»**
+
+**Status:** Foundation implemented in `omega_v2/src/routing.rs`.
+- `PhaseAddress` (32-bit hierarchical: consensus/social/personal/micro)
+- Integer-only hyperbolic distance (Q3 fixed-point, halving weights per level)
+- First-order and second-order Taylor step with Q7 curvature
+- Greedy next-hop selection for 1D toroidal neighbours
+- 11 unit tests, clippy-clean, no_std compatible
 
 #### Гіперболічна Трансляція Фазових Маршрутів
 Класичні P2P мережі покладаються на плоскі таблиці маршрутизації (IP/DHT), які не масштабуються в мультивсесвіті. Ми замінюємо Картезіанські адреси на **Ряд Тейлора/Фур'є ідентичності**. 

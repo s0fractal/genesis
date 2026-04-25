@@ -15,6 +15,7 @@ pub mod anchor;
 pub mod phi_protocol;
 pub mod resonance;
 pub mod halo;
+pub mod routing;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
