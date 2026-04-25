@@ -1,21 +1,30 @@
-#![no_std]
+#![cfg_attr(not(any(test, debug_assertions)), no_std)]
 
 // Era 1100: Bare-Metal Substrate
 // This crate operates entirely without the standard library, enabling direct execution
 // inside RISC-V ZK-VMs (SP1), Microcontrollers, or WebAssembly sandbox without WASI.
 
+pub mod constants;
 pub mod topology;
 pub mod math;
 pub mod agent;
 pub mod lattice;
 pub mod pouw;
+pub mod epigenetics;
+pub mod anchor;
+pub mod phi_protocol;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
 use agent::PhaseAgentMinimal;
+use epigenetics::EpigeneticMemory;
+use anchor::PhiAnchorChain;
+use phi_protocol::{PhiMessageBuffer, PhiMessage};
+
+
 
 // Primitive panic handler for no_std WASM/Bare metal environments
-#[cfg(all(not(test), target_arch = "wasm32"))]
+#[cfg(not(any(test, debug_assertions)))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -51,6 +60,9 @@ static mut DELTA_BUFFER: [crate::lattice::DeltaItem; MAX_DELTA_ITEMS] = [crate::
     genome: 0,
 }; MAX_DELTA_ITEMS];
 
+/// Global Epigenetic Memory — accumulates survival wisdom across Big Bang cycles.
+static mut EPIGENETIC_MEMORY: EpigeneticMemory = EpigeneticMemory::new();
+
 /// The Global Engine Singleton for #![no_std] execution.
 static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
     topology: PhaseTopology {
@@ -80,18 +92,26 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
     active_agent_count: 0,
 };
 
+/// Φ-Маніфест: Bitcoin φ-Anchor Chain.
+/// Глобальний якір для всіх φ-дериватів у мережі.
+static mut PHI_ANCHOR_CHAIN: PhiAnchorChain = PhiAnchorChain::new();
+
+/// Φ-Маніфест: Phi Protocol Message Buffer.
+/// Lock-free ring buffer для повідомлень між OMEGA і зовнішніми спостерігачами.
+static mut PHI_MESSAGE_BUFFER: PhiMessageBuffer = PhiMessageBuffer::new();
+
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
 // -----------------------------------------------------------------------------
 
 #[no_mangle]
 pub extern "C" fn v2_lattice_ptr() -> *const u8 {
-    unsafe { &OMEGA_LATTICE as *const PhaseLattice as *const u8 }
+    core::ptr::addr_of!(OMEGA_LATTICE) as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_agents_ptr() -> *const u8 {
-    unsafe { AGENTS_MEMORY.as_ptr() as *const u8 }
+    core::ptr::addr_of!(AGENTS_MEMORY) as *const u8
 }
 
 #[no_mangle]
@@ -103,28 +123,42 @@ pub extern "C" fn v2_sine_lut_ptr() -> *const u8 {
 pub extern "C" fn v2_boot_engine() {
     unsafe {
         // Link the static buffer into the Lattice Engine
-        OMEGA_LATTICE.minimal_agents_ptr = AGENTS_MEMORY.as_mut_ptr();
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        let agents = core::ptr::addr_of_mut!(AGENTS_MEMORY) as *mut PhaseAgentMinimal;
+        (*lattice).minimal_agents_ptr = agents;
     }
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, q_harmonics: u32) {
+pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics: u32) {
     unsafe {
-        OMEGA_LATTICE.set_environment(q_sectors, q_radial, q_harmonics);
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).set_environment(q_sectors, q_radial, _q_harmonics);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
     unsafe {
-        OMEGA_LATTICE.ignite_big_bang(seed, agent_count);
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).ignite_big_bang(seed, agent_count);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32) {
+    unsafe {
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
+        (*lattice).ignite_epigenetic_big_bang(seed, agent_count, &*mem);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_tick() {
     unsafe {
-        OMEGA_LATTICE.tick_physics();
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).tick_physics();
     }
 }
 
@@ -132,43 +166,212 @@ pub extern "C" fn v2_tick() {
 pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32, semantic_genome: u32, op_mode: u32) {
     if index >= 4 { return; }
     unsafe {
-        OMEGA_LATTICE.intents[index as usize].focus_x = focus_x;
-        OMEGA_LATTICE.intents[index as usize].focus_y = focus_y;
-        OMEGA_LATTICE.intents[index as usize].mass = mass;
-        OMEGA_LATTICE.intents[index as usize].radius = radius;
-        OMEGA_LATTICE.intents[index as usize].semantic_genome = semantic_genome;
-        OMEGA_LATTICE.intents[index as usize].op_mode = op_mode;
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).intents[index as usize].focus_x = focus_x;
+        (*lattice).intents[index as usize].focus_y = focus_y;
+        (*lattice).intents[index as usize].mass = mass;
+        (*lattice).intents[index as usize].radius = radius;
+        (*lattice).intents[index as usize].semantic_genome = semantic_genome;
+        (*lattice).intents[index as usize].op_mode = op_mode;
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_get_golden_trace() -> u32 {
     unsafe {
-        OMEGA_LATTICE.get_golden_trace()
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        (*lattice).get_golden_trace()
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_mitosis_sweep() -> u32 {
     unsafe {
-        OMEGA_LATTICE.darwinian_mitosis()
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).darwinian_mitosis()
     }
 }
 
 // ERA 6000 FFI
 #[no_mangle]
 pub extern "C" fn v2_delta_buffer_ptr() -> *const u8 {
-    unsafe { DELTA_BUFFER.as_ptr() as *const u8 }
+    core::ptr::addr_of!(DELTA_BUFFER) as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     unsafe {
-        OMEGA_LATTICE.generate_delta_snapshot(
-            AGENTS_MEMORY.as_ptr(),
-            LAST_SNAPSHOT_MEMORY.as_mut_ptr(),
-            DELTA_BUFFER.as_mut_ptr(),
-            MAX_DELTA_ITEMS
-        )
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        let agents = core::ptr::addr_of!(AGENTS_MEMORY) as *const PhaseAgentMinimal;
+        let snapshot = core::ptr::addr_of_mut!(LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal;
+        let delta = core::ptr::addr_of_mut!(DELTA_BUFFER) as *mut crate::lattice::DeltaItem;
+        (*lattice).generate_delta_snapshot(agents, snapshot, delta, MAX_DELTA_ITEMS)
+    }
+}
+
+// -------------------------------------------------------------------------
+// ERA 950: Epigenetic FFI (Observer → Memory → Evolution)
+// -------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn v2_record_epigenetic(genome: u32) {
+    unsafe {
+        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
+        (*mem).record(genome);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_get_epigenetic_bias(bit_index: u32) -> u32 {
+    if bit_index >= 32 { return 0; }
+    unsafe {
+        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
+        (*mem).bit_frequencies[bit_index as usize]
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_get_epigenetic_total() -> u32 {
+    unsafe {
+        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
+        (*mem).total_recorded
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_set_mutation_rate(rate: u32) {
+    unsafe {
+        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
+        (*mem).mutation_rate = rate.min(100);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_clear_epigenetic() {
+    unsafe {
+        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
+        (*mem).clear();
+    }
+}
+
+// -------------------------------------------------------------------------
+// Φ-Маніфест: Bitcoin φ-Anchor Chain FFI
+// -------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_init(h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
+    unsafe {
+        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
+        (*anchor).init([h0, h1, h2, h3, h4, h5]);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_ingest_block(hash: u64) {
+    unsafe {
+        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
+        (*anchor).ingest_block(hash);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_global_phi() -> u32 {
+    unsafe {
+        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
+        (*anchor).global_phi()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_derive_phi(parent_phi: u32, child_id: u64, q_phase: u32) -> u32 {
+    unsafe {
+        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
+        (*anchor).derive_phi(parent_phi, child_id, q_phase)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_verify_coherence(
+    claimed_phi: u32,
+    parent_phi: u32,
+    child_id: u64,
+    q_phase: u32,
+    tolerance: u32,
+) -> u32 {
+    unsafe {
+        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
+        if (*anchor).verify_coherence(claimed_phi, parent_phi, child_id, q_phase, tolerance) {
+            1
+        } else {
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_anchor_total_blocks() -> u64 {
+    unsafe {
+        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
+        (*anchor).total_blocks
+    }
+}
+
+// -------------------------------------------------------------------------
+// Φ-Маніфест: Phi Protocol FFI (OMEGA ↔ Liquid Bridge)
+// -------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn v2_phi_buffer_ptr() -> *const u8 {
+    core::ptr::addr_of!(PHI_MESSAGE_BUFFER) as *const u8
+}
+
+#[no_mangle]
+pub extern "C" fn v2_phi_buffer_push(msg_type: u8, q_phase: u8, phi: u32, energy: u32, payload_lo: u32, payload_hi: u32) {
+    unsafe {
+        let buf = core::ptr::addr_of_mut!(PHI_MESSAGE_BUFFER);
+        let payload = ((payload_hi as u64) << 32) | (payload_lo as u64);
+        let msg = PhiMessage::new(msg_type, q_phase, phi, energy, payload);
+        (*buf).push(msg);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_phi_buffer_len() -> u32 {
+    unsafe {
+        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
+        (*buf).len()
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_phi_buffer_is_empty() -> u32 {
+    unsafe {
+        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
+        if (*buf).is_empty() { 1 } else { 0 }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_phi_buffer_drops() -> u32 {
+    unsafe {
+        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
+        (*buf).drops
+    }
+}
+
+/// # Safety
+/// `msg_out` must be a valid, non-null, aligned pointer to a `PhiMessage`.
+#[no_mangle]
+pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> u32 {
+    if msg_out.is_null() { return 0; }
+    unsafe {
+        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
+        match (*buf).peek_latest() {
+            Some(msg) => {
+                core::ptr::write(msg_out, msg);
+                1
+            }
+            None => 0,
+        }
     }
 }

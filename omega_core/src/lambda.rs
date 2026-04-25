@@ -15,6 +15,7 @@ pub enum Term {
 
 pub struct SimpleRng { pub state: u64 }
 impl SimpleRng {
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(6364136223846793005).wrapping_add(1);
         (self.state >> 32) as u32
@@ -262,6 +263,12 @@ impl LambdaArena {
         }
     }
 
+    /// Computes a phenotype hue from AST combinator ratios.
+    ///
+    /// HIGH-9 NOTE: This function uses `f64::sin`, `f64::cos`, and `f64::atan2`.
+    /// Results may differ on the last bits between x86 (glibc) and ARM (musl).
+    /// For ZK-VM deterministic verification, consider using LUT-based trig
+    /// (e.g. `atan2_u8` from `constants.rs`) or linking `libm` for soft-float.
     pub fn phenotype_hue(&self, root: Index) -> u32 {
         let mut counts = [0u32; 6]; // S, K, I/Y, B, C, W
         self.walk_hue_counts(root, &mut counts);

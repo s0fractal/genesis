@@ -127,6 +127,67 @@
 
 ---
 
+## 🌌 Era 920-950: Mathematical Hardening & V2 Bare-Metal Substrate
+*Статус: Завершено (Квітень 2026)*
+
+### 1. Mathematical Audit & CRIT Resolution
+- **Full mathematical audit** of 27 formulas, 31+ magic numbers, fixed-point math, LCG, and crypto boundaries.
+- **10 CRITICAL issues fixed** (negative drift wrap, genome truncation, golden trace zero, CPU fallback ABI mismatch, u32 overflow, topology guards, atan2 overflow, wrap_index non-power-of-2, harmonics divide-by-zero).
+- **4 HIGH issues fixed** (modulo→bitmask hot path, PhaseAgent alignment docs, log-tolerance consonance, LCG→xorshift64* RNG upgrade).
+
+### 2. V2 no_std Bare-Metal Engine (`omega_v2`)
+- Built `#![no_std]` kernel with conditional `std` for tests.
+- Fixed `#[panic_handler]` for wasm32 bare-metal and test environments.
+- Eliminated `static_mut_refs` warnings via `core::ptr::addr_of!` / `addr_of_mut!`.
+- 1M agent static arrays in `.bss` (32MB) — zero runtime allocation.
+
+### 3. Epigenetic Memory Layer
+- Introduced `EpigeneticMemory` with 32-bit frequency counters.
+- `record()` tracks successful genome bit patterns.
+- `generate_biased_genome()` stochastically biases new generations toward historically fit traits.
+- Full integration into Big Bang and Darwinian mitosis.
+
+### 4. Deterministic RNG Upgrade
+- Replaced Numerical Recipes LCG (period 2^32) with **xorshift64*** (period 2^64-1).
+- SplitMix64 seed mixing for avalanche effect.
+- Zero-allocation, single `u64` state — suitable for ZK-VMs.
+
+### 5. Named Constants & Compile-Time Guards
+- Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
+- Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
+- `cargo test --workspace --lib` passes 34/34 tests (omega_v2), `clippy --workspace -D warnings` clean.
+
+### 6. TypeScript FFI Declarations
+- Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
+- Documented memory layouts for `PhaseAgentMinimal` (24 bytes), `PhaseTopology` (16 bytes), `DeltaItem` (16 bytes).
+
+---
+
+## 🌌 Era 960-970: Tensor Web Physics & Φ-Message Lifecycle
+*Статус: Завершено (Квітень 2026)*
+
+### 1. Kuramoto Coupling in V2 (`tick_physics`)
+- Implemented full Kuramoto coupling in `omega_v2/src/lattice.rs`:
+  - **Read-write chunking**: 8-element stack buffer for cache-friendly neighbor coupling.
+  - **Toroidal 1D chain**: left/right neighbors with wrap-around (`active - 1` / `0`).
+  - **Q10 sine LUT**: `sin_q10(from, to)` using 256-element `SINE_LUT` with `& 0xFF` bitmask (HIGH-3).
+  - **Energy-weighted coupling**: `K * sin(Δφ) / (E_i + E_j + 1)` — stronger agents resist deformation.
+  - **Metabolic burn**: `BASE_COST + genome.count_ones() / 4` — complex genomes burn faster.
+  - **Resonance replenish**: `+150 ATP` when `phase % 64 == 0` (harmonic zero alignment).
+  - **Phase drift**: `base_freq` (Q20) added directly to phase, masked by `phase_mask`.
+- Deterministic across all platforms: zero float operations, 100% integer math.
+
+### 2. Compost Bridge (Death → Σ-Neuron)
+- Auto-publishes `PhiMessage::encode_compost()` on agent death (`energy == 0`).
+- Φ-Message buffer captures: `genome`, `energy_at_death`, `death_tick`, `agent_id`.
+- Enables Liquid ontology layer to harvest dead agents into Σ-neuron training data.
+
+### 3. Reactive Reconciliation
+- Dirty flags (`SIGNAL_TOPOLOGY_CHANGED`, `SIGNAL_CONSENSUS_SHIFT`) cleared every tick.
+- Enables zero-cost environment sync between JS host and WASM kernel.
+
+---
+
 ## 🌌 Era 100-200: Genesis & Bio-Acoustics
 *Статус: Завершено (Лютий-Березень 2026)*
 

@@ -3,7 +3,7 @@ use crate::fixed_point::*;
 
 #[inline(always)]
 pub(crate) fn wrap_phase(value: i16) -> u8 {
-    crate::constants::wrap_index(value as i32, PHASE_LUT_SIZE as i32) as u8
+    crate::constants::wrap_index(value as i32, PHASE_LUT_SIZE) as u8
 }
 
 #[inline(always)]

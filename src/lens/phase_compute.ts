@@ -298,10 +298,14 @@ export class PhaseComputeEngine {
                 }
                 
                 const offset = targetIdx * 24;
-                dv.setUint8(offset + 12, 255); // max amp
-                dv.setUint8(offset + 13, inj.ent); // max lock
-                dv.setUint32(offset, inj.hashLow, true);     // plasmid low
+                // CRIT-4 FIX: Correct ABI mapping for PhaseAgent (24 bytes, repr(C))
+                // 0-7: plasmid (u64), 8-9: omega (i16), 10: time_dilation, 11: preferred_theta
+                // 12: theta, 13: energy, 14: lock, 15: entanglement, 16: memory_strength
+                dv.setUint32(offset, inj.hashLow, true);      // plasmid low
                 dv.setUint32(offset + 4, inj.hashHigh, true); // plasmid high
+                dv.setUint8(offset + 12, inj.phase);          // theta
+                dv.setUint8(offset + 13, inj.amp);            // energy (amp)
+                dv.setUint8(offset + 15, inj.ent);            // entanglement
             }
             
             execute_phase_lattice_tick(this.field);

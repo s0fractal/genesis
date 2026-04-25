@@ -95,8 +95,12 @@ export function calculateConsonanceBonus(astStr: string): number {
                 2.0 // Octave (2:1)
             ];
             
+            // HIGH-5 FIX: log-tolerance replaces arithmetic tolerance.
+            // Log-tolerance is frequency-invariant: same perceptual consonance
+            // regardless of absolute frequency.
+            const LOG_TOLERANCE = 0.07; // ≈ 5% in log2 space
             for (const target of intervals) {
-                if (Math.abs(ratio - target) < 0.05) { // 5% arithmetic tolerance
+                if (Math.abs(Math.log2(ratio) - Math.log2(target)) < LOG_TOLERANCE) {
                     bonus += 10.0; // Huge evolutionary ATP reward for physical harmony
                 }
             }

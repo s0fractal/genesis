@@ -41,7 +41,11 @@ pub struct PhaseTopology {
 
 impl PhaseTopology {
     /// Creates a generic PhaseTopology for an average device budget.
+    /// CRIT-6 FIX: q_phase must be in [2, 7] for the 128-element SINE_LUT.
+    /// q_sectors/q_radial must be < usize::BITS to prevent shift overflow.
     pub fn new(q_phase: u32, q_sectors: u32, q_radial: u32, q_math: u32) -> Self {
+        assert!((2..=7).contains(&q_phase), "q_phase must be in [2, 7] for 128-element LUT");
+        assert!(q_sectors < 32 && q_radial < 32, "q_sectors/q_radial must be < 32");
         Self {
             q_phase,
             q_sectors,
@@ -49,6 +53,10 @@ impl PhaseTopology {
             q_math,
         }
     }
+
+    /// Returns half the phase range (π offset for child mitosis).
+    #[inline(always)]
+    pub fn half_phase(&self) -> u32 { 1u32 << self.q_phase.saturating_sub(1) }
 
     /// Evaluates the total geometrical boundaries of a world based entirely on shifts.
     #[inline(always)]

@@ -1,10 +1,13 @@
 use wasm_bindgen::prelude::*;
 
 // O-176: The Granite Core (AoS Topology)
-// A mathematically rigid, perfectly 32-byte aligned structure.
-// This guarantees that the WebGPU Compute Shader pulls contiguous 256-bit blocks.
+// A mathematically rigid, 24-byte structure (8-byte aligned).
+// NOTE: NOT 32-byte aligned. The comment previously claimed 256-bit blocks,
+// but the actual size is 192 bits (24 bytes). WebGPU accesses it via byte offsets.
+// HIGH-6 FIX: Documented real size. Any change to layout MUST sync with
+// TypeScript offset calculations in src/lens/phase_compute.ts.
 #[wasm_bindgen]
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 #[repr(C)]
 pub struct PhaseAgent {
     pub plasmid: u64,        // 0-7 (8-byte aligned naturally)
@@ -18,18 +21,6 @@ pub struct PhaseAgent {
     pub memory_strength: u8, // 16
 }
 
-impl Default for PhaseAgent {
-    fn default() -> Self {
-        PhaseAgent {
-            plasmid: 0,
-            omega: 0,
-            time_dilation: 0,
-            preferred_theta: 0,
-            theta: 0,
-            energy: 0,
-            lock: 0,
-            entanglement: 0,
-            memory_strength: 0,
-        }
-    }
-}
+// Compile-time size guard: TS expects 24 bytes per PhaseAgent.
+// If this fails, update src/lens/phase_compute.ts accordingly.
+const _: () = assert!(core::mem::size_of::<PhaseAgent>() == 24);

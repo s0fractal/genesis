@@ -129,4 +129,64 @@ export class OmegaV2Engine {
         if (!this.wasmInstance) return;
         (this.wasmInstance.exports.v2_ingest_cosmic_entropy as CallableFunction)(rawHashBigInt);
     }
+
+    // -----------------------------------------------------------------------
+    // ERA 950+ Epigenetic Memory Bridge
+    // -----------------------------------------------------------------------
+
+    public recordEpigenetic(genome: number) {
+        if (!this.wasmInstance) return;
+        (this.wasmInstance.exports.v2_record_epigenetic as CallableFunction)(genome);
+    }
+
+    public getEpigeneticBias(bitIndex: number): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_get_epigenetic_bias as CallableFunction)(bitIndex) as number;
+    }
+
+    public getEpigeneticTotal(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_get_epigenetic_total as CallableFunction)() as number;
+    }
+
+    public setMutationRate(rate: number) {
+        if (!this.wasmInstance) return;
+        (this.wasmInstance.exports.v2_set_mutation_rate as CallableFunction)(Math.min(100, Math.max(0, rate)));
+    }
+
+    public clearEpigenetic() {
+        if (!this.wasmInstance) return;
+        (this.wasmInstance.exports.v2_clear_epigenetic as CallableFunction)();
+    }
+
+    public igniteEpigeneticBigBang(seed: number, count: number) {
+        if (!this.wasmInstance) return;
+        const exportBigBang = this.wasmInstance.exports.v2_ignite_epigenetic_big_bang as CallableFunction;
+        if (exportBigBang) {
+            exportBigBang(seed, count);
+            console.log(`🧬 [V2-EPIGENETICS] Biased Big Bang ignited with ${count} agents.`);
+        }
+    }
+
+    /// Harvest thriving agents (energy > threshold) into epigenetic memory.
+    public harvestSurvivors(threshold: number = 1500) {
+        if (!this.wasmInstance || !this.memory || !this.currentTopology) return;
+        const agentsPtr = (this.wasmInstance.exports.v2_agents_ptr as CallableFunction)() as number;
+        const count = this.currentTopology.maxAllocatedAgents;
+        const agentView = new Uint8Array(this.memory.buffer, agentsPtr, count * 32);
+
+        let harvested = 0;
+        for (let i = 0; i < count; i++) {
+            const offset = i * 32;
+            const energy = new DataView(agentView.buffer, agentView.byteOffset + offset + 4, 4).getUint32(0, true);
+            const genome = new DataView(agentView.buffer, agentView.byteOffset + offset + 16, 4).getUint32(0, true);
+            if (energy > threshold) {
+                this.recordEpigenetic(genome);
+                harvested++;
+            }
+        }
+        if (harvested > 0) {
+            console.log(`🧬 [V2-EPIGENETICS] Harvested ${harvested} survivors into collective memory.`);
+        }
+    }
 }

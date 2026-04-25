@@ -5,6 +5,29 @@ import { ethers, Provider, Contract, Wallet } from "ethers";
  * Proof-of-Useful-Work tokenization boundary.
  */
 
+// HIGH-4 FIX: Extracted magic numbers into named constants.
+// Q10 fixed-point scale constants for Kuramoto physics.
+const Q10_MAX_KURAMOTO = 5120;      // ~5.0 rad/tick
+const Q10_MAX_DIFFUSION = 1024;     // ~1.0
+
+// Cosmic entropy mapping: block hash → physics constants.
+// These ranges intentionally stay below Q10 max to prevent runaway oscillation.
+const KURAMOTO_BASE_MIN = 100;      // ~0.1 rad/tick in Q10
+const KURAMOTO_BASE_RANGE = 2900;   // maps to [100, 2999]
+const KURAMOTO_DIFF_MIN = 10;       // ~0.01 in Q10
+const KURAMOTO_DIFF_RANGE = 1000;   // maps to [10, 1009]
+
+// Network simulation constants.
+const MOCK_NETWORK_DELAY_MS = 10;
+const MOCK_ATP_REWARD = 100;
+const EVM_BLOCK_TIME_MS = 12000;    // ~12s average Ethereum block time
+
+// Block hash slicing for deterministic entropy extraction.
+const HASH_SLICE_1_START = 2;
+const HASH_SLICE_1_END = 10;
+const HASH_SLICE_2_START = 10;
+const HASH_SLICE_2_END = 18;
+
 export interface ATPTransactionReceipt {
     txHash: string;
     atpAmount: number;
@@ -24,9 +47,9 @@ export class MockATPBridge implements IATPBridge {
     private validBurns: Set<string> = new Set();
 
     async mintATP(_proofBytes: string, morphologyHash: string, wallet: string): Promise<ATPTransactionReceipt> {
-        await new Promise(resolve => setTimeout(resolve, 10)); // network mock
+        await new Promise(resolve => setTimeout(resolve, MOCK_NETWORK_DELAY_MS)); // network mock
         const current = this.balances.get(wallet) || 0;
-        const reward = 100; // Simulated Base Reward
+        const reward = MOCK_ATP_REWARD; // Simulated Base Reward
         this.balances.set(wallet, current + reward);
 
         const txHash = `0xmint_${Date.now()}_${morphologyHash.substring(0, 8)}`;
@@ -36,7 +59,7 @@ export class MockATPBridge implements IATPBridge {
     }
 
     async burnATP(amount: number, morphologyHash: string, wallet: string): Promise<ATPTransactionReceipt> {
-        await new Promise(resolve => setTimeout(resolve, 10)); // network mock
+        await new Promise(resolve => setTimeout(resolve, MOCK_NETWORK_DELAY_MS)); // network mock
         const current = this.balances.get(wallet) || 0;
         if (current < amount) {
             throw new Error(`[ATP Bridge] Insufficient ATP balance for wallet ${wallet}. Needed: ${amount}`);
@@ -52,22 +75,22 @@ export class MockATPBridge implements IATPBridge {
     }
 
     async getBalance(wallet: string): Promise<number> {
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, MOCK_NETWORK_DELAY_MS));
         return this.balances.get(wallet) || 0;
     }
 
     async verifyBurnTx(txHash: string): Promise<boolean> {
-        await new Promise(resolve => setTimeout(resolve, 10)); // In reality, this queries an RPC provider for the tx log.
+        await new Promise(resolve => setTimeout(resolve, MOCK_NETWORK_DELAY_MS)); // In reality, this queries an RPC provider for the tx log.
         return this.validBurns.has(txHash);
     }
 
     subscribeToCosmicEntropy(callback: (entropy: { kuramoto_base: number, kuramoto_diffusion_rate: number, hash: string }) => void): void {
         setInterval(() => {
             const mockHash = "0x" + Math.random().toString(16).substring(2, 10);
-            const kuramoto_base = 100 + Math.floor(Math.random() * 2900);
-            const kuramoto_diffusion_rate = 10 + Math.floor(Math.random() * 1000);
+            const kuramoto_base = KURAMOTO_BASE_MIN + Math.floor(Math.random() * KURAMOTO_BASE_RANGE);
+            const kuramoto_diffusion_rate = KURAMOTO_DIFF_MIN + Math.floor(Math.random() * KURAMOTO_DIFF_RANGE);
             callback({ kuramoto_base, kuramoto_diffusion_rate, hash: mockHash });
-        }, 12000); // Standard EVM block time
+        }, EVM_BLOCK_TIME_MS); // Standard EVM block time
     }
 }
 
@@ -100,11 +123,11 @@ export class EthersATPBridge implements IATPBridge {
         // Era 410 Note: In reality, you don't call mint directly; you call the SP1 Verifier which calls mint.
         // We simulate the blockchain transaction wrapping here.
         try {
-            const reward = ethers.parseUnits("100", 18);
+            const reward = ethers.parseUnits(MOCK_ATP_REWARD.toString(), 18);
             const tx = await this.contract.mint(walletAddress, reward);
             console.log(`[Ethers ATP] Minting ATP on-chain... TX: ${tx.hash}`);
             await tx.wait();
-            return { txHash: tx.hash, atpAmount: 100, confirmed: true };
+            return { txHash: tx.hash, atpAmount: MOCK_ATP_REWARD, confirmed: true };
         } catch (e) {
             console.error(`[Ethers ATP] Mint failed:`, e);
             throw e;
@@ -151,17 +174,17 @@ export class EthersATPBridge implements IATPBridge {
                 if (!block || !block.hash) return;
                 
                 // Deterministic conversion of block hash to Q10 physics constants
-                const hex1 = block.hash.substring(2, 10);
-                const hex2 = block.hash.substring(10, 18);
+                const hex1 = block.hash.substring(HASH_SLICE_1_START, HASH_SLICE_1_END);
+                const hex2 = block.hash.substring(HASH_SLICE_2_START, HASH_SLICE_2_END);
                 
                 const val1 = parseInt(hex1, 16);
                 const val2 = parseInt(hex2, 16);
                 
-                // KURAMOTO_BASE (default was ~0.2 i.e. 200 in Q10, max ~5.0 i.e. 5120)
-                const kuramoto_base = 100 + (val1 % 2900);
+                // KURAMOTO_BASE (Q10 fixed-point, range [KURAMOTO_BASE_MIN, KURAMOTO_BASE_MIN + KURAMOTO_BASE_RANGE))
+                const kuramoto_base = KURAMOTO_BASE_MIN + (val1 % KURAMOTO_BASE_RANGE);
                 
-                // KURAMOTO_DIFFUSION (default was ~0.05 i.e. 50 in Q10, max ~1.0 i.e. 1024)
-                const kuramoto_diffusion_rate = 10 + (val2 % 1000);
+                // KURAMOTO_DIFFUSION (Q10 fixed-point, range [KURAMOTO_DIFF_MIN, KURAMOTO_DIFF_MIN + KURAMOTO_DIFF_RANGE))
+                const kuramoto_diffusion_rate = KURAMOTO_DIFF_MIN + (val2 % KURAMOTO_DIFF_RANGE);
                 
                 console.log(`[Cosmic Entropy] New Block ${blockNumber} | Hash: ${block.hash.substring(0, 10)}... | Base: ${kuramoto_base}, Diff: ${kuramoto_diffusion_rate}`);
                 

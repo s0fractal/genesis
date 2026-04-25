@@ -44,7 +44,7 @@ pub struct PhaseLattice {
 
 impl PhaseLattice {
     /// Bootstraps the grid directly on top of pre-allocated WebGPU host memory
-    pub fn new_from_hostMemory(
+    pub fn new_from_host_memory(
         topology: PhaseTopology, 
         smart_ptr: *mut PhaseAgentSmart, 
         min_ptr: *mut PhaseAgentMinimal
@@ -66,7 +66,9 @@ impl PhaseLattice {
 
     /// Extracted API for the JS Env Vector to easily inject Climate Changes into WASM.
     #[no_mangle]
-    pub extern "C" fn set_environment(&mut self, q_sectors: u32, q_radial: u32, q_harmonics: u32) {
+    pub extern "C" fn set_environment(&mut self, q_sectors: u32, q_radial: u32, _q_harmonics: u32) {
+        // CRIT-6 FIX: validate bounds to prevent shift overflow in topology math
+        assert!(q_sectors < 32 && q_radial < 32, "q_sectors/q_radial must be < 32");
         self.topology.q_sectors = q_sectors;
         self.topology.q_radial = q_radial;
         
@@ -76,10 +78,15 @@ impl PhaseLattice {
         self.signals.dirty_flags |= SIGNAL_TOPOLOGY_CHANGED;
     }
     
-    /// Triggered by the ATPBridge when a new Ethereum/Base block arrives
+    /// Triggered by the ATPBridge when a new Bitcoin/Ethereum block arrives.
+    /// Φ-Маніфест: кожен новий блок — це пульс глобального часу (R).
     #[no_mangle]
     pub extern "C" fn ingest_cosmic_entropy(&mut self, raw_hash_u64: u64) {
-        // ... Logic to seed RNG or Phase offsets ...
+        // Ingest block hash into the φ-anchor chain.
+        unsafe {
+            let anchor = core::ptr::addr_of_mut!(crate::PHI_ANCHOR_CHAIN);
+            (*anchor).ingest_block(raw_hash_u64);
+        }
         self.signals.dirty_flags |= SIGNAL_CONSENSUS_SHIFT;
     }
 
@@ -92,32 +99,48 @@ impl PhaseLattice {
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
         
         self.signals.active_agent_count = safe_population;
-        let mut seed = root_seed;
+        let mut rng = crate::math::Xorshift64::new(root_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
 
         unsafe {
             for i in 0..safe_population {
-                // Pseudo-random LCG
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let phase = seed & max_phase;
-                
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let energy = (seed % 900) + 100; // 100 to 1000
-                // Frequency mapped to Q20 (-2.0 to 2.0 rads per tick)
-                let base_freq = ((seed % 4000) as i32 - 2000) * 1024;
-                
                 let agent_ptr = self.minimal_agents_ptr.add(i as usize);
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let phase = (seed % 256) as u32;
-                
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let energy = (seed % 900) + 100;
-                
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let base_freq = ((seed % 4000) as i32 - 2000) * 1024;
-                
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let genome = (seed % 256) as u32;
+
+                let phase = rng.next_u32() & max_phase;
+                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE) + crate::constants::BB_ENERGY_BASE;
+                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32 - crate::constants::BB_FREQ_OFFSET) * crate::constants::BB_FREQ_Q_SCALE;
+                let genome = rng.next_u32(); // CRIT-2 FIX: use full 32-bit entropy
+
+                *agent_ptr = crate::agent::PhaseAgentMinimal {
+                    phase,
+                    energy,
+                    base_freq,
+                    state_flags: 0,
+                    genome,
+                    memory: [0, 0, 0],
+                };
+            }
+        }
+    }
+
+    /// Era 950+: Big Bang guided by Epigenetic Memory.
+    /// Instead of purely random genomes, successful historical traits bias new agents.
+    pub fn ignite_epigenetic_big_bang(&mut self, root_seed: u32, initial_population: u32, memory: &crate::epigenetics::EpigeneticMemory) {
+        if self.minimal_agents_ptr.is_null() { return; }
+        
+        let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
+        self.signals.active_agent_count = safe_population;
+        let mut rng = crate::math::Xorshift64::new(root_seed);
+        let max_phase = (1u32 << self.topology.q_phase) - 1;
+
+        unsafe {
+            for i in 0..safe_population {
+                let agent_ptr = self.minimal_agents_ptr.add(i as usize);
+
+                let phase = rng.next_u32() & max_phase;
+                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE) + crate::constants::BB_ENERGY_BASE;
+                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32 - crate::constants::BB_FREQ_OFFSET) * crate::constants::BB_FREQ_Q_SCALE;
+                let genome = memory.generate_biased_genome(rng.next_u32());
 
                 *agent_ptr = crate::agent::PhaseAgentMinimal {
                     phase,
@@ -132,26 +155,111 @@ impl PhaseLattice {
     }
 
     /// The Hot Path Physics Loop
+    /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
         self.signals.absolute_tick += 1;
         
+        // REACTIVE RECONCILIATION: always clear dirty flags, even if no agents
+        if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
+            self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
+        }
+        if (self.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT) != 0 {
+            self.signals.dirty_flags &= !SIGNAL_CONSENSUS_SHIFT;
+        }
+        
+        if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
+            return;
+        }
+
+        let active = self.signals.active_agent_count as usize;
+        let max_phase = (1u32 << self.topology.q_phase) - 1;
+        let kuramoto_k = crate::constants::KURAMOTO_COUPLING_BASE; // Q10 scaled
+        let q10_scale = crate::constants::BB_FREQ_Q_SCALE; // 1024
+
+        unsafe {
+            // --- Phase 1: Kuramoto Coupling (read-only pass) ---
+            // Обчислюємо coupling для кожного агента від сусідів.
+            // Сусіди: ±1 індекс (1D тороїдальний ланцюг).
+            let mut coupling_buffer = [0i32; 8]; // small stack buffer, processed in chunks
+            let chunk_size = coupling_buffer.len();
+
+            for chunk_start in (0..active).step_by(chunk_size) {
+                let chunk_end = core::cmp::min(chunk_start + chunk_size, active);
+                
+                // Compute couplings for this chunk
+                for i in chunk_start..chunk_end {
+                    let agent = &*self.minimal_agents_ptr.add(i);
+                    let left_idx = if i == 0 { active - 1 } else { i - 1 };
+                    let right_idx = if i + 1 >= active { 0 } else { i + 1 };
+                    
+                    let left = &*self.minimal_agents_ptr.add(left_idx);
+                    let right = &*self.minimal_agents_ptr.add(right_idx);
+                    
+                    // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
+                    let sin_left = crate::math::sin_q10(left.phase, agent.phase);
+                    let sin_right = crate::math::sin_q10(right.phase, agent.phase);
+                    let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
+                    
+                    coupling_buffer[i - chunk_start] = coupling;
+                }
+                
+                // Phase 2: Apply updates (write pass)
+                for i in chunk_start..chunk_end {
+                    let agent = &mut *self.minimal_agents_ptr.add(i);
+                    let coupling = coupling_buffer[i - chunk_start];
+                    
+                    // Metabolic burn: complex genomes burn faster
+                    let burn = crate::constants::METABOLIC_BASE_COST
+                        + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
+                    agent.energy = agent.energy.saturating_sub(burn);
+                    
+                    // Phase drift: base_freq + coupling
+                    let drift = agent.base_freq + coupling;
+                    agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
+                    
+                    // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
+                    if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
+                        agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
+                            .min(crate::constants::MAX_ATP as i32) as u32;
+                    }
+                    
+                    // Compost event: agent died this tick
+                    if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
+                        agent.state_flags |= 0x01; // Mark as dead
+                        let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
+                        let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
+                        (*buf).push(compost);
+                    }
+                }
+            }
+        }
+        
         // REACTIVE RECONCILIATION
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
-            // Apply Darwinian culling to `active_agent_count` if the topology shrank.
-            // Recalculate pointer boundaries.
-            
-            // Clear flag
+            // Apply Darwinian culling: agents beyond new capacity are killed
+            let new_max = self.topology.max_geometry_cells(
+                1, // harmonics (simplified)
+                1  // tau_depth (simplified)
+            ) as u32;
+            if self.signals.active_agent_count > new_max {
+                self.signals.active_agent_count = new_max;
+            }
             self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
         }
 
         if (self.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT) != 0 {
-            // Propagate LERP vectors for Kuromoto Base Shifts
-            
-            // Clear flag
+            // Cosmic entropy: apply global phase shift from Bitcoin anchor
+            unsafe {
+                let anchor = core::ptr::addr_of!(crate::PHI_ANCHOR_CHAIN);
+                let global_phi = (*anchor).global_phi();
+                let active = self.signals.active_agent_count as usize;
+                for i in 0..active {
+                    let agent = &mut *self.minimal_agents_ptr.add(i);
+                    agent.phase = agent.phase.wrapping_add(global_phi) & max_phase;
+                }
+            }
             self.signals.dirty_flags &= !SIGNAL_CONSENSUS_SHIFT;
         }
-
-        // ... O(1) mathematical compute loop iterating over `agents_ptr` using `self.topology` shifts ...
     }
 
     /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
@@ -170,8 +278,8 @@ impl PhaseLattice {
                 let parent = &mut *self.minimal_agents_ptr.add(i);
                 
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
-                if parent.energy >= 2000 {
-                    parent.energy -= 1000; // Mitosis friction
+                if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
+                    parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
                     
                     // Slide the dead pointer forward to find a hollow shell in the matrix
                     while next_dead_idx < active && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0 {
@@ -181,12 +289,15 @@ impl PhaseLattice {
                     if next_dead_idx < active {
                         // Resurrect the shell with a cloned genome + mutation
                         let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
-                        child.phase = parent.phase.wrapping_add(128); // Opposite phase harmonic
-                        child.energy = 1000;
+                        child.phase = parent.phase.wrapping_add(self.topology.half_phase()); // Opposite phase harmonic
+                        child.energy = crate::constants::CHILD_ENERGY_SEED;
                         child.base_freq = parent.base_freq;
                         child.state_flags = parent.state_flags;
-                        child.genome = parent.genome ^ 0b01010101; // XOR shift mutation
-                        child.memory = parent.memory.clone();
+                        // CRIT-2 FIX: stochastic mutation instead of fixed mask
+                        let mut_seed = crate::math::xorshift64_once(parent.genome as u64);
+                        let mutation_mask = mut_seed as u32; // full 32-bit random mask
+                        child.genome = parent.genome ^ mutation_mask;
+                        child.memory = parent.memory;
                         
                         replications += 1;
                     }
@@ -205,20 +316,35 @@ impl PhaseLattice {
         let mut hash = 0u32;
         // Sample every 1024th agent to avoid locking the CPU (O(N) -> O(N/1024)).
         // This acts as a robust probabilistic signature of the deterministic field.
-        let skip = 1024; 
+        // CRIT-3 FIX: adaptive skip so we always sample ~32 agents even when N < 1024
+        let active = self.signals.active_agent_count as usize;
+        let skip = if active == 0 { 1 } else { core::cmp::max(1, active / 32) };
         
         unsafe {
-            for i in (0..self.signals.active_agent_count).step_by(skip) {
-                let agent = &*(self.minimal_agents_ptr.add(i as usize));
+            for i in (0..active).step_by(skip) {
+                let agent = &*(self.minimal_agents_ptr.add(i));
                 hash = hash.wrapping_add(agent.phase).wrapping_mul(31);
                 hash ^= agent.energy;
             }
         }
+
+        // Φ-Маніфест: публікуємо heartbeat у phi buffer
+        let tick = self.signals.absolute_tick;
+        let heartbeat = crate::phi_protocol::PhiMessage::encode_heartbeat(hash, tick, self.topology.q_phase as u8);
+        unsafe {
+            let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
+            (*buf).push(heartbeat);
+        }
+
         hash
     }
 
     /// ERA 6000: Continuous Delta Networking
     /// Evaluates `minimal_agents_ptr` against `last_snapshot` and populates `delta_buffer`.
+    /// # Safety
+    /// All pointers must be valid and properly aligned. `current_agents` and `last_snapshot`
+    /// must point to at least `active_agent_count` elements. `delta_buffer` must point to at
+    /// least `max_deltas` elements.
     pub unsafe fn generate_delta_snapshot(
         &self,
         current_agents: *const PhaseAgentMinimal,
@@ -238,12 +364,12 @@ impl PhaseLattice {
             let prev = &mut *last_snapshot.add(i);
 
             // Calculate exact divergence
-            let energy_diff = if curr.energy > prev.energy { curr.energy - prev.energy } else { prev.energy - curr.energy };
-            let phase_diff = if curr.phase > prev.phase { curr.phase - prev.phase } else { prev.phase - curr.phase };
+            let energy_diff = curr.energy.abs_diff(prev.energy);
+            let phase_diff = curr.phase.abs_diff(prev.phase);
             let genome_changed = curr.genome != prev.genome;
 
             // Radical difference threshold (Mitosis clashing or huge gravity)
-            if energy_diff > 10 || genome_changed || phase_diff > 40 {
+            if energy_diff > crate::constants::DELTA_ENERGY_THRESHOLD || genome_changed || phase_diff > crate::constants::DELTA_PHASE_THRESHOLD {
                 if delta_count < max_deltas {
                     let d_item = &mut *delta_buffer.add(delta_count);
                     d_item.index = i as u32;
@@ -260,5 +386,226 @@ impl PhaseLattice {
         }
         
         delta_count as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agent::PhaseAgentMinimal;
+    use crate::topology::PhaseTopology;
+    use std::vec::Vec;
+    use std::vec;
+
+    fn make_lattice(agent_count: usize) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
+        let mut agents = vec![PhaseAgentMinimal::default(); agent_count];
+        let snapshot = vec![PhaseAgentMinimal::default(); agent_count];
+        let deltas = vec![DeltaItem { index: 0, phase: 0, energy: 0, genome: 0 }; 100];
+        let topology = PhaseTopology::new(7, 7, 6, 20);
+        let mut lattice = PhaseLattice::new_from_host_memory(topology, core::ptr::null_mut(), agents.as_mut_ptr());
+        lattice.signals.max_cells = agent_count as u32;
+        (lattice, agents, snapshot, deltas)
+    }
+
+    #[test]
+    fn test_ignite_big_bang_populates() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(100);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.ignite_big_bang(12345, 50);
+        assert_eq!(lattice.signals.active_agent_count, 50);
+        assert!(agents[0].energy > 0);
+        assert!(agents[0].genome > 0 || agents[1].genome > 0); // At least some entropy
+    }
+
+    #[test]
+    fn test_darwinian_mitosis() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        // Parent thrives, child slot is dead
+        agents[0].energy = 3000;
+        agents[1].energy = 0;
+        let reps = lattice.darwinian_mitosis();
+        assert_eq!(reps, 1);
+        assert_eq!(agents[0].energy, 2000); // Parent lost 1000 ATP
+        assert!(agents[1].energy > 0);      // Child resurrected
+    }
+
+    #[test]
+    fn test_golden_trace_determinism() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(2048);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.ignite_big_bang(42, 2048);
+        let trace1 = lattice.get_golden_trace();
+        let trace2 = lattice.get_golden_trace();
+        assert_eq!(trace1, trace2);
+        assert_ne!(trace1, 0);
+    }
+
+    #[test]
+    fn test_delta_snapshot_detects_changes() {
+        let (mut lattice, mut agents, mut snapshot, mut deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        lattice.ignite_big_bang(99, 10);
+        let count = unsafe {
+            lattice.generate_delta_snapshot(
+                agents.as_ptr(),
+                snapshot.as_mut_ptr(),
+                deltas.as_mut_ptr(),
+                deltas.len()
+            )
+        };
+        assert!(count > 0, "Initial population should diverge from zeroed snapshot");
+
+        // Second run should yield zero deltas because snapshot was synchronized
+        let count2 = unsafe {
+            lattice.generate_delta_snapshot(
+                agents.as_ptr(),
+                snapshot.as_mut_ptr(),
+                deltas.as_mut_ptr(),
+                deltas.len()
+            )
+        };
+        assert_eq!(count2, 0, "No divergence after snapshot sync");
+    }
+
+    #[test]
+    fn test_tick_physics_increments_absolute_tick() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        assert_eq!(lattice.signals.absolute_tick, 0);
+        lattice.tick_physics();
+        assert_eq!(lattice.signals.absolute_tick, 1);
+        lattice.tick_physics();
+        assert_eq!(lattice.signals.absolute_tick, 2);
+    }
+
+    #[test]
+    fn test_set_environment_sets_dirty_flag() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.set_environment(5, 4, 0);
+        assert_eq!(lattice.topology.q_sectors, 5);
+        assert_eq!(lattice.topology.q_radial, 4);
+        assert!(lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED != 0);
+    }
+
+    #[test]
+    fn test_ignite_epigenetic_big_bang() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(100);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        let memory = crate::epigenetics::EpigeneticMemory::new();
+        lattice.ignite_epigenetic_big_bang(42, 50, &memory);
+        assert_eq!(lattice.signals.active_agent_count, 50);
+        assert!(agents[0].energy > 0);
+        // With empty memory, genomes should still be stochastic (non-zero entropy)
+        assert!(agents.iter().any(|a| a.genome != 0));
+    }
+
+    #[test]
+    fn test_mitosis_child_phase_offset() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        agents[0].energy = 3000;
+        agents[0].phase = 50;
+        agents[1].energy = 0;
+        lattice.darwinian_mitosis();
+        let expected_phase = 50u32.wrapping_add(lattice.topology.half_phase());
+        assert_eq!(agents[1].phase, expected_phase, "Child should be at opposite phase (π offset)");
+    }
+
+    #[test]
+    fn test_delta_snapshot_zero_on_identical() {
+        let (mut lattice, mut agents, mut snapshot, mut deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        // Initialize both arrays identically
+        for i in 0..10 {
+            agents[i].phase = 100;
+            agents[i].energy = 500;
+            agents[i].genome = 0xDEADBEEF;
+            snapshot[i] = agents[i];
+        }
+        let count = unsafe {
+            lattice.generate_delta_snapshot(
+                agents.as_ptr(),
+                snapshot.as_mut_ptr(),
+                deltas.as_mut_ptr(),
+                deltas.len()
+            )
+        };
+        assert_eq!(count, 0, "Identical arrays should produce zero deltas");
+    }
+
+    #[test]
+    fn test_tick_physics_energy_decay() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(1);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 1;
+        agents[0].energy = 100;
+        agents[0].phase = 1; // avoid resonance bonus (1 % 64 != 0)
+        agents[0].base_freq = 0;
+        let before = agents[0].energy;
+        lattice.tick_physics();
+        assert_eq!(agents[0].energy, before - crate::constants::ENERGY_DECAY_PER_TICK, "Energy should decay by ENERGY_DECAY_PER_TICK");
+    }
+
+    #[test]
+    fn test_tick_physics_phase_drift() {
+        // Single agent: no neighbors -> coupling = 0, only drift remains
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(1);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 1;
+        agents[0].phase = 100;
+        agents[0].base_freq = 1 << 20; // 1.0 in Q20
+        agents[0].energy = 1000;
+        let before = agents[0].phase;
+        lattice.tick_physics();
+        // Drift = base_freq + coupling = 1048576 + 0
+        let expected = before.wrapping_add((1 << 20) as u32) & lattice.topology.phase_mask();
+        assert_eq!(agents[0].phase, expected, "Phase should drift by base_freq (mod phase_mask)");
+    }
+
+    #[test]
+    fn test_tick_physics_kuramoto_coupling() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(3);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 3;
+        // Agent 0 at phase 0, agent 1 at phase 32 (sin(32) ≈ 707 Q10), agent 2 dead
+        agents[0].phase = 0;
+        agents[0].energy = 1000;
+        agents[0].base_freq = 0;
+        agents[1].phase = 32;
+        agents[1].energy = 1000;
+        agents[1].base_freq = 0;
+        agents[2].energy = 0; // dead
+        
+        let phase_before_0 = agents[0].phase;
+        let phase_before_1 = agents[1].phase;
+        
+        lattice.tick_physics();
+        
+        // With coupling, both agents should shift (coupling for phase 32 is not a multiple of 128)
+        assert_ne!(agents[0].phase, phase_before_0, "Agent 0 phase should change due to coupling");
+        assert_ne!(agents[1].phase, phase_before_1, "Agent 1 phase should change due to coupling");
+        
+        // The two agents must shift in opposite modular directions
+        // (one's coupling is positive, the other's negative).
+        let mask = lattice.topology.phase_mask() as i32 + 1;
+        let delta_0 = (agents[0].phase as i32 - phase_before_0 as i32).rem_euclid(mask);
+        let delta_1 = (agents[1].phase as i32 - phase_before_1 as i32).rem_euclid(mask);
+        assert_ne!(delta_0, delta_1, "Agents should shift in different directions");
+    }
+
+    #[test]
+    fn test_tick_physics_dirty_flags_cleared() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(1);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.dirty_flags = SIGNAL_TOPOLOGY_CHANGED | SIGNAL_CONSENSUS_SHIFT;
+        lattice.tick_physics();
+        assert_eq!(lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED, 0, "TOPOLOGY_CHANGED should be cleared");
+        assert_eq!(lattice.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT, 0, "CONSENSUS_SHIFT should be cleared");
     }
 }

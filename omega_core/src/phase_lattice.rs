@@ -1,6 +1,5 @@
 use wasm_bindgen::prelude::*;
 use crate::constants::*;
-use crate::fixed_point::*;
 use crate::utils::*;
 
 
@@ -129,7 +128,8 @@ impl PhaseLatticeField {
         #[cfg(target_arch = "wasm32")]
         console_error_panic_hook::set_once();
         let tau_depth = 4;
-        let max_elements = (sectors * radial_bins * harmonics * tau_depth) as usize; 
+        // CRIT-5 FIX: cast to u64 before multiplication to avoid u32 overflow
+        let max_elements = ((sectors as u64) * (radial_bins as u64) * (harmonics as u64) * (tau_depth as u64)) as usize; 
         let mut field = PhaseLatticeField {
             tau_depth,
             current_tau: 0,
@@ -175,10 +175,10 @@ impl PhaseLatticeField {
             collision_count: 0,
             active_genomes: [WasmPhysicsGenome::default(); 16],
             spatial_memory_theta: vec![0; (sectors * radial_bins * harmonics) as usize],
-            spatial_memory_strength: vec![0; (sectors * radial_bins * harmonics) as usize],
+            spatial_memory_strength: vec![0; ((sectors as u64) * (radial_bins as u64) * (harmonics as u64)) as usize],
             canary_end: 0xDEADBEEF,
             internal_tick: 0,
-            ring_buffer: vec![0; 16 + (max_elements * 16 + (((sectors * radial_bins * harmonics) as usize + 3) & !3) * 2) * 3],
+            ring_buffer: vec![0; 16 + (max_elements * 16 + ((((sectors as u64) * (radial_bins as u64) * (harmonics as u64)) as usize + 3) & !3) * 2) * 3],
             telemetry_buffer: vec![0.0; 8],
         };
         field.seed_deterministic();
@@ -417,15 +417,14 @@ impl PhaseLatticeField {
 
         if count == 0 { return 0.0; }
         
-        let normalized = (total_coherence as f64) / (count as f64 * (4.0 * Q20_SCALE as f64));
-        normalized
+        (total_coherence as f64) / (count as f64 * (4.0 * Q20_SCALE as f64))
     }
 }
 
 #[wasm_bindgen]
 pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
     // Era 248: SSoT WebAssembly Memory Watchdog
-    if field.internal_tick % 100 == 0 && !field.check_memory_canary() {
+    if field.internal_tick.is_multiple_of(100) && !field.check_memory_canary() {
         panic!("[O-64 FATAL] OMEGA CORE MEMORY CORRUPTION DETECTED AT TICK {}", field.internal_tick);
     }
     field.internal_tick = field.internal_tick.wrapping_add(1);
@@ -501,7 +500,12 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 let right = field.idx(past_tau, wrap_index_usize(sector as i32 + 1, sectors), rho, harmonic);
                 let inner = field.idx(past_tau, sector, rho.saturating_sub(1), harmonic);
                 let outer = field.idx(past_tau, sector, usize::min(rho + 1, radial_bins - 1), harmonic);
-                let harmonic_peer = field.idx(past_tau, sector, rho, (harmonic + 1) % harmonics);
+                // CRIT-10 FIX: guard against harmonics == 0 to avoid modulo-by-zero.
+                let harmonic_peer = if harmonics > 0 {
+                    field.idx(past_tau, sector, rho, (harmonic + 1) % harmonics)
+                } else {
+                    past_idx
+                };
                 
                 // Vector B.1: Chronotopology Kuramoto Temporal Interference
                 let historical_tau = (past_tau + field.tau_depth as usize - 1) % field.tau_depth as usize;
@@ -526,7 +530,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                 if local_kuramoto_base == 0 { local_kuramoto_base = 1024; }
 
                 let frustration_offset = KURAMOTO_SAKAGUCHI_ALPHA as i16;
-                let effective_theta = wrap_phase(theta as i16 + frustration_offset) as u8;
+                let effective_theta = wrap_phase(theta as i16 + frustration_offset);
 
                 let mut kuramoto = sin(effective_theta, field.agents[left].theta)
                     + sin(effective_theta, field.agents[right].theta)
@@ -561,7 +565,7 @@ pub fn execute_phase_lattice_tick(field: &mut PhaseLatticeField) {
                     coherence += ((cos_anti as i64 * entanglement as i64 * field.header.kuramoto_antipode as i64) / (local_kuramoto_base as i64 * 25)) as i32;
 
                     let antipode_alignment = cos_anti;
-                    next_ent_val = if antipode_alignment > field.header.kuramoto_antipode_alignment && amplitude > 96 { // 0.92 * 1024
+                    next_ent_val = if antipode_alignment > field.header.kuramoto_antipode_alignment && amplitude > 96 { // ~37.6% of max u8 energy (255)
                         entanglement.saturating_add(8)
                     } else {
                         entanglement.saturating_sub(3)
@@ -737,6 +741,9 @@ pub fn phase_lattice_signature(field: &PhaseLatticeField) -> String {
     format!("{hash:016x}")
 }
 
+/// HIGH-7 NOTE: Aggregates only the outer radial ring (`rho = max`).
+/// This creates a statistical bias toward the surface layer.
+/// Use `phase_lattice_total_amplitude_all_rho` for full-volume aggregation.
 #[wasm_bindgen]
 pub fn phase_lattice_total_amplitude(field: &PhaseLatticeField) -> u32 {
     let mut sum = 0;
@@ -751,6 +758,23 @@ pub fn phase_lattice_total_amplitude(field: &PhaseLatticeField) -> u32 {
     sum
 }
 
+/// Full-volume amplitude aggregation (all radial rings).
+#[wasm_bindgen]
+pub fn phase_lattice_total_amplitude_all_rho(field: &PhaseLatticeField) -> u32 {
+    let mut sum = 0;
+    let tau = field.current_tau as usize;
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            for rho in 0..field.radial_bins as usize {
+                let idx = field.idx(tau, sector, rho, harmonic);
+                sum += field.agents[idx].energy as u32;
+            }
+        }
+    }
+    sum
+}
+
+/// HIGH-7 NOTE: Aggregates only the outer radial ring (`rho = max`).
 #[wasm_bindgen]
 pub fn phase_lattice_total_entanglement(field: &PhaseLatticeField) -> u32 {
     let mut sum = 0;
@@ -765,6 +789,23 @@ pub fn phase_lattice_total_entanglement(field: &PhaseLatticeField) -> u32 {
     sum
 }
 
+/// Full-volume entanglement aggregation (all radial rings).
+#[wasm_bindgen]
+pub fn phase_lattice_total_entanglement_all_rho(field: &PhaseLatticeField) -> u32 {
+    let mut sum = 0;
+    let tau = field.current_tau as usize;
+    for harmonic in 0..field.harmonics as usize {
+        for sector in 0..field.sectors as usize {
+            for rho in 0..field.radial_bins as usize {
+                let idx = field.idx(tau, sector, rho, harmonic);
+                sum += field.agents[idx].entanglement as u32;
+            }
+        }
+    }
+    sum
+}
+
+/// HIGH-7 NOTE: Measures omega span only on the outer radial ring (`rho = max`).
 #[wasm_bindgen]
 pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
     let mut min = i16::MAX;
@@ -785,6 +826,9 @@ pub fn phase_lattice_omega_span(field: &PhaseLatticeField) -> String {
 }
 
 
+/// HIGH-8 NOTE: Computes entropy over the ENTIRE agent volume (all tau, harmonics, radial rings).
+/// This means the result scales with `tau_depth` and `harmonics`, not just physical state.
+/// Use `phase_lattice_shannon_entropy_current_slice` for current time-slice only.
 #[wasm_bindgen]
 pub fn phase_lattice_shannon_entropy(field: &PhaseLatticeField) -> i32 {
     let mut sum_q10 = 0i32;

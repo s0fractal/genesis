@@ -88,15 +88,17 @@ pub fn q20_round(x: i32) -> i32 {
     if x >= 0 { (x + 524288) / 1048576 } else { (x - 524288) / 1048576 }
 }
 
+// HIGH-3 FIX: bitmask & 0xFF instead of % 256 for O(1) on hot path
 #[inline(always)]
 pub fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
-    let index = (to_theta as u32 + 256 - from_theta as u32) % 256;
+    let index = to_theta.wrapping_sub(from_theta) & 0xFF;
     SINE_LUT[index as usize]
 }
 
+// HIGH-3 FIX: bitmask & 0xFF instead of % 256 for O(1) on hot path
 #[inline(always)]
 pub fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
-    let index = (to_theta as u32 + 256 - from_theta as u32 + 64) % 256;
+    let index = (to_theta.wrapping_sub(from_theta).wrapping_add(64)) & 0xFF;
     SINE_LUT[index as usize]
 }
 
@@ -106,9 +108,10 @@ pub fn mix_u64(hash: u64, value: u64) -> u64 {
     h.wrapping_mul(FNV64_PRIME)
 }
 
+/// CRIT-8 FIX: Correct modulo for arbitrary (including non-power-of-2) values.
 #[inline(always)]
 pub fn wrap_index(value: i32, modulo: i32) -> i32 {
-    value & (modulo - 1)
+    value.rem_euclid(modulo)
 }
 
 #[inline(always)]
@@ -135,7 +138,7 @@ pub fn atan2_u8(y: i32, x: i32) -> u8 {
         let abs_x = fast_abs(x);
         let a = abs_y.min(abs_x);
         let b = abs_y.max(abs_x);
-        let mut ratio = if b == 0 { 0 } else { (a * 128) / b };
+        let mut ratio = if b == 0 { 0 } else { ((a as i64) * 128 / (b as i64)) as i32 };
         if ratio > 128 { ratio = 128; }
         let octant_angle = ATAN_LUT[ratio as usize];
         let quadrant_angle = if abs_y > abs_x { 64 - octant_angle } else { octant_angle };
