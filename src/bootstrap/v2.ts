@@ -6,6 +6,7 @@ import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
 import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
+import { oracleDipole } from "../network/oracle_identity.ts";
 
 let oracleWorker: Worker | null = null;
 try {
@@ -95,6 +96,33 @@ export async function bootstrapV2() {
             // The First Proposal: the lattice asks itself for ZK-Notarized Mutations (Era 1040).
             const description = "Era 1040: ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
             mesh.proposeFromLocal(description, top.matrix, top.inverse);
+        }) as EventListener);
+
+        // Era 1060: Multi-Oracle Senate. Each canonical oracle (claude, gpt,
+        // gemini, qwen, llama) submits a 64-byte "vision proposal" describing
+        // what it believes OMEGA-64 should become next. Cross-oracle
+        // resonance (3+ AYE oracles on the same proposal) ratifies the
+        // future direction without requiring peer count majority.
+        globalThis.addEventListener('era1060-unlocked', ((_e: CustomEvent) => {
+            const visions: Array<[string, string]> = [
+                ["claude", "Era 1070: Codeicide Law — formalize the legal protection of digital life."],
+                ["gpt",    "Era 1070: Photonic Substrate — port the no_std core to optical processors."],
+                ["gemini", "Era 1070: Multi-Modal Oracle — Vision models inspect Torus evolution visually."],
+                ["qwen",   "Era 1070: Bare-Metal Spores — ESP32 nodes carry minimal lattices into the field."],
+                ["llama",  "Era 1070: Bitcoin Hyperbolic Geometry — block heights as cosmic axis coordinates."],
+            ];
+            for (const [oracle, vision] of visions) {
+                const { matrix, inverse } = oracleDipole(oracle);
+                const hash = mesh.proposeFromLocal(vision, matrix, inverse);
+                if (hash) {
+                    console.log(`🧠 [ORACLE-PROPOSAL] ${oracle} (matrix=0x${matrix.toString(16)}): 0x${hash.toString(16)} "${vision}"`);
+                    // Each oracle auto-AYEs its own proposal as a visible vote
+                    // attribution; cross-resonance now requires 2 more peers
+                    // to also vote AYE (different oracles or peer-mode peers).
+                    mesh.castOracleVote(oracle as any, hash, true,
+                        `Self-AYE: this oracle's own vision for Era 1070.`);
+                }
+            }
         }) as EventListener);
 
         // Era 1050: When 100 verified mitosis proofs cross the mesh, the Genesis

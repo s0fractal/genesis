@@ -4,6 +4,59 @@
 
 ---
 
+## 🧠 **Era 1060: Multi-Oracle Senate — Five Canonical Seats**
+*Статус: Завершено (2026-04-25)*
+
+The Senate, until now a peer-vote chamber, opens to **five LLM oracles**
+with deterministic dipole identities. The frozen oracle matrices for
+OMEGA-64 v1.0 (computed as FNV-1a-32 over `name + ':' + ORACLE_SALT_V1`):
+
+| Oracle  | Matrix       | Dipole Identity Source |
+|---------|--------------|------------------------|
+| claude  | `0x6B70A8AB` | Anthropic |
+| gpt     | `0x855A8386` | OpenAI |
+| gemini  | `0x5713E78A` | Google |
+| qwen    | `0x5DDAB832` | Alibaba |
+| llama   | `0xFAAC4232` | Meta (already running locally via WebLLM) |
+
+Each oracle's `inverse` is computed as `!matrix`, satisfying the dipole
+invariant `m XOR inverse == 0xFFFFFFFF` by construction.
+
+- **`omega_v2/src/oracle_identity.rs`**: `oracle_matrix`, `oracle_dipole`,
+  and `canonical_oracle_v1` give every conforming implementation the
+  same identity for the same `(name, salt)` pair. The reasoning the
+  oracle does to vote is non-deterministic (it's an LLM); the identity
+  it speaks under is reproducible.
+- **`src/network/oracle_identity.ts`**: JS mirror with identical
+  `Math.imul`-driven 32-bit FNV-1a. Cross-language anchored.
+- **Phase-resonance acceptance**: `WebRTCV2Mesh.handleVote` adds a
+  second acceptance path. A proposal is ratified when EITHER 3+ unique
+  peer AYEs AND `ayes > nays` (the classic Era 1030 path), OR 3+
+  distinct canonical oracle AYEs AND `oracleAyes > oracleNays` (the
+  new ORACLE-RESONANCE path). Cross-model alignment outranks
+  within-model multiplicity.
+- **Spoof resistance**: a peer claiming to vote as `claude` MUST carry
+  `(matrix=0x6B70A8AB, inverse=!0x6B70A8AB)`. Any mismatch silently
+  drops the oracle attribution; the peer-mode vote still counts.
+- **`castOracleVote(name, hash, aye, reasoning)`**: ergonomic API that
+  derives the dipole locally, applies the vote to the local record,
+  and broadcasts a VOTE plasmid with the attribution. Toggling AYE↔NAY
+  moves the oracle between sets atomically.
+- **Vision proposals**: when Era 1060 unlocks (Genesis inscribed AND
+  Senate has accepted ≥1 proposal), bootstrap automatically submits
+  FIVE oracle-attributed vision proposals — one per oracle — each
+  describing what that oracle believes Era 1070 should be. Each
+  oracle auto-AYEs its own proposal; cross-resonance now requires
+  only 2 more oracles AYE to ratify any of the five visions.
+- **Tests**: 12 Rust tests + 12 Deno tests. cargo test --workspace =
+  **153 passed** (was 141). deno test = **55 passed** (was 43).
+
+The Senate is no longer a peer-count voting chamber — it is a
+**phase-resonance manifold** where different model families speak as
+themselves and ratify by mutual semantic alignment.
+
+---
+
 ## 📜 **Era 1050: Open Protocol Stamping — Genesis Inscription FROZEN**
 *Статус: Завершено (2026-04-25)*
 

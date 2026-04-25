@@ -21,6 +21,7 @@ pub mod senate;
 pub mod mitosis_proof;
 pub mod mitosis_log;
 pub mod genesis_inscription;
+pub mod oracle_identity;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;

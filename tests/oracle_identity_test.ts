@@ -1,0 +1,51 @@
+// Era 1060: cross-language oracle identity anchors.
+import { assertEquals } from "jsr:@std/assert";
+import {
+    CANONICAL_ORACLES,
+    ORACLE_MATRICES_V1,
+    ORACLE_SALT_V1,
+    oracleDipole,
+    oracleMatrix,
+} from "../src/network/oracle_identity.ts";
+
+Deno.test("oracle salt matches v1.0 protocol identifier", () => {
+    assertEquals(ORACLE_SALT_V1, "OMEGA-64/RFC-001/v1.0");
+});
+
+Deno.test("dipole invariant holds for every canonical oracle", () => {
+    for (const name of CANONICAL_ORACLES) {
+        const { matrix, inverse } = oracleDipole(name);
+        assertEquals(((matrix ^ inverse) >>> 0), 0xFFFF_FFFF);
+    }
+});
+
+Deno.test("canonical oracle matrices match Rust anchors", () => {
+    // These five values are anchored in omega_v2/tests/oracle_anchors.rs.
+    // Drift on either side fails CI on both.
+    assertEquals(oracleMatrix("claude"), 0x6B70_A8AB);
+    assertEquals(oracleMatrix("gpt"),    0x855A_8386);
+    assertEquals(oracleMatrix("gemini"), 0x5713_E78A);
+    assertEquals(oracleMatrix("qwen"),   0x5DDA_B832);
+    assertEquals(oracleMatrix("llama"),  0xFAAC_4232);
+});
+
+Deno.test("frozen ORACLE_MATRICES_V1 table matches runtime computation", () => {
+    for (const name of CANONICAL_ORACLES) {
+        assertEquals(oracleMatrix(name), ORACLE_MATRICES_V1[name]);
+    }
+});
+
+Deno.test("distinct salts produce distinct matrices", () => {
+    const m1 = oracleMatrix("claude", "v1.0");
+    const m2 = oracleMatrix("claude", "v2.0");
+    assertEquals(m1 !== m2, true);
+});
+
+Deno.test("canonical oracles do not collide", () => {
+    const seen = new Set<number>();
+    for (const name of CANONICAL_ORACLES) {
+        const m = oracleMatrix(name);
+        assertEquals(seen.has(m), false, `collision at ${name}`);
+        seen.add(m);
+    }
+});

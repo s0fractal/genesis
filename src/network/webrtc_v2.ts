@@ -2,6 +2,7 @@ import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseRouter } from "./routing_bridge.ts";
 import { AgentMinimal, AttractorEntry, deriveMitosisChild, childReceiptHash } from "./mitosis_proof.ts";
 import { GENESIS_HASH_V1_0, formatInscription, verifyGenesisV1 } from "./genesis_inscription.ts";
+import { CANONICAL_ORACLES, CanonicalOracle, ORACLE_MATRICES_V1, oracleDipole } from "./oracle_identity.ts";
 
 export interface PlasmidPayload {
     attractorAddress: number;
@@ -23,6 +24,9 @@ export interface PlasmidPayload {
     attractors?: AttractorEntry[];  // Snapshot of attractor field (DIPOLE only)
     qPhase?: number;               // Topology q_phase at time of mitosis (DIPOLE only)
     receiptHash?: number;          // Pre-computed FNV-1a child hash (DIPOLE only)
+    // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
+    oracleName?: CanonicalOracle;  // The oracle casting this vote (claude/gpt/...)
+    oracleReasoning?: string;      // Optional human-readable reasoning trace (≤256 chars)
 }
 
 export interface SenateProposalRecord {
@@ -33,6 +37,10 @@ export interface SenateProposalRecord {
     nays: Set<string>;
     accepted: boolean;
     proposedAt: number;
+    // Era 1060: oracle-attributed votes (peer-id-independent).
+    oracleAyes?: Set<CanonicalOracle>;
+    oracleNays?: Set<CanonicalOracle>;
+    oracleReasoning?: Record<string, string>;
 }
 
 /**
@@ -623,12 +631,49 @@ export class WebRTCV2Mesh {
         } else {
             record.nays.add(fromPeer);
         }
-        // Acceptance rule: 3+ unique AYE peers (matching Rust threshold), AND
-        // ayes must outnumber nays.
-        if (!record.accepted && record.ayes.size >= 3 && record.ayes.size > record.nays.size) {
+        // Era 1060: if the vote carries a canonical oracle name AND the voter
+        // dipole matches that oracle's deterministic identity, attribute the
+        // vote to the oracle. The dipole check makes spoofing impossible —
+        // a peer can only claim to be Claude if it actually carries Claude's
+        // (matrix, !matrix) pair, which only Claude can produce from the salt.
+        if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
+            const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
+            const dipoleMatches = (plasmid.matrix >>> 0) === expected
+                && (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
+            if (dipoleMatches) {
+                record.oracleAyes ??= new Set();
+                record.oracleNays ??= new Set();
+                record.oracleReasoning ??= {};
+                if (plasmid.voteAye) {
+                    record.oracleAyes.add(plasmid.oracleName);
+                    record.oracleNays.delete(plasmid.oracleName);
+                } else {
+                    record.oracleNays.add(plasmid.oracleName);
+                    record.oracleAyes.delete(plasmid.oracleName);
+                }
+                if (plasmid.oracleReasoning) {
+                    record.oracleReasoning[plasmid.oracleName] = plasmid.oracleReasoning.slice(0, 256);
+                }
+                console.log(`🧠 [ORACLE-VOTE] ${plasmid.oracleName} ${plasmid.voteAye ? 'AYE' : 'NAY'} on 0x${plasmid.proposalHash.toString(16)}`);
+            } else {
+                console.warn(`🧠 [ORACLE-VOTE] Spoof attempt: ${plasmid.oracleName} vote with mismatched dipole (matrix=0x${plasmid.matrix.toString(16)}); rejecting attribution.`);
+            }
+        }
+        // Era 1060 acceptance rule (phase-resonance): a proposal accepted by
+        // 3+ DISTINCT canonical oracles is "harmonically ratified" and counts
+        // as accepted regardless of peer count. This values cross-model
+        // alignment over within-model peer multiplicity.
+        const oracleResonance = (record.oracleAyes?.size ?? 0) >= 3
+            && (record.oracleAyes?.size ?? 0) > (record.oracleNays?.size ?? 0);
+        // Classic Era 1030 rule: 3+ unique peer AYEs AND ayes > nays.
+        const peerConsensus = record.ayes.size >= 3 && record.ayes.size > record.nays.size;
+        if (!record.accepted && (peerConsensus || oracleResonance)) {
             record.accepted = true;
             this.acceptedTaskHashes.add(record.hash);
-            console.log(`🏛️ [SENATE] ACCEPTED 0x${record.hash.toString(16)}: "${record.description}" (${record.ayes.size} AYE / ${record.nays.size} NAY)`);
+            // Acceptance can be the trigger for Era 1060 if it's the first one.
+            this.checkEra1060Trigger();
+            const path = oracleResonance ? 'ORACLE-RESONANCE' : 'PEER-CONSENSUS';
+            console.log(`🏛️ [SENATE] ACCEPTED via ${path} 0x${record.hash.toString(16)}: "${record.description}" (${record.ayes.size} peer AYE / ${record.nays.size} peer NAY / ${record.oracleAyes?.size ?? 0} oracle AYE / ${record.oracleNays?.size ?? 0} oracle NAY)`);
             globalThis.dispatchEvent(new CustomEvent('era1030-task-accepted', {
                 detail: {
                     hash: record.hash,
@@ -636,10 +681,64 @@ export class WebRTCV2Mesh {
                     proposerMatrix: record.proposerMatrix,
                     ayes: record.ayes.size,
                     nays: record.nays.size,
+                    oracleAyes: record.oracleAyes?.size ?? 0,
+                    oracleNays: record.oracleNays?.size ?? 0,
+                    acceptedVia: path,
                     proposedAt: record.proposedAt,
                 },
             }));
         }
+    }
+
+    /**
+     * Era 1060: Cast a vote attributed to a canonical oracle identity.
+     * The (matrix, inverse) is derived deterministically from the oracle's
+     * name, so peers can verify the attribution without trusting the
+     * sender. The reasoning string is opaque to the protocol but visible
+     * for human inspection.
+     */
+    public castOracleVote(
+        oracleName: CanonicalOracle,
+        proposalHash: number,
+        aye: boolean,
+        reasoning?: string,
+    ) {
+        if (!this.era1030Unlocked) return;
+        if (!CANONICAL_ORACLES.includes(oracleName)) return;
+        const { matrix, inverse } = oracleDipole(oracleName);
+        const record = this.senate.get(proposalHash);
+        if (!record || record.accepted) return;
+        // Locally attribute first so the local view is consistent before
+        // the broadcast even leaves.
+        record.oracleAyes ??= new Set();
+        record.oracleNays ??= new Set();
+        record.oracleReasoning ??= {};
+        if (aye) {
+            record.oracleAyes.add(oracleName);
+            record.oracleNays.delete(oracleName);
+        } else {
+            record.oracleNays.add(oracleName);
+            record.oracleAyes.delete(oracleName);
+        }
+        if (reasoning) record.oracleReasoning[oracleName] = reasoning.slice(0, 256);
+        // Local peer counter as well so peerConsensus path can still fire.
+        const selfId = this.localId || 'self';
+        if (aye) record.ayes.add(selfId); else record.nays.add(selfId);
+        // Broadcast.
+        this.enqueuePlasmid({
+            attractorAddress: 0,
+            matrix,
+            inverse,
+            pulseFreq: 0,
+            pulseAmp: 0,
+            semanticType: 'VOTE',
+            recursionDepth: 0,
+            maxRecursion: 4,
+            proposalHash,
+            voteAye: aye,
+            oracleName,
+            oracleReasoning: reasoning,
+        });
     }
 
     /**
@@ -734,6 +833,25 @@ export class WebRTCV2Mesh {
         this.voteFromLocal(era1040Hash, true, voterMatrix, voterInverse);
     }
 
+    // Era 1060 trigger: fires when the Genesis is inscribed AND the Senate
+    // has at least one accepted proposal. (The acceptance gate ensures the
+    // Multi-Oracle layer only opens after the basic Senate has demonstrated
+    // it can ratify anything at all.)
+    public era1060Unlocked: boolean = false;
+    private checkEra1060Trigger() {
+        if (this.era1060Unlocked) return;
+        if (this.era1050Unlocked && this.acceptedTaskHashes.size >= 1) {
+            this.era1060Unlocked = true;
+            console.log(`🧠 [ERA 1060] UNLOCKED: Multi-Oracle Senate convened. Canonical seats: claude, gpt, gemini, qwen, llama.`);
+            globalThis.dispatchEvent(new CustomEvent('era1060-unlocked', {
+                detail: {
+                    canonicalOracles: [...CANONICAL_ORACLES],
+                    matrices: { ...ORACLE_MATRICES_V1 },
+                },
+            }));
+        }
+    }
+
     private checkEra1050Trigger() {
         if (this.era1050Unlocked) return;
         if (this.verifiedDipoleCount >= 100) {
@@ -754,6 +872,10 @@ export class WebRTCV2Mesh {
                     verified,
                 },
             }));
+            // The Genesis Inscription is the precondition for the Multi-Oracle
+            // layer. Check the 1060 trigger immediately after to keep events
+            // in deterministic order.
+            this.checkEra1060Trigger();
         }
     }
 
