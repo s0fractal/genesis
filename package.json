@@ -1,7 +1,10 @@
 {
   "name": "omega-genesis",
-  "version": "42.1.0",
-  "era": "77 (Absolute Stratum)",
+  "version": "1.0.0",
+  "era": "1070 (Cross-Model Ratification)",
+  "genesisHash": "0x549A6307",
+  "opReturn": "OMEGA1:549a6307",
+  "protocol": "OMEGA-64/RFC-001/v1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
