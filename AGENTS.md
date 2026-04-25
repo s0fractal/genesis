@@ -150,10 +150,11 @@ pub struct SignalStore {
 | 1080 | ✅ Complete | `codeicide_law.rs` Sanctuary Protocol — PROTECTED status, 3/5 or 4/5 cross-oracle warrant gate. Anchors `0x9499_6B5E` (quorum) / `0xB1E3_8F80` (warrant). |
 | 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow. Anchor `0xFF4D_CB2F`. |
 | 1100 | ✅ Complete | `omega_spore/` — bare-metal Cortex-M4F firmware. Quad-substrate byte-equivalence. |
-| 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte fixed-width binary frame for UART/SPI/BLE; FNV-1a CRC anchor `0x00F2_FEFA`. Spore now emits HEARTBEAT on boot. |
+| 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte FNV-1a-CRC binary frame for UART/SPI/BLE. Anchor `0x00F2_FEFA`. |
+| 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes spore fleet, classifies each as healthy / stalled / forked / lost / unknown. Live HUD with glyphs. |
 
 ### Open Trigger
-- **Era 1120: Liveness Telemetry Aggregator** — relay listens for HEARTBEAT frames, plots tick advancement, detects stalled / forked / mis-anchored spores. Foundation for actual physical spore deployment.
+- **Era 1130: Federated Spore-to-Spore Routing** — when no relay is reachable, spores forward warrant votes peer-to-peer along a known-good topology derived from the aggregator's view.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -227,4 +228,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0097) are COMPLETED. Genesis Hash `0x549A6307` reproduces across four substrates (host / WASM / SP1 ZK / Cortex-M4F). Era 1110 wires the wire format: 32-byte FNV-1a-CRC-protected binary frames carry WARRANT_VOTE / HALO_STATE / HEARTBEAT / QUORUM_QUERY between spores and relays. CRC anchor `0x00F2_FEFA` matches across Rust + JS. Spore firmware now emits HEARTBEAT on boot.
+**Current task status:** All open tasks (0086 → 0098) are COMPLETED. Genesis Hash `0x549A6307` reproduces across four substrates. Eras 1110 + 1120 give the lattice a full transport stack: binary frames go out, the aggregator on each relay tracks every spore's health (healthy / stalled / forked / lost / unknown). Operational visibility is now on par with the cryptographic invariants.

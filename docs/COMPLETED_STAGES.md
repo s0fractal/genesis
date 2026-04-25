@@ -4,6 +4,41 @@
 
 ---
 
+## 📊 **Era 1120: Liveness Telemetry Aggregator**
+*Статус: Завершено (2026-04-26)*
+
+The relay-side observer that turns 32-byte spore frames into operational
+visibility. Classifies every observed spore into one of five health
+states:
+
+| State | Glyph | Meaning |
+|---|---|---|
+| healthy | 🟢 | tick advancing, genesis = `0x549A6307` |
+| stalled | 🟡 | repeated heartbeats with no tick advance |
+| forked  | 🔴 | claimed genesis ≠ canonical v1.0 (drift) |
+| lost    | ⚫ | silent past `maxSilenceMs` (default 30 s) |
+| unknown | ⚪ | seen ≥ 1 sample, below `classifyAfter` threshold |
+
+- **`src/network/liveness_aggregator.ts`**: `LivenessAggregator` class
+  with `ingest()`, `sweep()`, `snapshot()`, `countByHealth()`,
+  `forkedSpores()`. FORKED dominates LOST — anchor drift is louder
+  than silence.
+- **`tools/spore_relay.ts`**: streaming CLI that reads frame bytes from
+  stdin, decodes via `frameFromBytes`, and renders a live ASCII HUD.
+  `--self-test` mode synthesizes one spore per health class and asserts
+  classification.
+- **Tests**: 10 Deno tests cover every state transition, threshold edge,
+  FORKED/LOST priority, snapshot/forget semantics.
+
+cargo: 199 (unchanged — relay-side, JS-only).
+deno: 100 → **110 passed**. Total **309** tests.
+
+The lattice now has **operational visibility** matching its
+cryptographic invariants. A field of $5 spores no longer needs to be
+trusted blindly — every relay sees fork events the moment they happen.
+
+---
+
 ## 📡 **Era 1110: Senate Plasmid Bridge over Serial**
 *Статус: Завершено (2026-04-26)*
 
