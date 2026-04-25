@@ -39,8 +39,22 @@ export class PhaseRouter {
      */
     hyperbolicDistance(a: PhaseAddress, b: PhaseAddress): number {
         const fn = this.exports.v2_route_hyperbolic_distance;
-        if (!fn) return Number.MAX_SAFE_INTEGER;
+        if (!fn) return PhaseRouter.hyperbolicDistanceStatic(a, b);
         return fn(a, b);
+    }
+
+    /**
+     * Pure-JS hyperbolic distance (no WASM required).
+     * Matches Rust `PhaseAddress::hyperbolic_distance_scaled` exactly.
+     */
+    static hyperbolicDistanceStatic(a: PhaseAddress, b: PhaseAddress): number {
+        const da = PhaseRouter.decode(a);
+        const db = PhaseRouter.decode(b);
+        const dc = Math.abs(da.consensus - db.consensus);
+        const ds = Math.abs(da.social - db.social);
+        const dp = Math.abs(da.personal - db.personal);
+        const dm = Math.abs(da.micro - db.micro);
+        return dc * 8 + ds * 4 + dp * 2 + dm;
     }
 
     /**

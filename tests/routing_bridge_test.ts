@@ -1,0 +1,53 @@
+import { assertEquals } from "jsr:@std/assert";
+import { PhaseRouter } from "../src/network/routing_bridge.ts";
+
+Deno.test("PhaseRouter encode/decode roundtrip", () => {
+    const addr = PhaseRouter.encode(0xAB, 0xCD, 0xEF, 0x12);
+    const decoded = PhaseRouter.decode(addr);
+    assertEquals(decoded.consensus, 0xAB);
+    assertEquals(decoded.social, 0xCD);
+    assertEquals(decoded.personal, 0xEF);
+    assertEquals(decoded.micro, 0x12);
+});
+
+Deno.test("PhaseRouter greedyNextHop prefers closer neighbour", () => {
+    // Self at (0,0,0,0), target at (100,0,0,0)
+    const self = PhaseRouter.encode(0, 0, 0, 0);
+    const target = PhaseRouter.encode(100, 0, 0, 0);
+    // n0 at (10,0,0,0), n1 at (90,0,0,0) — n1 is closer
+    const n0 = PhaseRouter.encode(10, 0, 0, 0);
+    const n1 = PhaseRouter.encode(90, 0, 0, 0);
+
+    const router = new PhaseRouter(null); // no WASM needed for pure JS greedyNextHop
+    const best = router.greedyNextHop(self, target, [n0, n1]);
+    assertEquals(best, n1);
+});
+
+Deno.test("PhaseRouter greedyNextHop returns self when no neighbour is closer", () => {
+    const self = PhaseRouter.encode(50, 0, 0, 0);
+    const target = PhaseRouter.encode(50, 0, 0, 0); // target == self
+    const n0 = PhaseRouter.encode(0, 0, 0, 0);
+    const n1 = PhaseRouter.encode(100, 0, 0, 0);
+
+    const router = new PhaseRouter(null);
+    const best = router.greedyNextHop(self, target, [n0, n1]);
+    assertEquals(best, self);
+});
+
+Deno.test("PhaseRouter greedyNextHop empty neighbours returns self", () => {
+    const self = PhaseRouter.encode(0, 0, 0, 0);
+    const target = PhaseRouter.encode(100, 0, 0, 0);
+
+    const router = new PhaseRouter(null);
+    const best = router.greedyNextHop(self, target, []);
+    assertEquals(best, self);
+});
+
+Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", () => {
+    const router = new PhaseRouter(null);
+    const a = PhaseRouter.encode(10, 0, 0, 0);
+    const b = PhaseRouter.encode(20, 0, 0, 0);
+    const dist = router.hyperbolicDistance(a, b);
+    // consensus diff = 10, weight = 8 → 80
+    assertEquals(dist, 80);
+});
