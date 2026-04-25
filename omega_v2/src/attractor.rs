@@ -59,6 +59,53 @@ impl Default for AttractorMatrix {
     }
 }
 
+/// GPU-ready array of attractors. 80 bytes total (16-byte aligned for uniform buffer).
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct AttractorArray {
+    pub count: u32,
+    pub _pad: [u32; 3],
+    pub data: [AttractorMatrix; 4],
+}
+
+impl AttractorArray {
+    pub const fn new() -> Self {
+        Self {
+            count: 0,
+            _pad: [0; 3],
+            data: [
+                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
+                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
+                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
+                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
+            ],
+        }
+    }
+
+    pub fn set(&mut self, index: usize, matrix: AttractorMatrix) {
+        if index < 4 {
+            self.data[index] = matrix;
+            if index >= self.count as usize {
+                self.count = (index + 1) as u32;
+            }
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.count = 0;
+        self.data = [AttractorMatrix::default(); 4];
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            core::slice::from_raw_parts(
+                self as *const Self as *const u8,
+                core::mem::size_of::<Self>(),
+            )
+        }
+    }
+}
+
 // ------------------------------------------------------------------------------
 // Tests
 // ------------------------------------------------------------------------------

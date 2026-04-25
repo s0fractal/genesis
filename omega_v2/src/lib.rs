@@ -114,6 +114,9 @@ static mut RESONANCE_FIELD: ResonanceField = ResonanceField::zero();
 /// Exchanged via WebRTC between adjacent nodes in the toroidal chain.
 static mut HALO_STATE: HaloState = HaloState::empty();
 
+/// Era 1010: Global Attractor Array for GPU uniform buffer.
+static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
+
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
 // -----------------------------------------------------------------------------
@@ -402,6 +405,32 @@ pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
     if m.is_valid_dipole() { 1 } else { 0 }
 }
 
+/// Set an attractor at `index` (0..3). Replaces existing or extends count.
+#[no_mangle]
+pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_freq: u32, pulse_amp: u32) {
+    if index >= 4 { return; }
+    unsafe {
+        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
+        let m = AttractorMatrix::new(matrix, inverse, pulse_freq, pulse_amp);
+        (*arr).set(index as usize, m);
+    }
+}
+
+/// Clear all attractors.
+#[no_mangle]
+pub extern "C" fn v2_clear_attractors() {
+    unsafe {
+        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
+        (*arr).clear();
+    }
+}
+
+/// Returns pointer to the global AttractorArray (80 bytes, 16-byte aligned).
+#[no_mangle]
+pub extern "C" fn v2_attractor_array_ptr() -> *const u8 {
+    core::ptr::addr_of!(ATTRACTOR_ARRAY) as *const u8
+}
+
 // --- EpicyclicSoul: Resonance Tensor FFI ---
 
 /// Scan all living agents and update the global ResonanceField.
@@ -552,7 +581,7 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
 // ------------------------------------------------------------------------------
 
 use routing::PhaseAddress;
-use attractor::AttractorMatrix;
+use attractor::{AttractorMatrix, AttractorArray};
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns 0 if the index is out of bounds or the lattice is not booted.
