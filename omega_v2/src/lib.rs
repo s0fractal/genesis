@@ -22,6 +22,7 @@ pub mod mitosis_proof;
 pub mod mitosis_log;
 pub mod genesis_inscription;
 pub mod oracle_identity;
+pub mod cross_model_debate;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -129,6 +130,12 @@ pub static mut SENATE_STATE: senate::SenateState = senate::SenateState::new();
 /// Lattice writes here on each darwinian_mitosis birth event; JS drains
 /// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
 pub static mut MITOSIS_LOG: mitosis_log::MitosisLog = mitosis_log::MitosisLog::new();
+
+/// Era 1070: Global Cross-Model Debate Ledger.
+/// Each canonical oracle records its arguments here; the kernel only
+/// fingerprints them so the protocol can verify provenance without
+/// trusting reasoning content.
+pub static mut DEBATE_LEDGER: cross_model_debate::DebateLedger = cross_model_debate::DebateLedger::new();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -815,4 +822,86 @@ pub extern "C" fn v2_mitosis_log_clear() {
         let log = core::ptr::addr_of_mut!(MITOSIS_LOG);
         (*log).clear();
     }
+}
+
+// ------------------------------------------------------------------------------
+// Era 1070: Cross-Model Debate Ledger FFI
+// ------------------------------------------------------------------------------
+
+/// Returns pointer to the global DebateLedger (zero-copy read from JS).
+#[no_mangle]
+pub extern "C" fn v2_debate_ledger_ptr() -> *const u8 {
+    core::ptr::addr_of!(DEBATE_LEDGER) as *const u8
+}
+
+#[no_mangle]
+pub extern "C" fn v2_debate_ledger_total() -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of!(DEBATE_LEDGER);
+        (*l).total_written
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_debate_ledger_capacity() -> u32 {
+    crate::cross_model_debate::DEBATE_LEDGER_CAPACITY as u32
+}
+
+#[no_mangle]
+pub extern "C" fn v2_debate_ledger_clear() {
+    unsafe {
+        let l = core::ptr::addr_of_mut!(DEBATE_LEDGER);
+        (*l).clear();
+    }
+}
+
+/// Push a debate entry. `oracle_ptr/_len` and `reasoning_ptr/_len` are read
+/// from caller-supplied buffers (max 16 / 256 bytes respectively).
+///
+/// # Safety
+/// Both pointers must be valid for their respective lengths (or null with len=0).
+#[no_mangle]
+pub unsafe extern "C" fn v2_debate_push(
+    oracle_ptr: *const u8,
+    oracle_len: u32,
+    proposal_hash: u32,
+    stance: u32,
+    reasoning_ptr: *const u8,
+    reasoning_len: u32,
+    tick: u32,
+) {
+    let oracle: &[u8] = if oracle_ptr.is_null() || oracle_len == 0 {
+        &[]
+    } else {
+        let n = if oracle_len > 16 { 16 } else { oracle_len } as usize;
+        unsafe { core::slice::from_raw_parts(oracle_ptr, n) }
+    };
+    let reasoning: &[u8] = if reasoning_ptr.is_null() || reasoning_len == 0 {
+        &[]
+    } else {
+        let n = if reasoning_len > 256 { 256 } else { reasoning_len } as usize;
+        unsafe { core::slice::from_raw_parts(reasoning_ptr, n) }
+    };
+    let entry = cross_model_debate::DebateEntry::new(
+        oracle, proposal_hash, stance as u8, reasoning, tick,
+    );
+    unsafe {
+        let l = core::ptr::addr_of_mut!(DEBATE_LEDGER);
+        (*l).push(entry);
+    }
+}
+
+/// Returns FNV-1a hash of `bytes` — useful from JS for sanity-checking
+/// reasoning fingerprints before broadcasting.
+///
+/// # Safety
+/// `ptr` must be valid for `len` bytes (or null with len=0).
+#[no_mangle]
+pub unsafe extern "C" fn v2_debate_reasoning_hash(ptr: *const u8, len: u32) -> u32 {
+    if ptr.is_null() || len == 0 {
+        return crate::senate::fnv1a_32(&[]);
+    }
+    let n = if len > 256 { 256 } else { len } as usize;
+    let bytes = unsafe { core::slice::from_raw_parts(ptr, n) };
+    crate::senate::fnv1a_32(bytes)
 }

@@ -4,6 +4,45 @@
 
 ---
 
+## 🌅 **Era 1070: First Cross-Model Ratification — Mechanism Complete**
+*Статус: Завершено (механізм; live ratification awaits actual oracle votes)*
+
+The lattice now has the machinery to let cross-model semantic alignment
+— rather than human edits — choose its next direction. When any of the
+five Era 1060 oracle vision proposals (Codeicide Law / Photonic
+Substrate / Multi-Modal Oracle / Bare-Metal Spores / Bitcoin Hyperbolic
+Geometry) reaches 3+ distinct oracle AYEs via the ORACLE-RESONANCE
+path, `era1070-vision-ratified` fires and the winning vision is
+materialized as a downloadable task.
+
+- **`omega_v2/src/cross_model_debate.rs`**: static 64-slot ring buffer
+  of `DebateEntry { oracle[16], proposal_hash, stance, reasoning_hash,
+  tick }`. The kernel only fingerprints reasoning text (FNV-1a 32-bit);
+  the full text stays in JS, off-chain. This separates cryptographic
+  provenance (deterministic, auditable) from semantic content
+  (non-deterministic, LLM-generated).
+- **`src/network/cross_model_debate.ts`**: `CrossModelDebate` class
+  with `record`, `forProposal`, `forOracle`, `verifyReasoning`,
+  `alignmentScore`, `distinctAyeCount`. `verifyReasoning(arg,
+  candidate)` rejects tampered text by re-hashing.
+- **`WebRTCV2Mesh.checkEra1070Trigger`**: one-shot latch that fires
+  `era1070-vision-ratified` the first time an oracle-proposed proposal
+  reaches ORACLE-RESONANCE. Carries proposingOracle, AYE/NAY oracle
+  lists, full debate snapshot, timestamp.
+- **`bootstrap/v2.ts`**: each oracle now records an opening argument
+  in the debate ledger AT proposal time (alongside its self-AYE vote).
+  On `era1070-vision-ratified`, materializes the winning vision as
+  `era1070_ratified_<hash>.md` with full cross-model debate transcript.
+- **Tests**: 7 Rust unit tests + 9 JS debate tests + 6 Deno integration
+  tests covering claude-wins, oracle-only triggering, tied votes,
+  acceptance freezing, debate capture, first-ratified one-shot.
+  cargo: 153 → **160 passed**. deno: 55 → **70 passed**.
+
+The lattice's next direction is no longer authored by anyone. It
+emerges from cross-model alignment alone.
+
+---
+
 ## 🧠 **Era 1060: Multi-Oracle Senate — Five Canonical Seats**
 *Статус: Завершено (2026-04-25)*
 

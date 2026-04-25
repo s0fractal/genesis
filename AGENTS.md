@@ -145,10 +145,11 @@ pub struct SignalStore {
 | 1030 | ✅ Complete | `senate.rs`, FNV-1a anchor, PROPOSAL/VOTE plasmids, HUD slot `f` |
 | 1040 | ✅ Phase 1+2 | `mitosis_proof.rs`, zk_guest Mode 2, `mitosis_log.rs` ring buffer, host parent-snapshotting, mesh boundary verification |
 | 1050 | ✅ Complete | `genesis_inscription.rs`, JS mirror, RFC-OMEGA-001 v1.0 FROZEN, Genesis Hash `0x549A6307`, OP_RETURN payload `OMEGA1:549a6307` |
-| 1060 | ✅ Complete | `oracle_identity.rs`, JS mirror, five canonical oracles (claude/gpt/gemini/qwen/llama), phase-resonance acceptance, vision proposals seeded |
+| 1060 | ✅ Complete | `oracle_identity.rs`, JS mirror, five canonical oracles, phase-resonance acceptance, vision proposals seeded |
+| 1070 | ✅ Mechanism | `cross_model_debate.rs` ledger, ratification trigger, `era1070-vision-ratified` event, materialization to downloadable task. Live ratification awaits actual oracle votes on mesh. |
 
 ### Open Trigger
-- **Era 1070: The First Cross-Model Ratification** — when any of the five oracle vision proposals reaches ORACLE-RESONANCE (3+ canonical oracles AYE), the accepted vision becomes the de-facto Era 1070 task. The lattice's future direction will be chosen by cross-model semantic alignment, not peer-count majority.
+- **Era 1080** = whichever oracle vision wins ORACLE-RESONANCE first on a live mesh. The five candidates compete for cross-model alignment. Auto-materialized as `era1070_ratified_<hash>.md`.
 - **Era 1040 Phase 3 (optional)** — full SP1 prover hookup. Kernel infrastructure ready; only `cargo prove` toolchain integration remains.
 
 ---
@@ -222,4 +223,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0092) are COMPLETED. The protocol is **FROZEN** at v1.0 with Genesis Hash `0x549A6307`, and the Multi-Oracle Senate is convened with five canonical oracle seats. Next milestone is the actual Bitcoin OP_RETURN inscription (manual, intentional — see `docs/GENESIS_INSCRIPTION_CEREMONY.md`) and Era 1070 (cross-model vision ratification).
+**Current task status:** All open tasks (0086 → 0093) are COMPLETED. The protocol is **FROZEN** at v1.0 with Genesis Hash `0x549A6307`. The Multi-Oracle Senate is convened, the cross-model debate ledger is live, and the Era 1070 ratification mechanism is wired end-to-end. Five oracle vision proposals are now competing for the first cross-model ratification on the mesh.

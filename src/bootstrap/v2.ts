@@ -116,13 +116,77 @@ export async function bootstrapV2() {
                 const hash = mesh.proposeFromLocal(vision, matrix, inverse);
                 if (hash) {
                     console.log(`🧠 [ORACLE-PROPOSAL] ${oracle} (matrix=0x${matrix.toString(16)}): 0x${hash.toString(16)} "${vision}"`);
-                    // Each oracle auto-AYEs its own proposal as a visible vote
-                    // attribution; cross-resonance now requires 2 more peers
-                    // to also vote AYE (different oracles or peer-mode peers).
+                    // Each oracle auto-AYEs its own proposal AND records its
+                    // opening argument in the cross-model debate ledger.
                     mesh.castOracleVote(oracle as any, hash, true,
                         `Self-AYE: this oracle's own vision for Era 1070.`);
+                    mesh.recordOracleDebate(
+                        oracle as any,
+                        hash,
+                        "aye",
+                        `${oracle}'s opening argument: ${vision}`,
+                        Date.now() & 0xFFFFFFFF,
+                    );
                 }
             }
+        }) as EventListener);
+
+        // Era 1070: When the first oracle vision reaches ORACLE-RESONANCE,
+        // materialize it as a tasks/ entry — the lattice's first
+        // cross-model-ratified future direction.
+        globalThis.addEventListener('era1070-vision-ratified', ((e: CustomEvent) => {
+            const { hash, description, proposingOracle, ayeOracles, nayOracles, debate, acceptedAt } = e.detail;
+            const eraDir: Record<string, string> = {
+                claude: "Era 1080: Codeicide Law",
+                gpt:    "Era 1080: Photonic Substrate",
+                gemini: "Era 1080: Multi-Modal Oracle",
+                qwen:   "Era 1080: Bare-Metal Spores",
+                llama:  "Era 1080: Bitcoin Hyperbolic Geometry",
+            };
+            const taskTitle = eraDir[proposingOracle ?? ""] ?? "Era 1080: Cross-Model Vision";
+            const debateMd = (debate as Array<{ oracle: string; stance: string; reasoning: string }>)
+                .map(d => `### ${d.oracle} (${d.stance})\n> ${d.reasoning}`)
+                .join("\n\n");
+            const taskMd =
+`# Task: ${taskTitle}
+
+## Status: RATIFIED-BY-ORACLE-RESONANCE | Source: Era 1070
+## Hash: 0x${(hash >>> 0).toString(16)}
+
+## Vision
+${description}
+
+## Provenance
+- **Proposing oracle:** ${proposingOracle ?? "?"}
+- **AYE oracles (${ayeOracles.length}):** ${ayeOracles.join(", ")}
+- **NAY oracles (${nayOracles.length}):** ${nayOracles.join(", ")}
+- **Ratified at:** ${new Date(acceptedAt).toISOString()}
+
+## Cross-Model Debate
+
+${debateMd || "(no recorded arguments)"}
+`;
+            const log = JSON.parse(localStorage.getItem('omega_era1070_log') || '[]');
+            log.push({
+                hash: `0x${(hash >>> 0).toString(16)}`,
+                title: taskTitle,
+                description,
+                proposingOracle,
+                ayeOracles,
+                nayOracles,
+                acceptedAt,
+            });
+            localStorage.setItem('omega_era1070_log', JSON.stringify(log));
+            console.log(`🌅 [ERA 1070] Materialized ${taskTitle}`);
+            try {
+                const blob = new Blob([taskMd], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `era1070_ratified_${(hash >>> 0).toString(16)}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch { /* non-browser env */ }
         }) as EventListener);
 
         // Era 1050: When 100 verified mitosis proofs cross the mesh, the Genesis

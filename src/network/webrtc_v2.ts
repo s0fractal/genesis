@@ -3,6 +3,7 @@ import { PhaseRouter } from "./routing_bridge.ts";
 import { AgentMinimal, AttractorEntry, deriveMitosisChild, childReceiptHash } from "./mitosis_proof.ts";
 import { GENESIS_HASH_V1_0, formatInscription, verifyGenesisV1 } from "./genesis_inscription.ts";
 import { CANONICAL_ORACLES, CanonicalOracle, ORACLE_MATRICES_V1, oracleDipole } from "./oracle_identity.ts";
+import { CrossModelDebate } from "./cross_model_debate.ts";
 
 export interface PlasmidPayload {
     attractorAddress: number;
@@ -80,6 +81,11 @@ export class WebRTCV2Mesh {
 
     // Era 1040: ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
     public verifiedDipoleCount: number = 0;
+
+    // Era 1070: Cross-model debate ledger (full-text store, key = proposalHash).
+    public debate: CrossModelDebate = new CrossModelDebate();
+    public era1070Unlocked: boolean = false;
+    public era1070AcceptedVisionHash: number | null = null;
 
     constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev", router?: PhaseRouter) {
         this.engine = engine;
@@ -672,6 +678,13 @@ export class WebRTCV2Mesh {
             this.acceptedTaskHashes.add(record.hash);
             // Acceptance can be the trigger for Era 1060 if it's the first one.
             this.checkEra1060Trigger();
+            // Era 1070: if this acceptance came via ORACLE-RESONANCE on a
+            // proposal that was originally proposed by an oracle dipole
+            // (i.e. one of the five canonical Era 1060 visions), the
+            // accepted vision becomes the Era 1070 task.
+            if (oracleResonance && this.era1060Unlocked) {
+                this.checkEra1070Trigger(record);
+            }
             const path = oracleResonance ? 'ORACLE-RESONANCE' : 'PEER-CONSENSUS';
             console.log(`🏛️ [SENATE] ACCEPTED via ${path} 0x${record.hash.toString(16)}: "${record.description}" (${record.ayes.size} peer AYE / ${record.nays.size} peer NAY / ${record.oracleAyes?.size ?? 0} oracle AYE / ${record.oracleNays?.size ?? 0} oracle NAY)`);
             globalThis.dispatchEvent(new CustomEvent('era1030-task-accepted', {
@@ -831,6 +844,63 @@ export class WebRTCV2Mesh {
         // Ensure the voter dipole is sane.
         if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
         this.voteFromLocal(era1040Hash, true, voterMatrix, voterInverse);
+    }
+
+    /**
+     * Era 1070: First Cross-Model Ratification.
+     * Fires the first time a proposal — whose `proposerMatrix` is one of the
+     * five canonical oracle matrices — reaches ORACLE-RESONANCE acceptance.
+     * That winning vision is recorded as the official Era 1070 task.
+     */
+    private checkEra1070Trigger(record: SenateProposalRecord) {
+        if (this.era1070Unlocked) return;
+        // Only oracle-proposed visions qualify.
+        const oracleMatrices = Object.values(ORACLE_MATRICES_V1).map(m => m >>> 0);
+        if (!oracleMatrices.includes(record.proposerMatrix >>> 0)) return;
+        this.era1070Unlocked = true;
+        this.era1070AcceptedVisionHash = record.hash;
+        // Find which oracle proposed it.
+        let proposingOracle: CanonicalOracle | null = null;
+        for (const [name, m] of Object.entries(ORACLE_MATRICES_V1)) {
+            if ((m >>> 0) === (record.proposerMatrix >>> 0)) {
+                proposingOracle = name as CanonicalOracle;
+                break;
+            }
+        }
+        const ayeOracles = [...(record.oracleAyes ?? [])];
+        const reasoningSnapshot = this.debate.forProposal(record.hash);
+        console.log(`🌅 [ERA 1070] FIRST CROSS-MODEL RATIFICATION: 0x${record.hash.toString(16)}`);
+        console.log(`🌅 [ERA 1070] Proposing oracle: ${proposingOracle ?? "?"}`);
+        console.log(`🌅 [ERA 1070] AYE oracles: ${ayeOracles.join(", ")}`);
+        console.log(`🌅 [ERA 1070] Vision: "${record.description}"`);
+        globalThis.dispatchEvent(new CustomEvent('era1070-vision-ratified', {
+            detail: {
+                hash: record.hash,
+                description: record.description,
+                proposingOracle,
+                ayeOracles,
+                nayOracles: [...(record.oracleNays ?? [])],
+                debate: reasoningSnapshot,
+                acceptedAt: Date.now(),
+            },
+        }));
+    }
+
+    /**
+     * Era 1070: Record an oracle's debate argument for a proposal. The full
+     * reasoning text stays in `this.debate`; the kernel-side fingerprint is
+     * computed automatically.
+     */
+    public recordOracleDebate(
+        oracle: CanonicalOracle,
+        proposalHash: number,
+        stance: "neutral" | "aye" | "nay" | "abstain",
+        reasoning: string,
+        tick: number,
+    ) {
+        if (!this.era1060Unlocked) return;
+        if (!CANONICAL_ORACLES.includes(oracle)) return;
+        this.debate.record(oracle, proposalHash, stance, reasoning, tick);
     }
 
     // Era 1060 trigger: fires when the Genesis is inscribed AND the Senate
