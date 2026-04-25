@@ -31,6 +31,23 @@ struct IntentArray {
     intents: array<OntologicalIntent, 4>,
 }
 
+// Era 1010: Attractor Matrix (16 bytes)
+struct AttractorMatrix {
+    matrix: u32,
+    inverse: u32,
+    pulse_freq: u32,
+    pulse_amp: u32,
+}
+
+// Era 1010: Attractor Array (80 bytes, binding 8)
+struct AttractorArray {
+    count: u32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
+    data: array<AttractorMatrix, 4>,
+}
+
 // Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal 
 // and naturally aligns to vec4<u32> x 2 for maximum GPU coalesced reads.
 struct PhaseAgentMinimal {
@@ -50,6 +67,7 @@ struct PhaseAgentMinimal {
 @group(0) @binding(4) var<uniform> intent_array: IntentArray;
 @group(0) @binding(5) var<storage, read_write> new_mean_field: array<atomic<i32>>;
 @group(0) @binding(6) var<storage, read> old_mean_field: array<i32>;
+@group(0) @binding(8) var<uniform> attractor_array: AttractorArray;
 
 // ERA 4000: Workgroup Internal Reduction State
 var<workgroup> wg_cos: array<i32, 64>;
@@ -272,7 +290,7 @@ fn compute_main(
         let chr_force = 1200i; 
         
         for (var i = 0u; i < 4u; i++) {
-            let n = agents[n_indices[i]];
+            let n = agents_in[n_indices[i]];
             if (n.energy > 0u) {
                 let dx_n = deterministic_cos(n.phase, topology.q_phase) - my_x;
                 let dy_n = deterministic_sin(n.phase, topology.q_phase) - my_y;
@@ -295,9 +313,18 @@ fn compute_main(
     // Re-resolve the new aggregate phase using deterministic atan2
     coupled_phase = deterministic_atan2(force_y, force_x, topology.q_phase);
     
-    // 4. Mutate Phase directly based on base_freq & coupling
+    // Era 1010: Attractor Field Drift
+    var attractor_drift: i32 = 0i;
+    for (var i = 0u; i < attractor_array.count; i = i + 1u) {
+        let a = attractor_array.data[i];
+        let sin_val = deterministic_sin(agent.phase - a.matrix, topology.q_phase);
+        attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
+    }
+    
+    // 4. Mutate Phase directly based on base_freq & coupling & attractor drift
     // (agent.base_freq is Q20, q_math is 20, so shift gives an integer tick jump)
-    let new_phase = (coupled_phase + u32(agent.base_freq >> topology.q_math)) & max_phase_mask;
+    let total_freq = agent.base_freq + attractor_drift;
+    let new_phase = (coupled_phase + u32(total_freq >> topology.q_math)) & max_phase_mask;
     
     // ERA 3000: ATP METABOLISM
     var metabolic_delta: i32 = -1; // Entropy (Base Burn)
@@ -330,7 +357,7 @@ fn compute_main(
             var lose_packet = false;
             
             for (var i = 0u; i < 4u; i++) {
-                let n_opt = agents[n_indices[i]];
+                let n_opt = agents_in[n_indices[i]];
                 if (n_opt.energy > 0u && n_opt.memory_z == 0u) {
                     let n_dist = phase_dist(n_opt.phase, target_p, max_phase_mask);
                     if (n_dist < my_dist) {
@@ -370,7 +397,7 @@ fn compute_main(
             // Receptive Empty Cell. Poll neighbors for incoming Gradient Pull.
             var best_gradient = 0i;
             for (var i = 0u; i < 4u; i++) {
-                let n_opt = agents[n_indices[i]];
+                let n_opt = agents_in[n_indices[i]];
                 if (n_opt.memory_z > 0u) {
                     let target_p = n_opt.memory_x;
                     let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);

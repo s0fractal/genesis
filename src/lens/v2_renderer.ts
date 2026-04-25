@@ -28,6 +28,7 @@ export class PhaseV2Renderer {
     // Era 4000: Global Order Parameter Feedback Loop
     private newMeanFieldBuffer!: GPUBuffer;
     private oldMeanFieldBuffer!: GPUBuffer;
+    private attractorBuffer!: GPUBuffer;
     private _mouseBound: boolean = false;
     private activeDNSPhase: number = 0; // Era 8000: Target Routing
     private activeOpcode: number = 0;   // Era 8000: Default Safe
@@ -112,6 +113,13 @@ export class PhaseV2Renderer {
         });
         // Initialize to zero so first-frame cold-start fallback works correctly
         this.device.queue.writeBuffer(this.oldMeanFieldBuffer, 0, new Uint8Array(8));
+        
+        // Era 1010: Attractor Array Uniform Buffer (80 bytes)
+        this.attractorBuffer = this.device.createBuffer({
+            size: 80,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(this.attractorBuffer, 0, new Uint8Array(80));
 
         const computeModule = this.device.createShaderModule({ code: computeV2Src });
         const renderModule = this.device.createShaderModule({ code: renderV2Src });
@@ -182,6 +190,7 @@ export class PhaseV2Renderer {
 
         this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
         this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
+        this.device.queue.writeBuffer(this.attractorBuffer, 0, ptrs.attractorBytes, 0, 80);
 
         const commandEncoder = this.device.createCommandEncoder();
         
@@ -204,6 +213,7 @@ export class PhaseV2Renderer {
                     { binding: 2, resource: { buffer: computeSource } },
                     { binding: 3, resource: { buffer: this.sineLutBuffer } },
                     { binding: 7, resource: { buffer: computeTarget } },
+                    { binding: 8, resource: { buffer: this.attractorBuffer } },
                 ],
             });
         } else {
@@ -223,6 +233,7 @@ export class PhaseV2Renderer {
                     { binding: 5, resource: { buffer: this.newMeanFieldBuffer } },
                     { binding: 6, resource: { buffer: this.oldMeanFieldBuffer } },
                     { binding: 7, resource: { buffer: computeTarget } },
+                    { binding: 8, resource: { buffer: this.attractorBuffer } },
                 ],
             });
         }

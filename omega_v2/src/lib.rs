@@ -115,7 +115,7 @@ static mut RESONANCE_FIELD: ResonanceField = ResonanceField::zero();
 static mut HALO_STATE: HaloState = HaloState::empty();
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
-static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
+pub static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)

@@ -103,6 +103,7 @@ export class OmegaV2Engine {
         const agentsPtr = (exports.v2_agents_ptr as CallableFunction)() as number;
         const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
         const deltaPtr = (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
+        const attractorPtr = (exports.v2_attractor_array_ptr as CallableFunction)() as number;
 
         // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=128 -> Total 160 bytes)
         const LATTICE_UNIFORM_SIZE = 160;
@@ -121,6 +122,7 @@ export class OmegaV2Engine {
             agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
             sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
             deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16),
+            attractorBytes: new Uint8Array(this.memory.buffer, attractorPtr, 80),
             wasmMemoryBuffer: this.memory.buffer 
         };
     }

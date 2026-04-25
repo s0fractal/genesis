@@ -19,6 +19,23 @@ struct SignalStore {
     max_cells: u32,
 }
 
+// Era 1010: Attractor Matrix (16 bytes)
+struct AttractorMatrix {
+    matrix: u32,
+    inverse: u32,
+    pulse_freq: u32,
+    pulse_amp: u32,
+}
+
+// Era 1010: Attractor Array (80 bytes, binding 8)
+struct AttractorArray {
+    count: u32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
+    data: array<AttractorMatrix, 4>,
+}
+
 // Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal.
 struct PhaseAgentMinimal {
     phase: u32,
@@ -36,6 +53,7 @@ struct PhaseAgentMinimal {
 @group(0) @binding(2) var<storage, read> agents_in: array<PhaseAgentMinimal>;
 @group(0) @binding(3) var<storage, read> sine_lut: array<i32, 256>;
 @group(0) @binding(7) var<storage, read_write> agents_out: array<PhaseAgentMinimal>;
+@group(0) @binding(8) var<uniform> attractor_array: AttractorArray;
 
 // --- Constants (must match omega_v2/src/constants.rs) ---
 const KURAMOTO_COUPLING_BASE: i32 = 1024;
@@ -78,8 +96,15 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let burn = METABOLIC_BASE_COST + (countOneBits(agent.genome) / METABOLIC_BURN_DIVISOR);
         var new_energy = agent.energy - burn;
 
-        // --- 4. Phase drift (base_freq Q20 + coupling) ---
-        let drift = agent.base_freq + coupling;
+        // --- 4. Phase drift (base_freq Q20 + coupling + attractor field) ---
+        var attractor_drift: i32 = 0i;
+        for (var i = 0u; i < attractor_array.count; i = i + 1u) {
+            let a = attractor_array.data[i];
+            let index = (agent.phase - a.matrix) & 0xFFu;
+            let sin_val = sine_lut[index];
+            attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
+        }
+        let drift = agent.base_freq + coupling + attractor_drift;
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
         // --- 5. Cosmic Resonance: ATP replenish at harmonic zero ---

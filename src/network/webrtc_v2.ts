@@ -1,6 +1,18 @@
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseRouter } from "./routing_bridge.ts";
 
+export interface PlasmidPayload {
+    attractorAddress: number;
+    matrix: number;
+    inverse: number;
+    pulseFreq: number;
+    pulseAmp: number;
+    semanticType: 'INTENT' | 'ATTRACTOR' | 'ORACLE_INJECTION' | 'DIPOLE';
+    parentHash?: number;
+    recursionDepth: number;
+    maxRecursion: number;
+}
+
 /**
  * Era 1020: The Golden Trace
  * Zero-Copy WebRTC Mesh specifically designed for OMEGA-V2.
@@ -25,6 +37,11 @@ export class WebRTCV2Mesh {
     // Snapshot Reassembly State
     private incomingSnapshot: Uint8Array | null = null;
     private incomingBytesReceived: number = 0;
+
+    // Era 1020: Attractor Consensus Tracking
+    private attractorConsensusPeers: Set<string> = new Set();
+    private consensusLedger: Map<number, { matrix: number; inverse: number; pulseFreq: number; pulseAmp: number; peerCount: number }> = new Map();
+    public era1020Unlocked: boolean = false;
 
     constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev", router?: PhaseRouter) {
         this.engine = engine;
@@ -165,6 +182,92 @@ export class WebRTCV2Mesh {
                                     setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
                                 } else {
                                     setIntent(slot, 0, 0, 0, 0, 0, 0);
+                                }
+                            }
+                        }
+
+                        // Era 1010: Semantic Plasmid Consumer
+                        const plasmid = packet.plasmid as PlasmidPayload | undefined;
+                        if (plasmid) {
+                            // Recursion depth guard
+                            if (plasmid.recursionDepth >= plasmid.maxRecursion) {
+                                console.log(`[V2-MESH] Plasmid max recursion exceeded, dropping.`);
+                            } else {
+                                // Validate dipole pair
+                                const isValidDipole = this.router?.validateDipole(plasmid.matrix, plasmid.inverse) ?? false;
+                                if (!isValidDipole) {
+                                    console.warn(`[V2-MESH] Invalid dipole rejected (matrix=${plasmid.matrix.toString(16)}, inverse=${plasmid.inverse.toString(16)}).`);
+                                } else {
+                                    switch (plasmid.semanticType) {
+                                        case 'ATTRACTOR': {
+                                            // Inject into local WASM attractor array (find first empty slot or overwrite oldest)
+                                            const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
+                                            if (setAttractor) {
+                                                // Simple round-robin: use recursionDepth % 4 as slot index
+                                                const slotIdx = plasmid.recursionDepth % 4;
+                                                setAttractor(slotIdx, plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp);
+                                                console.log(`[V2-MESH] Injected ATTRACTOR plasmid into slot ${slotIdx} (matrix=${plasmid.matrix.toString(16)}).`);
+                                            }
+                                            // Era 1020: Track consensus for this peer + matrix
+                                            this.attractorConsensusPeers.add(peerId);
+                                            const ledgerEntry = this.consensusLedger.get(plasmid.matrix);
+                                            if (ledgerEntry) {
+                                                ledgerEntry.peerCount += 1;
+                                            } else {
+                                                this.consensusLedger.set(plasmid.matrix, {
+                                                    matrix: plasmid.matrix,
+                                                    inverse: plasmid.inverse,
+                                                    pulseFreq: plasmid.pulseFreq,
+                                                    pulseAmp: plasmid.pulseAmp,
+                                                    peerCount: 1,
+                                                });
+                                            }
+                                            if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
+                                                this.era1020Unlocked = true;
+                                                console.log(`🌌 [ERA 1020] UNLOCKED: Attractor consensus reached (${this.attractorConsensusPeers.size} peers).`);
+                                                globalThis.dispatchEvent(new CustomEvent('era1020-unlocked', {
+                                                    detail: {
+                                                        peerCount: this.attractorConsensusPeers.size,
+                                                        ledger: Array.from(this.consensusLedger.values()),
+                                                    }
+                                                }));
+                                            }
+                                            break;
+                                        }
+                                        case 'ORACLE_INJECTION': {
+                                            // Forward to SovereignOracle via global event bus
+                                            globalThis.dispatchEvent(new CustomEvent('oraclePlasmidInjection', {
+                                                detail: { plasmid, fromPeer: peerId }
+                                            }));
+                                            break;
+                                        }
+                                        case 'DIPOLE': {
+                                            // Birth announcement: echo to local subscribers (e.g., HUD, senate)
+                                            globalThis.dispatchEvent(new CustomEvent('dipoleBirthAnnouncement', {
+                                                detail: { plasmid, fromPeer: peerId }
+                                            }));
+                                            break;
+                                        }
+                                        case 'INTENT': {
+                                            // INTENT plasmids are consumed as local mouse/peer intents
+                                            const intentSlot = this.peerSlots.get(peerId);
+                                            const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                                            if (setIntent && intentSlot !== undefined) {
+                                                setIntent(intentSlot, plasmid.attractorAddress, plasmid.matrix, plasmid.pulseFreq, plasmid.pulseAmp);
+                                            }
+                                            break;
+                                        }
+                                    }
+
+                                    // Era 1010: Recursive relay — propagate to closer neighbours
+                                    // Only re-broadcast if we haven't hit the recursion ceiling
+                                    const nextDepth = plasmid.recursionDepth + 1;
+                                    if (nextDepth < plasmid.maxRecursion) {
+                                        this.enqueuePlasmid({
+                                            ...plasmid,
+                                            recursionDepth: nextDepth,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -345,16 +448,46 @@ export class WebRTCV2Mesh {
     public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
     private latestGoldenTraceNum: number = 0;
     private latestSnapshot: Uint8Array | null = null;
+    private pendingPlasmids: PlasmidPayload[] = [];
     
     public setLatestState(gt: number, snapshot: Uint8Array) {
         this.latestGoldenTraceNum = gt;
         this.latestSnapshot = snapshot;
+    }
+
+    /**
+     * Era 1010: Enqueue a plasmid for broadcast across the P2P mesh.
+     */
+    public enqueuePlasmid(plasmid: PlasmidPayload) {
+        if (plasmid.recursionDepth >= plasmid.maxRecursion) {
+            console.warn(`[V2-MESH] Plasmid recursion depth exceeded, dropping.`);
+            return;
+        }
+        this.pendingPlasmids.push(plasmid);
+        // Keep queue bounded to prevent memory explosions in dense meshes
+        if (this.pendingPlasmids.length > 64) {
+            this.pendingPlasmids.shift();
+        }
+    }
+
+    /**
+     * Era 1020: Return current attractor consensus state.
+     */
+    public getConsensusState() {
+        return {
+            unlocked: this.era1020Unlocked,
+            peerCount: this.attractorConsensusPeers.size,
+            ledger: Array.from(this.consensusLedger.values()),
+        };
     }
     
     private broadcastV2State() {
         if (this.channels.size === 0) return;
 
         this.refreshSelfAddress();
+
+        // Era 1010: Drain one plasmid from the queue per broadcast tick
+        const plasmid = this.pendingPlasmids.shift();
         
         const payload = JSON.stringify({
             t: 'V2_SYNC',
@@ -369,6 +502,8 @@ export class WebRTCV2Mesh {
             ta: this.selfAddress,
             hc: 0,
             mh: 8,
+            // Era 1010: Recursive Plasmid Ontology
+            plasmid,
         });
         
         let deltaBuffer: ArrayBuffer | null = null;

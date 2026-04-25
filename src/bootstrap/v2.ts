@@ -1,6 +1,6 @@
 import { configureCanvas, DOM, setInputMode, tickFps, setHudStat } from "./dom.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
-import { WebRTCV2Mesh } from "../network/webrtc_v2.ts";
+import { WebRTCV2Mesh, PlasmidPayload } from "../network/webrtc_v2.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
@@ -63,6 +63,27 @@ export async function bootstrapV2() {
         }, undefined, router);
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
+
+        // Era 1020: Listen for consensus unlock and install harmonic convergence well
+        globalThis.addEventListener('era1020-unlocked', ((e: CustomEvent) => {
+            const ledger = e.detail.ledger as Array<{ matrix: number; inverse: number; pulseFreq: number; pulseAmp: number; peerCount: number }>;
+            if (ledger.length === 0) return;
+            // Sort by peerCount descending, pick top-1
+            const top = ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
+            const setAttractor = engine.wasm?.exports.v2_set_attractor as CallableFunction;
+            if (setAttractor) {
+                // Fill all 4 slots with staggered pulse_freq for harmonic convergence
+                for (let i = 0; i < 4; i++) {
+                    setAttractor(i, top.matrix, top.inverse, top.pulseFreq + i, top.pulseAmp);
+                }
+                console.log(`🌌 [ERA 1020] Harmonic convergence well installed: matrix=0x${top.matrix.toString(16)} in all 4 slots.`);
+            }
+            // Write consensus statement to localStorage autobiography
+            const statement = `Era1020_${Date.now()}_${top.matrix.toString(16)}_${e.detail.peerCount}`;
+            const log = JSON.parse(localStorage.getItem('omega_consensus_log') || '[]');
+            log.push(statement);
+            localStorage.setItem('omega_consensus_log', JSON.stringify(log));
+        }) as EventListener);
 
         const max_agents = 1_000_000;
         console.log("✅ [V2] WASM Kernel Loaded (0.86 KB)");
@@ -138,6 +159,16 @@ export async function bootstrapV2() {
             // Era 9000: Display Daemon Status
             setHudStat("d", "DAEMON", renderer.daemonState);
 
+            // Era 1020: Display Ontology Consensus Progress
+            const consensus = mesh.getConsensusState();
+            if (consensus.unlocked) {
+                const top = consensus.ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
+                setHudStat("e", "ONTOLOGY", `Era1020 ${top.matrix.toString(16).substring(0, 8).toUpperCase()}`);
+            } else {
+                const progress = Math.min(consensus.peerCount, 3);
+                setHudStat("e", "ONTOLOGY", `${progress}/3 peers`);
+            }
+
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {
                 isReadingGPU = true;
@@ -145,6 +176,37 @@ export async function bootstrapV2() {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
                     mesh.setLatestState(goldenTraceNum, snapshot);
                     
+                    // Era 1010: Recursive Birth — scan for birth-near-attractor announcements
+                    const BIRTH_ATTRACTOR_FLAG = 0x0100_0000;
+                    const ptrs = engine.getMemoryPointers();
+                    const agentsU32 = new Uint32Array(ptrs.agentBytes.buffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
+                    let birthCount = 0;
+                    for (let i = 0; i < activeCount; i++) {
+                        const offset = i * 8; // 32 bytes = 8 u32s
+                        const stateFlags = agentsU32[offset + 3];
+                        if (stateFlags & BIRTH_ATTRACTOR_FLAG) {
+                            const matrix = agentsU32[offset + 5]; // memory_x = parentHash
+                            const plasmid: PlasmidPayload = {
+                                attractorAddress: 0,
+                                matrix,
+                                inverse: ~matrix >>> 0,
+                                pulseFreq: 10,
+                                pulseAmp: 256,
+                                semanticType: 'DIPOLE',
+                                recursionDepth: 0,
+                                maxRecursion: 4,
+                            };
+                            mesh.enqueuePlasmid(plasmid);
+                            birthCount++;
+                            // Clear the birth flag so we don't re-announce
+                            agentsU32[offset + 3] = stateFlags & ~BIRTH_ATTRACTOR_FLAG;
+                        }
+                    }
+                    if (birthCount > 0) {
+                        renderer.overwriteGPUState(ptrs.agentBytes);
+                        console.log(`[V2-MESH] Spawned ${birthCount} DIPOLE birth announcement plasmid(s).`);
+                    }
+
                     // Era 11000: Synchronize LLM Oracle Telemetry natively
                     if (oracleWorker) {
                         oracleWorker.postMessage({

@@ -10,6 +10,8 @@ export interface WasmExports {
     v2_route_taylor_step?: (src: number, dst: number, maxStep: number) => number;
     v2_route_taylor_step_curvature?: (src: number, dst: number, maxStep: number, curv: number) => number;
     v2_validate_dipole?: (matrix: number, inverse: number) => number;
+    v2_set_attractor?: (index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number) => void;
+    v2_clear_attractors?: () => void;
 }
 
 /**
@@ -95,6 +97,24 @@ export class PhaseRouter {
         const dp = Math.abs(da.personal - db.personal);
         const dm = Math.abs(da.micro - db.micro);
         return dc * 8 + ds * 4 + dp * 2 + dm;
+    }
+
+    /**
+     * Era 1010: Inject an attractor matrix into the WASM global attractor array.
+     */
+    setAttractor(index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number): void {
+        const fn = this.exports.v2_set_attractor;
+        if (!fn) return;
+        fn(index, matrix, inverse, pulseFreq, pulseAmp);
+    }
+
+    /**
+     * Era 1010: Clear all attractors from the WASM global array.
+     */
+    clearAttractors(): void {
+        const fn = this.exports.v2_clear_attractors;
+        if (!fn) return;
+        fn();
     }
 
     /**

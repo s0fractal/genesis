@@ -293,11 +293,42 @@ impl PhaseLattice {
                         child.energy = crate::constants::CHILD_ENERGY_SEED;
                         child.base_freq = parent.base_freq;
                         child.state_flags = parent.state_flags;
-                        // CRIT-2 FIX: stochastic mutation instead of fixed mask
-                        let mut_seed = crate::math::xorshift64_once(parent.genome as u64);
-                        let mutation_mask = mut_seed as u32; // full 32-bit random mask
-                        child.genome = parent.genome ^ mutation_mask;
                         child.memory = parent.memory;
+
+                        // Era 1010: Recursive Birth — attractor-aware mutation
+                        let mut mutation_mask: u32 = 0;
+                        let mut birth_near_attractor: bool = false;
+                        let max_phase_mask = (1u32 << self.topology.q_phase) - 1;
+                        let quarter_phase = 1u32 << self.topology.q_phase.saturating_sub(2);
+                        let arr = core::ptr::addr_of!(crate::ATTRACTOR_ARRAY);
+                        let count = (*arr).count as usize;
+                        let mut best_dist = u32::MAX;
+                        let mut best_matrix: u32 = 0;
+                        for a in 0..count {
+                            let atr = &(*arr).data[a];
+                            if atr.pulse_amp == 0 { continue; }
+                            let diff = parent.phase.abs_diff(atr.matrix & max_phase_mask);
+                            let dist = core::cmp::min(diff, max_phase_mask + 1 - diff);
+                            if dist < best_dist {
+                                best_dist = dist;
+                                best_matrix = atr.matrix;
+                            }
+                        }
+                        if best_dist < quarter_phase && best_matrix != 0 {
+                            mutation_mask = best_matrix;
+                            birth_near_attractor = true;
+                        }
+
+                        if birth_near_attractor {
+                            child.genome = parent.genome ^ mutation_mask;
+                            child.memory[0] = mutation_mask; // parentHash = attractor.matrix
+                            child.state_flags |= 0x0100_0000; // Era 1010: born near attractor
+                        } else {
+                            // CRIT-2 FIX: stochastic mutation instead of fixed mask
+                            let mut_seed = crate::math::xorshift64_once(parent.genome as u64);
+                            mutation_mask = mut_seed as u32; // full 32-bit random mask
+                            child.genome = parent.genome ^ mutation_mask;
+                        }
                         
                         replications += 1;
                     }
@@ -521,6 +552,38 @@ mod tests {
         lattice.darwinian_mitosis();
         let expected_phase = 50u32.wrapping_add(lattice.topology.half_phase());
         assert_eq!(agents[1].phase, expected_phase, "Child should be at opposite phase (π offset)");
+    }
+
+    #[test]
+    fn test_mitosis_recursive_birth_near_attractor() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        lattice.signals.active_agent_count = 10;
+        agents[0].energy = 3000;
+        agents[0].phase = 50;
+        agents[0].genome = 0xDEADBEEF;
+        agents[1].energy = 0;
+
+        // Inject an attractor near the parent's phase
+        unsafe {
+            let arr = core::ptr::addr_of_mut!(crate::ATTRACTOR_ARRAY);
+            (*arr).count = 1;
+            (*arr).data[0] = crate::attractor::AttractorMatrix::new(50, !50, 10, 512);
+        }
+
+        lattice.darwinian_mitosis();
+
+        // Child should inherit XOR-mutated genome with attractor.matrix
+        let expected_genome = 0xDEADBEEF ^ 50;
+        assert_eq!(agents[1].genome, expected_genome, "Child genome should be XOR-mutated with attractor.matrix");
+        assert_eq!(agents[1].memory[0], 50, "Child memory_x should hold parentHash (attractor.matrix)");
+        assert!(agents[1].state_flags & 0x0100_0000 != 0, "Child state_flags should have birth-near-attractor bit");
+
+        // Cleanup global state for other tests
+        unsafe {
+            let arr = core::ptr::addr_of_mut!(crate::ATTRACTOR_ARRAY);
+            (*arr).clear();
+        }
     }
 
     #[test]
