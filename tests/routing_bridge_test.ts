@@ -51,3 +51,21 @@ Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", ()
     // consensus diff = 10, weight = 8 → 80
     assertEquals(dist, 80);
 });
+
+Deno.test("PhaseRouter toroidal distance wraps consensus at 256", () => {
+    const a = PhaseRouter.encode(0, 0, 0, 0);
+    const b = PhaseRouter.encode(224, 0, 0, 0);
+    const linear = PhaseRouter.hyperbolicDistanceStatic(a, b);
+    const toroidal = PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
+    assertEquals(linear, 224 * 8);
+    assertEquals(toroidal, 32 * 8);
+});
+
+Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", () => {
+    const a = PhaseRouter.encode(0, 0, 0, 0);
+    const b = PhaseRouter.encode(10, 0, 0, 0);
+    assertEquals(
+        PhaseRouter.hyperbolicDistanceStatic(a, b),
+        PhaseRouter.hyperbolicDistanceToroidalStatic(a, b),
+    );
+});

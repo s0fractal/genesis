@@ -41,6 +41,16 @@ fn routing_hyperbolic_distance_scaled(a: u32, b: u32) -> u32 {
     return dc * 8u + ds * 4u + dp * 2u + dm;
 }
 
+/// Toroidal hyperbolic distance (consensus wraps at 256).
+fn routing_hyperbolic_distance_toroidal_scaled(a: u32, b: u32) -> u32 {
+    let raw_dc = abs(routing_consensus(a) - routing_consensus(b));
+    let dc = min(raw_dc, 256u - raw_dc);
+    let ds = abs(routing_social(a)    - routing_social(b));
+    let dp = abs(routing_personal(a)  - routing_personal(b));
+    let dm = abs(routing_micro(a)     - routing_micro(b));
+    return dc * 8u + ds * 4u + dp * 2u + dm;
+}
+
 /// First-order Taylor step toward target, clamped to max_step per level.
 fn routing_taylor_step(src: u32, dst: u32, max_step: u32) -> u32 {
     let step = |a: u32, b: u32| -> u32 {

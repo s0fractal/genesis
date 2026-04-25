@@ -73,6 +73,18 @@ impl PhaseAddress {
         dc * 8 + ds * 4 + dp * 2 + dm
     }
 
+    /// Toroidal hyperbolic distance (consensus wraps at 256).
+    /// For a phase ring, the shortest path between 0 and 224 is 32 (not 224).
+    /// Only consensus is wrapped; social/personal/micro remain linear.
+    pub fn hyperbolic_distance_toroidal_scaled(self, other: Self) -> u32 {
+        let raw_dc = self.consensus().abs_diff(other.consensus()) as u32;
+        let dc = core::cmp::min(raw_dc, 256 - raw_dc);
+        let ds = self.social().abs_diff(other.social()) as u32;
+        let dp = self.personal().abs_diff(other.personal()) as u32;
+        let dm = self.micro().abs_diff(other.micro()) as u32;
+        dc * 8 + ds * 4 + dp * 2 + dm
+    }
+
     /// First-order Taylor step toward `target`.
     /// Returns a new PhaseAddress moved by the linear term:
     ///   f(x + Δ) ≈ f(x) + Δ
@@ -206,6 +218,31 @@ mod tests {
         assert_eq!(
             a.hyperbolic_distance_scaled(b),
             b.hyperbolic_distance_scaled(a)
+        );
+    }
+
+    #[test]
+    fn test_hyperbolic_distance_toroidal() {
+        // On a 256-element ring, distance between 0 and 224 should be 32 (wrapped)
+        let a = addr(0, 0, 0, 0);
+        let b = addr(224, 0, 0, 0);
+        let linear = a.hyperbolic_distance_scaled(b);
+        let toroidal = a.hyperbolic_distance_toroidal_scaled(b);
+        assert_eq!(linear, 224 * 8, "Linear distance should be 224*8");
+        assert_eq!(toroidal, 32 * 8, "Toroidal distance should be 32*8");
+
+        // Adjacent elements: 0 and 1 — same for both
+        let c = addr(1, 0, 0, 0);
+        assert_eq!(
+            a.hyperbolic_distance_scaled(c),
+            a.hyperbolic_distance_toroidal_scaled(c)
+        );
+
+        // Exactly opposite: 0 and 128 — same for both (min(128, 128) = 128)
+        let d = addr(128, 0, 0, 0);
+        assert_eq!(
+            a.hyperbolic_distance_scaled(d),
+            a.hyperbolic_distance_toroidal_scaled(d)
         );
     }
 

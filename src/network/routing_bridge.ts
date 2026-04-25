@@ -58,6 +58,21 @@ export class PhaseRouter {
     }
 
     /**
+     * Pure-JS toroidal hyperbolic distance (consensus wraps at 256).
+     * Matches Rust `PhaseAddress::hyperbolic_distance_toroidal_scaled`.
+     */
+    static hyperbolicDistanceToroidalStatic(a: PhaseAddress, b: PhaseAddress): number {
+        const da = PhaseRouter.decode(a);
+        const db = PhaseRouter.decode(b);
+        const rawDc = Math.abs(da.consensus - db.consensus);
+        const dc = Math.min(rawDc, 256 - rawDc);
+        const ds = Math.abs(da.social - db.social);
+        const dp = Math.abs(da.personal - db.personal);
+        const dm = Math.abs(da.micro - db.micro);
+        return dc * 8 + ds * 4 + dp * 2 + dm;
+    }
+
+    /**
      * First-order Taylor step from `src` toward `dst`, clamped to `maxStep` per level.
      */
     taylorStep(src: PhaseAddress, dst: PhaseAddress, maxStep: number): PhaseAddress {
