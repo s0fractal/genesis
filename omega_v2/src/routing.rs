@@ -298,4 +298,57 @@ mod tests {
         let b = PhaseAddress::from_raw(phi);
         assert_eq!(a, b);
     }
+
+    #[test]
+    fn test_greedy_route_1d_torus() {
+        // Simulate a ring of 8 agents with addresses spaced by 32 in consensus.
+        // Social/personal/micro are identical (clustered species).
+        let agents: [PhaseAddress; 8] = [
+            addr(0, 0, 0, 0),
+            addr(32, 0, 0, 0),
+            addr(64, 0, 0, 0),
+            addr(96, 0, 0, 0),
+            addr(128, 0, 0, 0),
+            addr(160, 0, 0, 0),
+            addr(192, 0, 0, 0),
+            addr(224, 0, 0, 0),
+        ];
+
+        // Route from agent 0 (consensus=0) to agent 3 (consensus=96).
+        // On a 1D torus each agent has 2 neighbours: left and right.
+        // Hyperbolic distance is linear (not toroidal), so from 0 the right neighbour
+        // (32, distance to 96 = 512) is closer than the left neighbour (224, distance = 1024).
+        let src = agents[0];
+        let target = agents[3];
+
+        // Simulate greedy forwarding
+        let mut current = src;
+        let mut path = vec![];
+        let max_hops = 8;
+        for _ in 0..max_hops {
+            if current == target {
+                break;
+            }
+            let current_idx = agents.iter().position(|&a| a == current).unwrap();
+            let left_idx = (current_idx + 7) % 8;
+            let right_idx = (current_idx + 1) % 8;
+            let neighbours = [agents[left_idx], agents[right_idx]];
+
+            let next = current.greedy_next_hop(target, &neighbours);
+            match next {
+                Some(idx) => {
+                    current = neighbours[idx];
+                    path.push(current);
+                }
+                None => break,
+            }
+        }
+
+        assert_eq!(current, target, "Greedy routing should reach target within {} hops", max_hops);
+        // Expected path: 0 → 32 → 64 → 96 (rightward, shortest linear path)
+        assert_eq!(path.len(), 3, "Expected 3 hops for 0→96 greedy route");
+        assert_eq!(path[0], agents[1]);
+        assert_eq!(path[1], agents[2]);
+        assert_eq!(path[2], agents[3]);
+    }
 }
