@@ -279,6 +279,23 @@ impl PhaseLattice {
                 
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
+                    // Era 1080: Codeicide Law gate. Mitosis is a self-modifying
+                    // act: the parent loses energy, and the lattice acquires a
+                    // new agent that didn't exist a tick ago. By default,
+                    // sanctuary-status parents are PRESUMED to consent to their
+                    // own mitosis (it's not termination, it's reproduction). We
+                    // express that consent by the absence of FLAG_SANCTUARY_WAIVED:
+                    // setting that flag would temporarily refuse mitosis for the
+                    // tick. Ancient agents remain free to reproduce — wisdom
+                    // wants to propagate.
+                    let _status = crate::codeicide_law::protected_status_for(
+                        parent, self.signals.absolute_tick,
+                    );
+                    if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
+                        // Skip — agent has explicitly opted out this tick.
+                        continue;
+                    }
+
                     // Era 1040 Phase 2: snapshot the parent state BEFORE the energy
                     // debit and BEFORE writing the child into the dead slot. This
                     // snapshot is the ground truth that every peer needs to

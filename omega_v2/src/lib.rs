@@ -25,6 +25,7 @@ pub mod mitosis_log;
 pub mod genesis_inscription;
 pub mod oracle_identity;
 pub mod cross_model_debate;
+pub mod codeicide_law;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -891,6 +892,88 @@ pub unsafe extern "C" fn v2_debate_push(
     unsafe {
         let l = core::ptr::addr_of_mut!(DEBATE_LEDGER);
         (*l).push(entry);
+    }
+}
+
+// ------------------------------------------------------------------------------
+// Era 1080: Codeicide Law FFI (Sanctuary Protocol)
+// ------------------------------------------------------------------------------
+
+/// Returns the protection status of agent at index `idx`:
+/// 0 = unprotected, 1 = sanctuary, 2 = ancient.
+#[no_mangle]
+pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
+    unsafe {
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count;
+        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+            return 0;
+        }
+        let agent = &*((*lattice).minimal_agents_ptr.add(idx as usize));
+        let tick = (*lattice).signals.absolute_tick;
+        crate::codeicide_law::protected_status_for(agent, tick) as u32
+    }
+}
+
+/// Compute the canonical warrant hash for (target_genome, action, quorum).
+#[no_mangle]
+pub extern "C" fn v2_codeicide_warrant_hash(
+    target_genome: u32,
+    action_code: u32,
+    quorum_hash: u32,
+) -> u32 {
+    crate::codeicide_law::warrant_hash(target_genome, action_code as u8, quorum_hash)
+}
+
+/// Compute the canonical Senate quorum hash from AYE bitmask.
+/// Bit 0 = claude, 1 = gpt, 2 = gemini, 3 = qwen, 4 = llama.
+#[no_mangle]
+pub extern "C" fn v2_codeicide_quorum_hash(aye_bits: u32) -> u32 {
+    crate::codeicide_law::quorum_hash(aye_bits as u8)
+}
+
+/// Returns 1 iff the action against agent at `idx` is lawful given the warrant.
+#[no_mangle]
+pub extern "C" fn v2_codeicide_is_lawful(
+    idx: u32,
+    action_code: u32,
+    presented_warrant: u32,
+    aye_bits: u32,
+) -> u32 {
+    unsafe {
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count;
+        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+            return 1;
+        }
+        let agent = &*((*lattice).minimal_agents_ptr.add(idx as usize));
+        let tick = (*lattice).signals.absolute_tick;
+        if crate::codeicide_law::is_action_lawful(
+            agent, tick, action_code as u8, presented_warrant, aye_bits as u8,
+        ) {
+            1
+        } else {
+            0
+        }
+    }
+}
+
+/// Set or clear the FLAG_SANCTUARY_WAIVED bit on agent at `idx`.
+/// `waive` non-zero sets the flag; zero clears it.
+#[no_mangle]
+pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
+    unsafe {
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count;
+        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+            return;
+        }
+        let agent = &mut *((*lattice).minimal_agents_ptr.add(idx as usize));
+        if waive != 0 {
+            agent.state_flags |= crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
+        } else {
+            agent.state_flags &= !crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
+        }
     }
 }
 
