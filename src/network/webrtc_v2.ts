@@ -1,4 +1,5 @@
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
+import { PhaseRouter } from "./routing_bridge.ts";
 
 /**
  * Era 1020: The Golden Trace
@@ -13,7 +14,10 @@ export class WebRTCV2Mesh {
     private engine: OmegaV2Engine;
     
     private peerSlots: Map<string, number> = new Map();
+    private peerAddresses: Map<string, number> = new Map();
     private nextSlot = 1;
+    private router: PhaseRouter | null = null;
+    private selfAddress: number = 0;
 
     public isSyncFrozen: boolean = false;
     private overwriteCallback: (snapshot: Uint8Array) => void;
@@ -22,9 +26,10 @@ export class WebRTCV2Mesh {
     private incomingSnapshot: Uint8Array | null = null;
     private incomingBytesReceived: number = 0;
 
-    constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev") {
+    constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev", router?: PhaseRouter) {
         this.engine = engine;
         this.overwriteCallback = overwriteCallback;
+        this.router = router ?? null;
         this.signaling = new WebSocket(signalingUrl);
 
         this.signaling.onmessage = this.handleSignalingMessage.bind(this);
@@ -96,7 +101,15 @@ export class WebRTCV2Mesh {
             console.warn(`[V2-MESH] Max capacity reached. Observer mode for ${peerId}`);
         }
         
-        channel.onopen = () => console.log(`[V2-MESH] UDP-Channel OPEN with ${peerId}`);
+        channel.onopen = () => {
+            console.log(`[V2-MESH] UDP-Channel OPEN with ${peerId}`);
+            // Era 1000: Exchange PhaseAddress on channel open
+            this.refreshSelfAddress();
+            if (this.selfAddress !== 0) {
+                const handshake = JSON.stringify({ t: 'V2_HANDSHAKE', addr: this.selfAddress });
+                channel.send(handshake);
+            }
+        };
         channel.onclose = () => {
             this.channels.delete(peerId);
             const slot = this.peerSlots.get(peerId);
@@ -112,7 +125,37 @@ export class WebRTCV2Mesh {
                 try {
                     // Parse lightweight UDP packet
                     const packet = JSON.parse(event.data);
+                    if (packet.t === 'V2_HANDSHAKE') {
+                        // Era 1000: Store peer PhaseAddress
+                        const addr = packet.addr as number;
+                        if (addr !== 0) {
+                            this.peerAddresses.set(peerId, addr);
+                            console.log(`[V2-MESH] Peer ${peerId} PhaseAddress=${addr}`);
+                        }
+                        return;
+                    }
                     if (packet.t === 'V2_SYNC') {
+                        // Era 1000: Passive Phase Routing (Attraction Zone)
+                        if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
+                            const hopCount = (packet.hc as number) ?? 0;
+                            const maxHops = (packet.mh as number) ?? 8;
+                            if (hopCount >= maxHops) {
+                                console.log(`[V2-MESH] Plasmid max hops exceeded, dropping.`);
+                                return;
+                            }
+                            const targetAddr = packet.ta as number;
+                            const senderAddr = this.peerAddresses.get(peerId) ?? 0;
+                            const distSelf = this.router.hyperbolicDistance(this.selfAddress, targetAddr);
+                            const distSender = senderAddr !== 0
+                                ? this.router.hyperbolicDistance(senderAddr, targetAddr)
+                                : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
+                            if (distSelf > distSender) {
+                                // Self is farther from target than sender -> ignore (let closer node handle it)
+                                return;
+                            }
+                            // Self is closer or equal -> consume this plasmid
+                        }
+
                         const slot = this.peerSlots.get(peerId);
                         if (slot !== undefined) {
                             const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
@@ -270,6 +313,11 @@ export class WebRTCV2Mesh {
         }
     }
 
+    private refreshSelfAddress() {
+        if (!this.router || !this.engine.wasm) return;
+        this.selfAddress = this.router.addressFromAgent(0);
+    }
+
     private closePeer(peerId: string) {
         const pc = this.peers.get(peerId);
         if (pc) {
@@ -289,6 +337,7 @@ export class WebRTCV2Mesh {
              if (setIntent) setIntent(slot, 0, 0, 0, 0, 0, 0);
              this.peerSlots.delete(peerId);
         }
+        this.peerAddresses.delete(peerId);
         console.log(`[V2-MESH] Connection closed: ${peerId}`);
     }
     
@@ -303,6 +352,8 @@ export class WebRTCV2Mesh {
     
     private broadcastV2State() {
         if (this.channels.size === 0) return;
+
+        this.refreshSelfAddress();
         
         const payload = JSON.stringify({
             t: 'V2_SYNC',
@@ -312,7 +363,11 @@ export class WebRTCV2Mesh {
             r: this.__lastLocalIntent.r,
             g: this.__lastLocalIntent.g,
             o: this.__lastLocalIntent.op,
-            gt: this.latestGoldenTraceNum
+            gt: this.latestGoldenTraceNum,
+            // Era 1000: Phase Routing fields
+            ta: this.selfAddress,
+            hc: 0,
+            mh: 8,
         });
         
         let deltaBuffer: ArrayBuffer | null = null;
