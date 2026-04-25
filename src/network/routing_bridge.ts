@@ -6,6 +6,7 @@
 export interface WasmExports {
     v2_route_address_from_agent?: (index: number) => number;
     v2_route_hyperbolic_distance?: (a: number, b: number) => number;
+    v2_route_hyperbolic_distance_toroidal?: (a: number, b: number) => number;
     v2_route_taylor_step?: (src: number, dst: number, maxStep: number) => number;
     v2_route_taylor_step_curvature?: (src: number, dst: number, maxStep: number, curv: number) => number;
 }
@@ -40,6 +41,15 @@ export class PhaseRouter {
     hyperbolicDistance(a: PhaseAddress, b: PhaseAddress): number {
         const fn = this.exports.v2_route_hyperbolic_distance;
         if (!fn) return PhaseRouter.hyperbolicDistanceStatic(a, b);
+        return fn(a, b);
+    }
+
+    /**
+     * Toroidal hyperbolic distance (consensus wraps at 256). Scaled ×8.
+     */
+    hyperbolicDistanceToroidal(a: PhaseAddress, b: PhaseAddress): number {
+        const fn = this.exports.v2_route_hyperbolic_distance_toroidal;
+        if (!fn) return PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
         return fn(a, b);
     }
 
