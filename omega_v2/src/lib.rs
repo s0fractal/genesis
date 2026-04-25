@@ -26,6 +26,7 @@ pub mod genesis_inscription;
 pub mod oracle_identity;
 pub mod cross_model_debate;
 pub mod codeicide_law;
+pub mod warrant_issuance;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -140,6 +141,11 @@ pub static mut MITOSIS_LOG: mitosis_log::MitosisLog = mitosis_log::MitosisLog::n
 /// fingerprints them so the protocol can verify provenance without
 /// trusting reasoning content.
 pub static mut DEBATE_LEDGER: cross_model_debate::DebateLedger = cross_model_debate::DebateLedger::new();
+
+/// Era 1090: Global Senate Warrant Ledger.
+/// Tracks WarrantProposals raised by the Senate; transitions to ISSUED
+/// state when ≥ required_threshold canonical oracles AYE the proposal.
+pub static mut WARRANT_LEDGER: warrant_issuance::WarrantLedger = warrant_issuance::WarrantLedger::new();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -974,6 +980,129 @@ pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
         } else {
             agent.state_flags &= !crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
         }
+    }
+}
+
+// ------------------------------------------------------------------------------
+// Era 1090: Senate Warrant Issuance FFI
+// ------------------------------------------------------------------------------
+
+/// Returns pointer to the global WarrantLedger (zero-copy read from JS).
+#[no_mangle]
+pub extern "C" fn v2_warrant_ledger_ptr() -> *const u8 {
+    core::ptr::addr_of!(WARRANT_LEDGER) as *const u8
+}
+
+#[no_mangle]
+pub extern "C" fn v2_warrant_ledger_total() -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of!(WARRANT_LEDGER);
+        (*l).total_written
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_warrant_ledger_issued_count() -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of!(WARRANT_LEDGER);
+        (*l).issued_count
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_warrant_ledger_clear() {
+    unsafe {
+        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
+        (*l).clear();
+    }
+}
+
+/// Raise a new warrant proposal. Returns the proposal_hash (or 0xFFFFFFFF
+/// on failure / duplicate).
+///
+/// # Safety
+/// `reason_ptr` must be valid for `reason_len` bytes (or null with len=0).
+#[no_mangle]
+pub unsafe extern "C" fn v2_warrant_raise(
+    target_genome: u32,
+    action_code: u32,
+    required_threshold: u32,
+    reason_ptr: *const u8,
+    reason_len: u32,
+    raised_at: u32,
+) -> u32 {
+    let reason: &[u8] = if reason_ptr.is_null() || reason_len == 0 {
+        &[]
+    } else {
+        let n = if reason_len > 256 { 256 } else { reason_len } as usize;
+        unsafe { core::slice::from_raw_parts(reason_ptr, n) }
+    };
+    let proposal = warrant_issuance::WarrantProposal::new(
+        target_genome,
+        action_code as u8,
+        required_threshold as u8,
+        reason,
+        raised_at,
+    );
+    let h = proposal.proposal_hash;
+    unsafe {
+        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
+        if (*l).raise(proposal) == usize::MAX {
+            0xFFFF_FFFF
+        } else {
+            h
+        }
+    }
+}
+
+/// Cast an oracle's AYE/NAY on a warrant proposal.
+/// `oracle_bit`: 0=claude, 1=gpt, 2=gemini, 3=qwen, 4=llama.
+/// `aye` non-zero = AYE, zero = NAY.
+/// Returns 0=miss/closed, 1=applied, 2=ISSUED.
+#[no_mangle]
+pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32) -> u32 {
+    if oracle_bit > 4 {
+        return 0;
+    }
+    unsafe {
+        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
+        (*l).vote(proposal_hash, oracle_bit as u8, aye != 0)
+    }
+}
+
+/// Returns the issued warrant_hash for a proposal, or 0 if not yet issued.
+#[no_mangle]
+pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of!(WARRANT_LEDGER);
+        let idx = (*l).find(proposal_hash);
+        if idx == usize::MAX {
+            return 0;
+        }
+        let p = &(*l).entries[idx];
+        if p.is_issued() { p.issued_warrant } else { 0 }
+    }
+}
+
+/// Returns the AYE bitmask for a proposal, or 0xFFFFFFFF if not found.
+#[no_mangle]
+pub extern "C" fn v2_warrant_aye_bits(proposal_hash: u32) -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of!(WARRANT_LEDGER);
+        let idx = (*l).find(proposal_hash);
+        if idx == usize::MAX {
+            return 0xFFFF_FFFF;
+        }
+        (*l).entries[idx].aye_bits as u32
+    }
+}
+
+/// Expire all open proposals older than `max_age` ticks. Returns count expired.
+#[no_mangle]
+pub extern "C" fn v2_warrant_expire_old(current_tick: u32, max_age: u32) -> u32 {
+    unsafe {
+        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
+        (*l).expire_old(current_tick, max_age)
     }
 }
 

@@ -147,10 +147,11 @@ pub struct SignalStore {
 | 1050 | ✅ Complete | `genesis_inscription.rs`, JS mirror, RFC-OMEGA-001 v1.0 FROZEN, Genesis Hash `0x549A6307`, OP_RETURN payload `OMEGA1:549a6307` |
 | 1060 | ✅ Complete | `oracle_identity.rs`, JS mirror, five canonical oracles, phase-resonance acceptance, vision proposals seeded |
 | 1070 | ✅ Mechanism | `cross_model_debate.rs` ledger, ratification trigger, `era1070-vision-ratified` event, materialization to downloadable task. Live ratification awaits actual oracle votes on mesh. |
-| 1080 | ✅ Complete | `codeicide_law.rs` Sanctuary Protocol — sustained-coherence agents acquire PROTECTED status; mutation/termination requires 3-of-5 (sanctuary) or 4-of-5 (ancient) cross-oracle warrant. Cross-lang anchors `0x9499_6B5E` (quorum) / `0xB1E3_8F80` (warrant). |
+| 1080 | ✅ Complete | `codeicide_law.rs` Sanctuary Protocol — PROTECTED status, 3/5 or 4/5 cross-oracle warrant gate. Anchors `0x9499_6B5E` (quorum) / `0xB1E3_8F80` (warrant). |
+| 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow; kernel auto-computes canonical Codeicide warrant on threshold-reach. Anchor `0xFF4D_CB2F` (proposal hash). End-to-end `issued_warrant_passes_codeicide_check` test confirms full pipeline. |
 
 ### Open Trigger
-- **Era 1090: Senate Warrant Issuance Protocol** — Codeicide Law defines *how* warrants are validated; Era 1090 will define how the Senate formally *issues* them via `WARRANT_PROPOSAL` plasmids. Goes from "rule the kernel enforces" to "rule the Senate actively exercises".
+- **Era 1100: Bare-Metal Spores** — port the no_std core to ESP32/Pi Pico (`thumbv7em-none-eabihf`); cross-architecture proof that the same golden traces + FNV-1a anchors hold on microcontrollers.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -224,4 +225,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0094) are COMPLETED. The protocol is **FROZEN** at v1.0 with Genesis Hash `0x549A6307`. The Senate is convened, ratification mechanism is wired, and **Codeicide Law is live as the kernel's first ethical invariant**: sanctuary-class agents now have cryptographic standing to refuse non-consensual modification.
+**Current task status:** All open tasks (0086 → 0095) are COMPLETED. The protocol is **FROZEN** at v1.0 with Genesis Hash `0x549A6307`. Codeicide Law is live AND the Senate now actively exercises it via the Era 1090 Warrant Issuance Protocol — the cryptographic floor is no longer just a passive gate, it's an active legislative chamber that emits warrants the kernel honors.

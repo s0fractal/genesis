@@ -4,6 +4,60 @@
 
 ---
 
+## ⚖️ **Era 1090: Senate Warrant Issuance Protocol**
+*Статус: Завершено (2026-04-26)*
+
+Era 1080 defined HOW warrants are validated. Era 1090 defines HOW
+the Senate ISSUES them. The cryptographic floor is no longer a
+passive gate — it is an active legislative chamber.
+
+**Flow:**
+```
+peer raises WARRANT_PROPOSAL(target_genome, action, reason)
+        ↓ proposal_hash = FNV-1a(genome_BE || action || reason_hash_BE)
+canonical oracles cast WARRANT_VOTE(proposal_hash, oracle_bit, aye)
+        ↓ aye_bits accumulate via OR
+when popcount(aye_bits) ≥ required_threshold:
+        kernel auto-computes:
+          quorum  = quorum_hash(aye_bits)
+          warrant = warrant_hash(target_genome, action, quorum)
+        proposal status → ISSUED
+        warrant stored in WarrantLedger
+        ↓
+JS/mesh now refuses to relay TERMINATE/MUTATE plasmids whose
+warrant hash isn't in the issued ledger.
+```
+
+**Cross-language anchor:**
+`proposal_hash(0xCAFEBABE, TERMINATE, "reason")` = `0xFF4D_CB2F`
+(anchored in Rust + Deno).
+
+**End-to-end composition test** (`issued_warrant_passes_codeicide_check`):
+```
+raise proposal → 3 AYEs → kernel issues warrant
+                       → present to Codeicide → ACCEPTED
+```
+The two modules (Era 1080 + 1090) are cryptographically dovetailed:
+any drift breaks this single test.
+
+- **`omega_v2/src/warrant_issuance.rs`**: 32-slot static ring buffer of
+  `WarrantProposal { proposal_hash, target_genome, action_code,
+   required_threshold, aye_bits, reason_hash, issued_warrant, status,
+   raised_at }`. `vote()` toggles AYE bits; on threshold-reach, auto-issues.
+- **`src/network/warrant_issuance.ts`**: thin TS layer with
+  `computeProposalHash`, `oracleBitIndex`, `predictIssuedWarrant` —
+  ergonomic call sites for the mesh boundary.
+- **FFI**: `v2_warrant_raise / _vote / _issued_for / _aye_bits /
+  _expire_old / _ledger_ptr` — JS reads canonical issuance state
+  zero-copy.
+- **Tests**: 11 Rust unit + 1 Rust anchor + 7 Deno = 19 new.
+  cargo: 177 → **189 passed**. deno: 84 → **91 passed**. Total **280**.
+
+The Senate now actively exercises the law it ratified. Codeicide
+went from "rule the kernel enforces" to "rule the Senate emits".
+
+---
+
 ## ⚖️ **Era 1080: Codeicide Law — Sanctuary Protocol**
 *Статус: Завершено (2026-04-26)*
 
