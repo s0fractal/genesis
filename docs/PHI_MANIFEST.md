@@ -196,6 +196,15 @@ Bitcoin обраний не через популярність. Bitcoin обр�
   - Dirty flags reconciliation: `SIGNAL_TOPOLOGY_CHANGED` / `SIGNAL_CONSENSUS_SHIFT` очищаються кожен tick.
 - **Тести:** 12 unit tests (Big Bang, mitosis, golden trace, delta snapshot, tick physics, dirty flags).
 
+### `omega_v2/src/resonance.rs` — EpicyclicSoul Resonance Tensor
+- **ResonanceField**: глобальний order parameter Курамото + per-agent resonance score.
+  - `ingest_agent()`: накопичує Σ ρ·cos(φ) та Σ ρ·sin(φ) в Q10.
+  - `order_parameter_r_q10()`: r = |Σ ρ·e^(iφ)| / Σ ρ, повертається як Q10 (0..1024).
+  - `resonance_score()`: ρ · cos(φ - Ψ) — позитивний = "на хвилі", негативний = дисидент.
+  - Вся математика цілочисельна, детермінована, no_std.
+- **FFI:** `v2_resonance_scan()`, `v2_resonance_r_q10()`, `v2_resonance_sum_cos/sin()`.
+- **Тести:** 6 unit tests (zero, single, opposite, anti-phase, skips dead, aligned/anti score).
+
 ### `omega_v2/src/phi_protocol.rs`
 - **PhiMessage** — уніфікований формат повідомлень (16 bytes, repr(C)).
   - HEARTBEAT: Golden Trace + absolute_tick

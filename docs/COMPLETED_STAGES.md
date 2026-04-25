@@ -155,7 +155,7 @@
 ### 5. Named Constants & Compile-Time Guards
 - Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
 - Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
-- `cargo test --workspace --lib` passes 37/37 tests (omega_v2), `clippy --workspace -D warnings` clean.
+- `cargo test --workspace --lib` passes 44/44 tests (omega_v2), `clippy --workspace -D warnings` clean.
 
 ### 6. TypeScript FFI Declarations
 - Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
@@ -193,6 +193,15 @@
 ### 3. Reactive Reconciliation
 - Dirty flags (`SIGNAL_TOPOLOGY_CHANGED`, `SIGNAL_CONSENSUS_SHIFT`) cleared every tick.
 - Enables zero-cost environment sync between JS host and WASM kernel.
+
+### 4. EpicyclicSoul Resonance Tensor
+- `omega_v2/src/resonance.rs` — global Kuramoto order parameter + per-agent resonance scoring.
+  - `ResonanceField::ingest_agent()`: accumulates Σ ρ·cos(φ) and Σ ρ·sin(φ) in Q10.
+  - `order_parameter_r_q10()`: r = |Σ ρ·e^(iφ)| / Σ ρ, returned as Q10 (0..1024).
+  - `resonance_score()`: ρ · cos(φ - Ψ) / Q10 — positive = "on the wave", negative = dissident.
+  - All integer math, deterministic, no_std compatible.
+- FFI exports: `v2_resonance_scan()`, `v2_resonance_r_q10()`, `v2_resonance_sum_cos/sin()`.
+- Liquid sees OMEGA as a Σ-neuron: r = activation level, Ψ = global phase.
 
 ---
 

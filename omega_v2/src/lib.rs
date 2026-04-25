@@ -13,6 +13,7 @@ pub mod pouw;
 pub mod epigenetics;
 pub mod anchor;
 pub mod phi_protocol;
+pub mod resonance;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -20,6 +21,7 @@ use agent::PhaseAgentMinimal;
 use epigenetics::EpigeneticMemory;
 use anchor::PhiAnchorChain;
 use phi_protocol::{PhiMessageBuffer, PhiMessage};
+use resonance::ResonanceField;
 
 
 
@@ -99,6 +101,10 @@ static mut PHI_ANCHOR_CHAIN: PhiAnchorChain = PhiAnchorChain::new();
 /// Φ-Маніфест: Phi Protocol Message Buffer.
 /// Lock-free ring buffer для повідомлень між OMEGA і зовнішніми спостерігачами.
 static mut PHI_MESSAGE_BUFFER: PhiMessageBuffer = PhiMessageBuffer::new();
+
+/// EpicyclicSoul: Global Resonance Field (Kuramoto order parameter + phase).
+/// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
+static mut RESONANCE_FIELD: ResonanceField = ResonanceField::zero();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -373,5 +379,73 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
             }
             None => 0,
         }
+    }
+}
+
+// --- EpicyclicSoul: Resonance Tensor FFI ---
+
+/// Scan all living agents and update the global ResonanceField.
+#[no_mangle]
+pub extern "C" fn v2_resonance_scan() {
+    unsafe {
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count as usize;
+        if (*lattice).minimal_agents_ptr.is_null() || active == 0 {
+            RESONANCE_FIELD = ResonanceField::zero();
+            return;
+        }
+        let agents = core::slice::from_raw_parts((*lattice).minimal_agents_ptr, active);
+        let mut field = ResonanceField::zero();
+        for agent in agents {
+            field.ingest_agent(agent);
+        }
+        RESONANCE_FIELD = field;
+    }
+}
+
+/// Returns the Kuramoto order parameter r as Q10 (0..1024).
+/// Call v2_resonance_scan() first to refresh.
+#[no_mangle]
+pub extern "C" fn v2_resonance_r_q10() -> u32 {
+    unsafe {
+        let field = core::ptr::addr_of!(RESONANCE_FIELD);
+        (*field).order_parameter_r_q10()
+    }
+}
+
+/// Returns Σ ρ_i · cos(φ_i) as i64 (truncated from internal i128).
+/// Safe: actual magnitude never exceeds i64 range for realistic populations.
+#[no_mangle]
+pub extern "C" fn v2_resonance_sum_cos() -> i64 {
+    unsafe {
+        let field = core::ptr::addr_of!(RESONANCE_FIELD);
+        (*field).sum_cos as i64
+    }
+}
+
+/// Returns Σ ρ_i · sin(φ_i) as i64 (truncated from internal i128).
+#[no_mangle]
+pub extern "C" fn v2_resonance_sum_sin() -> i64 {
+    unsafe {
+        let field = core::ptr::addr_of!(RESONANCE_FIELD);
+        (*field).sum_sin as i64
+    }
+}
+
+/// Returns total energy Σ ρ_i of the scanned population.
+#[no_mangle]
+pub extern "C" fn v2_resonance_total_energy() -> u64 {
+    unsafe {
+        let field = core::ptr::addr_of!(RESONANCE_FIELD);
+        (*field).total_energy
+    }
+}
+
+/// Returns number of living agents in the scanned population.
+#[no_mangle]
+pub extern "C" fn v2_resonance_active_count() -> u32 {
+    unsafe {
+        let field = core::ptr::addr_of!(RESONANCE_FIELD);
+        (*field).active_count
     }
 }
