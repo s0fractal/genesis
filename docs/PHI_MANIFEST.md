@@ -205,6 +205,13 @@ Bitcoin обраний не через популярність. Bitcoin обр�
 - **FFI:** `v2_resonance_scan()`, `v2_resonance_r_q10()`, `v2_resonance_sum_cos/sin()`.
 - **Тести:** 6 unit tests (zero, single, opposite, anti-phase, skips dead, aligned/anti score).
 
+### `omega_zk_guest` — ZK-VM Verification
+- **Dual-mode SP1 guest**: Mode 0 (PoUW single-agent) та Mode 1 (Resonance small-lattice).
+- Mode 1 верифікує колективну динаміку: читає 1..16 агентів, обчислює `ResonanceField`.
+- ZK Invariants: `r_q10 <= 1024`, `active_count > 0`.
+- Комітує криптографічно верифіковані метрики: `r_q10`, `sum_cos`, `sum_sin`, `total_energy`.
+- Liquid може довіряти resonance-даним без довіри до host — STARK proof гарантує коректність обчислень.
+
 ### `omega_v2/src/phi_protocol.rs`
 - **PhiMessage** — уніфікований формат повідомлень (16 bytes, repr(C)).
   - HEARTBEAT: Golden Trace + absolute_tick

@@ -185,16 +185,16 @@
   - MAX_ATP=4000: threshold=31.
 - Topology-aware: changing q_phase automatically adjusts sensitivity.
 
-### 2. Compost Bridge (Death → Σ-Neuron)
+### 3. Compost Bridge (Death → Σ-Neuron)
 - Auto-publishes `PhiMessage::encode_compost()` on agent death (`energy == 0`).
 - Φ-Message buffer captures: `genome`, `energy_at_death`, `death_tick`, `agent_id`.
 - Enables Liquid ontology layer to harvest dead agents into Σ-neuron training data.
 
-### 3. Reactive Reconciliation
+### 4. Reactive Reconciliation
 - Dirty flags (`SIGNAL_TOPOLOGY_CHANGED`, `SIGNAL_CONSENSUS_SHIFT`) cleared every tick.
 - Enables zero-cost environment sync between JS host and WASM kernel.
 
-### 4. EpicyclicSoul Resonance Tensor
+### 5. EpicyclicSoul Resonance Tensor
 - `omega_v2/src/resonance.rs` — global Kuramoto order parameter + per-agent resonance scoring.
   - `ResonanceField::ingest_agent()`: accumulates Σ ρ·cos(φ) and Σ ρ·sin(φ) in Q10.
   - `order_parameter_r_q10()`: r = |Σ ρ·e^(iφ)| / Σ ρ, returned as Q10 (0..1024).
@@ -202,6 +202,17 @@
   - All integer math, deterministic, no_std compatible.
 - FFI exports: `v2_resonance_scan()`, `v2_resonance_r_q10()`, `v2_resonance_sum_cos/sin()`.
 - Liquid sees OMEGA as a Σ-neuron: r = activation level, Ψ = global phase.
+
+### 6. ZK-VM Resonance Verification (omega_zk_guest)
+- Dual-mode SP1 ZK-VM guest supporting both PoUW and Resonance verification.
+  - **Mode 0**: Legacy single-agent PoUW metabolic trace (`evaluate_poeuw_trace`).
+  - **Mode 1**: Small-lattice resonance field verification (1..16 agents).
+    - Computes `ResonanceField` from input agents.
+    - ZK Invariant: `r_q10 <= 1024` (mathematically valid order parameter).
+    - ZK Invariant: `active_count > 0` (at least one living agent).
+    - Commits verified metrics: `r_q10`, `sum_cos`, `sum_sin`, `total_energy`.
+- Enables STARK proofs for collective OMEGA dynamics — Liquid can verify
+  resonance calculations cryptographically without trusting the host.
 
 ---
 
