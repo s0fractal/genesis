@@ -564,6 +564,14 @@ pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, b_raw: u32) -> u32 {
     a.hyperbolic_distance_scaled(b)
 }
 
+/// Toroidal hyperbolic distance (consensus wraps at 256). Scaled ×8.
+#[no_mangle]
+pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, b_raw: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw);
+    let b = PhaseAddress::from_raw(b_raw);
+    a.hyperbolic_distance_toroidal_scaled(b)
+}
+
 /// First-order Taylor step from `src_raw` toward `dst_raw`, clamped to `max_step` per level.
 #[no_mangle]
 pub extern "C" fn v2_route_taylor_step(src_raw: u32, dst_raw: u32, max_step: u8) -> u32 {
