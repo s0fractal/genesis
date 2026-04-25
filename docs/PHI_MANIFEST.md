@@ -219,6 +219,13 @@ Bitcoin обраний не через популярність. Bitcoin обр�
   - Watermark tracking: `lastWriteHead` запобігає повторній обробці.
 - Завершує цикл смерть → Σ-нейрон: OMEGA виробляє compost, Liquid споживає для навчання.
 
+### `omega_v2/src/halo.rs` — Distributed Federation Halo
+- **HaloState**: лівий/правий boundary агенти для distributed toroidal lattice.
+  - `extract()`: захоплює local boundary з монотонним sequence counter.
+  - `v2_halo_inject()`: приймає halo від сусідньої ноди через WebRTC.
+  - `is_connected()`: перевіряє, що обидва halo містять живих агентів.
+- Дозволяє нодам синхронізувати Kuramoto coupling на межах без розривів.
+
 ### `omega_v2/src/phi_protocol.rs`
 - **PhiMessage** — уніфікований формат повідомлень (16 bytes, repr(C)).
   - HEARTBEAT: Golden Trace + absolute_tick

@@ -14,6 +14,7 @@ pub mod epigenetics;
 pub mod anchor;
 pub mod phi_protocol;
 pub mod resonance;
+pub mod halo;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -22,6 +23,7 @@ use epigenetics::EpigeneticMemory;
 use anchor::PhiAnchorChain;
 use phi_protocol::{PhiMessageBuffer, PhiMessage};
 use resonance::ResonanceField;
+use halo::HaloState;
 
 
 
@@ -105,6 +107,10 @@ static mut PHI_MESSAGE_BUFFER: PhiMessageBuffer = PhiMessageBuffer::new();
 /// EpicyclicSoul: Global Resonance Field (Kuramoto order parameter + phase).
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
 static mut RESONANCE_FIELD: ResonanceField = ResonanceField::zero();
+
+/// Distributed Federation: Halo boundary state for cross-node sync.
+/// Exchanged via WebRTC between adjacent nodes in the toroidal chain.
+static mut HALO_STATE: HaloState = HaloState::empty();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -447,5 +453,82 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
     unsafe {
         let field = core::ptr::addr_of!(RESONANCE_FIELD);
         (*field).active_count
+    }
+}
+
+// --- Era 400: Distributed Federation Halo Sync ---
+
+/// Extract boundary agents from the local lattice into HALO_STATE.
+#[no_mangle]
+pub extern "C" fn v2_halo_extract() {
+    unsafe {
+        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
+        let active = (*lattice).signals.active_agent_count as usize;
+        if (*lattice).minimal_agents_ptr.is_null() || active == 0 {
+            return;
+        }
+        let agents = core::slice::from_raw_parts((*lattice).minimal_agents_ptr, active);
+        let state = core::ptr::addr_of_mut!(HALO_STATE);
+        (*state).extract(agents, active);
+    }
+}
+
+/// Returns pointer to the left halo agent (owned by previous node).
+/// # Safety
+/// Pointer is valid until next v2_halo_extract() call.
+#[no_mangle]
+pub extern "C" fn v2_halo_left_ptr() -> *const PhaseAgentMinimal {
+    unsafe {
+        let state = core::ptr::addr_of!(HALO_STATE);
+        core::ptr::addr_of!((*state).left_halo[0])
+    }
+}
+
+/// Returns pointer to the right halo agent (owned by next node).
+/// # Safety
+/// Pointer is valid until next v2_halo_extract() call.
+#[no_mangle]
+pub extern "C" fn v2_halo_right_ptr() -> *const PhaseAgentMinimal {
+    unsafe {
+        let state = core::ptr::addr_of!(HALO_STATE);
+        core::ptr::addr_of!((*state).right_halo[0])
+    }
+}
+
+/// Returns the halo sequence number (monotonically incremented per extract).
+#[no_mangle]
+pub extern "C" fn v2_halo_sequence() -> u64 {
+    unsafe {
+        let state = core::ptr::addr_of!(HALO_STATE);
+        (*state).sequence
+    }
+}
+
+/// Returns 1 if both halos contain living agents (connected federation).
+#[no_mangle]
+pub extern "C" fn v2_halo_is_connected() -> u32 {
+    unsafe {
+        let state = core::ptr::addr_of!(HALO_STATE);
+        if (*state).is_connected() { 1 } else { 0 }
+    }
+}
+
+/// Inject a halo received from a neighbor node.
+/// `from_left`: 1 if this is the left neighbor's right boundary, 0 if right neighbor's left boundary.
+/// `agent_ptr`: pointer to the received PhaseAgentMinimal (must be valid, 32 bytes).
+///
+/// # Safety
+/// `agent_ptr` must be a valid, non-null, aligned pointer to a `PhaseAgentMinimal`.
+#[no_mangle]
+pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseAgentMinimal) {
+    if agent_ptr.is_null() { return; }
+    unsafe {
+        let state = core::ptr::addr_of_mut!(HALO_STATE);
+        let agent = core::ptr::read(agent_ptr);
+        if from_left != 0 {
+            (*state).left_halo[0] = agent;
+        } else {
+            (*state).right_halo[0] = agent;
+        }
     }
 }

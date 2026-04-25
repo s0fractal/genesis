@@ -155,7 +155,7 @@
 ### 5. Named Constants & Compile-Time Guards
 - Extracted 18+ magic numbers into `omega_v2/src/constants.rs` (Big Bang, mitosis, PoUW, delta thresholds).
 - Added `const_assert!` for `PhaseAgent` size (24 bytes) to prevent ABI drift.
-- `cargo test --workspace --lib` passes 48/48 tests (omega_v2), `clippy --workspace -D warnings` clean.
+- `cargo test --workspace --lib` passes 52/52 tests (omega_v2), `clippy --workspace -D warnings` clean.
 
 ### 6. TypeScript FFI Declarations
 - Generated `omega_v2/pkg/omega_v2.d.ts` with full type coverage for all 19 WASM exports.
@@ -231,6 +231,15 @@
 - `OmegaV2Engine` extended with `scanResonance()`, `getPhiBufferPtr/Len/Drops()`.
 - Completes the death → Σ-neuron lifecycle: OMEGA physics produces compost,
   Liquid ontology consumes it for evolutionary training.
+
+### 9. Distributed Federation Halo Sync (Era 400)
+- `omega_v2/src/halo.rs` — boundary agent exchange for distributed toroidal lattice.
+  - `HaloState`: stores left/right boundary agents (HALO_WIDTH = 1).
+  - `extract()`: captures local boundary agents with monotonic sequence counter.
+  - `is_connected()`: verifies both halos contain living agents.
+- FFI exports: `v2_halo_extract`, `v2_halo_left/right_ptr`, `v2_halo_inject`.
+- Enables WebRTC-based cross-node sync: Node A's right boundary → Node B's left halo.
+- 4 unit tests (extract, empty, connected, sequence increments).
 
 ---
 
