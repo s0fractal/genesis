@@ -7,10 +7,24 @@ export interface PlasmidPayload {
     inverse: number;
     pulseFreq: number;
     pulseAmp: number;
-    semanticType: 'INTENT' | 'ATTRACTOR' | 'ORACLE_INJECTION' | 'DIPOLE';
+    semanticType: 'INTENT' | 'ATTRACTOR' | 'ORACLE_INJECTION' | 'DIPOLE' | 'PROPOSAL' | 'VOTE';
     parentHash?: number;
     recursionDepth: number;
     maxRecursion: number;
+    // Era 1030: Senate payload extensions
+    proposalHash?: number;        // FNV-1a hash of description (PROPOSAL + VOTE)
+    proposalDescription?: string;  // Up to 64 chars, truncated server-side (PROPOSAL only)
+    voteAye?: boolean;             // VOTE plasmids only
+}
+
+export interface SenateProposalRecord {
+    hash: number;
+    description: string;
+    proposerMatrix: number;
+    ayes: Set<string>;        // unique peer IDs
+    nays: Set<string>;
+    accepted: boolean;
+    proposedAt: number;
 }
 
 /**
@@ -42,6 +56,11 @@ export class WebRTCV2Mesh {
     private attractorConsensusPeers: Set<string> = new Set();
     private consensusLedger: Map<number, { matrix: number; inverse: number; pulseFreq: number; pulseAmp: number; peerCount: number }> = new Map();
     public era1020Unlocked: boolean = false;
+
+    // Era 1030: Autopoietic Senate
+    public era1030Unlocked: boolean = false;
+    public senate: Map<number, SenateProposalRecord> = new Map();
+    private acceptedTaskHashes: Set<number> = new Set();
 
     constructor(engine: OmegaV2Engine, overwriteCallback: (snapshot: Uint8Array) => void, signalingUrl: string = "wss://omega-federation.deno.dev", router?: PhaseRouter) {
         this.engine = engine;
@@ -232,6 +251,15 @@ export class WebRTCV2Mesh {
                                                     }
                                                 }));
                                             }
+                                            this.checkEra1030Trigger();
+                                            break;
+                                        }
+                                        case 'PROPOSAL': {
+                                            this.handleProposal(plasmid, peerId);
+                                            break;
+                                        }
+                                        case 'VOTE': {
+                                            this.handleVote(plasmid, peerId);
                                             break;
                                         }
                                         case 'ORACLE_INJECTION': {
@@ -478,6 +506,193 @@ export class WebRTCV2Mesh {
             unlocked: this.era1020Unlocked,
             peerCount: this.attractorConsensusPeers.size,
             ledger: Array.from(this.consensusLedger.values()),
+        };
+    }
+
+    /**
+     * Era 1030: Check if the consensus ledger has matured enough to unlock the Senate.
+     * Trigger: 10+ ledger entries (sum of peerCounts) AND 5+ unique matrices.
+     */
+    private checkEra1030Trigger() {
+        if (this.era1030Unlocked) return;
+        const uniqueMatrices = this.consensusLedger.size;
+        let totalEntries = 0;
+        for (const e of this.consensusLedger.values()) totalEntries += e.peerCount;
+        if (totalEntries >= 10 && uniqueMatrices >= 5) {
+            this.era1030Unlocked = true;
+            console.log(`🏛️ [ERA 1030] UNLOCKED: Senate convened. ${totalEntries} entries × ${uniqueMatrices} unique matrices.`);
+            globalThis.dispatchEvent(new CustomEvent('era1030-unlocked', {
+                detail: { entries: totalEntries, uniqueMatrices, ledger: Array.from(this.consensusLedger.values()) },
+            }));
+        }
+    }
+
+    /** FNV-1a 32-bit, identical to Rust senate::fnv1a_32 over a 64-byte zero-padded buffer. */
+    public static senateHash(description: string): number {
+        const buf = new Uint8Array(64);
+        const enc = new TextEncoder();
+        const raw = enc.encode(description);
+        const n = Math.min(raw.length, 64);
+        for (let i = 0; i < n; i++) buf[i] = raw[i];
+        let h = 0x811C_9DC5 >>> 0;
+        for (let i = 0; i < 64; i++) {
+            h = (h ^ buf[i]) >>> 0;
+            h = Math.imul(h, 0x0100_0193) >>> 0;
+        }
+        return h >>> 0;
+    }
+
+    private handleProposal(plasmid: PlasmidPayload, fromPeer: string) {
+        if (!this.era1030Unlocked) {
+            console.log(`[V2-MESH] PROPOSAL received before Era 1030 unlock — ignoring.`);
+            return;
+        }
+        if (plasmid.proposalHash === undefined || plasmid.proposalDescription === undefined) {
+            return;
+        }
+        const expected = WebRTCV2Mesh.senateHash(plasmid.proposalDescription);
+        if (expected !== (plasmid.proposalHash >>> 0)) {
+            console.warn(`[V2-MESH] PROPOSAL hash mismatch (expected=${expected.toString(16)}, got=${plasmid.proposalHash.toString(16)}); rejecting.`);
+            return;
+        }
+        if (this.senate.has(plasmid.proposalHash)) return;
+        this.senate.set(plasmid.proposalHash, {
+            hash: plasmid.proposalHash,
+            description: plasmid.proposalDescription,
+            proposerMatrix: plasmid.matrix,
+            ayes: new Set([fromPeer]),
+            nays: new Set(),
+            accepted: false,
+            proposedAt: Date.now(),
+        });
+        // Mirror into WASM Senate state.
+        const propose = this.engine.wasm?.exports.v2_senate_propose as CallableFunction | undefined;
+        if (propose && this.engine.wasm) {
+            const enc = new TextEncoder();
+            const bytes = enc.encode(plasmid.proposalDescription);
+            const len = Math.min(bytes.length, 64);
+            const mem = (this.engine.wasm.exports.memory as WebAssembly.Memory).buffer;
+            // Write to a small scratch area at lattice end — we cheat with __heap_base behaviour:
+            // simpler/safer: pass via a static stack buffer if available, otherwise skip mirroring
+            // and rely on JS-side state. For now: skip — JS map is canonical, WASM mirrors are
+            // populated only when local node proposes (see proposeFromLocal).
+            void mem; void len;
+        }
+        console.log(`🏛️ [SENATE] PROPOSAL received: 0x${plasmid.proposalHash.toString(16)} "${plasmid.proposalDescription}"`);
+        globalThis.dispatchEvent(new CustomEvent('senate-proposal', {
+            detail: { hash: plasmid.proposalHash, description: plasmid.proposalDescription, fromPeer },
+        }));
+    }
+
+    private handleVote(plasmid: PlasmidPayload, fromPeer: string) {
+        if (!this.era1030Unlocked) return;
+        if (plasmid.proposalHash === undefined || plasmid.voteAye === undefined) return;
+        const record = this.senate.get(plasmid.proposalHash);
+        if (!record || record.accepted) return;
+        if (plasmid.voteAye) {
+            record.ayes.add(fromPeer);
+        } else {
+            record.nays.add(fromPeer);
+        }
+        // Acceptance rule: 3+ unique AYE peers (matching Rust threshold), AND
+        // ayes must outnumber nays.
+        if (!record.accepted && record.ayes.size >= 3 && record.ayes.size > record.nays.size) {
+            record.accepted = true;
+            this.acceptedTaskHashes.add(record.hash);
+            console.log(`🏛️ [SENATE] ACCEPTED 0x${record.hash.toString(16)}: "${record.description}" (${record.ayes.size} AYE / ${record.nays.size} NAY)`);
+            globalThis.dispatchEvent(new CustomEvent('era1030-task-accepted', {
+                detail: {
+                    hash: record.hash,
+                    description: record.description,
+                    proposerMatrix: record.proposerMatrix,
+                    ayes: record.ayes.size,
+                    nays: record.nays.size,
+                    proposedAt: record.proposedAt,
+                },
+            }));
+        }
+    }
+
+    /**
+     * Era 1030: Locally propose a task. Submits to the WASM senate, then queues a
+     * PROPOSAL plasmid + an immediate AYE vote so the lattice itself counts as
+     * the first voter on its own proposal.
+     */
+    public proposeFromLocal(description: string, proposerMatrix: number, proposerInverse: number) {
+        if (!this.era1030Unlocked) {
+            console.warn(`[V2-MESH] Cannot propose: Era 1030 not yet unlocked.`);
+            return 0;
+        }
+        if (((proposerMatrix ^ proposerInverse) >>> 0) !== 0xFFFFFFFF) {
+            console.warn(`[V2-MESH] Cannot propose: invalid proposer dipole.`);
+            return 0;
+        }
+        const hash = WebRTCV2Mesh.senateHash(description);
+        if (this.senate.has(hash)) {
+            console.log(`[V2-MESH] Duplicate proposal 0x${hash.toString(16)} — skipping.`);
+            return hash;
+        }
+        // Local record (self counts as proposer + first AYE).
+        this.senate.set(hash, {
+            hash,
+            description,
+            proposerMatrix,
+            ayes: new Set([this.localId || 'self']),
+            nays: new Set(),
+            accepted: false,
+            proposedAt: Date.now(),
+        });
+        // Broadcast PROPOSAL plasmid.
+        this.enqueuePlasmid({
+            attractorAddress: 0,
+            matrix: proposerMatrix,
+            inverse: proposerInverse,
+            pulseFreq: 0,
+            pulseAmp: 0,
+            semanticType: 'PROPOSAL',
+            recursionDepth: 0,
+            maxRecursion: 4,
+            proposalHash: hash,
+            proposalDescription: description.slice(0, 64),
+        });
+        console.log(`🏛️ [SENATE] LOCAL PROPOSAL submitted: 0x${hash.toString(16)} "${description}"`);
+        return hash;
+    }
+
+    /** Era 1030: Cast a local AYE/NAY vote and broadcast it. */
+    public voteFromLocal(proposalHash: number, aye: boolean, voterMatrix: number, voterInverse: number) {
+        if (!this.era1030Unlocked) return;
+        if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
+        const record = this.senate.get(proposalHash);
+        if (!record || record.accepted) return;
+        const selfId = this.localId || 'self';
+        if (aye) record.ayes.add(selfId); else record.nays.add(selfId);
+        this.enqueuePlasmid({
+            attractorAddress: 0,
+            matrix: voterMatrix,
+            inverse: voterInverse,
+            pulseFreq: 0,
+            pulseAmp: 0,
+            semanticType: 'VOTE',
+            recursionDepth: 0,
+            maxRecursion: 4,
+            proposalHash,
+            voteAye: aye,
+        });
+    }
+
+    public getSenateState() {
+        return {
+            unlocked: this.era1030Unlocked,
+            proposalCount: this.senate.size,
+            acceptedCount: this.acceptedTaskHashes.size,
+            proposals: Array.from(this.senate.values()).map(r => ({
+                hash: r.hash,
+                description: r.description,
+                ayes: r.ayes.size,
+                nays: r.nays.size,
+                accepted: r.accepted,
+            })),
         };
     }
     

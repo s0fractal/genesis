@@ -12,6 +12,14 @@ export interface WasmExports {
     v2_validate_dipole?: (matrix: number, inverse: number) => number;
     v2_set_attractor?: (index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number) => void;
     v2_clear_attractors?: () => void;
+    // Era 1030: Senate FFI
+    v2_senate_state_ptr?: () => number;
+    v2_senate_hash?: (descPtr: number, descLen: number) => number;
+    v2_senate_propose?: (descPtr: number, descLen: number, proposerMatrix: number) => number;
+    v2_senate_vote?: (hash: number, aye: number, ayeThreshold: number) => number;
+    v2_senate_proposal_ayes?: (hash: number) => number;
+    v2_senate_is_accepted?: (hash: number) => number;
+    v2_senate_accepted_count?: () => number;
 }
 
 /**

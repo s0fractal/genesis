@@ -17,6 +17,7 @@ pub mod resonance;
 pub mod halo;
 pub mod routing;
 pub mod attractor;
+pub mod senate;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -116,6 +117,9 @@ static mut HALO_STATE: HaloState = HaloState::empty();
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
 pub static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
+
+/// Era 1030: Global Senate State for autopoietic legislation.
+pub static mut SENATE_STATE: senate::SenateState = senate::SenateState::new();
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -582,6 +586,7 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
 
 use routing::PhaseAddress;
 use attractor::{AttractorMatrix, AttractorArray};
+use senate::{Proposal, fnv1a_32};
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns 0 if the index is out of bounds or the lattice is not booted.
@@ -635,4 +640,109 @@ pub extern "C" fn v2_route_taylor_step_curvature(
     let dst = PhaseAddress::from_raw(dst_raw);
     let curv = PhaseAddress::from_raw(curv_raw);
     src.taylor_step_with_curvature(dst, max_step, curv).raw
+}
+
+// ------------------------------------------------------------------------------
+// Era 1030: Autopoietic Senate FFI
+// ------------------------------------------------------------------------------
+
+/// Returns pointer to the global SenateState (zero-copy read from JS).
+#[no_mangle]
+pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
+    core::ptr::addr_of!(SENATE_STATE) as *const u8
+}
+
+/// Compute the FNV-1a 32-bit hash of a 64-byte description payload.
+/// `desc_ptr` must point to at least `desc_len` valid bytes (max 64 read).
+///
+/// # Safety
+/// Caller must ensure desc_ptr is valid for `desc_len` bytes (or null if 0).
+#[no_mangle]
+pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32) -> u32 {
+    if desc_ptr.is_null() || desc_len == 0 {
+        return fnv1a_32(&[]);
+    }
+    let len = if desc_len > 64 { 64 } else { desc_len } as usize;
+    let bytes = unsafe { core::slice::from_raw_parts(desc_ptr, len) };
+    // Zero-pad to 64 bytes for proposal-hash determinism.
+    let mut buf = [0u8; 64];
+    let n = if len < 64 { len } else { 64 };
+    let mut i = 0;
+    while i < n {
+        buf[i] = bytes[i];
+        i += 1;
+    }
+    fnv1a_32(&buf)
+}
+
+/// Submit a proposal. `desc_ptr` is read up to 64 bytes (zero-padded).
+/// Returns the slot index (0..7) on success or 0xFFFFFFFF on failure.
+///
+/// # Safety
+/// Caller must ensure desc_ptr is valid for `desc_len` bytes (or null if 0).
+#[no_mangle]
+pub unsafe extern "C" fn v2_senate_propose(
+    desc_ptr: *const u8,
+    desc_len: u32,
+    proposer_matrix: u32,
+) -> u32 {
+    let bytes: &[u8] = if desc_ptr.is_null() || desc_len == 0 {
+        &[]
+    } else {
+        let len = if desc_len > 64 { 64 } else { desc_len } as usize;
+        unsafe { core::slice::from_raw_parts(desc_ptr, len) }
+    };
+    let proposal = Proposal::new(bytes, proposer_matrix);
+    unsafe {
+        let s = core::ptr::addr_of_mut!(SENATE_STATE);
+        let slot = (*s).propose(proposal);
+        if slot == usize::MAX {
+            0xFFFF_FFFF
+        } else {
+            slot as u32
+        }
+    }
+}
+
+/// Cast a vote on the proposal identified by `hash`.
+/// `aye` non-zero = AYE, zero = NAY.
+/// `aye_threshold` is the AYE count required to accept (typical: 3).
+///
+/// Returns: 0 = not found / closed, 1 = vote applied, 2 = ACCEPTED on this vote.
+#[no_mangle]
+pub extern "C" fn v2_senate_vote(hash: u32, aye: u32, aye_threshold: u32) -> u32 {
+    unsafe {
+        let s = core::ptr::addr_of_mut!(SENATE_STATE);
+        let threshold = if aye_threshold > u16::MAX as u32 { u16::MAX } else { aye_threshold as u16 };
+        (*s).vote(hash, aye != 0, threshold)
+    }
+}
+
+/// Returns the AYE count for a proposal, or 0xFFFFFFFF if not found.
+#[no_mangle]
+pub extern "C" fn v2_senate_proposal_ayes(hash: u32) -> u32 {
+    unsafe {
+        let s = core::ptr::addr_of!(SENATE_STATE);
+        let idx = (*s).find(hash);
+        if idx == usize::MAX { 0xFFFF_FFFF } else { (*s).proposals[idx].ayes as u32 }
+    }
+}
+
+/// Returns 1 if the proposal at `hash` has been accepted, 0 otherwise / not found.
+#[no_mangle]
+pub extern "C" fn v2_senate_is_accepted(hash: u32) -> u32 {
+    unsafe {
+        let s = core::ptr::addr_of!(SENATE_STATE);
+        let idx = (*s).find(hash);
+        if idx == usize::MAX { 0 } else if (*s).proposals[idx].is_accepted() { 1 } else { 0 }
+    }
+}
+
+/// Number of proposals that have transitioned to ACCEPTED state since boot.
+#[no_mangle]
+pub extern "C" fn v2_senate_accepted_count() -> u32 {
+    unsafe {
+        let s = core::ptr::addr_of!(SENATE_STATE);
+        (*s).accepted_count
+    }
 }

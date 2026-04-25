@@ -85,6 +85,44 @@ export async function bootstrapV2() {
             localStorage.setItem('omega_consensus_log', JSON.stringify(log));
         }) as EventListener);
 
+        // Era 1030: Listen for Senate unlock — generate the first autopoietic proposal.
+        globalThis.addEventListener('era1030-unlocked', ((e: CustomEvent) => {
+            const ledger = e.detail.ledger as Array<{ matrix: number; inverse: number; peerCount: number }>;
+            if (ledger.length === 0) return;
+            const top = ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
+            // The First Proposal: the lattice asks itself for ZK-Notarized Mutations (Era 1040).
+            const description = "Era 1040: ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
+            mesh.proposeFromLocal(description, top.matrix, top.inverse);
+        }) as EventListener);
+
+        // Era 1030: When the Senate accepts a proposal, materialize it as a tasks/ entry.
+        globalThis.addEventListener('era1030-task-accepted', ((e: CustomEvent) => {
+            const { hash, description, proposerMatrix, ayes, nays, proposedAt } = e.detail;
+            const senateLog = JSON.parse(localStorage.getItem('omega_senate_log') || '[]');
+            senateLog.push({
+                hash: `0x${(hash >>> 0).toString(16)}`,
+                description,
+                proposerMatrix: `0x${(proposerMatrix >>> 0).toString(16)}`,
+                ayes,
+                nays,
+                proposedAt,
+                acceptedAt: Date.now(),
+            });
+            localStorage.setItem('omega_senate_log', JSON.stringify(senateLog));
+            console.log(`📜 [SENATE] Materialized task 0x${(hash >>> 0).toString(16)}: ${description}`);
+            // Mirror into a downloadable artifact via Blob for the user.
+            const taskMd = `# Task (autopoietic): 0x${(hash >>> 0).toString(16)}\n\n## Status: PROPOSED-BY-LATTICE | Source: Era 1030 Senate\n\n## Description\n${description}\n\n## Provenance\n- Proposer matrix: 0x${(proposerMatrix >>> 0).toString(16)}\n- AYE votes: ${ayes}\n- NAY votes: ${nays}\n- Proposed at: ${new Date(proposedAt).toISOString()}\n- Accepted at: ${new Date().toISOString()}\n`;
+            try {
+                const blob = new Blob([taskMd], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `senate_task_${(hash >>> 0).toString(16)}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch { /* non-browser env */ }
+        }) as EventListener);
+
         const max_agents = 1_000_000;
         console.log("✅ [V2] WASM Kernel Loaded (0.86 KB)");
 
@@ -167,6 +205,16 @@ export async function bootstrapV2() {
             } else {
                 const progress = Math.min(consensus.peerCount, 3);
                 setHudStat("e", "ONTOLOGY", `${progress}/3 peers`);
+            }
+
+            // Era 1030: Senate state.
+            const senate = mesh.getSenateState();
+            if (!senate.unlocked) {
+                setHudStat("f", "SENATE", "DORMANT");
+            } else if (senate.acceptedCount > 0) {
+                setHudStat("f", "SENATE", `${senate.acceptedCount} ACCEPTED / ${senate.proposalCount}`);
+            } else {
+                setHudStat("f", "SENATE", `OPEN ${senate.proposalCount}`);
             }
 
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers

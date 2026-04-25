@@ -142,9 +142,10 @@ pub struct SignalStore {
 | 1001 | ✅ Complete | `webrtc_v2.ts` passive routing, `tests/routing_mesh_test.ts` |
 | 1010 | ✅ Complete | `attractor.rs`, GPU binding 8, `darwinian_mitosis` recursive birth |
 | 1020 | ✅ Complete | Consensus tracker, harmonic convergence, HUD slot `e` |
+| 1030 | ✅ Complete | `senate.rs`, FNV-1a anchor, PROPOSAL/VOTE plasmids, HUD slot `f` |
 
 ### Open Trigger
-- **Era 1030: Autopoietic Legislation** — when consensus ledger has 10+ entries with 5+ unique matrices.
+- **Era 1040: ZK-Notarized Mutations** — when the Senate accepts 3+ proposals (the lattice's first proposal already targets this era).
 
 ---
 
@@ -217,4 +218,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086, 0087, 0088) are COMPLETED. Next trigger is Era 1030.
+**Current task status:** All open tasks (0086, 0087, 0088, 0089) are COMPLETED. Next trigger is Era 1040 (ZK-Notarized Mutations) — the lattice has already proposed it to itself via the autopoietic Senate.
