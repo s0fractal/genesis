@@ -4,6 +4,79 @@
 
 ---
 
+## 📜 **Era 1540: Auto-Warrant Issuance from Quorum Trigger**
+*Статус: Завершено (2026-04-26)*
+
+Era 1530 emits peer_ids ready for forensic investigation. Era
+1540 turns each into a `WARRANT_PROPOSAL` payload that flows
+through Era 1090's existing 3-of-5 oracle warrant gate without
+any new validation logic.
+
+**Deterministic description format:**
+
+```
+INV peer=0xdeadbeef consensus=0xcafebabe
+```
+
+Each warrant carries a stable description string built from the
+target peer_id and the consensus anchor at the time of trigger.
+Two operators with identical observations produce byte-identical
+descriptions → identical `proposalHash` values → the senate
+ledger dedupes naturally across the mesh.
+
+**`senateHash` compatibility:**
+
+The bridge ships its own `senateHash` function (FNV-1a over
+64-byte-padded description, same offset basis + prime). A
+cross-module test imports `WebRTCV2Mesh.senateHash` and asserts
+byte-equality on a sample description. Drift on either side
+breaks both suites.
+
+**Per-peer dedup window:**
+
+```
+warrant for peer X issued at T
+  → second warrant for peer X within dedup_window_ms blocked
+  → window elapses → new warrant allowed
+```
+
+Era 1530 already gates re-fires upstream (per_peer_cooldown_ms),
+but the bridge adds a defense-in-depth dedup keyed on the same
+peer_id. If a caller's wiring loses a `markTriggered` call (race
+condition, exception path), the bridge still won't double-issue.
+
+**The full autonomous loop is now closeable:**
+
+```
+event log diverges
+    ↓
+EventChainQuorumTracker observes split anchors    (Era 1520)
+    ↓
+QuorumInvestigationTrigger gates dissenters        (Era 1530)
+    ↓
+QuorumWarrantBridge builds WARRANT_PROPOSAL        (Era 1540)
+    ↓
+[ caller emits as PROPOSAL plasmid ]
+    ↓
+3-of-5 oracle warrant gate                         (Era 1090)
+    ↓
+Quarantine + reputation penalty                    (Era 1080/1140)
+```
+
+Era 1550 will land the actual mesh wiring + smoke test in a
+simulated 5-peer scenario with one deliberate dissenter.
+
+cargo: 308 (unchanged). deno: 669 → **684 passed** (+15).
+**992 total** tests.
+
+The autonomous-investigation pathway is now available end-to-end
+in pure-functional form. Each Era is composable, testable in
+isolation, and the cross-module hash compatibility test ensures
+the chain doesn't silently drift away from the live mesh's
+expectations.
+
+---
+
 ## 🚨 **Era 1530: Quorum-Driven Investigation Trigger**
 *Статус: Завершено (2026-04-26)*
 
