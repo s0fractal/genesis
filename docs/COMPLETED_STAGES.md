@@ -4,6 +4,56 @@
 
 ---
 
+## 🛣️ **Era 1160: Path Selection by Reputation × TTL Budget**
+*Статус: Завершено (2026-04-26)*
+
+The routing stack's final piece for single-frame delivery: when the
+originator has multiple candidate paths to the destination, pick the
+one with the best (reliability / TTL) tradeoff.
+
+```
+efficiency = (pathReliability × 1000) / adaptiveTtl
+```
+
+A short healthy chain wins over a long marginal chain — even if both
+have similar end-to-end reliability — because radio time costs more
+for longer paths.
+
+**`tools/spore_relay.ts --paths`** demo output:
+
+```
+RANK │ LABEL          │ LEN │ RELIABILITY │ TTL │ EFFICIENCY │ ELIGIBLE
+   1 │ fast-direct    │   2 │      0.4409 │   5 │      88.18 │ ✓
+   2 │ long-marginal  │   3 │      0.2430 │   7 │      34.71 │ ✓
+   3 │ tainted        │   2 │      0.0000 │  16 │       0.00 │ ✗
+```
+
+The tainted path (containing a forked hop) is hard-excluded — same
+contract as Era 1140's reputation gate and Era 1130's wire drift
+containment. Empty-center invariant holds across the whole stack.
+
+**`src/network/path_selection.ts`** exposes:
+- `rankPath(candidate)` — single-path scoring.
+- `rankPaths(candidates)` — sorted descending with stable tie-break
+  (efficiency desc → length asc → label asc).
+- `pickBestPath(candidates)` — top eligible or null.
+- `evaluatePath(hops, label?)` — convenience wrapper.
+
+11 Deno tests cover the formula, fork exclusion, tie-break ordering,
+determinism, no-mutation contract, edge cases.
+
+cargo: 211 (relay-side is JS-only). deno: 144 → **155 passed**.
+**366** total tests.
+
+The lattice's transport stack is now complete for single-frame
+delivery. From hardware (Era 1100) to wire format (Era 1110) to
+liveness (Era 1120) to routing (Era 1130) to reputation (Era 1140)
+to adaptive TTL (Era 1150) to path selection (Era 1160) — every
+layer deterministic, every layer drift-excluding, every layer
+needing zero operator-tuned constants.
+
+---
+
 ## ⏳ **Era 1150: Adaptive TTL**
 *Статус: Завершено (2026-04-26)*
 

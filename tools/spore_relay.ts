@@ -27,6 +27,7 @@ import {
 import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
 import { buildHeartbeat, buildWarrantVote } from "../src/network/spore_frame.ts";
 import { rankNeighbors } from "../src/network/reputation_routing.ts";
+import { PathCandidate, rankPaths } from "../src/network/path_selection.ts";
 
 const HEALTH_GLYPHS: Record<string, string> = {
     healthy: "🟢",
@@ -180,11 +181,65 @@ function rankSelfTest() {
     console.log("\n✅ Reputation ordering: healthy > stalled/lost > forked (excluded).");
 }
 
+function pathSelfTest() {
+    const agg = new LivenessAggregator({ classifyAfter: 1, maxSilenceMs: 30_000 });
+    const NOW = 100_000;
+
+    // Six spores in three "topology zones".
+    const all = [
+        { id: "fast-1",     score_intent: 8 },
+        { id: "fast-2",     score_intent: 8 },
+        { id: "marginal-1", score_intent: 3 },
+        { id: "marginal-2", score_intent: 3 },
+        { id: "marginal-3", score_intent: 3 },
+        { id: "rogue",      score_intent: -1 },
+    ];
+    for (const sp of all) {
+        if (sp.score_intent === -1) {
+            agg.ingest(sp.id, buildHeartbeat(0xDEAD_BEEF >>> 0, 1), NOW);
+            continue;
+        }
+        for (let t = 1; t <= sp.score_intent; t++) {
+            agg.ingest(sp.id, buildHeartbeat(GENESIS_HASH_V1_0, t), NOW - (sp.score_intent - t) * 50);
+        }
+    }
+    const ranked = rankNeighbors(agg, NOW);
+    const lookup = new Map(ranked.map(r => [r.spore_id, r]));
+
+    const candidates: PathCandidate[] = [
+        { label: "fast-direct", hops: [lookup.get("fast-1")!, lookup.get("fast-2")!] },
+        { label: "long-marginal", hops: [
+            lookup.get("marginal-1")!,
+            lookup.get("marginal-2")!,
+            lookup.get("marginal-3")!,
+        ]},
+        { label: "tainted", hops: [lookup.get("fast-1")!, lookup.get("rogue")!] },
+    ];
+    const result = rankPaths(candidates);
+
+    console.log("=== OMEGA-64 Path Selection (self-test) ===\n");
+    console.log("RANK │ LABEL          │ LEN │ RELIABILITY │ TTL │ EFFICIENCY │ ELIGIBLE");
+    console.log("─────┼────────────────┼─────┼─────────────┼─────┼────────────┼─────────");
+    result.forEach((r, i) => {
+        const label = r.label.padEnd(14).slice(0, 14);
+        const len = String(r.hops.length).padStart(3);
+        const rel = r.reliability.toFixed(4).padStart(11);
+        const ttl = String(r.ttl).padStart(3);
+        const eff = r.efficiency.toFixed(2).padStart(10);
+        const elig = r.eligible ? "✓" : "✗";
+        console.log(`${String(i + 1).padStart(4)} │ ${label} │ ${len} │ ${rel} │ ${ttl} │ ${eff} │ ${elig}`);
+    });
+    console.log("\n✅ Path selection: efficiency = reliability × 1000 / TTL.");
+    console.log("   Tainted paths excluded; short healthy paths beat long ones.");
+}
+
 if (import.meta.main) {
     if (Deno.args.includes("--self-test")) {
         selfTest();
     } else if (Deno.args.includes("--rank")) {
         rankSelfTest();
+    } else if (Deno.args.includes("--paths")) {
+        pathSelfTest();
     } else {
         await streamMode();
     }

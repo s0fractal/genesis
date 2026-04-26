@@ -154,10 +154,11 @@ pub struct SignalStore {
 | 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes fleet, classifies each spore. |
 | 1130 | ✅ Complete | `spore_routing.rs` + JS mirror — TTL-bounded peer-to-peer forwarding with FNV-1a trail digest. |
 | 1140 | ✅ Complete | `reputation_routing.ts` — deterministic per-neighbor scores; healthy bonus, heartbeat density, warrant throughput, stall/silence penalties. |
-| 1150 | ✅ Complete | `adaptive_ttl.ts` — per-frame TTL = path_length + ⌈log₂(1/reliability)⌉ + safetyHops, clamped to [1, 16]. Replaces fixed DEFAULT_TTL. |
+| 1150 | ✅ Complete | `adaptive_ttl.ts` — per-frame TTL from path reliability. |
+| 1160 | ✅ Complete | `path_selection.ts` — efficiency = (reliability × 1000) / TTL; pick best among candidates. Tainted paths excluded; deterministic tie-break. |
 
 ### Open Trigger
-- **Era 1160: Path Selection by Reputation × TTL Budget** — choose among multiple candidate paths by best (reliability / TTL) tradeoff.
+- **Era 1170: Path Diversification** — duplicate high-priority frames along two disjoint paths; dedup at destination.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -231,4 +232,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0101) are COMPLETED. The routing stack is now adaptive end-to-end: per-neighbor reputation feeds per-frame TTL, drift is excluded at the wire AND the score, every layer is deterministic across observers. A field of $5 ESP32 boards now self-organizes its retransmit budget based on observable behavior alone.
+**Current task status:** All open tasks (0086 → 0102) are COMPLETED. The transport stack now picks paths optimally: short healthy chains beat long marginal ones via efficiency = reliability × 1000 / TTL. The mesh self-routes through the best-reputation/least-budget chain, drift-tainted candidates excluded entirely. End-to-end deterministic across observers.
