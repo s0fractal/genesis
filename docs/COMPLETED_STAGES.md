@@ -4,6 +4,66 @@
 
 ---
 
+## 🔄 **Era 1310: Periodic Archive Sync — Set-Difference Convergence**
+*Статус: Завершено (2026-04-27)*
+
+Era 1300 archives are deterministic + integrity-checked. Era 1310
+defines the protocol for two archives to converge without
+re-shipping everything: a three-phase exchange that sends only
+missing records.
+
+**Three-phase handshake:**
+
+```
+1. Initiator → Peer:    ArchiveDigestList   (initiator's digest set)
+2. Peer → Initiator:    ArchiveDelta        (records initiator lacks
+                                              + digests peer lacks)
+3. Initiator applies delta, optionally fires symmetric exchange.
+```
+
+**`syncRound(a, b)` runs both directions in one call** — useful
+for tests + reference impl. Production uses streaming:
+
+```ts
+const list = buildDigestList(a_bundle, now_ms);                // 1
+const delta = computeDelta(list, b_records, now_ms);           // 2
+const result = applyDelta([...a_records], delta);              // 3
+if (result.outcome.ok) {
+    // a now has all records both parties knew about.
+}
+```
+
+**Integrity guarantees:**
+- `delta_hash = FNV-1a(missing_records' digest set, sorted)` —
+  proves the delta wasn't tampered in transit.
+- Records carry their Era 1300 archive schema; delta validates each.
+- **Digest collisions** (same digest, different content) → REJECTED.
+  This preserves the "FNV-1a digest is content-addressing"
+  invariant: two archives disagreeing about what's at a digest
+  signals corruption, not divergence.
+- Identical records (same digest + same content) → silently
+  skipped (idempotent re-sync).
+
+**Bandwidth efficiency:**
+- Two archives sharing 90% of digests exchange only the 10%
+  missing records, not the full set.
+- `peer_missing_digests` field in delta lets the initiator
+  immediately decide what to send back, avoiding a separate
+  digest-list broadcast for the symmetric direction.
+
+cargo: 223 (unchanged). deno: 405 → **425 passed** (+20).
+**648 total** tests.
+
+The forensic stack now self-synchronizes across N parties,
+preserving every property of the underlying archives:
+deterministic, integrity-protected, content-addressed,
+chain-of-custody intact. Two archivists running on different
+relays, swapping deltas periodically, eventually share an
+identical digest set — without trust, without coordination
+beyond the schema itself.
+
+---
+
 ## 🗄️ **Era 1300: Verdict Persistence + Cold Archive**
 *Статус: Завершено (2026-04-27)*
 

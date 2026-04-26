@@ -169,10 +169,11 @@ pub struct SignalStore {
 | 1270 | ✅ Complete | `trace_sync.ts` — observationHash merge; merged replay ≥ individual replays. |
 | 1280 | ✅ Complete | `forensic_quorum.ts` — alarm-vs-merged-replay adjudication; deterministic digest. |
 | 1290 | ✅ Complete | `FRAME_TYPE_QUORUM_VERDICT=7` + `quorum_broadcast.ts` — agreement tracker; lone/double/triple+. |
-| 1300 | ✅ Complete | `verdict_archive.ts` — ND-JSON cold archive; FNV-1a-over-digests `archive_hash` for chain-of-custody; tamper-detection on import; cross-party `diffArchives` for verdict-set comparison. |
+| 1300 | ✅ Complete | `verdict_archive.ts` — ND-JSON cold archive; archive_hash chain-of-custody. |
+| 1310 | ✅ Complete | `archive_sync.ts` — set-difference delta exchange; bidirectional `syncRound` converges archives without re-shipping; collision detection preserves digest-as-content-address invariant. |
 
 ### Open Trigger
-- **Era 1310: Periodic Archive Sync** — two archives exchange only missing digests via wire delta; converge without re-shipping everything.
+- **Era 1320: Archive Sync over SporeFrame Wire** — chunk ArchiveDelta into multi-frame envelope with sequence + final-marker; streaming reassembly.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -246,4 +247,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0116) are COMPLETED. Cold-archive persistence layer is live: high-confidence verdicts export to ND-JSON with an FNV-1a-over-digests `archive_hash` for chain-of-custody, importing detects tampering via hash drift, and `diffArchives` compares two parties' archives by digest-set membership. Long-term audit trails now survive process restarts and travel as plain text without loss of integrity.
+**Current task status:** All open tasks (0086 → 0117) are COMPLETED. Archive sync protocol is live: two archives exchange only the missing digests via deterministic delta with FNV-1a integrity over the missing set; `syncRound` converges both sides bidirectionally; digest collisions (same digest, different content) are rejected to preserve the "FNV-1a digest is content-addressing" invariant. Audit trails now stay synchronized across parties without bandwidth cost proportional to archive size.
