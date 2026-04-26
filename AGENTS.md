@@ -159,10 +159,11 @@ pub struct SignalStore {
 | 1170 | ✅ Complete | `path_diversification.ts` — high-priority WARRANT_VOTE frames duplicated along disjoint paths. |
 | 1180 | ✅ Complete | `convergence_detector.ts` — destination-side observer; redundancy_rate, proven_carriers, stragglers. |
 | 1190 | ✅ Complete | `resilience_snapshot.rs` + JS mirror — 32-byte FNV-1a-CRC report. Anchor `0x98E5_768B`. |
-| 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest in SporeFrame payload + destination-side partition alarm wiring. |
+| 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest + partition alarm wiring. |
+| 1210 | ✅ Complete | `auto_investigation.ts` — partition alarms auto-raise WARRANT_PROPOSAL (action RELOCATE); 3-AYE-oracle ratification triggers quarantine; forwarder-side `shouldDropFrameFromOrigin` gate. |
 
 ### Open Trigger
-- **Era 1210: Auto-Investigation Proposals** — partition alarms auto-raise a WARRANT_PROPOSAL (action RELOCATE) targeting the suspected relay; honest relays drop suspect frames until cleared.
+- **Era 1220: Cross-Relay Investigation Convergence** — when multiple relays independently raise the same proposal_hash (deterministic by reason), the Senate sees natural dedup at the WarrantLedger; convergent suspicion is a stronger signal than singular alarm.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -236,4 +237,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0106) are COMPLETED. Resilience digests now ride the same SporeFrame transport as warrants and heartbeats; every relay observes peer digests and emits partition alarms when measurements disagree by ≥10%. The lattice's mesh now has a self-aware fault-detection layer that surfaces split-brain scenarios in real time.
+**Current task status:** All open tasks (0086 → 0107) are COMPLETED. The transport-layer alarm system now feeds directly into the Senate: each partition alarm becomes a deterministic WARRANT_PROPOSAL (action RELOCATE), and three AYE oracles transition the suspect relay to quarantined state. The Era 1080 Codeicide gate ensures no single voice can pause another node — automatic detection, but consensus-required action.
