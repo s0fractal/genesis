@@ -152,10 +152,11 @@ pub struct SignalStore {
 | 1100 | ✅ Complete | `omega_spore/` — bare-metal Cortex-M4F firmware. Quad-substrate byte-equivalence. |
 | 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte FNV-1a-CRC binary frame for UART/SPI/BLE. Anchor `0x00F2_FEFA`. |
 | 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes fleet, classifies each spore. |
-| 1130 | ✅ Complete | `spore_routing.rs` + JS mirror — TTL-bounded peer-to-peer forwarding with FNV-1a trail digest. Anchor `0xEB3D_D38B`. End-to-end demo `tools/simulate_relay_free_mesh.ts` proves 4-hop chain routes votes without a JS relay. |
+| 1130 | ✅ Complete | `spore_routing.rs` + JS mirror — TTL-bounded peer-to-peer forwarding with FNV-1a trail digest. |
+| 1140 | ✅ Complete | `reputation_routing.ts` — deterministic per-neighbor scores; healthy bonus, heartbeat density, warrant throughput, stall/silence penalties; forked = hard exclusion. `pickBest`/`pickTopK` for routing layer. |
 
 ### Open Trigger
-- **Era 1140: Reputation-Weighted Routing** — per-spore health metrics from Era 1120 inform routing preferences in Era 1130. Flooding-with-TTL becomes a learned overlay.
+- **Era 1150: Adaptive TTL** — compute per-frame TTL from the expected reliability of the chosen path, replacing fixed `DEFAULT_TTL = 4`.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -229,4 +230,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0099) are COMPLETED. The lattice can now operate **without any JS relay in the warrant path**: spores forward each other's WARRANT_VOTE / HEARTBEAT frames along a TTL-bounded chain with cryptographic trail digests, drift containment at the wire, and bit-for-bit cross-language correctness. A field of $5 ESP32 boards in daisy-chain UART can run the full Senate flow autonomously.
+**Current task status:** All open tasks (0086 → 0100) are COMPLETED. The lattice has a **learned routing overlay**: relays score every observed neighbor and forwarders pick the top-k eligible candidates. Forked spores are hard-excluded (drift propagates nothing); healthy spores beat unknown beat stalled beat lost. Two relays observing identical event streams produce byte-identical rankings — determinism preserved end-to-end.

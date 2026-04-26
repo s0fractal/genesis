@@ -26,6 +26,7 @@ import {
 } from "../src/network/liveness_aggregator.ts";
 import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
 import { buildHeartbeat, buildWarrantVote } from "../src/network/spore_frame.ts";
+import { rankNeighbors } from "../src/network/reputation_routing.ts";
 
 const HEALTH_GLYPHS: Record<string, string> = {
     healthy: "🟢",
@@ -141,9 +142,49 @@ async function streamMode() {
     console.log(renderHud(agg));
 }
 
+function rankSelfTest() {
+    const agg = new LivenessAggregator({ classifyAfter: 1, maxSilenceMs: 30_000 });
+    const NOW = 100_000;
+
+    // Healthy + many heartbeats.
+    for (let t = 1; t <= 8; t++) {
+        agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_V1_0, t), NOW - (8 - t) * 50);
+    }
+    // Healthy + lots of warrant votes.
+    agg.ingest("delta", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200);
+    agg.ingest("delta", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 100);
+    for (let i = 0; i < 5; i++) {
+        agg.ingest("delta", buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 100 + i), NOW - 50 + i);
+    }
+    // Stalled.
+    agg.ingest("beta", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 200);
+    agg.ingest("beta", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 100);
+    agg.ingest("beta", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW);
+    // Forked.
+    agg.ingest("rogue", buildHeartbeat(0xDEAD_BEEF >>> 0, 1), NOW);
+    // Lost.
+    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 70_000);
+    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 60_000);
+
+    const ranked = rankNeighbors(agg, NOW);
+    console.log("=== OMEGA-64 Reputation Ranking (self-test) ===\n");
+    console.log("RANK │ ID                 │ SCORE │ STATE     │ ELIGIBLE");
+    console.log("─────┼────────────────────┼───────┼───────────┼─────────");
+    ranked.forEach((r, i) => {
+        const id = r.spore_id.padEnd(18).slice(0, 18);
+        const state = (HEALTH_GLYPHS[r.health] + " " + r.health).padEnd(9);
+        const score = String(r.score.toFixed(0)).padStart(5);
+        const elig = r.eligible ? "✓" : "✗";
+        console.log(`${String(i + 1).padStart(4)} │ ${id} │ ${score} │ ${state} │ ${elig}`);
+    });
+    console.log("\n✅ Reputation ordering: healthy > stalled/lost > forked (excluded).");
+}
+
 if (import.meta.main) {
     if (Deno.args.includes("--self-test")) {
         selfTest();
+    } else if (Deno.args.includes("--rank")) {
+        rankSelfTest();
     } else {
         await streamMode();
     }

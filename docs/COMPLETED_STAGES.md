@@ -4,6 +4,57 @@
 
 ---
 
+## 🎯 **Era 1140: Reputation-Weighted Routing**
+*Статус: Завершено (2026-04-26)*
+
+The Era 1130 routing layer learned to discriminate. Era 1140 turns
+flooding-with-TTL into a learned overlay by combining the Era 1120
+aggregator's per-spore health metrics into a deterministic
+reputation score per neighbor.
+
+```
+RANK │ ID     │ SCORE │ STATE      │ ELIGIBLE
+─────┼────────┼───────┼────────────┼─────────
+   1 │ alpha  │   166 │ 🟢 healthy │ ✓
+   2 │ delta  │    99 │ 🟡 stalled │ ✓     (carries warrant votes)
+   3 │ beta   │    76 │ 🟡 stalled │ ✓
+   4 │ ghost  │    44 │ ⚫ lost    │ ✓     (silence-decayed)
+   5 │ rogue  │     0 │ 🔴 forked  │ ✗     (hard cryptographic gate)
+```
+
+**Scoring components:**
+- `base = 100` everyone starts here
+- `+50` healthy bonus
+- `+2 / heartbeat` (cap at 50 → +100 max)
+- `+5 / warrant_vote` (cap at 20 → +100 max)
+- `-30` stall penalty
+- `-1 / silence-sec` (cap at 60s → -60 max)
+- `-5` unknown penalty (under-sampled)
+- **forked → score=0, eligible=false** — hard exclusion
+
+**Determinism contract**: two relays observing the same frame
+history MUST produce byte-identical rankings (stable tie-break by
+spore_id ASCII). Tested explicitly.
+
+`src/network/reputation_routing.ts` exposes:
+- `scoreOne(rec, now_ms)` — single-record scoring with breakdown.
+- `rankNeighbors(aggregator, now_ms)` — full sorted list.
+- `pickTopK / pickBest` — neighbor selection for the routing layer.
+- `listExcludedForks` — operator-visible drift surface.
+
+`tools/spore_relay.ts --rank` self-test prints the ranked table.
+
+cargo: 211 (relay-side is JS-only). deno: 121 → **132 passed**.
+**343** total tests across both languages.
+
+The mesh now learns. A spore that historically forwards reliably
+gets picked again; a spore that drifts gets quietly ignored.
+Reputation is computed from observable behavior alone — no manual
+trust assignments, no operator overrides — preserving the
+empty-center invariant.
+
+---
+
 ## 🌐 **Era 1130: Federated Spore-to-Spore Routing**
 *Статус: Завершено (2026-04-26)*
 
