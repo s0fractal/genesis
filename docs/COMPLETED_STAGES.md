@@ -4,6 +4,68 @@
 
 ---
 
+## 📡 **Era 1250: Composite Health Broadcast — Meta-Partition Detection**
+*Статус: Завершено (2026-04-27 morning)*
+
+The Era 1240 composite score becomes wire-portable as a new
+SporeFrame type (`frame_type = 6 COMPOSITE_HEALTH`). Peer relays
+now compare not just raw counts (Era 1200) but the SEMANTIC
+conclusion drawn from those counts.
+
+**Wire layout (within SporeFrame):**
+```
+proposal_or_target = relay_id
+payload_a          = composite_score_q16 (0..65536)
+payload_b          = (band & 0xFF)
+                   | (alarm_count << 8)
+                   | (suspect_count << 16)
+                   | (quarantine_count << 24)
+payload_c          = redundancy_contribution_q16
+tick               = relay's emission tick
+```
+
+Each count clamped to `u8` (max 255 — operationally, more than 255
+of any signal in a single window means a fundamentally broken mesh
+where exact counts don't drive routing decisions).
+
+**Meta-partition trigger:**
+```
+fires iff |self.composite_q16 - peer.composite_q16| ≥ 13_107  (≈0.20)
+```
+
+A normal partition (Era 1190) = relays see different states.
+A **meta-partition** = relays see similar states but draw
+different conclusions. The latter signals a deeper integrity
+problem: mis-configured weights, drifted scoring formula, or
+compromised aggregator.
+
+`CompositeHealthMonitor` API:
+- `observe(frame, now_ms)` — ingest peer composite, compute
+  diff, emit alarm via callback if flagged.
+- `MetaPartitionAlarm { relay_id, self_score, peer_score,
+  diff_q16, diff_percent, self_band, peer_band, observed_at_ms }`.
+- `summaryLine()` — one-line ASCII status with band glyphs +
+  ⚠ flags for meta-suspects.
+- FIFO peer table (default capacity 64), `clear()`,
+  `suspectedMetaPartitions()`, `recentAlarms(n)`.
+
+**Why broadcast composite when underlying metrics already
+broadcast?** The composite is a SEMANTIC signal — it represents
+the relay's overall judgment. Two relays may agree on raw counts
+but disagree on weights; broadcasting composites surfaces that
+semantic disagreement directly.
+
+cargo: 223 (unchanged). deno: 285 → **305 passed** (+20).
+**528 total** tests.
+
+The mesh now has TWO partition-detection layers operating in
+parallel: Era 1190's raw-metric divergence (10% threshold) and
+Era 1250's composite-score divergence (20% threshold). Both
+deterministic, both observable across relays, both surface
+problems before any consensus round.
+
+---
+
 ## 💚 **Era 1240: Mesh Health Composite Score**
 *Статус: Завершено (2026-04-26)*
 

@@ -16,6 +16,7 @@ export const FRAME_TYPE_HALO_STATE = 2;
 export const FRAME_TYPE_HEARTBEAT = 3;
 export const FRAME_TYPE_QUORUM_QUERY = 4;
 export const FRAME_TYPE_SNAPSHOT_DIGEST = 5;
+export const FRAME_TYPE_COMPOSITE_HEALTH = 6;
 
 export interface SporeFrame {
     magic: number;
@@ -156,6 +157,34 @@ export function buildSnapshotDigest(
     f.payloadA = totalIntents >>> 0;
     f.payloadB = doubleWitness >>> 0;
     f.payloadC = redundancyRateQ16 >>> 0;
+    f.tick = tick >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Era 1250: Build a COMPOSITE_HEALTH frame carrying a relay's
+ *  one-glance health composite. Counts clamped to u8 (255 max). */
+export function buildCompositeHealth(
+    relayId: number,
+    compositeScoreQ16: number,
+    bandCode: number,
+    alarmCount: number,
+    suspectCount: number,
+    quarantineCount: number,
+    redundancyContribQ16: number,
+    tick: number,
+): SporeFrame {
+    const clampU8 = (n: number) => Math.max(0, Math.min(255, n | 0));
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_COMPOSITE_HEALTH;
+    f.proposalOrTarget = relayId >>> 0;
+    f.payloadA = compositeScoreQ16 >>> 0;
+    f.payloadB =
+        ((clampU8(bandCode)) |
+         (clampU8(alarmCount) << 8) |
+         (clampU8(suspectCount) << 16) |
+         (clampU8(quarantineCount) << 24)) >>> 0;
+    f.payloadC = redundancyContribQ16 >>> 0;
     f.tick = tick >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;

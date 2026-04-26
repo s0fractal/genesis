@@ -47,6 +47,14 @@ pub const FRAME_TYPE_QUORUM_QUERY: u8 = 4;
 ///   payload_c          = redundancy_rate_q16
 ///   tick               = relay's tick at emission
 pub const FRAME_TYPE_SNAPSHOT_DIGEST: u8 = 5;
+/// Era 1250: composite mesh health broadcast.
+/// Layout in SporeFrame payload slots:
+///   proposal_or_target = relay_id
+///   payload_a          = composite_score_q16 (0..65536)
+///   payload_b          = (band & 0xFF) | (alarm_count << 8) | (suspect_count << 16) | (quarantine_count << 24)
+///   payload_c          = redundancy_contribution_q16
+///   tick               = relay's tick at emission
+pub const FRAME_TYPE_COMPOSITE_HEALTH: u8 = 6;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -126,6 +134,32 @@ impl SporeFrame {
         f.payload_a = total_intents;
         f.payload_b = double_witness;
         f.payload_c = redundancy_rate_q16;
+        f.tick = tick;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1250: Build a COMPOSITE_HEALTH frame carrying a relay's
+    /// one-glance health composite. Counts are u8-clamped (255 max).
+    pub fn composite_health(
+        relay_id: u32,
+        composite_score_q16: u32,
+        band_code: u8,
+        alarm_count: u8,
+        suspect_count: u8,
+        quarantine_count: u8,
+        redundancy_contribution_q16: u32,
+        tick: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_COMPOSITE_HEALTH;
+        f.proposal_or_target = relay_id;
+        f.payload_a = composite_score_q16;
+        f.payload_b = (band_code as u32)
+            | ((alarm_count as u32) << 8)
+            | ((suspect_count as u32) << 16)
+            | ((quarantine_count as u32) << 24);
+        f.payload_c = redundancy_contribution_q16;
         f.tick = tick;
         f.crc32 = f.compute_crc();
         f
