@@ -166,10 +166,11 @@ pub struct SignalStore {
 | 1240 | ✅ Complete | `mesh_health.ts` — composite score `[0, 1]`; bands; Q16-encodable. |
 | 1250 | ✅ Complete | `FRAME_TYPE_COMPOSITE_HEALTH=6` + `composite_monitor.ts` — composite broadcast; meta-partition at ≥0.20. |
 | 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replay; forensic determinism invariant. |
-| 1270 | ✅ Complete | `trace_sync.ts` — observationHash-based merge of N recorders; deterministic dedup; merged replay ≥ individual replays (forensic invariant tested). |
+| 1270 | ✅ Complete | `trace_sync.ts` — observationHash merge; merged replay ≥ individual replays. |
+| 1280 | ✅ Complete | `forensic_quorum.ts` — adjudicates alarm-vs-merged-replay agreement; verdicts {corroborated, uncorroborated, insufficient-relays, empty-window} + deterministic digest. |
 
 ### Open Trigger
-- **Era 1280: Forensic Quorum** — ≥3 relays' merged replay matches real-time alarm → "forensic quorum" admissible as high-confidence post-mortem evidence.
+- **Era 1290: Quorum-Anchored Post-Mortem Reports** — QuorumResult digests broadcastable; multi-party agreement on multi-party agreement on observations.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -243,4 +244,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0113) are COMPLETED. Cooperative forensic reconstruction is live: N relays exchange their recorded frame logs, deterministic `observationHash`-based merge dedups identical observations, and the merged log replays through any observer to yield strictly more complete reconstruction than any individual relay's recorder. The forensic invariant — "merged replay ≥ individual replays" — is explicitly tested with cross-relay overlapping intent sets resolving into double-witness via merge.
+**Current task status:** All open tasks (0086 → 0114) are COMPLETED. Forensic quorum adjudication is live: `adjudicateQuorum(fp, recorders)` takes an alarm fingerprint plus N relays' recorders and returns `{verdict, replayed_q16, diff_q16, overlap_ratio, merged_frame_count, digest}`. Corroborated verdict = the merged replay reproduces the live alarm's metric within tolerance, providing high-confidence post-mortem evidence. Digest is FNV-1a over inputs + outputs, so two parties running the same adjudication get the same archival hash without exchanging recorders.

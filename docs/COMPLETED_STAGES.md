@@ -4,6 +4,70 @@
 
 ---
 
+## ⚖️ **Era 1280: Forensic Quorum — Live Alarm vs Merged Replay**
+*Статус: Завершено (2026-04-27)*
+
+Era 1270 lets N relays merge frame logs for cooperative replay.
+Era 1280 closes the post-mortem loop: when the merged replay's
+metrics MATCH the live alarm that fired during the incident, we
+have a "forensic quorum" — independent multi-relay reconstruction
+agreed with the real-time signal.
+
+**Verdicts:**
+
+| Verdict | Glyph | Meaning |
+|---------|-------|---------|
+| `corroborated`         | ✅ | replay matches alarm within tolerance |
+| `uncorroborated`       | ❌ | replay diverges past tolerance — investigate |
+| `insufficient-relays`  | 🔍 | < `min_relays` (default 3) cooperated |
+| `empty-window`         | ∅ | no frames intersect the alarm's time window |
+
+**`adjudicateQuorum(fp, recorders, opts?)`** signature:
+```ts
+type AlarmFingerprint = {
+  observed_q16: number;        // what the live alarm reported
+  window_start_ms: number;
+  window_end_ms: number;
+  source_relay_id: number;
+};
+type QuorumResult = {
+  verdict: QuorumVerdict;
+  relay_count: number;
+  replayed_q16: number;        // merged replay's redundancy_rate_q16
+  diff_q16: number;            // |observed - replayed|
+  overlap_ratio: number;       // shared observations across recorders
+  merged_frame_count: number;
+  digest: number;              // archival fingerprint
+};
+```
+
+**Determinism**: `digest = FNV-1a(source_id, observed_q16,
+sorted_relay_ids, replayed_q16, diff_q16)`. Two parties running
+the same adjudication compute identical digests without
+exchanging recorders.
+
+**Why "uncorroborated" not "rejected"?** Three distinct causes:
+- (1) live alarm was spurious (noise);
+- (2) merge missed frames the live observer saw (incomplete cooperation);
+- (3) live observer mis-read the metric (instrument drift).
+The verdict flags disagreement; operators investigate cause.
+The module doesn't pre-judge.
+
+**`formatVerdict(res)`** renders a one-line summary:
+```
+✅ corroborated | relays=3 frames=12 replay=50.00% diff=0.00% overlap=66.7% digest=0x9a2b4e1c
+```
+
+cargo: 223 (unchanged). deno: 343 → **360 passed** (+17).
+**583 total** tests.
+
+The mesh now has cryptographic-grade forensic adjudication. A
+quorum digest can be referenced in archival reports without
+needing to exchange the underlying recorders — chain-of-custody
+audit trails work via deterministic hashing.
+
+---
+
 ## 🔗 **Era 1270: Cross-Substrate Trace Sync — Cooperative Reconstruction**
 *Статус: Завершено (2026-04-27)*
 
