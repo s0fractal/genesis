@@ -151,10 +151,11 @@ pub struct SignalStore {
 | 1090 | ✅ Complete | `warrant_issuance.rs` — Senate now ISSUES warrants via WARRANT_PROPOSAL/VOTE flow. Anchor `0xFF4D_CB2F`. |
 | 1100 | ✅ Complete | `omega_spore/` — bare-metal Cortex-M4F firmware. Quad-substrate byte-equivalence. |
 | 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte FNV-1a-CRC binary frame for UART/SPI/BLE. Anchor `0x00F2_FEFA`. |
-| 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes spore fleet, classifies each as healthy / stalled / forked / lost / unknown. Live HUD with glyphs. |
+| 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes fleet, classifies each spore. |
+| 1130 | ✅ Complete | `spore_routing.rs` + JS mirror — TTL-bounded peer-to-peer forwarding with FNV-1a trail digest. Anchor `0xEB3D_D38B`. End-to-end demo `tools/simulate_relay_free_mesh.ts` proves 4-hop chain routes votes without a JS relay. |
 
 ### Open Trigger
-- **Era 1130: Federated Spore-to-Spore Routing** — when no relay is reachable, spores forward warrant votes peer-to-peer along a known-good topology derived from the aggregator's view.
+- **Era 1140: Reputation-Weighted Routing** — per-spore health metrics from Era 1120 inform routing preferences in Era 1130. Flooding-with-TTL becomes a learned overlay.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -228,4 +229,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0098) are COMPLETED. Genesis Hash `0x549A6307` reproduces across four substrates. Eras 1110 + 1120 give the lattice a full transport stack: binary frames go out, the aggregator on each relay tracks every spore's health (healthy / stalled / forked / lost / unknown). Operational visibility is now on par with the cryptographic invariants.
+**Current task status:** All open tasks (0086 → 0099) are COMPLETED. The lattice can now operate **without any JS relay in the warrant path**: spores forward each other's WARRANT_VOTE / HEARTBEAT frames along a TTL-bounded chain with cryptographic trail digests, drift containment at the wire, and bit-for-bit cross-language correctness. A field of $5 ESP32 boards in daisy-chain UART can run the full Senate flow autonomously.

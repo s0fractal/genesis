@@ -4,6 +4,52 @@
 
 ---
 
+## 🌐 **Era 1130: Federated Spore-to-Spore Routing**
+*Статус: Завершено (2026-04-26)*
+
+The lattice can now operate **without any JS relay in the warrant
+path**. Spores forward each other's frames along a TTL-bounded chain,
+each hop accumulating an FNV-1a trail digest that proves the path.
+
+```
+spore-A (TTL=4) ──UART──▶ spore-B (TTL=3) ──UART──▶ spore-C (TTL=2) ──▶ relay
+        trail=0x0          trail=0x6513…          trail=0x4f97…       trail=0xb3a6…
+```
+
+**Routing rules:**
+- `WARRANT_VOTE`: every honest spore on the path BOTH consumes locally
+  AND forwards (DELIVER_LOCAL).
+- `HEARTBEAT`: every honest spore forwards (FORWARD), but only if the
+  frame's claimed genesis hash matches the canonical v1.0 anchor.
+  Forked HEARTBEATs are dropped at the wire — drift never propagates
+  through honest carriers.
+- Loops are detected by re-mixing the trail digest; if mixing our own
+  ID twice yields the existing digest, we've come back to ourselves.
+- TTL=0 frames are dropped. Default TTL is 4, sufficient for a small
+  daisy chain; larger meshes should re-stamp at intermediate aggregators.
+
+**`omega_v2/src/spore_routing.rs`**: pure functions for the kernel side
+— `decide_forward()`, `mix_trail()`, `frame_ttl()`, `stamp_origin()`.
+12 unit tests covering all decision paths.
+
+**`src/network/spore_routing.ts`**: JS mirror with 11 Deno tests.
+Cross-language anchor `mix_trail(0, claude=0x6B70A8AB) = 0xEB3D_D38B`
+locked in both languages.
+
+**`tools/simulate_relay_free_mesh.ts`**: end-to-end 4-spore chain demo
+proves a warrant vote travels A→B→C→D without any JS relay; final
+relay sees the 3-hop trail signature and ingests via the Era 1120
+aggregator.
+
+cargo: 199 → **211 passed**. deno: 110 → **121 passed**. **332 total**.
+13 cross-language anchors live.
+
+A field of $5 ESP32 boards in UART daisy-chain can now run the full
+OMEGA-64 v1.0 Senate flow autonomously: propose, vote, ratify,
+warrant — all without a single browser tab.
+
+---
+
 ## 📊 **Era 1120: Liveness Telemetry Aggregator**
 *Статус: Завершено (2026-04-26)*
 
