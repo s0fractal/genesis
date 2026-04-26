@@ -4,6 +4,77 @@
 
 ---
 
+## 📜 **Era 1380: Forensic Event Sink**
+*Статус: Завершено (2026-04-26)*
+
+Era 1370 produces alarm events with a stable per-event hash, but
+nothing was *storing* them — every event was ephemeral, lost on
+restart. Earlier Eras emit similar event-shaped payloads (partition
+alarms, investigation conclusions, quorum verdicts) with the same
+problem. Era 1380 introduces a unified durable sink: an append-only
+chain-anchored event log.
+
+**Per-entry chain hash:**
+
+```
+chain_hash = FNV-1a(kind || event_hash || sunk_at_ms ||
+                    sequence || prev_chain_hash)
+```
+
+Each entry's `prev_chain_hash` matches the predecessor's
+`chain_hash` — Merkle-like sequential anchor. Tamper with any past
+entry's payload, and `verifyChain()` detects it on the next
+recomputation.
+
+**Bounded ring buffer:**
+
+```ts
+const sink = new ForensicEventSink(1024); // capacity
+sink.append("convergence-alarm", alarm.event_hash, alarm, now_ms);
+sink.append("partition", partition.event_hash, partition, now_ms);
+
+const broken_at = sink.verifyChain(); // null when intact
+const summary = sink.summary();
+// { size, capacity, next_sequence, live_tail_chain_hash,
+//   event_chain_anchor, kinds: { "convergence-alarm": 1, ... } }
+```
+
+`sequence` numbers are monotonic across the lifetime of the sink
+— they don't reset on eviction. So even if early entries roll
+off, surviving entries retain their original seq #, and the chain
+remains valid for the live prefix.
+
+**Cross-relay anchor:** `eventChainAnchor()` is FNV-1a over the
+sorted `event_hash` set — same idiom as Era 1310's
+`computeArchiveHash`. Two operators with identical event sets
+compute identical anchors regardless of arrival order.
+
+**Set-difference primitive:** `diffEventSinks(a, b)` returns
+`{only_in_a, only_in_b, shared}` — the building block for Era
+1390's wire sync.
+
+**Generic envelope:** the sink stores `kind` + `event_hash` +
+opaque `payload`. Any prior or future Era can route its events
+through:
+- Era 1200 partition alarms → `kind: "partition"`.
+- Era 1290 quorum verdicts → `kind: "verdict"`.
+- Era 1370 convergence alarms → `kind: "convergence-alarm"`.
+
+The sink doesn't introspect payload — that's the consumer's job.
+This keeps the sink decoupled from upstream event-shape evolution.
+
+**End-to-end test included:** `convergence-alarm` event flows from
+Era 1350 signal through Era 1370 builder into the sink, retains
+chain integrity, and is retrievable by event_hash. The forensic
+loop is now closed: detect → adjudicate → broadcast → archive →
+sync → trigger → record. Every step deterministic, every step
+audit-replayable.
+
+cargo: 223 (unchanged). deno: 530 → **554 passed** (+24).
+**777 total** tests.
+
+---
+
 ## 🚨 **Era 1370: Convergence-Triggered Auto Sync**
 *Статус: Завершено (2026-04-26)*
 
