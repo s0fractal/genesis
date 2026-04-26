@@ -4,6 +4,69 @@
 
 ---
 
+## 🎙️ **Era 1420: Spore-Initiated Event Broadcast**
+*Статус: Завершено (2026-04-26)*
+
+Up to Era 1410, the spore could *receive* and reassemble event-
+delta envelopes but couldn't originate one. Era 1420 closes that
+gap: the bare-metal substrate now has Rust frame builders matching
+the JS chunker byte-for-byte, plus a no-alloc broadcast queue that
+fits the firmware loop's "build → flush" pattern.
+
+**Frame builders (no_std-clean):**
+
+```rust
+use omega_v2::event_broadcast::*;
+use omega_v2::forensic_event_sink::ForensicEventSink;
+
+// 1. Announce what we know.
+let list_frame = build_hash_list_frame(&sink, my_relay_id, tick);
+
+// 2. After receiving a peer's hash list and computing the diff,
+//    ship the entries the peer is missing:
+let mut out = [SporeFrame::empty(); 16];
+let n = build_delta_chunk_frames(
+    missing_entries, my_id_byte, peer_anchor,
+    replied_at_ms, peer_missing_count, &mut out,
+);
+
+// 3. Serialize for UART/SPI.
+let mut wire_buf = [0u8; 16 * 32];
+let bytes = serialize_frames(&out[..n], &mut wire_buf);
+uart_dma_send(&wire_buf[..bytes]);
+```
+
+**`BroadcastBuffer<const N>`** is a fixed-capacity FIFO that
+collects outgoing frames between flush points. Overflow returns
+`false` from `push` and silently drops the oldest entry —
+predictable behavior on a microcontroller with hard memory
+bounds.
+
+**`broadcast_tick(counter, relay_id)`** gives wall-clock-less
+spores a deterministic ordering primitive. Two spores using the
+same monotonic counter still produce different ticks because
+their relay_ids hash in — no collision.
+
+**Cross-substrate locked vectors extended:** the same
+`0x929932B5` envelope hash that Eras 1400 + 1410 already pinned
+now appears in Era 1420 Rust tests as the output of
+`build_delta_chunk_frames` for hashes `[0x10, 0x20, 0x30]`. JS-
+side gains `chunkEventDelta` envelope_hash assertion against the
+same value. Either side drifting silently is now impossible —
+three independent test paths all pin the same bit pattern.
+
+**Spore role completed:** the firmware can now hold a forensic
+log (Era 1400), decode incoming event-delta envelopes (Era 1410),
+AND announce/ship its own (Era 1420). A pair of spores connected
+by UART loopback can converge their event sets without any JS
+relay in the middle. The next Era will wire this into a
+self-running main-loop scheduler.
+
+cargo: 239 → **254 passed** (+15). deno: 589 → **591 passed**
+(+2 cross-substrate locks). **845 total** tests.
+
+---
+
 ## 📡 **Era 1410: SporeFrame Wire-Format for Event Sync**
 *Статус: Завершено (2026-04-26)*
 

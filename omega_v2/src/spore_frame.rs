@@ -226,6 +226,104 @@ impl SporeFrame {
         f
     }
 
+    /// Era 1420: Build an EVENT_HASH_LIST frame announcing the
+    /// spore's known event_hash set anchor. Layout:
+    ///   proposal_or_target = sender_relay_id
+    ///   payload_a          = hash_set_anchor (FNV-1a over sorted set)
+    ///   payload_b          = total_hashes
+    ///   payload_c          = sequence_total packed (this_seq << 16 | total)
+    ///   tick               = broadcast_at_ms low32
+    pub fn event_hash_list(
+        sender_relay_id: u32,
+        hash_set_anchor: u32,
+        total_hashes: u32,
+        seq: u16,
+        total: u16,
+        broadcast_at_ms: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_EVENT_HASH_LIST;
+        f.proposal_or_target = sender_relay_id;
+        f.payload_a = hash_set_anchor;
+        f.payload_b = total_hashes;
+        f.payload_c = ((seq as u32) << 16) | (total as u32);
+        f.tick = broadcast_at_ms;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1420: Build an EVENT_DELTA_CHUNK header frame
+    /// (sequence=0). Layout:
+    ///   proposal_or_target = envelope_hash (= delta_hash)
+    ///   payload_a          = initiator_anchor
+    ///   payload_b          = replied_at_ms low32
+    ///   payload_c          = peer_missing_count
+    ///   tick               = envelope_hash
+    ///   reserved           = (0 << 16) | total
+    pub fn event_delta_chunk_header(
+        sender_relay_id: u8,
+        envelope_hash: u32,
+        initiator_anchor: u32,
+        replied_at_ms: u32,
+        peer_missing_count: u32,
+        total: u16,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_EVENT_DELTA_CHUNK;
+        f.oracle_bit = sender_relay_id;
+        f.proposal_or_target = envelope_hash;
+        f.payload_a = initiator_anchor;
+        f.payload_b = replied_at_ms;
+        f.payload_c = peer_missing_count;
+        f.tick = envelope_hash;
+        f._reserved = total as u32;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1420: Build an EVENT_DELTA_CHUNK record frame
+    /// (sequence > 0). Layout:
+    ///   proposal_or_target = event_hash
+    ///   payload_a          = 0 (sender shared via header.oracle_bit)
+    ///   payload_b          = packed kind tag (4 ASCII chars)
+    ///   payload_c          = chain_hash (informational)
+    ///   tick               = envelope_hash
+    ///   reserved           = (seq << 16) | total
+    pub fn event_delta_chunk_record(
+        sender_relay_id: u8,
+        envelope_hash: u32,
+        event_hash: u32,
+        kind_tag: u32,
+        chain_hash: u32,
+        seq: u16,
+        total: u16,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_EVENT_DELTA_CHUNK;
+        f.oracle_bit = sender_relay_id;
+        f.proposal_or_target = event_hash;
+        f.payload_a = 0;
+        f.payload_b = kind_tag;
+        f.payload_c = chain_hash;
+        f.tick = envelope_hash;
+        f._reserved = ((seq as u32) << 16) | (total as u32);
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1420: Pack a kind string (up to 4 ASCII chars) into a u32.
+    /// Mirrors JS `packKindTag` byte-for-byte. Truncates longer
+    /// strings; pads shorter ones with zeros (in the LSBs).
+    pub fn pack_kind_tag(kind: &[u8]) -> u32 {
+        let mut v: u32 = 0;
+        let n = if kind.len() > 4 { 4 } else { kind.len() };
+        for i in 0..4 {
+            let byte = if i < n { kind[i] as u32 } else { 0 };
+            v = (v << 8) | byte;
+        }
+        v
+    }
+
     /// Compute the CRC over bytes 0..28 (everything except the CRC slot).
     pub fn compute_crc(&self) -> u32 {
         let bytes = self.as_bytes();
@@ -300,6 +398,65 @@ mod tests {
     #[test]
     fn frame_is_exactly_32_bytes() {
         assert_eq!(core::mem::size_of::<SporeFrame>(), SPORE_FRAME_BYTES);
+    }
+
+    /// Era 1420: pack_kind_tag matches JS packKindTag byte-for-byte.
+    #[test]
+    fn pack_kind_tag_known_values() {
+        assert_eq!(SporeFrame::pack_kind_tag(b"test"), 0x7465_7374);
+        // "alarm" truncates to "alar".
+        assert_eq!(SporeFrame::pack_kind_tag(b"alarm"), 0x616C_6172);
+        // "x" pads with zeros: 'x','\0','\0','\0' = 0x78000000.
+        assert_eq!(SporeFrame::pack_kind_tag(b"x"), 0x7800_0000);
+        // empty: 0x00000000.
+        assert_eq!(SporeFrame::pack_kind_tag(b""), 0);
+    }
+
+    /// Era 1420: event_hash_list frame round-trips via raw bytes.
+    #[test]
+    fn event_hash_list_round_trips() {
+        let f = SporeFrame::event_hash_list(0xCAFE_BABE, 0x9299_32B5, 3, 0, 1, 12345);
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_HASH_LIST);
+        assert_eq!(parsed.proposal_or_target, 0xCAFE_BABE);
+        assert_eq!(parsed.payload_a, 0x9299_32B5);
+        assert_eq!(parsed.payload_b, 3);
+        assert_eq!(parsed.tick, 12345);
+    }
+
+    /// Era 1420: event_delta_chunk header frame round-trips.
+    #[test]
+    fn event_delta_chunk_header_round_trips() {
+        let f = SporeFrame::event_delta_chunk_header(
+            0x42, 0xDEAD_BEEF, 0xAAAA_BBBB, 99, 7, 5,
+        );
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_DELTA_CHUNK);
+        assert_eq!(parsed.oracle_bit, 0x42);
+        assert_eq!(parsed.proposal_or_target, 0xDEAD_BEEF);
+        assert_eq!(parsed.tick, 0xDEAD_BEEF); // envelope_hash
+        // sequence = 0, total = 5 in reserved.
+        assert_eq!(parsed._reserved & 0xFFFF, 5);
+        assert_eq!((parsed._reserved >> 16) & 0xFFFF, 0);
+    }
+
+    /// Era 1420: event_delta_chunk record frame round-trips.
+    #[test]
+    fn event_delta_chunk_record_round_trips() {
+        let f = SporeFrame::event_delta_chunk_record(
+            0x42, 0xDEAD_BEEF, 0x10, SporeFrame::pack_kind_tag(b"alrm"), 0xCAFE, 1, 3,
+        );
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_DELTA_CHUNK);
+        assert_eq!(parsed.proposal_or_target, 0x10);
+        assert_eq!(parsed.payload_b, 0x616C_726D); // "alrm"
+        assert_eq!(parsed.payload_c, 0xCAFE);
+        // sequence = 1, total = 3.
+        assert_eq!((parsed._reserved >> 16) & 0xFFFF, 1);
+        assert_eq!(parsed._reserved & 0xFFFF, 3);
     }
 
     /// Era 1410: locked frame-type registry. JS mirror in

@@ -181,6 +181,28 @@ Deno.test("end-to-end: chunked event delta passes Era 1390 applyEventDelta", () 
     assertEquals(a.size(), 3);
 });
 
+// --- Era 1420 cross-substrate locked vectors ---
+// These bytes mirror the Rust `event_broadcast::tests::*` outputs.
+// Drift on either side breaks both suites.
+
+Deno.test("cross-substrate: packKindTag known values match Rust pack_kind_tag", () => {
+    assertEquals(packKindTag("test"), 0x74657374);
+    assertEquals(packKindTag("alarm"), 0x616C6172); // truncates to "alar"
+    assertEquals(packKindTag("x"), 0x78000000);
+    assertEquals(packKindTag(""), 0);
+});
+
+Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] is 0x929932B5", () => {
+    const a = new ForensicEventSink();
+    const b = new ForensicEventSink();
+    fillSink(b, [0x10, 0x20, 0x30]);
+    const delta = computeEventDelta(buildEventHashList(a, T0), b.list(), T0 + 100);
+    const frames = chunkEventDelta(delta, SENDER);
+    // Header tick = envelope_hash = locked 0x929932B5.
+    assertEquals(frames[0].tick >>> 0, 0x9299_32B5);
+    assertEquals(frames[0].proposalOrTarget >>> 0, 0x9299_32B5);
+});
+
 // --- Frame type registry ---
 
 Deno.test("frame types: EVENT_HASH_LIST=9, EVENT_DELTA_CHUNK=10", () => {
