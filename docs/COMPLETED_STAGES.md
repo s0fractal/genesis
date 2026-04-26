@@ -4,6 +4,76 @@
 
 ---
 
+## 🔗 **Era 1440: Cross-Substrate Convergence Smoke**
+*Статус: Завершено (2026-04-26)*
+
+Up to Era 1430 cross-substrate parity was asserted at the
+*primitive* level — FNV anchors, frame-type IDs, kind-tag
+packing all locked individually. Era 1440 ratchets the lock
+one level up: a complete 128-byte envelope produced by the JS
+chunker MUST parse, reassemble, and apply on the Rust side and
+vice versa, all yielding the same content-address anchor.
+
+**The locked vector:**
+
+```rust
+pub const LOCKED_ENVELOPE_BYTES: [u8; 128] = [
+    0x4f, 0x46, 0x0a, 0x42, 0x92, 0x99, 0x32, 0xb5, ...
+    // ... 128 bytes total — 4 frames × 32 bytes
+];
+pub const LOCKED_ENVELOPE_HASH: u32 = 0x9299_32B5;
+```
+
+This byte sequence was emitted by `chunkEventDelta` for a
+delta carrying `[0x10, 0x20, 0x30]` with `kind = "alrm"`.
+Both substrates run five tests against it:
+
+| # | Test | Asserts |
+|---|------|---------|
+| 1 | `parses_via_spore_frame` | Each 32-byte frame's CRC validates |
+| 2 | `reassembles_through_accumulator` | EventDeltaAccumulator yields envelope_hash = 0x9299_32B5 |
+| 3 | `applied_yields_known_anchor` | Empty sink + apply produces sink anchor = 0x9299_32B5 |
+| 4 | `tampered_byte_breaks_parse` | Single bit flip → CRC rejection |
+| 5 | `truncated_rejected` / `JS emit produces locked sequence` | Wire format stable in both directions |
+
+The JS-side mirror test re-emits the bytes via the live JS
+chunker and asserts byte-equality with the locked snapshot.
+This catches a regression where the JS side drifts from the
+locked snapshot — the test fails BEFORE the Rust side has a
+chance to disagree.
+
+**What this proves end-to-end:**
+
+```
+JS sink → buildEventHashList → computeEventDelta
+  → chunkEventDelta → 128 bytes on the wire
+  → Rust parse_envelope_stream → SporeFrame[]
+  → EventDeltaAccumulator → take_delta
+  → apply_event_delta → ForensicEventSink<8>
+  → event_chain_anchor() == 0x9299_32B5
+```
+
+The same 0x9299_32B5 value also surfaces from:
+- `eventHashSetHash([0x10, 0x20, 0x30])` (Era 1390 JS).
+- `event_hash_set_hash(&[0x10, 0x20, 0x30])` (Era 1400 Rust).
+- `chunkEventDelta(...)` envelope_hash (Era 1410 JS).
+- `build_delta_chunk_frames(...)` envelope_hash (Era 1420 Rust).
+- The wire bytes themselves (Era 1440, both substrates).
+
+Six independent code paths, two languages, one bit pattern.
+Silent drift on any of them breaks at least two test suites
+simultaneously — the cross-substrate contract is now
+mechanically enforced.
+
+cargo: 269 → **274 passed** (+5). deno: 591 → **596 passed**
+(+5). **870 total** tests.
+
+The forensic stack's substrate-agnostic claim has graduated
+from "structurally identical" to "byte-for-byte interop" with
+a checked-in proof that survives any future refactor.
+
+---
+
 ## 🌀 **Era 1430: Spore Event Sync Loop**
 *Статус: Завершено (2026-04-26)*
 

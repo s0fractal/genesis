@@ -37,6 +37,7 @@ pub mod resilience_snapshot;
 pub mod forensic_event_sink;
 pub mod event_broadcast;
 pub mod event_sync_loop;
+pub mod cross_substrate_wire;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;

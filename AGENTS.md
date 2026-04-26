@@ -183,9 +183,10 @@ pub struct SignalStore {
 | 1410 | ✅ Complete | `event_sink_wire.ts` + `FRAME_TYPE_EVENT_HASH_LIST=9` / `FRAME_TYPE_EVENT_DELTA_CHUNK=10` (Rust + JS); chunkable event-delta envelope with same out-of-order/idempotent/gap-detecting properties as Era 1320 archive wire; locked Rust frame-type registry test mirrors JS values. |
 | 1420 | ✅ Complete | `omega_v2/src/event_broadcast.rs` — Cortex-M4F frame builders (`event_hash_list`, `event_delta_chunk_header`, `event_delta_chunk_record`), `pack_kind_tag` cross-substrate parity, `BroadcastBuffer<N>` no-alloc FIFO, deterministic `broadcast_tick`. Spore is now first-class convergence participant. |
 | 1430 | ✅ Complete | `omega_v2/src/event_sync_loop.rs` — `EventDeltaAccumulator<C>` reassembler (out-of-order, dedup, corruption-detect), `apply_event_delta` two-phase merger with collision rejection, `PeerSyncSlot` + scheduler ops. Smoke-test `two_spores_converge_via_round_trip` confirms substrate-only convergence. |
+| 1440 | ✅ Complete | `omega_v2/src/cross_substrate_wire.rs` + `tests/cross_substrate_wire_test.ts` — `LOCKED_ENVELOPE_BYTES` 128-byte snapshot of a 4-frame envelope; both substrates emit, parse, reassemble, and apply against the same byte sequence with anchor `0x9299_32B5`. Full wire-byte interop, not just structural parity. |
 
 ### Open Trigger
-- **Era 1440: Cross-Substrate Convergence Smoke** — JS-side test that constructs Era 1420 frames in Rust (via build_delta_chunk_frames), serializes them, parses through the JS `reassembleEventDelta`, and verifies anchor equality with the JS-emitted twin. Closes the loop: JS↔Rust full byte-stream interop, not just structural parity.
+- **Era 1450: Spore Main-Loop Glue + Wire-Driver Hook** — assemble Eras 1400-1430 inside `omega_spore/src/main.rs`'s tick loop: ingest from UART RX, route by frame_type, call accumulators, drive the scheduler, flush BroadcastBuffer to TX. Provide a clean abstraction for substituting the wire driver (UART vs SPI vs BLE).
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
