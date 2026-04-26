@@ -4,6 +4,110 @@
 
 ---
 
+## 🗂️ **Era 1580: Multi-Sink Investigator**
+*Статус: Завершено (2026-04-26)*
+
+The autonomous-investigation pathway through Era 1570 operates
+on a single `ForensicEventSink`. Real deployments host several:
+financial events, system alarms, security-domain logs, etc.
+Each sink has its own anchor and its own consensus. A peer
+banned in one domain should be banned in all of them.
+
+Era 1580 introduces `MultiSinkInvestigator` — a thin
+orchestrator that holds `Map<sink_id, AutoInvestigationLoop>`
+and routes per-sink operations cleanly while maintaining a
+*shared* peer-quarantine set.
+
+**Per-sink independence with shared peer state:**
+
+```ts
+const investigator = new MultiSinkInvestigator(emit);
+investigator.addSink("financial-events", financialOpts);
+investigator.addSink("system-alarms", alarmsOpts);
+
+// Observations route to the right sink:
+investigator.observePeerAnchor("financial-events", peer, anchor, now_ms);
+investigator.observePeerAnchor("system-alarms", peer, anchor, now_ms);
+
+// Each sink ticks independently:
+const result = investigator.tickAll(now_ms);
+//   .per_sink: Map<sink_id, LoopTickResult>
+//   .total_emitted, total_built, total_dissenters
+
+// Global quarantine bans across all sinks:
+investigator.excludePeerGlobally(0xFF);
+//   → every existing sink's tracker.exclude(0xFF)
+//   → any FUTURE sink added inherits the exclusion
+```
+
+**Emit callback gets `sink_id` metadata:**
+
+The wrapped emit callback receives proposals augmented with
+`sink_id`, so downstream routing (e.g. emit warrant_proposal
+plasmid into the right per-domain channel) is unambiguous:
+
+```ts
+const emit: WarrantEmit = (proposal) => {
+    const { sink_id, ...rest } = proposal as Augmented;
+    domainHandlers[sink_id]?.handle(rest);
+    return true;
+};
+```
+
+**Deterministic ordering:** `tickAll` iterates sinks in
+sorted-id order so test output is reproducible. The
+end-to-end test `tickAll iterates sinks in sorted-id order`
+verifies emissions arrive in `["alpha", "mike", "zulu"]`
+order regardless of insertion order.
+
+**End-to-end multi-sink + global-quarantine scenario:**
+
+```
+0xFF dissents in BOTH "alpha" and "beta" sinks.
+tickAll: 2 warrants emitted (one per sink), each tagged with sink_id.
+
+Senate quarantines 0xFF globally.
+investigator.excludePeerGlobally(0xFF);
+  → both tracker.exclude(0xFF) calls fire
+  → 0xFF's anchor observations purged from BOTH sinks
+
+0xFF re-observed in both sinks → silently dropped (excluded).
+tickAll: 0 warrants emitted; 0 dissenters in either sink.
+```
+
+**Aggregated telemetry:**
+
+```ts
+investigator.summary(now_ms):
+  {
+    sink_count: 2,
+    sink_ids: ["alpha", "beta"],
+    globally_excluded_count: 1,
+    per_sink_dissenter_counts: [
+      { sink_id: "alpha", dissenter_count: 0 },
+      { sink_id: "beta",  dissenter_count: 0 },
+    ],
+    total_dissenters: 0,
+  }
+```
+
+A single operator HUD line surfaces fleet-wide
+investigation state across all domains.
+
+**Pure composition:** no new policy logic. Each sink runs the
+exact Era 1550 loop semantics. The multi-sink layer is just
+dispatch + shared exclusion bookkeeping.
+
+cargo: 308 (unchanged). deno: 718 → **733 passed** (+15).
+**1041 total** tests.
+
+The forensic stack now scales horizontally across content
+domains while preserving its peer-level guarantees: a single
+quarantine action neutralizes a bad actor across every
+domain it might be touching.
+
+---
+
 ## 🔁 **Era 1570: Quarantine Lifecycle Bridge — Full Auto-Loop Closure**
 *Статус: Завершено (2026-04-26)*
 
