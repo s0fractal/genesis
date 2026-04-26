@@ -165,10 +165,11 @@ pub struct SignalStore {
 | 1230 | ✅ Complete | `reputation_feedback.ts` — soft reputation penalty from corroboration. |
 | 1240 | ✅ Complete | `mesh_health.ts` — composite score `[0, 1]`; bands; Q16-encodable. |
 | 1250 | ✅ Complete | `FRAME_TYPE_COMPOSITE_HEALTH=6` + `composite_monitor.ts` — composite broadcast; meta-partition at ≥0.20. |
-| 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replayWindow / replayThrough / summarize; serialize ↔ fromSerialized for forensic archives; replay-determinism invariant tested. |
+| 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replay; forensic determinism invariant. |
+| 1270 | ✅ Complete | `trace_sync.ts` — observationHash-based merge of N recorders; deterministic dedup; merged replay ≥ individual replays (forensic invariant tested). |
 
 ### Open Trigger
-- **Era 1270: Cross-Substrate Trace Sync** — two relays exchange frame logs covering overlapping windows; merged replay yields more complete forensic reconstruction than either relay alone.
+- **Era 1280: Forensic Quorum** — ≥3 relays' merged replay matches real-time alarm → "forensic quorum" admissible as high-confidence post-mortem evidence.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -242,4 +243,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0112) are COMPLETED. Forensic replay layer is live: every observability module is a pure function of recorded frames, so `replayWindow(recorder, t1, t2, factory, feed)` rebuilds any past observer state from a frame log. The replay-determinism invariant ("replay produces same state as live observation") is unit-tested. Recorders are bounded (default 4096) and serializable to flat 32-bytes-per-frame blobs for archival.
+**Current task status:** All open tasks (0086 → 0113) are COMPLETED. Cooperative forensic reconstruction is live: N relays exchange their recorded frame logs, deterministic `observationHash`-based merge dedups identical observations, and the merged log replays through any observer to yield strictly more complete reconstruction than any individual relay's recorder. The forensic invariant — "merged replay ≥ individual replays" — is explicitly tested with cross-relay overlapping intent sets resolving into double-witness via merge.

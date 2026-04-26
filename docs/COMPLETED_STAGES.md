@@ -4,6 +4,69 @@
 
 ---
 
+## 🔗 **Era 1270: Cross-Substrate Trace Sync — Cooperative Reconstruction**
+*Статус: Завершено (2026-04-27)*
+
+Era 1260 archived per-relay frame logs. Era 1270 lets cooperative
+relays MERGE their archives for cross-perspective forensic
+reconstruction. Each relay only sees frames that physically
+reached it; two relays observing overlapping mesh segments hold
+partially-overlapping logs. The merge yields a strictly-≥ outcome.
+
+**`observationHash`** — FNV-1a over `(frame_bytes, delivered_by,
+received_at_ms)`. Same observation = same hash. Different
+relays seeing the same wire frame are TWO observations (forensic
+multi-perspective signal).
+
+**`mergeTraces(a, b)`** returns:
+```
+{
+  merged: RecordedFrame[]   // deduplicated, sorted by ts then hash
+  shared_hashes: number[]   // appeared in both → overlap signal
+  a_only: number[]          // unique to A
+  b_only: number[]          // unique to B
+}
+```
+
+**Determinism** — sort key `received_at_ms` ascending, then
+`observationHash` ascending. Two relays computing the same
+merge get byte-identical merged sequences. Tested with
+"determinism across calls" + "tie-break by hash" tests.
+
+**Forensic invariant** (tested):
+```
+A sees intents {1,2,3} (single-witness)
+B sees intents {3,4,5} (single-witness; intent 3 overlaps with A)
+
+A.replay → 3 single-witness, 0 double
+B.replay → 3 single-witness, 0 double
+mergeTraces(A,B).replay → 5 total intents, 1 double-witness (intent 3)
+```
+
+The merge surfaces double-witness signals that NEITHER relay
+could detect alone — multi-perspective reconstruction.
+
+**`coverageStats(result)`** returns
+`{total_unique, shared, a_only, b_only, overlap_ratio,
+a_exclusive_ratio, b_exclusive_ratio}` — operator HUDs use
+overlap_ratio to gauge how much trace exchange improves
+incident reconstruction.
+
+**`mergeMany(recorders[])`** — pairwise reduction across N
+recorders for ≥3-relay cooperative scenarios.
+
+cargo: 223 (unchanged). deno: 324 → **343 passed** (+19).
+**566 total** tests.
+
+The mesh's forensic stack is now multi-perspective. A partition
+incident reconstructed from 3 relays' logs is more complete
+(and more credible as evidence) than from any single relay.
+This is the post-mortem analog of Era 1220's pre-ratification
+corroboration: agreement across multiple observers strengthens
+the conclusion regardless of timing.
+
+---
+
 ## 🎞️ **Era 1260: Snapshot/Trace Replay — Forensic Reconstruction**
 *Статус: Завершено (2026-04-27)*
 
