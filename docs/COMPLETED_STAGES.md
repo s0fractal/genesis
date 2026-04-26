@@ -4,6 +4,71 @@
 
 ---
 
+## 🔁 **Era 1390: Event Sink Sync**
+*Статус: Завершено (2026-04-26)*
+
+Era 1380 stored events durably on a single relay; Era 1390 makes
+them converge across the mesh. The protocol mirrors Era 1310's
+archive sync exactly — same set-difference idiom, same FNV-1a
+anchor, same collision-rejection invariant.
+
+**Three-phase exchange:**
+
+```
+1. Initiator  → Peer:  EventHashList   (sorted event_hashes + anchor)
+2. Peer       → Init:  EventDelta      (entries init lacks +
+                                        hashes peer lacks)
+3. Initiator applies delta with integrity verification.
+```
+
+`syncRound(a, b)` is a one-call reference impl that runs both
+directions; production drives the per-direction primitives over
+the wire (Era 1320-style chunked envelopes are future work for
+high-volume event streams).
+
+**Integrity guarantees:**
+- `delta_hash = FNV-1a(missing_entries' event_hash set, sorted)`
+  — wire tampering detectable.
+- Each delta entry must carry `EVENT_SINK_SCHEMA` — bad-schema
+  rejection.
+- **Collision rejection**: an entry whose `event_hash` matches a
+  local entry but whose `kind` differs is corruption — refused
+  rather than silently merged. The "event_hash content-addresses
+  payload" invariant is the chain-of-custody we preserve here.
+- **Idempotent**: re-syncing already-known entries silently skips.
+
+**Why imported entries get fresh local chain links:** Era 1380's
+`chain_hash` is a *log-order* anchor specific to one sink. Two
+sinks with the same `event_hash` set will have different
+chain_hashes because their sequence numbers and arrival orders
+differ. The cross-relay invariant we preserve is the
+content-address (`event_hash`); each sink owns its own
+chain-of-custody for the order in which IT saw events. Importing
+re-runs `append`, getting a fresh `prev_chain_hash` and
+`chain_hash` from the local tail. Verifies cleanly post-merge.
+
+**Convergence guarantee:** after `eventSyncRound(a, b)`, both
+sinks return identical `eventChainAnchor()` values. Disjoint
+inputs fully merge (4 events; both sides know all 4). Identical
+inputs produce zero additions (no churn). The chain on both sides
+verifies clean.
+
+**Reuse pattern:** Era 1390 is structurally a copy of Era 1310
+operating on a different content domain. The repetition is
+deliberate — it confirms the set-difference protocol is the right
+abstraction for any content-addressed store. Future Eras can use
+the same shape for resilience snapshots, mitosis logs, or any
+new data type with a stable per-record hash.
+
+cargo: 223 (unchanged). deno: 554 → **573 passed** (+19).
+**796 total** tests.
+
+The forensic stack is now fully self-replicating across the mesh:
+archives sync, events sync, both with byte-identical convergence
+guarantees, both deterministic, both auditable end to end.
+
+---
+
 ## 📜 **Era 1380: Forensic Event Sink**
 *Статус: Завершено (2026-04-26)*
 

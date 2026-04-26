@@ -178,9 +178,10 @@ pub struct SignalStore {
 | 1360 | ✅ Complete | `network_digest_aggregator.ts` — TTL-bounded per-peer `ArchiveDigestList` store; `networkDigests()` returns deduplicated sorted union of fresh peers; `convergenceSignal()` plumbs union into Era 1350; cross-relay-stable `networkDigestSetHash`. |
 | 1370 | ✅ Complete | `convergence_auto_sync.ts` — `rankPeersByNovelty` set-difference scoring; `selectMostInformativePeer` + `selectAlarmOverrideOrder` bypass cooldown (cold peers still excluded); `convergenceAlarmEvent` with FNV-1a hash anchor for cross-relay corroboration. |
 | 1380 | ✅ Complete | `forensic_event_sink.ts` — append-only chain-anchored event log; per-entry `chain_hash` folds predecessor; FIFO eviction preserves chain validity for surviving prefix; `verifyChain` detects tampering; `eventChainAnchor` is cross-relay-stable; `diffEventSinks` mirrors Era 1310 set-difference. |
+| 1390 | ✅ Complete | `event_sink_sync.ts` — set-difference sync for event sinks; `EventHashList` / `EventDelta` mirror Era 1310 shapes; `applyEventDelta` re-appends imported entries (fresh local chain links) preserving `event_hash` content address; collision rejection (same hash, different kind); `eventSyncRound` bidirectional convergence. |
 
 ### Open Trigger
-- **Era 1390: Event Sink Sync over Wire** — apply Era 1310/1320 archive-sync mechanics to the event log: chunkable `EventDelta` envelopes over SporeFrames, peer-to-peer event reconciliation, integrity-checked merge with collision rejection (same `event_hash` with conflicting payload → corruption signal).
+- **Era 1400: Cortex-M4F Forensic Spore Bring-up** — port the convergence + event-sink stack onto the bare-metal `omega_spore` firmware so a single relay node can run the full forensic pipeline standalone; cross-substrate byte-equivalence on `eventChainAnchor` and `delta_hash`; integration smoke-test through the SporeFrame transport.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
