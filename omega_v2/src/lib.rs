@@ -33,6 +33,7 @@ pub mod codeicide_law;
 pub mod warrant_issuance;
 pub mod spore_frame;
 pub mod spore_routing;
+pub mod resilience_snapshot;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
