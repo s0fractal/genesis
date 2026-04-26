@@ -4,6 +4,45 @@
 
 ---
 
+## 📡 **Era 1190: Resilience Snapshot Export**
+*Статус: Завершено (2026-04-26)*
+
+The Era 1180 redundancy metric becomes wire-portable. A 32-byte
+binary report carries every counter plus a Q16 fixed-point
+representation of `redundancy_rate`, FNV-1a CRC-protected, magic
+"RS" tagged, version-validated. Anchored cross-language at CRC
+`0x98E5_768B` for `(total=100, single=30, double=60, triple=10,
+carriers=25)`.
+
+**Wire layout (32 bytes, BE):**
+```
+0..2     magic = 0x5253 ("RS")
+2..3     version = 1
+3..4     reserved
+4..8     total_intents
+8..12    single_witness
+12..16   double_witness
+16..20   triple_plus
+20..24   redundancy_rate_q16 (rate × 65536, integer-only)
+24..28   proven_carrier_count
+28..32   fnv1a-crc(bytes[0..28])
+```
+
+Q16 round-half-up math keeps the rate integer on the wire:
+`(double × 65536 + total/2) / total`. 60/100 → 39322 (not 39321).
+Identical in Rust and JS by construction.
+
+Partition detection: `redundancyRateDiffQ16(a, b)` returns the
+absolute Q16 difference between two snapshots. When it exceeds
+`PARTITION_DIFF_THRESHOLD_Q16 = 6553` (≈10% rate disagreement),
+two relays observing the same physical mesh have diverged enough
+that either the network split or one relay is compromised.
+
+cargo: 211 → **223 passed** (+12). deno: 187 → **203 passed** (+16).
+**426 total** tests. **14 cross-language anchors** locked.
+
+---
+
 ## 👁️ **Era 1180: Convergence Detection**
 *Статус: Завершено (2026-04-26)*
 
