@@ -4,6 +4,81 @@
 
 ---
 
+## 🌐 **Era 1500: WebRTC Event Bridge**
+*Статус: Завершено (2026-04-26)*
+
+The forensic event protocol ran on UART/SPI/BLE (Eras 1410-1490)
+and on in-process JS calls. Era 1500 connects browser peers to
+the same protocol via WebRTC DataChannels — without coupling the
+bridge to the underlying RTCPeerConnection API.
+
+**Transport-agnostic design:**
+
+```ts
+interface BridgeTransport {
+    send(peer_id: number, msg: BridgeMessage): boolean;
+}
+```
+
+WebRTC implementations wrap `RTCDataChannel.send`; tests use a
+paired in-process `PairedTransport` that delivers messages
+synchronously. The bridge logic doesn't know or care.
+
+**Three message kinds:**
+
+```
+PEER_HELLO  — handshake announcing peer_id + bridge schema.
+HASH_LIST   — sender's anchor + sorted hash set.
+DELTA       — entries the receiver was missing (mirrors
+              Era 1390's EventDelta shape exactly).
+```
+
+**Automatic DELTA-back:** on receipt of a peer's HASH_LIST, the
+bridge runs `computeEventDelta` against the local sink and
+immediately ships any missing entries. This is the
+single-round-trip convergence path: peer announces what it
+knows, we tell it what it's missing.
+
+**Telemetry surface** counts every event for HUD wiring:
+hellos_sent/received, hash_lists_sent/received, deltas_sent/
+received/applied, apply_collisions, schema_mismatches.
+
+**Schema enforcement:** every HASH_LIST and DELTA carries the
+Era 1390 `OMEGA-1390/v1` schema string. Bridge handshake uses
+`OMEGA-1500/v1`. Mismatch → schema_mismatches counter increments
++ message rejected. Two relays running different protocol
+versions detect it on the first packet.
+
+**Collision rejection preserved:** the bridge delegates to
+Era 1390's `applyEventDelta`, so the same-event_hash-with-
+different-kind detection from Era 1390 still applies on incoming
+DELTA messages. A peer trying to push corrupted entries is
+rejected by `applyEventDelta` and the bridge's `apply_collisions`
+counter ticks up.
+
+**Bidirectional convergence proven:** two bridges with disjoint
+events `{0x10, 0x20}` and `{0x30, 0x40}` reach byte-identical
+`anchor()` after just two HASH_LIST rounds (one per direction).
+Synchronous in-process delivery — exactly what real WebRTC
+DataChannels deliver in the same-event-loop case.
+
+**Peer-known gating:** sends are only allowed to peers that have
+either said HELLO or sent us a HASH_LIST. Prevents the bridge
+from spraying messages at unconnected peers (which would be
+WebRTC errors).
+
+cargo: 308 (unchanged — JS-only). deno: 615 → **629 passed** (+14).
+**937 total** tests.
+
+The bridge is the missing link: the same forensic event protocol
+that runs on a Cortex-M4F over UART (Era 1490 AutoPipeline) also
+runs in the browser over WebRTC, with byte-identical content
+hashes and convergence guarantees. A 3-substrate fleet (browser
+peer + spore + JS relay) can now reconcile its event log without
+any single substrate being privileged.
+
+---
+
 ## 🤖 **Era 1490: ConvergenceDriver Auto-Pipeline**
 *Статус: Завершено (2026-04-26)*
 
