@@ -156,10 +156,11 @@ pub struct SignalStore {
 | 1140 | ✅ Complete | `reputation_routing.ts` — deterministic per-neighbor scores; healthy bonus, heartbeat density, warrant throughput, stall/silence penalties. |
 | 1150 | ✅ Complete | `adaptive_ttl.ts` — per-frame TTL from path reliability. |
 | 1160 | ✅ Complete | `path_selection.ts` — efficiency = reliability × 1000 / TTL. |
-| 1170 | ✅ Complete | `path_diversification.ts` — high-priority WARRANT_VOTE frames duplicated along disjoint paths; FIFO dedup window catches second arrivals via FNV-1a intent key. |
+| 1170 | ✅ Complete | `path_diversification.ts` — high-priority WARRANT_VOTE frames duplicated along disjoint paths. |
+| 1180 | ✅ Complete | `convergence_detector.ts` — destination-side observer; classifies intents single/double/triple+ witness, exposes redundancy_rate, proven_carriers, stragglers. |
 
 ### Open Trigger
-- **Era 1180: Convergence Detection** — when both copies of a duplicated WARRANT_VOTE arrive at the destination, the Senate logs a "double-witness" event as evidence of network resilience.
+- **Era 1190: Resilience Snapshot Export** — relays serialize their convergence stats into a fixed-width binary report; spores broadcast "my view of mesh health" alongside HEARTBEATs.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -233,4 +234,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0103) are COMPLETED. The transport stack now duplicates high-priority frames along disjoint paths and deduplicates at the destination via a FNV-1a intent key. WARRANT_VOTE frames get redundancy proportional to their stakes; HEARTBEATs stay single-path. The mesh now defends against single-path radio glitches by structural redundancy, not by retries.
+**Current task status:** All open tasks (0086 → 0104) are COMPLETED. The destination now MEASURES the redundancy: every dedup-caught duplicate becomes a "double-witness" record, every distinct intent gets a witness_class (single/double/triple+), every relay computes a `redundancy_rate` that quantifies how often duplication is paying off. Single-witness stragglers past staleness threshold surface as retry candidates.

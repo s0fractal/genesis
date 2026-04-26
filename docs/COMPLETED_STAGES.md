@@ -4,6 +4,49 @@
 
 ---
 
+## 👁️ **Era 1180: Convergence Detection**
+*Статус: Завершено (2026-04-26)*
+
+The destination-side observer that turns DedupWindow's "second arrival"
+events into a first-class resilience signal. Every observed intent
+gets classified:
+
+- **single-witness** — only one copy arrived (single-path or lossy)
+- **double-witness** — both disjoint paths delivered (redundancy proven)
+- **triple+ witness** — three or more copies (over-redundancy / debug)
+
+Headline metric: **redundancy_rate = double_witness / total_intents**.
+
+```ts
+const cd = new ConvergenceDetector(512);
+cd.observe(frame, "spore-A", now);   // first copy   → single
+cd.observe(frame, "spore-B", now+100); // second copy → DOUBLE-WITNESS
+cd.stats(); // { total: 1, double: 1, redundancy_rate: 1.0 }
+```
+
+Operator surfaces:
+- `proven_carriers()` → spore IDs that participated in ≥1
+  multi-witness event. These are spores the operator can trust
+  beyond reputation scoring.
+- `stragglers(now, stale_ms)` → single-witness intents past a
+  staleness threshold. Candidates for retry / alarm.
+
+Bounded ring buffer (default capacity 512) with FIFO eviction
+keeps memory predictable on relays observing busy meshes.
+
+cargo: 211 (relay-side, JS-only). deno: 173 → **187 passed**.
+**398** total tests. 14 new tests cover witness-class transitions,
+de-double-counting same carrier, redundancy_rate aggregation,
+proven_carriers ordering, straggler detection, capacity eviction,
+heartbeat-and-warrant separation.
+
+The mesh's resilience is no longer just architectural — it's
+**measurable**. A relay can show "this hour: 87% double-witness
+rate" and operators know the redundancy infrastructure is doing
+real work.
+
+---
+
 ## 🌉 **Era 1170: Path Diversification**
 *Статус: Завершено (2026-04-26)*
 
