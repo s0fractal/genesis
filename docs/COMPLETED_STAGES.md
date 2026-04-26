@@ -4,6 +4,94 @@
 
 ---
 
+## 🤖 **Era 1490: ConvergenceDriver Auto-Pipeline**
+*Статус: Завершено (2026-04-26)*
+
+Era 1480 wired all the primitives but still required callers to
+drive the state machine: detect mismatch → ship_hash_request →
+wait → take_peer_hashes → compute_missing_indices → ship_delta.
+Era 1490 wraps that whole dance in a single `step()` call.
+
+**`AutoPipeline<const M>` state:**
+
+```rust
+pub struct AutoPipeline<const M: usize> {
+    pub driver: ConvergenceDriver<M>,
+    pending_request_id: u32,        // 0 = idle
+    pending_request_peer_id: u32,
+    pending_request_started_ms: u32,
+    pub request_timeout_ms: u32,
+}
+```
+
+**Three-phase tick:**
+
+```rust
+pipeline.step(&mut runner, &mut driver, &local_entries, now_ms);
+// Phase 1: drain peer hash list if it matches our pending request.
+//          → compute_missing_indices → ship_delta with missing
+//            entries only → record_sync_success.
+// Phase 2: if pending request older than request_timeout_ms,
+//          record_sync_failure on the peer.
+// Phase 3: if idle, select next mismatched peer + issue
+//          HASH_REQUEST + record_sync_attempt.
+```
+
+**`generate_request_id`** is FNV-1a over `(self_relay_id, now_ms)`
+— deterministic, distinct per concurrent attempt, no allocator.
+The output is forced to be non-zero (zero is the "no pending"
+sentinel).
+
+**End-to-end test `auto_pipeline_completes_on_response_with_diff_ship`:**
+
+```
+A: [0x10, 0x20]   B: [0x10]    (B missing 0x20)
+A: pipeline.step → issues HASH_REQUEST to B
+A→B: REQUEST delivered
+B: handles REQUEST → pending state set
+B: maybe_answer_pending_request → emits HASH_RESPONSE
+B→A: RESPONSE delivered
+A: runner ingests → pending_peer_hashes set
+A: pipeline.step:
+   Phase 1: takes peer hashes, computes missing = [0x20],
+            ships delta containing only 0x20,
+            records_sync_success, has_pending_request → false.
+A→B: DIFF (1 entry) delivered
+B: applies → sink_len = 2.
+```
+
+**Timeout safety:** `auto_pipeline_times_out_stale_request` test
+proves that if the response never arrives within
+`request_timeout_ms`, Phase 2 records a sync failure and clears
+the pending state — preventing the pipeline from getting stuck
+on a flaky peer.
+
+**Cleanup correctness:** the `complete_request` and `fail_request`
+helpers are the only mutation paths for pending state, ensuring
+no Phase mistakenly leaves stale request_ids around.
+
+cargo: 303 → **308 passed** (+5: pipeline starts-idle,
+issues-request-on-mismatch, completes-on-response-with-diff-ship,
+times-out-stale-request, no-op-when-nothing-to-ship). deno: 615
+(unchanged). **923 total** tests.
+
+The forensic-event convergence stack is now feature-complete on
+both substrates with single-call ergonomics. A spore in its main
+loop becomes:
+
+```rust
+loop {
+    runner.step(&mut driver, now_ms);
+    pipeline.step(&mut runner, &mut driver, &local_entries, now_ms);
+    sleep_until_next_tick();
+}
+```
+
+Two functions, full convergence behavior. The bare-metal
+substrate is now genuinely autonomous on this protocol.
+
+---
+
 ## 🚇 **Era 1480: HASH_REQUEST → DIFF_SHIP Pipeline on Spore**
 *Статус: Завершено (2026-04-26)*
 
