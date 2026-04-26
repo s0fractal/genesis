@@ -137,4 +137,21 @@ export class AutoInvestigationLoop {
         this.trigger.forget(peer_id);
         this.warrants.forget(peer_id);
     }
+
+    /** Era 1560: mark a peer as quarantined. Their anchor
+     *  observations are excluded from quorum (so they can't game
+     *  consensus) and their trigger record is cleared so they
+     *  won't generate further warrants while excluded. The
+     *  dedup state in the warrant bridge IS preserved — if the
+     *  peer is later un-excluded and dissents again, the cooldown
+     *  still applies. */
+    excludePeer(peer_id: number): void {
+        this.tracker.exclude(peer_id);
+        this.trigger.forget(peer_id);
+    }
+
+    /** Era 1560: undo `excludePeer`. */
+    includePeer(peer_id: number): void {
+        this.tracker.unexclude(peer_id);
+    }
 }

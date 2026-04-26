@@ -72,6 +72,10 @@ export const DEFAULT_QUORUM_OPTS: QuorumOptions = {
 
 export class EventChainQuorumTracker {
     private observations = new Map<number, PeerAnchorObservation>();
+    /** Era 1560: peers excluded from quorum (e.g. quarantined).
+     *  Observations from these peers are silently dropped at
+     *  `observe` time and any existing observations are removed. */
+    private excluded = new Set<number>();
 
     constructor(public readonly opts: QuorumOptions = DEFAULT_QUORUM_OPTS) {
         if (!Number.isFinite(opts.ttl_ms) || opts.ttl_ms <= 0) {
@@ -83,13 +87,36 @@ export class EventChainQuorumTracker {
     }
 
     /** Record (or update) a peer's anchor claim. Re-observing the
-     *  same peer overwrites their prior claim. */
+     *  same peer overwrites their prior claim. Excluded peers
+     *  (Era 1560) are silently ignored. */
     observe(peer_id: number, anchor: number, now_ms: number): void {
-        this.observations.set(peer_id >>> 0, {
-            peer_id: peer_id >>> 0,
+        const pid = peer_id >>> 0;
+        if (this.excluded.has(pid)) return;
+        this.observations.set(pid, {
+            peer_id: pid,
             anchor: anchor >>> 0,
             observed_at_ms: now_ms,
         });
+    }
+
+    /** Era 1560: mark a peer as excluded from quorum. Drops any
+     *  existing observation. Subsequent `observe` calls for this
+     *  peer are silently ignored until `unexclude` is called. */
+    exclude(peer_id: number): void {
+        const pid = peer_id >>> 0;
+        this.excluded.add(pid);
+        this.observations.delete(pid);
+    }
+
+    /** Era 1560: undo a prior `exclude`. The peer can again contribute
+     *  observations from this point forward. */
+    unexclude(peer_id: number): void {
+        this.excluded.delete(peer_id >>> 0);
+    }
+
+    /** Era 1560: snapshot of currently-excluded peer ids, sorted ascending. */
+    excludedPeers(): number[] {
+        return [...this.excluded].sort((a, b) => a - b);
     }
 
     /** Drop a peer's observation explicitly (operator command,

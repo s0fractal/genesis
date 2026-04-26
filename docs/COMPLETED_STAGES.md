@@ -4,6 +4,64 @@
 
 ---
 
+## 🚫 **Era 1560: Quarantine-Aware Exclusion**
+*Статус: Завершено (2026-04-26)*
+
+Era 1550 closed the autonomous loop:
+`anchor disagreement → quorum signal → warrant → oracle vote →
+quarantine`. But after quarantine engages, the convergence stack
+still tracks the quarantined peer's anchor observations — wasted
+work, plus a small-but-real surface for the bad peer to game
+consensus by reporting fresh anchors.
+
+Era 1560 plugs that gap. `EventChainQuorumTracker` and
+`AutoInvestigationLoop` gain symmetric `exclude`/`include`
+operations:
+
+```ts
+// On quarantine engagement (3-of-5 oracle vote affirmed):
+loop.excludePeer(0xFF);
+//   → tracker drops 0xFF's existing observation
+//   → future observe calls for 0xFF silently dropped
+//   → trigger record cleared (no further warrants while excluded)
+//   → bridge dedup state PRESERVED (so re-quarantine after
+//     un-exclude still respects pacing)
+
+// When quarantine resolves:
+loop.includePeer(0xFF);
+//   → tracker accepts new observations
+//   → if 0xFF still dissents, the trigger evaluates fresh
+//     subject to band/duration/dedup gates
+```
+
+**Asymmetric state semantics** (deliberate):
+- Tracker observation: dropped + future calls ignored.
+- Trigger record: dropped (no in-flight investigation while
+  excluded).
+- Warrant bridge dedup: PRESERVED (cooldown survives so a
+  re-included peer that immediately re-dissents still gets
+  paced).
+
+This matches the operational reality: quarantine is a "verified
+bad actor" state, not just a pause. The cooldown should outlive
+the exclusion so re-emergence doesn't bypass the pacing the
+operator originally configured.
+
+**Consensus stabilization:** the test
+`excluding the lone dissenter restores band='high'` proves the
+end state — once the bad peer is excluded, the remaining peers
+agree, dissenter_count = 0, no further warrants.
+
+**Re-emergence path:** the test
+`includePeer un-quarantines so dissenter can re-trigger after
+cooldown` proves re-inclusion is clean — un-exclude + dissent →
+fresh evaluation (subject to upstream gates).
+
+cargo: 308 (unchanged). deno: 696 → **706 passed** (+10).
+**1014 total** tests.
+
+---
+
 ## 🔄 **Era 1550: Auto-Investigation Loop Harness — 1000 Tests**
 *Статус: Завершено (2026-04-26)*
 
