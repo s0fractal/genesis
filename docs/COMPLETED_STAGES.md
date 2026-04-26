@@ -4,6 +4,58 @@
 
 ---
 
+## 🌉 **Era 1170: Path Diversification**
+*Статус: Завершено (2026-04-26)*
+
+High-priority frames travel TWO disjoint paths simultaneously. The
+destination's `DedupWindow` catches the second arrival via an
+FNV-1a intent key and discards it without reprocessing.
+
+```
+[origin] ──primary path──→ [dest]
+   │                          ↑
+   └──secondary disjoint path─┘
+                              ↓
+                       DedupWindow.seen(key)?
+                          first → false (process)
+                          second → true (drop)
+```
+
+Priority gating:
+- `WARRANT_VOTE` → high priority → duplicated when disjoint
+  alternative exists.
+- `HEARTBEAT` → low priority → single-path (waste of radio to
+  duplicate informational beacons).
+
+Dedup key formula:
+```
+dedupKey = FNV-1a-32(frame_type || oracle_bit || target_BE || tick_BE)
+```
+This intentionally ignores TTL, trail digest, and CRC — those
+legitimately differ across copies. Only the semantic INTENT is
+hashed. Two valid copies of the same WARRANT_VOTE produce identical
+dedup keys.
+
+`src/network/path_diversification.ts` exposes:
+- `dedupKey(frame)` — canonical intent fingerprint.
+- `isHighPriority(frame)` — gating predicate.
+- `pathsAreDisjoint(a, b)` — empty intermediate intersection check.
+- `planDiversification(candidates, frame)` →
+  `{primary, secondary?, duplicated}`.
+- `DedupWindow` class — FIFO sliding window with bounded memory.
+
+cargo: 211 (relay-side, JS-only). deno: 155 → **173 passed**.
+**384** total tests. 18 new tests cover priority gating, dedup key
+correctness, disjoint detection, fork exclusion, FIFO eviction,
+end-to-end duplicate catch.
+
+The mesh now defends against single-path radio glitches by
+**structural redundancy**, not by retries. A WARRANT_VOTE that
+loses its primary path still arrives via secondary — and the
+destination never processes it twice.
+
+---
+
 ## 🛣️ **Era 1160: Path Selection by Reputation × TTL Budget**
 *Статус: Завершено (2026-04-26)*
 
