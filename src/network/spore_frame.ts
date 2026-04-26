@@ -15,6 +15,7 @@ export const FRAME_TYPE_WARRANT_VOTE = 1;
 export const FRAME_TYPE_HALO_STATE = 2;
 export const FRAME_TYPE_HEARTBEAT = 3;
 export const FRAME_TYPE_QUORUM_QUERY = 4;
+export const FRAME_TYPE_SNAPSHOT_DIGEST = 5;
 
 export interface SporeFrame {
     magic: number;
@@ -135,6 +136,26 @@ export function buildHeartbeat(genesisHash: number, tick: number): SporeFrame {
     const f = emptyFrame();
     f.frameType = FRAME_TYPE_HEARTBEAT;
     f.proposalOrTarget = genesisHash >>> 0;
+    f.tick = tick >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Era 1200: Build a SNAPSHOT_DIGEST frame carrying a relay's
+ *  headline resilience stats in compact form. */
+export function buildSnapshotDigest(
+    relayId: number,
+    totalIntents: number,
+    doubleWitness: number,
+    redundancyRateQ16: number,
+    tick: number,
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_SNAPSHOT_DIGEST;
+    f.proposalOrTarget = relayId >>> 0;
+    f.payloadA = totalIntents >>> 0;
+    f.payloadB = doubleWitness >>> 0;
+    f.payloadC = redundancyRateQ16 >>> 0;
     f.tick = tick >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;

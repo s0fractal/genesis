@@ -39,6 +39,14 @@ pub const FRAME_TYPE_WARRANT_VOTE: u8 = 1;
 pub const FRAME_TYPE_HALO_STATE: u8 = 2;
 pub const FRAME_TYPE_HEARTBEAT: u8 = 3;
 pub const FRAME_TYPE_QUORUM_QUERY: u8 = 4;
+/// Era 1200: compact resilience digest (relay's headline stats).
+/// Layout in SporeFrame payload slots:
+///   proposal_or_target = relay_id (FNV-1a of relay name)
+///   payload_a          = total_intents
+///   payload_b          = double_witness
+///   payload_c          = redundancy_rate_q16
+///   tick               = relay's tick at emission
+pub const FRAME_TYPE_SNAPSHOT_DIGEST: u8 = 5;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -96,6 +104,28 @@ impl SporeFrame {
         let mut f = Self::empty();
         f.frame_type = FRAME_TYPE_HEARTBEAT;
         f.proposal_or_target = genesis_hash;
+        f.tick = tick;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1200: Build a SNAPSHOT_DIGEST frame carrying a relay's
+    /// headline resilience stats. Compact alternative to the
+    /// 32-byte ResilienceSnapshot — fits within SporeFrame so it
+    /// rides the same transport as warrants/heartbeats.
+    pub fn snapshot_digest(
+        relay_id: u32,
+        total_intents: u32,
+        double_witness: u32,
+        redundancy_rate_q16: u32,
+        tick: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_SNAPSHOT_DIGEST;
+        f.proposal_or_target = relay_id;
+        f.payload_a = total_intents;
+        f.payload_b = double_witness;
+        f.payload_c = redundancy_rate_q16;
         f.tick = tick;
         f.crc32 = f.compute_crc();
         f

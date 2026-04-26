@@ -4,6 +4,62 @@
 
 ---
 
+## 🚨 **Era 1200: Snapshot-as-Plasmid + Peer Partition Monitor**
+*Статус: Завершено (2026-04-26)*
+
+The Era 1190 snapshot rides the existing SporeFrame transport via
+a new `FRAME_TYPE_SNAPSHOT_DIGEST = 5` that packs the headline
+numbers (relay_id, total_intents, double_witness, q16_rate, tick)
+into the existing payload slots. Every relay broadcasts its digest;
+every relay observes peer digests via `PeerSnapshotMonitor` and
+surfaces partition alarms when measurements diverge.
+
+**Wire shape (within SporeFrame):**
+```
+proposal_or_target = relay_id  (FNV-1a of relay name)
+payload_a          = total_intents
+payload_b          = double_witness
+payload_c          = redundancy_rate_q16
+tick               = relay's tick at emission
+```
+
+**Partition alarm fires iff:**
+- `|self.q16 - peer.q16| ≥ 6553` (≈10% rate disagreement),
+- AND both self and peer have non-zero `total_intents` (no empty
+  baselines false-positive).
+
+**Alarm record:**
+```ts
+{
+  relay_id: number,
+  self_rate_q16: number,
+  peer_rate_q16: number,
+  diff_q16: number,
+  diff_percent: "12.34%",
+  observed_at_ms: number,
+}
+```
+
+`PeerSnapshotMonitor` provides:
+- `observe(frame, now_ms)` — ingests SNAPSHOT_DIGEST, computes
+  partition status, emits alarm via callback if flagged.
+- `snapshot()` / `suspectedPartitions()` / `recentAlarms(n)`.
+- FIFO peer table with default capacity 64.
+
+`snapshotFromDigest(frame)` reconstructs a partial
+ResilienceSnapshot for cross-comparison; the missing `triple+`
+count is approximated as zero (slightly conservative).
+
+cargo: 223 (unchanged). deno: 203 → **218 passed** (+15).
+**441 total** tests.
+
+The mesh now SURFACES split-brain in real time. A relay that
+loses contact with a chunk of the fleet sees its own metrics drop;
+peers still in contact with that chunk see theirs hold. The diff
+exceeds threshold → operator alarm in the same tick.
+
+---
+
 ## 📡 **Era 1190: Resilience Snapshot Export**
 *Статус: Завершено (2026-04-26)*
 
