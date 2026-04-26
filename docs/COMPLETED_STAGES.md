@@ -4,6 +4,72 @@
 
 ---
 
+## 🌐 **Era 1360: Network Digest Aggregation**
+*Статус: Завершено (2026-04-26)*
+
+Era 1350 needs `network_digests` to compute the convergence
+signal, but synthesizing that input was left to the caller. In a
+real mesh, the network-known digest set is the union of every
+peer's `ArchiveDigestList` — and those lists already flow over
+the wire (Era 1310 + Era 1320). Era 1360 introduces
+`NetworkDigestAggregator`: a TTL-bounded observation store that
+turns a stream of peer digest lists into a stable
+"what the network knows" set.
+
+**Core API:**
+
+```ts
+const agg = new NetworkDigestAggregator(5 * 60 * 1000); // 5-min TTL
+agg.observe(peer_a, digestList_a, now_ms);
+agg.observe(peer_b, digestList_b, now_ms + 100);
+// ...as digest lists arrive over the wire...
+
+const network = agg.networkDigests(now_ms);            // sorted union
+const sig = agg.convergenceSignal(my_digests, now_ms); // → Era 1350 signal
+```
+
+**TTL eviction semantics:**
+- Observations are stamped with `observed_at_ms`.
+- Reading any union/snapshot first evicts observations older than
+  `now_ms - ttl_ms`. A peer that hasn't broadcast a fresh digest
+  list within the TTL is silently dropped from the network view.
+- This implicitly handles partition: if a sub-mesh becomes
+  unreachable, its members fall out of the convergence
+  denominator within one TTL window. Local relays don't keep
+  chasing digests the unreachable sub-mesh held.
+
+**Cross-relay anchoring:** `networkDigestSetHash(now_ms)` returns
+an FNV-1a hash over the sorted union — two relays observing the
+same fresh peer set produce identical hashes. Operators can
+compare these across the mesh to confirm everyone agrees on
+"what the network thinks it knows" right now.
+
+**Operator telemetry:** `summary()` returns peer count, total
+unique digests, ttl_ms, and the oldest/newest observation
+timestamps — enough for a HUD line like:
+
+```
+network: 12 peers, 847 digests (oldest 4m32s ago)
+```
+
+**Re-observation overwrites:** the most recent observation per
+peer is authoritative. A peer broadcasting a smaller digest set
+than before isn't treated as suspicious here — that semantic
+belongs to Era 1220's investigation convergence, not the network
+aggregator.
+
+cargo: 223 (unchanged). deno: 499 → **515 passed** (+16).
+**738 total** tests.
+
+The convergence signal now has real data flowing through it. The
+forensic stack's "do I know what the network knows?" question can
+be answered with current observations, evicted as freshness
+expires, anchored across operators by digest hash — closing the
+loop from Era 1310's pure protocol all the way through to a
+self-aware mesh that can detect its own coverage drift.
+
+---
+
 ## 🩺 **Era 1350: Convergence-Driven Composite Health**
 *Статус: Завершено (2026-04-26)*
 

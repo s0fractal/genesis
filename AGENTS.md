@@ -175,9 +175,10 @@ pub struct SignalStore {
 | 1330 | ✅ Complete | `archive_sync_driver.ts` — pure scheduler (per-peer base/backoff/cap, isPeerCold) + retransmission driver (`PendingEnvelope` accumulator, `decideAction` → complete/retransmit/wait/giveup, per-sequence + envelope giveup horizons). |
 | 1340 | ✅ Complete | `archive_sync_coordinator.ts` — orchestrates N peers + M envelopes; `selectNextSyncPeers` priority order; `ingestPeerFrames` with originator/contributor tracking; `progressEnvelope` returns action + `target_peers` fanout; `fleetConvergenceRate` Q16 telemetry. |
 | 1350 | ✅ Complete | `convergence_health.ts` — soft-band signal (converged/lagging/diverged/stranded) with alarm flag; folded into Era 1240 composite via optional `convergence_signal` input + `weight_convergence` opt; capped bonus, full-weight downside. |
+| 1360 | ✅ Complete | `network_digest_aggregator.ts` — TTL-bounded per-peer `ArchiveDigestList` store; `networkDigests()` returns deduplicated sorted union of fresh peers; `convergenceSignal()` plumbs union into Era 1350; cross-relay-stable `networkDigestSetHash`. |
 
 ### Open Trigger
-- **Era 1360: Network Digest Aggregation** — gather digest lists from all known peers (existing or via a new `ARCHIVE_DIGEST_DECLARATION` frame), union them into a network-known set, drive `computeConvergenceHealth` with real data; wire the alarm into auto-investigation as a soft trigger for re-sync attempts.
+- **Era 1370: Convergence-Triggered Auto Sync** — wire Era 1350's `alarm` flag through Era 1340's coordinator: when convergence drops, immediately mark peers due-for-sync (bypassing scheduled cooldown), prefer peers whose digest set adds the most missing digests, and emit a forensic event for postmortem audit.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
