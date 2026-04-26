@@ -243,3 +243,16 @@ Deno.test("eventSyncRound: chain integrity preserved on both sides", () => {
 Deno.test("schema constant", () => {
     assertEquals(SYNC_SCHEMA_VERSION, "OMEGA-1390/v1");
 });
+
+// --- Cross-substrate locked anchors (Era 1400 parity) ---
+// These values are pinned in `omega_v2/src/forensic_event_sink.rs`'s
+// `cross_substrate_anchor_locked_*` tests. Any drift here means
+// either the JS or Rust hash byte-pack convention has changed.
+
+Deno.test("cross-substrate: hash for [0x10, 0x20, 0x30] is 0x929932B5", () => {
+    assertEquals(eventHashSetHash([0x10, 0x20, 0x30]), 0x9299_32B5);
+});
+
+Deno.test("cross-substrate: hash for [0xAA, 0xBB] is 0x843F5862", () => {
+    assertEquals(eventHashSetHash([0xAA, 0xBB]), 0x843F_5862);
+});

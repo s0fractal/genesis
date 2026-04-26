@@ -4,6 +4,76 @@
 
 ---
 
+## 🦀 **Era 1400: Cortex-M4F Forensic Spore Bring-up — Rust Mirror**
+*Статус: Завершено (2026-04-26)*
+
+Up to Era 1390 the convergence + event-sink stack lived only in
+TypeScript. Era 1400 ports the minimal subset onto the bare-metal
+substrate (`omega_v2`) so a Cortex-M4F spore can participate in
+event convergence using its on-chip SRAM — no allocator, no std.
+
+**`no_std`-clean ring buffer:**
+
+```rust
+static mut SINK: ForensicEventSink<64> = ForensicEventSink::new();
+unsafe {
+    SINK.append(b"alarm", event_hash, now_ms);
+    let anchor = SINK.event_chain_anchor();
+    if let Some(broken_seq) = SINK.verify_chain() {
+        // tampering detected
+    }
+}
+```
+
+- Fixed capacity `N` via const generics; FIFO eviction.
+- `MAX_KIND_LEN = 16` for inline kind-string storage.
+- `MAX_ANCHOR_HASHES = 64` cap on the anchor's input set —
+  larger sinks must use streaming hash if they ever appear (no
+  current Era requires it).
+- Insertion-sort over the small fixed slice — no allocator
+  required.
+
+**Byte-for-byte JS parity:**
+
+The chain hash and event-set anchor MUST match the JS
+implementation exactly. Era 1400 pins this with a pair of locked
+test vectors that both sides of the codebase verify against:
+
+```
+JS  eventHashSetHash([0x10, 0x20, 0x30]) === 0x929932B5
+Rust ForensicEventSink<8>::append × 3 →
+     event_chain_anchor() == 0x9299_32B5
+
+JS  eventHashSetHash([0xAA, 0xBB])      === 0x843F5862
+Rust event_chain_anchor() over {0xAA, 0xBB} == 0x843F_5862
+```
+
+Drift on either side breaks both test suites — operators get
+immediate signal if a serialization choice silently diverges.
+Same FNV-1a-32 primitive (`0x811C_9DC5` offset basis,
+`0x0100_0193` prime) used everywhere; same big-endian u32 byte
+packing; same null-byte delimiter between `kind` and the rest of
+the chain-hash input.
+
+**Convergence guarantee extended:** a spore running this code +
+Era 1410's wire frames (next Era) can sync events with a TS
+relay over UART/SPI/BLE and arrive at byte-identical
+`event_chain_anchor`. The forensic stack is now substrate-
+agnostic from the bottom up — Cortex-M4F + browser/Deno + SP1
+ZK guest all produce the same anchor for the same event set.
+
+cargo: 223 → **238 passed** (+15). deno: 573 → **575 passed** (+2,
+the locked cross-substrate vectors). **813 total** tests.
+
+The spore can now hold its own forensic log, reconcile with peer
+relays via Era 1390 deltas, and the operator has cryptographic
+proof — not just structural — that the substrate boundary
+preserves protocol semantics. This is the first Era since 1100
+where new functionality lands on bare-metal *first* and the
+TypeScript side gets a parity check.
+
+---
+
 ## 🔁 **Era 1390: Event Sink Sync**
 *Статус: Завершено (2026-04-26)*
 
