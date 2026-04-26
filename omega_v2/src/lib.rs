@@ -39,6 +39,7 @@ pub mod event_broadcast;
 pub mod event_sync_loop;
 pub mod cross_substrate_wire;
 pub mod spore_runner;
+pub mod convergence_driver;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;

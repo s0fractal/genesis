@@ -4,6 +4,79 @@
 
 ---
 
+## 🎯 **Era 1460: Convergence Driver — Anchor-Mismatch Initiation**
+*Статус: Завершено (2026-04-26)*
+
+Era 1450's `SporeRunner` recorded `last_peer_anchor` from incoming
+hash-list frames but didn't react. Era 1460 closes that reactive
+loop with a small driver layer that decides when, and to whom, to
+ship a delta.
+
+**`ConvergenceDriver<M>` state:**
+
+```rust
+[PeerEntry; M] table:
+  peer_id: u32
+  last_seen_anchor: u32
+  slot: PeerSyncSlot       // Era 1430 scheduler primitives
+  used: bool
+```
+
+Per-peer scheduling reuses Era 1430's `should_sync_now` /
+`record_sync_attempt` / `_success` / `_failure` semantics —
+exponential backoff on failure, base-interval cooldown after
+success, cold-peer detection after configurable consecutive
+failures.
+
+**`select_targets`** is the policy heart:
+
+```rust
+let mut out = [0u32; 4];
+let n = driver.select_targets(runner.anchor(), now_ms, &mut out);
+// Returns peer_ids where:
+//   • anchor != local anchor (mismatch),
+//   • !is_peer_cold,
+//   • should_sync_now (cooldown elapsed),
+// ordered by oldest last_attempt_ms first.
+```
+
+Sorting by oldest-attempt-first ensures fair rotation: a peer
+that was ignored last cycle gets priority next time.
+
+**`ship_to_peer`** wraps the runner's `ship_delta` with scheduler
+bookkeeping:
+
+```rust
+record_sync_attempt(slot, now);
+let ok = runner.ship_delta(driver, entries, peer_anchor, now);
+if ok { record_sync_success(slot, opts, now); }
+else  { record_sync_failure(slot, opts, now); }
+```
+
+**Simplification this Era:** the spore ships its FULL event set
+rather than computing a precise set-difference. The receiver's
+`apply_event_delta` idempotent-skips overlap and collision-rejects
+mismatches, so the protocol stays correct — just less bandwidth-
+efficient than a true diff. With sink capacities in the dozens,
+this is an acceptable tradeoff. Era 1470 will introduce
+`HASH_REQUEST`/`HASH_RESPONSE` frames so the spore can ask for the
+peer's hash list and ship only the genuine difference.
+
+**Diagnostic counters:** `deltas_shipped`, `mismatches_seen`,
+`schedule_blocked` — operator-visible metrics surfacing how
+active the driver is and how often the scheduler is preventing
+storms.
+
+**Convergence guarantee unchanged from Era 1430:** after each
+pair-wise exchange (A→B then B→A), both anchors equal the
+union's anchor. Multi-peer convergence happens through repeated
+pair-wise exchanges across the table.
+
+cargo: 280 → **290 passed** (+10). deno: 596 (unchanged).
+**886 total** tests.
+
+---
+
 ## ⚙️ **Era 1450: Spore Main-Loop Glue + Wire-Driver Hook**
 *Статус: Завершено (2026-04-26)*
 
