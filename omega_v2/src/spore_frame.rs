@@ -87,6 +87,23 @@ pub const FRAME_TYPE_EVENT_HASH_LIST: u8 = 9;
 ///   tick               = envelope_hash (= delta_hash, ties chunks)
 ///   reserved           = sequence u16 << 16 | total u16 (sequence 0 = header)
 pub const FRAME_TYPE_EVENT_DELTA_CHUNK: u8 = 10;
+/// Era 1470: hash-list request — asks a peer to send its full event_hash set.
+/// Layout:
+///   proposal_or_target = sender_relay_id
+///   tick               = request_id (any nonce; echoed back in response)
+///   payload_a/b/c, reserved = 0
+pub const FRAME_TYPE_EVENT_HASH_REQUEST: u8 = 11;
+/// Era 1470: hash-list response chunk — up to 4 event_hashes per frame.
+/// Layout:
+///   proposal_or_target = hash[0]
+///   payload_a          = hash[1]
+///   payload_b          = hash[2]
+///   payload_c          = hash[3]
+///   tick               = request_id (echoed from REQUEST.tick)
+///   reserved           = (seq u8 << 24) | (total u8 << 16) | (valid u8 << 8) | 0
+///                        seq, total are 1-based; valid is the count of
+///                        live u32 slots in this frame (1..4).
+pub const FRAME_TYPE_EVENT_HASH_RESPONSE: u8 = 12;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -311,6 +328,48 @@ impl SporeFrame {
         f
     }
 
+    /// Era 1470: Build a HASH_REQUEST frame asking a peer for its
+    /// full event_hash list. `request_id` is any nonce the
+    /// initiator picks (typically a tick or counter); the peer
+    /// echoes it back in the response so concurrent requests
+    /// don't collide.
+    pub fn event_hash_request(
+        sender_relay_id: u32,
+        request_id: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_EVENT_HASH_REQUEST;
+        f.proposal_or_target = sender_relay_id;
+        f.tick = request_id;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1470: Build a HASH_RESPONSE chunk carrying up to 4
+    /// hashes. `seq` and `total` are 1-based chunk indices; `valid`
+    /// is how many of the four `hashes[..]` slots are populated
+    /// (always 1..=4). `request_id` echoes the originating
+    /// REQUEST's tick.
+    pub fn event_hash_response(
+        request_id: u32,
+        seq: u8,
+        total: u8,
+        valid: u8,
+        hashes: &[u32; 4],
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_EVENT_HASH_RESPONSE;
+        f.proposal_or_target = hashes[0];
+        f.payload_a = hashes[1];
+        f.payload_b = hashes[2];
+        f.payload_c = hashes[3];
+        f.tick = request_id;
+        f._reserved =
+            ((seq as u32) << 24) | ((total as u32) << 16) | ((valid as u32) << 8);
+        f.crc32 = f.compute_crc();
+        f
+    }
+
     /// Era 1420: Pack a kind string (up to 4 ASCII chars) into a u32.
     /// Mirrors JS `packKindTag` byte-for-byte. Truncates longer
     /// strings; pads shorter ones with zeros (in the LSBs).
@@ -459,7 +518,46 @@ mod tests {
         assert_eq!(parsed._reserved & 0xFFFF, 3);
     }
 
-    /// Era 1410: locked frame-type registry. JS mirror in
+    /// Era 1470: HASH_REQUEST frame round-trips.
+    #[test]
+    fn hash_request_round_trips() {
+        let f = SporeFrame::event_hash_request(0xCAFE_BABE, 42);
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_HASH_REQUEST);
+        assert_eq!(parsed.proposal_or_target, 0xCAFE_BABE);
+        assert_eq!(parsed.tick, 42);
+    }
+
+    /// Era 1470: HASH_RESPONSE chunk round-trips with up to 4 hashes.
+    #[test]
+    fn hash_response_round_trips() {
+        let hashes = [0x10u32, 0x20, 0x30, 0x40];
+        let f = SporeFrame::event_hash_response(99, 2, 5, 4, &hashes);
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_HASH_RESPONSE);
+        assert_eq!(parsed.proposal_or_target, 0x10);
+        assert_eq!(parsed.payload_a, 0x20);
+        assert_eq!(parsed.payload_b, 0x30);
+        assert_eq!(parsed.payload_c, 0x40);
+        assert_eq!(parsed.tick, 99);
+        assert_eq!((parsed._reserved >> 24) & 0xFF, 2); // seq
+        assert_eq!((parsed._reserved >> 16) & 0xFF, 5); // total
+        assert_eq!((parsed._reserved >> 8) & 0xFF, 4);  // valid
+    }
+
+    /// Era 1470: HASH_RESPONSE handles partial chunks (valid < 4).
+    #[test]
+    fn hash_response_partial_chunk() {
+        let hashes = [0x10u32, 0x20, 0, 0];
+        let f = SporeFrame::event_hash_response(7, 1, 1, 2, &hashes);
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!((parsed._reserved >> 8) & 0xFF, 2); // valid = 2
+    }
+
+    /// Era 1410+1470: locked frame-type registry. JS mirror in
     /// `src/network/spore_frame.ts` must match these values byte-for-byte.
     #[test]
     fn frame_type_registry_matches_js() {
@@ -473,6 +571,8 @@ mod tests {
         assert_eq!(FRAME_TYPE_DELTA_CHUNK, 8);
         assert_eq!(FRAME_TYPE_EVENT_HASH_LIST, 9);
         assert_eq!(FRAME_TYPE_EVENT_DELTA_CHUNK, 10);
+        assert_eq!(FRAME_TYPE_EVENT_HASH_REQUEST, 11);
+        assert_eq!(FRAME_TYPE_EVENT_HASH_RESPONSE, 12);
     }
 
     #[test]

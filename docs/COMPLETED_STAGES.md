@@ -4,6 +4,87 @@
 
 ---
 
+## 📨 **Era 1470: Hash-List Request/Response Frames**
+*Статус: Завершено (2026-04-26)*
+
+Era 1460's convergence driver shipped the full local set on
+anchor mismatch — correct (idempotent skip on receiver) but
+bandwidth-suboptimal. Era 1470 introduces the request/response
+frame pair so a spore can ask for the peer's full hash list
+and ship only the precise set-difference.
+
+**`FRAME_TYPE_EVENT_HASH_REQUEST = 11`** — single frame, no
+chunking:
+
+```
+proposal_or_target = sender_relay_id
+tick               = request_id (nonce; echoed in response)
+```
+
+**`FRAME_TYPE_EVENT_HASH_RESPONSE = 12`** — chunked, 4 hashes
+per frame:
+
+```
+proposal_or_target = hash[0]
+payload_a          = hash[1]
+payload_b          = hash[2]
+payload_c          = hash[3]
+tick               = request_id (echoes REQUEST.tick)
+reserved           = (seq u8 << 24)
+                    | (total u8 << 16)
+                    | (valid u8 << 8)
+```
+
+`valid` (1..4) reports how many of the four slots in this
+frame carry live hashes — the last chunk in a list with
+non-multiple-of-4 length uses fewer than 4 slots, padded with
+zeros, and `valid` tells the receiver where to stop reading.
+
+**Bandwidth math:** at 4 hashes per 32-byte frame, a sink
+of 64 events fits in 16 frames (512 bytes) — well under the
+255-chunk u8 ceiling. Practical limit per response is 1020
+hashes; far above any realistic spore sink size.
+
+**Reassembly properties:**
+- Out-of-order arrival → reassembled correctly via seq.
+- Duplicate frames at same seq with identical payload → dedup.
+- Conflicting payload at same seq → corruption, rejected.
+- Cross-request frames (different `tick`) filtered when
+  `expected_request_id` is supplied; unsupplied → reject on
+  mismatch.
+- Missing chunks reported by sequence number for targeted
+  retransmit.
+
+**`computeMissingFromPeer`** is the bandwidth-saving helper:
+
+```ts
+const missing = computeMissingFromPeer(local_entries, peer_hashes);
+// → only entries whose event_hash isn't in peer_hashes.
+```
+
+A spore with 60 events syncing with a peer that already has 50
+of them ships 10 entries instead of 60 — 6× bandwidth saving
+on the typical case.
+
+**Cross-substrate parity:** Rust frame builders
+(`SporeFrame::event_hash_request`, `event_hash_response`) and
+JS chunker/reassembler emit and parse the same byte layouts.
+Frame-type registry test (Era 1410) extended to lock 11 and 12
+across both substrates.
+
+cargo: 290 → **293 passed** (+3 spore_frame tests for new
+builders). deno: 596 → **615 passed** (+19). **908 total**
+tests.
+
+The convergence stack is now complete on both substrates from
+delta protocol → wire chunking → scheduler → coordinator →
+hash-list exchange → bandwidth-efficient precise diff. Era
+1480 will pipeline these primitives end-to-end inside
+`SporeRunner` so the bandwidth optimization happens
+automatically on every mismatch.
+
+---
+
 ## 🎯 **Era 1460: Convergence Driver — Anchor-Mismatch Initiation**
 *Статус: Завершено (2026-04-26)*
 

@@ -21,6 +21,8 @@ export const FRAME_TYPE_QUORUM_VERDICT = 7;
 export const FRAME_TYPE_DELTA_CHUNK = 8;
 export const FRAME_TYPE_EVENT_HASH_LIST = 9;
 export const FRAME_TYPE_EVENT_DELTA_CHUNK = 10;
+export const FRAME_TYPE_EVENT_HASH_REQUEST = 11;
+export const FRAME_TYPE_EVENT_HASH_RESPONSE = 12;
 
 export interface SporeFrame {
     magic: number;

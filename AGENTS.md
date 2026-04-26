@@ -186,9 +186,10 @@ pub struct SignalStore {
 | 1440 | ✅ Complete | `omega_v2/src/cross_substrate_wire.rs` + `tests/cross_substrate_wire_test.ts` — `LOCKED_ENVELOPE_BYTES` 128-byte snapshot of a 4-frame envelope; both substrates emit, parse, reassemble, and apply against the same byte sequence with anchor `0x9299_32B5`. Full wire-byte interop, not just structural parity. |
 | 1450 | ✅ Complete | `omega_v2/src/spore_runner.rs` — `WireDriver` trait + `SporeRunner<N,C>` tick-driven loop with magic-byte resync, frame-type routing, automatic apply-on-complete, periodic hash-list broadcast, `ship_delta` helper. `LoopbackDriver` + paired-runner test proves end-to-end convergence over a real byte stream. |
 | 1460 | ✅ Complete | `omega_v2/src/convergence_driver.rs` — `ConvergenceDriver<M>` per-peer table tracking `last_seen_anchor` + scheduler slot; `select_targets` returns peers with anchor mismatch, schedule-allowed, ordered by oldest last-attempt; `ship_to_peer` records attempt/success/failure cleanly; reactive convergence loop closed on the substrate. |
+| 1470 | ✅ Complete | `event_hash_list_wire.ts` + `FRAME_TYPE_EVENT_HASH_REQUEST=11` / `FRAME_TYPE_EVENT_HASH_RESPONSE=12` (Rust + JS); chunked hash-list response (4 hashes per frame, seq/total/valid packed in reserved); `computeMissingFromPeer` set-difference helper; bandwidth-efficient precise diff shipping. |
 
 ### Open Trigger
-- **Era 1470: Hash-List Request/Response Frames** — add `FRAME_TYPE_EVENT_HASH_REQUEST=11` and `FRAME_TYPE_EVENT_HASH_RESPONSE=12` so a spore can ask "send me your full hash list" before computing precise set-difference; replaces Era 1460's "ship full set on mismatch" simplification with bandwidth-efficient diff shipping.
+- **Era 1480: HASH_REQUEST → DIFF_SHIP Pipeline on Spore** — wire Era 1470's request/response frames through `SporeRunner` + `ConvergenceDriver`: on anchor mismatch send REQUEST, accumulate RESPONSE chunks via a parallel reassembler, compute `computeMissingFromPeer`, ship only the missing entries via Era 1410 wire format. Bandwidth optimization complete on bare-metal.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
