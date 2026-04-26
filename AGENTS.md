@@ -162,10 +162,11 @@ pub struct SignalStore {
 | 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest + partition alarm wiring. |
 | 1210 | ✅ Complete | `auto_investigation.ts` — partition alarms auto-raise WARRANT_PROPOSAL; 3-AYE quarantine. |
 | 1220 | ✅ Complete | `investigation_convergence.ts` — corroboration tracker; lone/double/triple+/high confidence bands. |
-| 1230 | ✅ Complete | `reputation_feedback.ts` — soft reputation penalty derived from corroboration_count + max_diff_q16; never below 0; max_penalty=100; original scores never mutated. |
+| 1230 | ✅ Complete | `reputation_feedback.ts` — soft reputation penalty from corroboration. |
+| 1240 | ✅ Complete | `mesh_health.ts` — composite score `[0, 1]` per relay AND mesh-as-a-whole; bands healthy/watch/degraded/critical; itemized contributions; Q16-encodable. |
 
 ### Open Trigger
-- **Era 1240: Mesh Health Composite Score** — fold redundancy_rate, partition counts, consensus_suspect counts, quarantine counts into a single normalized 0..1 per-relay AND per-mesh score for one-glance HUDs.
+- **Era 1250: Composite Health Broadcast** — wrap relay composite score in a new SporeFrame `frame_type=6 COMPOSITE_HEALTH`; peer disagreement ≥0.20 = meta-partition signal.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -239,4 +240,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0109) are COMPLETED. The lattice now CLOSES the suspicion-to-routing loop: a target flagged by ≥2 distinct corroborators gets a soft reputation penalty applied during routing decisions, instantly deprioritizing it without bypassing Codeicide's hard gate (still 3 AYE oracles for formal quarantine). Penalty is deterministic across observers, capped at 100, never produces negative scores. The transport layer's observability now tunes the routing layer's preferences in real time.
+**Current task status:** All open tasks (0086 → 0110) are COMPLETED. The lattice now folds every distinct observability signal — redundancy_rate (Era 1180), partition alarms (Era 1200), consensus suspects (Era 1220), quarantines (Era 1210) — into a single composite health score in `[0, 1]` per relay AND mesh-as-a-whole. Health bands (healthy/watch/degraded/critical) give operators a one-glance status; itemized contributions surface root causes for diagnostics; Q16 encoding lets composites ride the same FNV-1a-CRC SporeFrame transport as everything else.

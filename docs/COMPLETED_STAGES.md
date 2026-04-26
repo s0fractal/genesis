@@ -4,6 +4,59 @@
 
 ---
 
+## 💚 **Era 1240: Mesh Health Composite Score**
+*Статус: Завершено (2026-04-26)*
+
+The transport stack's four distinct observability signals fold
+into one normalized health score per relay AND per mesh-as-a-whole.
+
+```
+score = clamp[0,1](
+    redundancy_rate × 0.55              // positive (Era 1180)
+    − min(0.30, alarms × 0.05)          // partitions (Era 1200)
+    − min(0.30, suspects × 0.10)        // consensus (Era 1220)
+    − min(0.45, quarantined × 0.15)     // quarantines (Era 1210)
+    + (total_intents == 0 ? 0.5 : 0)    // no-data floor
+)
+```
+
+**Bands:**
+| score range | band     | glyph |
+|-------------|----------|-------|
+| ≥ 0.75      | healthy  | 🟢 |
+| ≥ 0.50      | watch    | 🟡 |
+| ≥ 0.25      | degraded | 🟠 |
+| < 0.25      | critical | 🔴 |
+
+**Why these weights?**
+- redundancy 0.55 = "perfect redundancy alone reaches 'watch', not
+  'healthy'" — operators must look at multiple signals before
+  declaring victory.
+- Quarantine penalty 0.45 max = three quarantines push healthy
+  meshes into "watch"; loudest signal weighed heaviest.
+- no_data_floor 0.5 = a freshly-booted relay reports as "watch",
+  not "critical" — caution warranted but no concrete evidence
+  of failure.
+
+**`src/network/mesh_health.ts`** exposes:
+- `computeRelayHealth(inputs, opts?)` — pure per-relay scoring.
+- `computeMeshHealth(perRelay)` — averaged across N relays.
+- `bandGlyph(band)` — emoji for terminal HUDs.
+- `scoreToQ16` / `q16ToScore` — Q16 encoding for SporeFrame transport.
+
+**Determinism**: two relays with identical metric history produce
+identical composite scores. No time-based input beyond what each
+metric already records (heartbeat ticks, alarm timestamps, etc.).
+
+cargo: 223 (unchanged). deno: 266 → **285 passed** (+19).
+**508 total** tests.
+
+The lattice now has a one-glance "is the mesh healthy?" answer.
+HUDs render in three lines; alerts fire on band transitions;
+all underlying metrics remain inspectable via `contributions`.
+
+---
+
 ## ⚖️ **Era 1230: Reputation Feedback from Convergence**
 *Статус: Завершено (2026-04-26)*
 
