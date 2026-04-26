@@ -172,9 +172,10 @@ pub struct SignalStore {
 | 1300 | ✅ Complete | `verdict_archive.ts` — ND-JSON cold archive; archive_hash chain-of-custody. |
 | 1310 | ✅ Complete | `archive_sync.ts` — set-difference delta exchange; bidirectional `syncRound` converges archives without re-shipping; collision detection preserves digest-as-content-address invariant. |
 | 1320 | ✅ Complete | `archive_sync_wire.ts` + `FRAME_TYPE_DELTA_CHUNK=8` — chunked delta envelope over 32-byte SporeFrames; header + per-record chunks tied by `envelope_hash`; out-of-order tolerant, dedup-idempotent, gap-detecting reassembly. |
+| 1330 | ✅ Complete | `archive_sync_driver.ts` — pure scheduler (per-peer base/backoff/cap, isPeerCold) + retransmission driver (`PendingEnvelope` accumulator, `decideAction` → complete/retransmit/wait/giveup, per-sequence + envelope giveup horizons). |
 
 ### Open Trigger
-- **Era 1330: Sync Scheduler + Retransmission Driver** — periodic `chunkDelta` broadcasting; consumer of `reassembleDelta`'s `missing_sequences` to issue retransmit requests; bounded backoff + giveup horizon.
+- **Era 1340: Multi-Peer Sync Coordinator** — orchestrate concurrent sync sessions across N peers; deduplicate identical incoming envelopes from different sources; prioritise peers by reputation × archive-divergence; surface fleet-wide convergence telemetry.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

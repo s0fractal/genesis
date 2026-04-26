@@ -4,6 +4,88 @@
 
 ---
 
+## 🎛️ **Era 1330: Sync Scheduler + Retransmission Driver**
+*Статус: Завершено (2026-04-26)*
+
+Era 1320 is synchronous: a caller chunks an entire delta and ships
+every frame in a tight loop. Production needs *when-to-sync* logic
+(periodic cadence, exponential backoff on failure) and a way to
+recover from frame loss without re-shipping the whole envelope.
+Era 1330 introduces two pure decision layers on top of Era 1320.
+
+**Scheduler** — per-peer state machine:
+
+```ts
+let s = initPeerSyncState(peer_id);
+if (shouldSyncNow(s, now_ms)) {
+    s = recordSyncAttempt(s, now_ms);
+    // ... do the sync ...
+    s = ok ? recordSyncSuccess(s, cfg, now_ms)
+           : recordSyncFailure(s, cfg, now_ms);
+}
+if (isPeerCold(s, cfg)) demote_in_routing(peer_id);
+```
+
+- `recordSyncSuccess` resets failure counter, schedules next attempt
+  one `base_interval_ms` out.
+- `recordSyncFailure` applies `backoff_multiplier^failures` cumulative
+  backoff, capped at `max_backoff_ms`.
+- `isPeerCold` returns true after `failure_giveup_count` consecutive
+  failures — caller may demote the peer in routing.
+
+**Retransmission Driver** — per-envelope state machine:
+
+```ts
+let env = makePendingEnvelope(envelope_hash, now_ms);
+env = ingestFrames(env, incoming_frames, now_ms);
+const action = decideAction(env, cfg, now_ms);
+switch (action.kind) {
+    case "complete":  apply(action.delta);                     break;
+    case "retransmit": send_request(action.sequences);
+                       env = recordRetransmitRequest(env, action.sequences, cfg, now_ms);
+                       break;
+    case "wait":      /* cooldown active — try again later */  break;
+    case "giveup":    abandon(action.reason);                  break;
+}
+```
+
+- **`complete`** — `reassembleDelta` succeeded; the full delta is
+  in the action.
+- **`retransmit`** — there are missing sequences below the per-
+  sequence attempt cap; caller should send a retransmit request.
+  Cooldown (`retransmit_cooldown_ms`) prevents spam.
+- **`wait`** — cooldown has not yet elapsed since the last
+  retransmit request.
+- **`giveup`** — either total time has exceeded `envelope_giveup_ms`,
+  or every missing sequence has hit `max_attempts_per_sequence`,
+  or reassembly failed for a non-recoverable reason (envelope_hash
+  drift, duplicate-with-conflict). Surrender the envelope.
+
+**Per-sequence retry tracking:** when a sequence is requested
+`max_attempts_per_sequence` times, it's added to
+`abandoned_sequences`. The driver still tries to make progress on
+*other* missing sequences — only when no eligible sequences remain
+does the envelope as a whole give up. This handles the realistic
+case where one specific frame is permanently lost (e.g. a stuck
+relay) while others are eventually delivered.
+
+**Pure functions, deterministic clocks:** every entry point takes
+`now_ms` explicitly. No `Date.now()`, no timers, no I/O. Tests
+reproduce exact timing scenarios — backoff curves, cooldown gates,
+giveup horizons — without sleeping.
+
+cargo: 223 (unchanged). deno: 444 → **461 passed** (+17).
+**684 total** tests.
+
+The sync stack now self-paces: eager when a peer is healthy, patient
+when it's not, surgical about recovering from loss, and willing to
+walk away when retransmission stops yielding progress. Combined
+with Eras 1300–1320, a relay can sustain long-running archive
+convergence over a lossy mesh without operator intervention —
+forensic chain-of-custody preserved end to end.
+
+---
+
 ## 📦 **Era 1320: Archive Sync over SporeFrame Wire — Chunked Delta Envelope**
 *Статус: Завершено (2026-04-26)*
 
