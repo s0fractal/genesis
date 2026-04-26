@@ -55,6 +55,17 @@ pub const FRAME_TYPE_SNAPSHOT_DIGEST: u8 = 5;
 ///   payload_c          = redundancy_contribution_q16
 ///   tick               = relay's tick at emission
 pub const FRAME_TYPE_COMPOSITE_HEALTH: u8 = 6;
+/// Era 1290: post-mortem quorum verdict broadcast.
+/// Layout in SporeFrame payload slots:
+///   proposal_or_target = quorum_digest (FNV-1a over the verdict's input/output set)
+///   payload_a          = source_relay_id (originator of the live alarm)
+///   payload_b          = (verdict_code & 0xFF) | (relay_count << 8) | (overlap_pct << 16)
+///                        verdict_code: 0=corroborated, 1=uncorroborated, 2=insufficient-relays, 3=empty-window
+///                        overlap_pct: rounded 0..100
+///   payload_c          = (replayed_q16_clamped_u16 << 16) | (diff_q16_clamped_u16 & 0xFFFF)
+///                        Lossy summary; primary identifier is the digest.
+///   tick               = window_end_ms truncated to low u32
+pub const FRAME_TYPE_QUORUM_VERDICT: u8 = 7;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -161,6 +172,35 @@ impl SporeFrame {
             | ((quarantine_count as u32) << 24);
         f.payload_c = redundancy_contribution_q16;
         f.tick = tick;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 1290: Build a QUORUM_VERDICT frame carrying a forensic
+    /// adjudication digest. The digest is the primary identifier; the
+    /// supplementary fields (verdict_code, relay_count, overlap_pct,
+    /// replayed_q16, diff_q16) are operator-readable summary data.
+    pub fn quorum_verdict(
+        quorum_digest: u32,
+        source_relay_id: u32,
+        verdict_code: u8,
+        relay_count: u8,
+        overlap_pct: u8,
+        replayed_q16: u32,
+        diff_q16: u32,
+        window_end_ms_low32: u32,
+    ) -> Self {
+        let r16 = if replayed_q16 > 0xFFFF { 0xFFFFu32 } else { replayed_q16 };
+        let d16 = if diff_q16 > 0xFFFF { 0xFFFFu32 } else { diff_q16 };
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_QUORUM_VERDICT;
+        f.proposal_or_target = quorum_digest;
+        f.payload_a = source_relay_id;
+        f.payload_b = (verdict_code as u32)
+            | ((relay_count as u32) << 8)
+            | ((overlap_pct as u32) << 16);
+        f.payload_c = (r16 << 16) | (d16 & 0xFFFF);
+        f.tick = window_end_ms_low32;
         f.crc32 = f.compute_crc();
         f
     }

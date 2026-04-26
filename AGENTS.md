@@ -167,10 +167,11 @@ pub struct SignalStore {
 | 1250 | ✅ Complete | `FRAME_TYPE_COMPOSITE_HEALTH=6` + `composite_monitor.ts` — composite broadcast; meta-partition at ≥0.20. |
 | 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replay; forensic determinism invariant. |
 | 1270 | ✅ Complete | `trace_sync.ts` — observationHash merge; merged replay ≥ individual replays. |
-| 1280 | ✅ Complete | `forensic_quorum.ts` — adjudicates alarm-vs-merged-replay agreement; verdicts {corroborated, uncorroborated, insufficient-relays, empty-window} + deterministic digest. |
+| 1280 | ✅ Complete | `forensic_quorum.ts` — alarm-vs-merged-replay adjudication; deterministic digest. |
+| 1290 | ✅ Complete | `FRAME_TYPE_QUORUM_VERDICT=7` + `quorum_broadcast.ts` — verdict digests broadcast as compact frames; agreement tracker counts distinct adjudicators per digest (lone/double/triple+ confidence). |
 
 ### Open Trigger
-- **Era 1290: Quorum-Anchored Post-Mortem Reports** — QuorumResult digests broadcastable; multi-party agreement on multi-party agreement on observations.
+- **Era 1300: Verdict Persistence + Cold Archive** — high-confidence verdicts persist to disk (SQLite / ND-JSON); import/export for long-term audit trails.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -244,4 +245,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0114) are COMPLETED. Forensic quorum adjudication is live: `adjudicateQuorum(fp, recorders)` takes an alarm fingerprint plus N relays' recorders and returns `{verdict, replayed_q16, diff_q16, overlap_ratio, merged_frame_count, digest}`. Corroborated verdict = the merged replay reproduces the live alarm's metric within tolerance, providing high-confidence post-mortem evidence. Digest is FNV-1a over inputs + outputs, so two parties running the same adjudication get the same archival hash without exchanging recorders.
+**Current task status:** All open tasks (0086 → 0115) are COMPLETED. Quorum verdict broadcast is live: an adjudicated `QuorumResult` packs into a compact `FRAME_TYPE_QUORUM_VERDICT` SporeFrame and rides the existing transport. Receivers maintain a `QuorumAgreementTracker` that counts distinct broadcasters per digest, surfacing high-confidence (≥3 adjudicators) verdicts. Multi-party agreement on multi-party agreement on observations — the strongest archival evidence the system can produce.

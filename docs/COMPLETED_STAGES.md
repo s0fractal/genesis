@@ -4,6 +4,71 @@
 
 ---
 
+## 📜 **Era 1290: Quorum-Anchored Post-Mortem Reports — Verdict Broadcast**
+*Статус: Завершено (2026-04-27)*
+
+Era 1280 produces a deterministic `QuorumResult.digest`. Era 1290
+makes the digest broadcastable: a relay packs its adjudication
+into a compact `FRAME_TYPE_QUORUM_VERDICT = 7` SporeFrame and
+broadcasts it. Receivers track "who agreed on what digest" via
+`QuorumAgreementTracker` — multi-party agreement on multi-party
+agreement on observations.
+
+**Wire layout (within SporeFrame):**
+```
+proposal_or_target = quorum_digest         (primary identifier)
+payload_a          = source_relay_id       (originator of live alarm)
+payload_b          = (verdict_code & 0xFF) | (relay_count << 8) | (overlap_pct << 16)
+                     verdict_code: 0=corroborated, 1=uncorroborated,
+                                   2=insufficient-relays, 3=empty-window
+payload_c          = (replayed_q16_u16 << 16) | diff_q16_u16
+                     (lossy summary; digest is the primary identifier)
+tick               = window_end_ms truncated to low u32
+```
+
+**Confidence bands** (mirror Era 1220 / 1180 patterns):
+- `lone` (1 adjudicator) — single perspective.
+- `double` (2 distinct adjudicators) — non-trivial agreement.
+- `triple+` (≥3) — high-confidence archival evidence.
+
+`QuorumAgreementTracker` API:
+- `observe(frame, broadcaster_id, now_ms)` — idempotent on same
+  broadcaster (rebroadcasting same digest doesn't double-count).
+- `get(digest)` / `list()` (sorted by adjudicators desc,
+  first_seen asc) / `highConfidenceVerdicts()` / `clear()`.
+- FIFO eviction at `capacity` (default 128).
+
+**Why broadcast the digest, not the full QuorumResult?**
+The full result is JSON-shaped and variable-size; the digest is
+a single u32. Frames are 32-byte fixed-width. Recipients holding
+the same recorders can recompute the result locally; the digest
+serves as a proof-of-agreement lookup key — same role as Era 1030
+proposal hashes.
+
+cargo: 223 (unchanged). deno: 360 → **382 passed** (+22).
+**605 total** tests.
+
+The mesh's forensic stack now reaches its final shape:
+
+```
+detect → alarm → action → audit → adjudicate → broadcast → agree
+                                                              ★ HERE
+```
+
+Each stage adds a deterministic layer of evidence. By the time
+a verdict reaches "triple+" confidence in `QuorumAgreementTracker`,
+≥3 independent relays have:
+1. Observed the same alarm window (Era 1180-1200);
+2. Cooperated on merge (Era 1270);
+3. Independently adjudicated alarm-vs-replay (Era 1280);
+4. Broadcast their digest (Era 1290).
+
+The same multi-observer agreement principle that drove Era 1190
+(redundancy comparison), Era 1220 (proposal corroboration), and
+Era 1250 (composite meta-partition) closes the post-mortem loop.
+
+---
+
 ## ⚖️ **Era 1280: Forensic Quorum — Live Alarm vs Merged Replay**
 *Статус: Завершено (2026-04-27)*
 

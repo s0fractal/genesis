@@ -17,6 +17,7 @@ export const FRAME_TYPE_HEARTBEAT = 3;
 export const FRAME_TYPE_QUORUM_QUERY = 4;
 export const FRAME_TYPE_SNAPSHOT_DIGEST = 5;
 export const FRAME_TYPE_COMPOSITE_HEALTH = 6;
+export const FRAME_TYPE_QUORUM_VERDICT = 7;
 
 export interface SporeFrame {
     magic: number;
@@ -186,6 +187,34 @@ export function buildCompositeHealth(
          (clampU8(quarantineCount) << 24)) >>> 0;
     f.payloadC = redundancyContribQ16 >>> 0;
     f.tick = tick >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Era 1290: Build a QUORUM_VERDICT frame carrying a forensic adjudication
+ *  digest + summary. Q16 fields clamp to u16 for compact transport. */
+export function buildQuorumVerdict(
+    quorumDigest: number,
+    sourceRelayId: number,
+    verdictCode: number,
+    relayCount: number,
+    overlapPct: number,
+    replayedQ16: number,
+    diffQ16: number,
+    windowEndMsLow32: number,
+): SporeFrame {
+    const clampU8 = (n: number) => Math.max(0, Math.min(255, (n >>> 0)));
+    const clampU16 = (n: number) => Math.min(0xFFFF, (n >>> 0));
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_QUORUM_VERDICT;
+    f.proposalOrTarget = quorumDigest >>> 0;
+    f.payloadA = sourceRelayId >>> 0;
+    f.payloadB =
+        (clampU8(verdictCode) |
+         (clampU8(relayCount) << 8) |
+         (clampU8(overlapPct) << 16)) >>> 0;
+    f.payloadC = ((clampU16(replayedQ16) << 16) | clampU16(diffQ16)) >>> 0;
+    f.tick = windowEndMsLow32 >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;
 }
