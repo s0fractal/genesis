@@ -4,6 +4,60 @@
 
 ---
 
+## 🔍 **Era 1210: Auto-Investigation Proposals**
+*Статус: Завершено (2026-04-26)*
+
+The transport-layer alarm system feeds the Senate. Each
+PartitionAlarm becomes an automatic WARRANT_PROPOSAL with
+action_code = RELOCATE. Three AYE oracles transition the proposal
+to "warranted" and the target relay enters local quarantine sets
+across all observing nodes.
+
+**Closed observability → action loop:**
+```
+PartitionAlarm  ─→  AutoInvestigator.raiseFromAlarm()
+                       │ deterministic proposal_hash
+                       │ 60s cooldown per target
+                       └→ on_proposal_raised callback
+                       
+Senate WarrantLedger ratifies (3 AYE) ─→ markWarranted()
+                                              │
+                                              ▼
+                                  isQuarantined(relay_id)
+                                  shouldDropFrameFromOrigin()
+                                  → frames dropped at forwarder
+```
+
+**Invariants:**
+- **Deterministic proposal_hash**: two relays observing the same
+  alarm raise byte-identical proposals. Senate dedups at the
+  WarrantLedger automatically; convergent suspicion piles up
+  votes naturally instead of spawning N redundant proposals.
+- **Empty center preserved**: no single relay quarantines another.
+  Three canonical oracles must AYE through the existing Era 1090
+  flow. A relay claiming "everyone else is wrong" cannot
+  unilaterally suspend anyone.
+- **Innocent until ratified**: open-status investigations DON'T
+  trigger frame drops. Only `markWarranted` (post-Senate vote)
+  activates quarantine.
+- **RELOCATE not TERMINATE**: investigations preserve state.
+  Lifeforms protected by Codeicide aren't killed; they're
+  sidelined for review.
+
+`AutoInvestigator` exposes `raiseFromAlarm`, `markWarranted`,
+`markCleared`, `sweepStale`, `isQuarantined`, `list`,
+`listByStatus`, `quarantinedRelays`, `clear`. Forwarder gate:
+`shouldDropFrameFromOrigin(investigator, origin_id)`.
+
+cargo: 223 (unchanged). deno: 218 → **236 passed** (+18).
+**459 total** tests.
+
+The lattice now has a closed observability-action loop:
+**transport detects → Senate ratifies → forwarders enforce**.
+No human edits required. No central authority. Empty center holds.
+
+---
+
 ## 🚨 **Era 1200: Snapshot-as-Plasmid + Peer Partition Monitor**
 *Статус: Завершено (2026-04-26)*
 
