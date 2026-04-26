@@ -4,6 +4,99 @@
 
 ---
 
+## 📦 **Era 1320: Archive Sync over SporeFrame Wire — Chunked Delta Envelope**
+*Статус: Завершено (2026-04-26)*
+
+Era 1310 defined a pure, transport-agnostic delta-exchange protocol.
+Era 1320 wires it onto the existing 32-byte SporeFrame envelope so
+cooperating relays can reconcile their archives over the same
+UART/SPI/BLE link they share for warrants and heartbeats — no
+out-of-band file transfer required.
+
+**Why chunking is mandatory:** an `ArchiveDelta` carries N
+`ArchivedVerdict` records, each substantially larger than 32 bytes.
+A single frame cannot hold even one full record, let alone the
+whole delta. Era 1320 introduces `FRAME_TYPE_DELTA_CHUNK = 8` and a
+"delta envelope" — a sequence of chunks tied together by a shared
+`envelope_hash` (= `delta_hash`).
+
+**Frame layout (every chunk):**
+
+```
+proposalOrTarget : digest          (header sets to delta_hash)
+payloadA         : role-specific   (header: initiator_digest_set_hash;
+                                    record: source_relay_id)
+payloadB         : role-specific   (header: replied_at_ms low32;
+                                    record: packed verdict bits)
+payloadC         : role-specific   (header: peer_missing_count;
+                                    record: packed q16 fields)
+tick             : envelope_hash   (= delta_hash — ties chunks)
+reserved         : seq u16 << 16 | total u16
+```
+
+`sequence == 0` is the **HEADER**; `sequence == 1..total` are
+**RECORD** chunks. The reassembler buffers frames by
+`envelope_hash`, validates `total` consistency across all frames,
+detects gaps, and rebuilds the `ArchiveDelta` in deterministic
+sequence order.
+
+**Reassembly properties:**
+- **Out-of-order tolerant** — frames are indexed by sequence, not
+  position. Reverse arrival reassembles correctly.
+- **Idempotent on retransmission** — duplicate frames at the same
+  sequence with identical payload are silently deduped.
+- **Conflict-rejecting** — duplicate sequence with *different*
+  payload is treated as corruption and rejected.
+- **Gap-detecting** — missing chunks are reported by sequence
+  number in `missing_sequences`, enabling targeted retransmit
+  requests rather than full envelope retransmission.
+- **Cross-envelope safe** — frames from different envelopes (other
+  senders, parallel syncs) are filtered by `envelope_hash`. Mixing
+  without an `expected_envelope_hash` filter is rejected.
+- **`envelope_hash` self-verifying** — after reassembly, the
+  receiver recomputes `digestSetHash(records)` and compares against
+  the envelope_hash. Drift signals a tampered envelope.
+
+**Lossy by design:** wire chunks carry digest, verdict,
+source_relay_id, relay_count, overlap_pct, replayed_q16, diff_q16,
+and high_confidence_at_archive — exactly the fields Era 1310's
+`applyDelta` integrity check inspects. The full ND-JSON archive
+(Era 1300) remains the source of truth for cold storage; wire
+chunks are for fast peer replication of "what digests the network
+has." Adjudicator lists and exact ms timestamps are reconstructed
+to sensible defaults (replied_at_ms from the header).
+
+**Integration with Era 1310:** the reassembled `ArchiveDelta` flows
+straight into `applyDelta(local_records, reassembled)` — same
+collision detection, same delta_hash drift detection, same
+idempotent merge. The wire layer is purely a transport adapter; it
+adds no new semantics.
+
+**Composability:**
+
+```ts
+const delta = computeDelta(list, peer_records, now_ms);  // Era 1310
+const frames = chunkDelta(delta, sender_relay_id);       // Era 1320
+// ...transmit frames over UART/SPI/BLE...
+const result = reassembleDelta(frames);                  // Era 1320
+if (result.ok) {
+    const apply = applyDelta(local_records, result.delta!);  // Era 1310
+    // a now has every record both parties knew about.
+}
+```
+
+cargo: 223 (unchanged). deno: 425 → **444 passed** (+19).
+**667 total** tests.
+
+The forensic stack now self-synchronizes over the same wire format
+the rest of the protocol uses — no separate transport, no
+out-of-band channel, no file copy. A bare-metal Cortex-M4F spore
+with 32 KB of SRAM can stream a delta envelope to its neighbour
+chunk-by-chunk, and the neighbour reassembles it without ever
+holding the full delta in memory at once.
+
+---
+
 ## 🔄 **Era 1310: Periodic Archive Sync — Set-Difference Convergence**
 *Статус: Завершено (2026-04-27)*
 

@@ -18,6 +18,7 @@ export const FRAME_TYPE_QUORUM_QUERY = 4;
 export const FRAME_TYPE_SNAPSHOT_DIGEST = 5;
 export const FRAME_TYPE_COMPOSITE_HEALTH = 6;
 export const FRAME_TYPE_QUORUM_VERDICT = 7;
+export const FRAME_TYPE_DELTA_CHUNK = 8;
 
 export interface SporeFrame {
     magic: number;
