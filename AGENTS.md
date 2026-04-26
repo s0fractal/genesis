@@ -173,9 +173,10 @@ pub struct SignalStore {
 | 1310 | ✅ Complete | `archive_sync.ts` — set-difference delta exchange; bidirectional `syncRound` converges archives without re-shipping; collision detection preserves digest-as-content-address invariant. |
 | 1320 | ✅ Complete | `archive_sync_wire.ts` + `FRAME_TYPE_DELTA_CHUNK=8` — chunked delta envelope over 32-byte SporeFrames; header + per-record chunks tied by `envelope_hash`; out-of-order tolerant, dedup-idempotent, gap-detecting reassembly. |
 | 1330 | ✅ Complete | `archive_sync_driver.ts` — pure scheduler (per-peer base/backoff/cap, isPeerCold) + retransmission driver (`PendingEnvelope` accumulator, `decideAction` → complete/retransmit/wait/giveup, per-sequence + envelope giveup horizons). |
+| 1340 | ✅ Complete | `archive_sync_coordinator.ts` — orchestrates N peers + M envelopes; `selectNextSyncPeers` priority order; `ingestPeerFrames` with originator/contributor tracking; `progressEnvelope` returns action + `target_peers` fanout; `fleetConvergenceRate` Q16 telemetry. |
 
 ### Open Trigger
-- **Era 1340: Multi-Peer Sync Coordinator** — orchestrate concurrent sync sessions across N peers; deduplicate identical incoming envelopes from different sources; prioritise peers by reputation × archive-divergence; surface fleet-wide convergence telemetry.
+- **Era 1350: Convergence-Driven Composite Health** — feed `fleetConvergenceRate` into Era 1240's mesh health composite as a new sub-signal; broadcast a derived `ARCHIVE_CONVERGENCE` value through the existing `COMPOSITE_HEALTH` frame; alarm when convergence drops below a soft threshold.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

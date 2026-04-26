@@ -4,6 +4,90 @@
 
 ---
 
+## 🛰️ **Era 1340: Multi-Peer Sync Coordinator**
+*Статус: Завершено (2026-04-26)*
+
+Eras 1310–1330 each handle a single dimension: one delta exchange,
+one envelope, one peer. A real relay orchestrates many. Era 1340
+provides the top-level `CoordinatorState` that owns:
+
+- **N peer schedule states** (`Map<peer_id, PeerSyncState>`).
+- **M in-flight envelopes** (`Map<envelope_hash, PendingEnvelope>`).
+- **Per-envelope source attribution** (`Map<envelope_hash,
+  PeerEnvelopeSource>`) — which peer originated, which peers
+  contributed, frame-count per peer.
+
+**Peer selection priority** (`selectNextSyncPeers`):
+1. Cold peers excluded entirely.
+2. Among due peers: never-attempted first, then oldest
+   `last_success_ms`, then fewer `consecutive_failures`, then
+   stable peer_id tiebreak.
+
+This avoids starving fresh peers while not over-pestering flaky
+ones — operators get reproducible scheduling decisions.
+
+**Frame routing** (`ingestPeerFrames`):
+
+```ts
+let coord = makeCoordinator(SELF);
+coord = addPeer(coord, peer_a);
+coord = addPeer(coord, peer_b);
+// Frames arriving from any peer are routed to the right envelope.
+coord = ingestPeerFrames(coord, peer_a, [headerFrame, recordFrame1]);
+coord = ingestPeerFrames(coord, peer_b, [recordFrame2]);  // same envelope
+const action = progressEnvelope(coord, envelope_hash, now_ms);
+```
+
+`progressEnvelope` wraps Era 1330's `decideAction` with peer
+attribution: the returned `target_peers` array tells the caller
+where to fan out a retransmit request when one is needed. Both
+contributing peers can be asked, defaulting to the originator if
+preferred.
+
+**Fleet convergence metric** (`fleetConvergenceRate`):
+
+```ts
+// Q16 fixed-point: |local ∩ network| / |network|.
+const q16 = fleetConvergenceRate(my_digests, network_digest_union);
+// 65536 → fully converged; 0 → entirely behind.
+```
+
+Convention: empty network → 65536 (nothing to sync, vacuously
+converged). Local archives that are *supersets* of the network
+union still report 65536 — the metric measures coverage, not
+information advantage.
+
+**Telemetry snapshot** (`coordinatorTelemetry`):
+
+```ts
+{
+    peer_count, cold_peer_count, due_peer_count,
+    envelope_count, total_pending_frames, abandoned_sequence_count,
+}
+```
+
+Operator-friendly counters for HUD wiring. Cold + due are
+mutually exclusive (a cold peer is never counted as due);
+abandoned_sequence_count surfaces irrecoverable frame loss across
+all in-flight envelopes.
+
+**Pure functional state:** every entry point returns a new
+`CoordinatorState`. The mutable glue (loop, frame I/O, retransmit
+RPC) lives outside; this kernel is reproducible byte-for-byte
+given identical inputs and `now_ms` ticks.
+
+cargo: 223 (unchanged). deno: 461 → **483 passed** (+22).
+**706 total** tests.
+
+The forensic stack now has a complete sync surface: discover peers
+→ schedule attempts → ship deltas → reassemble → recover from loss
+→ measure convergence — all observable, all deterministic, all
+trust-free. A relay running this stack can rejoin a partitioned
+mesh and converge to the network's known digest set without ever
+holding privileged state.
+
+---
+
 ## 🎛️ **Era 1330: Sync Scheduler + Retransmission Driver**
 *Статус: Завершено (2026-04-26)*
 

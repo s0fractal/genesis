@@ -71,15 +71,14 @@ export function initPeerSyncState(peer_id: number): PeerSyncState {
     };
 }
 
-/** True when the scheduler thinks this peer is due for a fresh sync. */
+/** True when the scheduler thinks this peer is due for a fresh sync.
+ *  Initial state has `next_attempt_ms = 0`, so a freshly-added peer
+ *  is always due. After success/failure, next_attempt_ms gates further
+ *  attempts. */
 export function shouldSyncNow(
     state: PeerSyncState,
     now_ms: number,
 ): boolean {
-    if (state.consecutive_failures === 0 && state.last_attempt_ms === 0) {
-        // Never attempted — go now.
-        return true;
-    }
     return now_ms >= state.next_attempt_ms;
 }
 
