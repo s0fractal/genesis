@@ -4,6 +4,83 @@
 
 ---
 
+## 🔁 **Era 1570: Quarantine Lifecycle Bridge — Full Auto-Loop Closure**
+*Статус: Завершено (2026-04-26)*
+
+Era 1560 added the API; Era 1570 wires it into the existing
+quarantine event flow so the entire forensic loop runs without
+a single operator call:
+
+```
+HASH_LIST plasmid arrives                    (Era 1500/1510)
+  → loop.observePeerAnchor                   (Era 1550)
+  → loop.tick:
+      tracker.snapshot                       (Era 1520)
+      → trigger.evaluate                     (Era 1530)
+      → bridge.issue                         (Era 1540)
+      → emit WARRANT_PROPOSAL plasmid        (caller)
+  → 3-of-5 oracle gate                       (Era 1090)
+  → quarantine engaged                       (Era 1080)
+  → globalThis.dispatchEvent('quarantine-engaged', {peer_id})
+  → QuarantineLifecycleBridge listener fires (Era 1570)
+  → loop.excludePeer                         (Era 1560)
+  → bad peer's observations dropped, no further warrants
+```
+
+**Transport-agnostic event source:**
+
+```ts
+interface EventSource {
+    addEventListener(type, listener): void;
+    removeEventListener(type, listener): void;
+}
+```
+
+Production wires `globalThis`; tests use `LocalEventSource` for
+hermetic isolation. The bridge doesn't care what's underneath —
+it just subscribes/dispatches via the contract.
+
+**Subscription lifecycle:**
+
+```ts
+const bridge = new QuarantineLifecycleBridge(loop, source);
+bridge.start();   // subscribes — idempotent
+// ... quarantine events flow autonomously ...
+bridge.stop();    // unsubscribes; can call start() again later
+bridge.isActive() // diagnostic
+```
+
+**Malformed-payload tolerance:** events without a numeric
+`peer_id` are counted (`malformed_payloads` telemetry) but
+silently ignored. The bridge can't crash the loop on bad
+input from external dispatchers.
+
+**Configurable event names:** the default
+`quarantine-engaged` / `quarantine-resolved` matches the
+existing convention but can be overridden — useful for testing
+and for migrating from older event names.
+
+**End-to-end test (`warrant fires → quarantine engages → tracker
+excludes → no re-fire`):**
+
+```ts
+// Initial state: 4 healthy peers + 1 dissenter.
+// Tick 1: warrant proposal emitted for 0xFF.
+// Senate adjudicates; bridge dispatches 'quarantine-engaged'.
+// Tick 2 (much later): 0xFF re-observed; loop tries to apply...
+//                      but tracker.exclude silently drops.
+//                      No further warrants. emitted.length === 1.
+```
+
+The autonomous loop is now genuinely autonomous: from anchor
+disagreement to quarantine resolution, no operator code needed
+beyond initial wiring of the bridge to the event source.
+
+cargo: 308 (unchanged). deno: 706 → **718 passed** (+12).
+**1026 total** tests.
+
+---
+
 ## 🚫 **Era 1560: Quarantine-Aware Exclusion**
 *Статус: Завершено (2026-04-26)*
 
