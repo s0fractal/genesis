@@ -4,6 +4,87 @@
 
 ---
 
+## 🔄 **Era 1550: Auto-Investigation Loop Harness — 1000 Tests**
+*Статус: Завершено (2026-04-26)*
+
+Eras 1380-1540 produced a complete autonomous-investigation
+toolkit, each layer composable on its own. Era 1550 lands the
+single orchestrator that stitches them all into a single
+`tick(now_ms)` call:
+
+```ts
+const loop = new AutoInvestigationLoop(emitProposalToMesh, opts);
+
+// On each HASH_LIST plasmid arrival:
+loop.observePeerAnchor(peer_id, anchor, now_ms);
+
+// On a periodic timer:
+const result = loop.tick(now_ms);
+//   → quorum_snapshot
+//   → trigger_outcome
+//   → proposals_built[]
+//   → proposals_emitted, proposals_failed
+//   → deduped_peer_ids[]
+```
+
+**The full chain in one tick:**
+
+1. Quorum snapshot from `EventChainQuorumTracker` (Era 1520).
+2. `QuorumInvestigationTrigger.evaluate` (Era 1530) gates by
+   band/duration/cooldown.
+3. `QuorumWarrantBridge.issue` (Era 1540) builds proposals.
+4. Each proposal handed to caller's `WarrantEmit` callback.
+5. Successful emits feed back into `trigger.markTriggered` to
+   close the cooldown loop.
+
+**End-to-end 5-peer scenario (test
+`end-to-end: 5-peer mesh with 1 dissenter`):**
+
+```
+Peers 0x01-0x04 report anchor 0xCAFE
+Peer 0xFF reports anchor 0xDEAD
+
+loop.tick(T0):
+  quorum_snapshot.consensus_anchor = 0xCAFE
+  quorum_snapshot.band              = "high" (4 ≥ threshold 3)
+  quorum_snapshot.dissenter_peer_ids = [0xFF]
+  trigger_outcome.fire_now           = [0xFF]
+  proposals_emitted                  = 1
+  warrant.proposalDescription:
+    "INV peer=0x000000ff consensus=0x0000cafe"
+```
+
+The warrant flows through the same path Era 1090 already
+adjudicates — 3-of-5 oracle vote → quarantine if affirmed.
+No new validation code, no schema additions to existing
+plasmid handlers.
+
+**Operator surface:**
+- `forgetPeer(peer_id)` — drops anchor + trigger record +
+  dedup state; useful when a peer formally exits the mesh.
+- `tick(now_ms)` returns the full `LoopTickResult` for HUD
+  rendering (consensus anchor, band, dissenter count,
+  deduped count).
+
+**Dedup respect:** if the same dissent persists, the second
+tick within both Era 1530's cooldown and Era 1540's dedup
+window emits zero proposals. Once the cooldown elapses, a
+fresh proposal is allowed — preventing both bursty floods
+and silent stalls.
+
+**1000-test milestone:** with this Era's 12 new tests, the
+combined Rust + JS suite crosses 1000:
+
+cargo: 308 (unchanged). deno: 684 → **696 passed** (+12).
+**1004 total** tests across both languages.
+
+The forensic stack now self-investigates: split anchor →
+quorum signal → trigger → warrant proposal → oracle
+adjudication — all autonomous, all deterministic, all
+testable in isolation, all proven end-to-end.
+
+---
+
 ## 📜 **Era 1540: Auto-Warrant Issuance from Quorum Trigger**
 *Статус: Завершено (2026-04-26)*
 
