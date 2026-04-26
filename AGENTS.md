@@ -174,9 +174,10 @@ pub struct SignalStore {
 | 1320 | ✅ Complete | `archive_sync_wire.ts` + `FRAME_TYPE_DELTA_CHUNK=8` — chunked delta envelope over 32-byte SporeFrames; header + per-record chunks tied by `envelope_hash`; out-of-order tolerant, dedup-idempotent, gap-detecting reassembly. |
 | 1330 | ✅ Complete | `archive_sync_driver.ts` — pure scheduler (per-peer base/backoff/cap, isPeerCold) + retransmission driver (`PendingEnvelope` accumulator, `decideAction` → complete/retransmit/wait/giveup, per-sequence + envelope giveup horizons). |
 | 1340 | ✅ Complete | `archive_sync_coordinator.ts` — orchestrates N peers + M envelopes; `selectNextSyncPeers` priority order; `ingestPeerFrames` with originator/contributor tracking; `progressEnvelope` returns action + `target_peers` fanout; `fleetConvergenceRate` Q16 telemetry. |
+| 1350 | ✅ Complete | `convergence_health.ts` — soft-band signal (converged/lagging/diverged/stranded) with alarm flag; folded into Era 1240 composite via optional `convergence_signal` input + `weight_convergence` opt; capped bonus, full-weight downside. |
 
 ### Open Trigger
-- **Era 1350: Convergence-Driven Composite Health** — feed `fleetConvergenceRate` into Era 1240's mesh health composite as a new sub-signal; broadcast a derived `ARCHIVE_CONVERGENCE` value through the existing `COMPOSITE_HEALTH` frame; alarm when convergence drops below a soft threshold.
+- **Era 1360: Network Digest Aggregation** — gather digest lists from all known peers (existing or via a new `ARCHIVE_DIGEST_DECLARATION` frame), union them into a network-known set, drive `computeConvergenceHealth` with real data; wire the alarm into auto-investigation as a soft trigger for re-sync attempts.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

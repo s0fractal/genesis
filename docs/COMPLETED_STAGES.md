@@ -4,6 +4,75 @@
 
 ---
 
+## 🩺 **Era 1350: Convergence-Driven Composite Health**
+*Статус: Завершено (2026-04-26)*
+
+Era 1340 exposes `fleetConvergenceRate` as a Q16 metric. Era 1350
+turns that metric into a *signal* the rest of the OMEGA stack can
+react to: a soft-band classification with alarm flag, plus an
+additive contribution to Era 1240's existing composite health
+score.
+
+**Convergence bands:**
+
+| Band       | Score range  | Glyph |
+|------------|--------------|-------|
+| converged  | ≥ 0.85       | 🟢    |
+| lagging    | 0.50 – 0.85  | 🟡    |
+| diverged   | 0.20 – 0.50  | 🟠    |
+| stranded   | < 0.20       | 🔴    |
+
+A soft alarm fires when the score drops below `alarm_threshold`
+(default 0.50) — operators can wire this into investigation
+workflows, retransmit triggers, or HUD attention markers.
+
+**Composite integration:**
+
+```ts
+const sig = computeConvergenceHealth(my_digests, network_digests);
+const score = computeRelayHealth({
+    detector,
+    convergence_signal: sig,  // new optional input
+});
+// score.contributions.convergence is positive (small bonus) when
+// converged, negative proportionally when lagging.
+```
+
+The contribution math is intentionally asymmetric:
+
+```
+contribution = clamp(
+    (score - 0.85) × weight_convergence,
+    -weight_convergence,                        // floor: full downside
+    +weight_convergence × 0.10                  // ceiling: small bonus
+)
+```
+
+A relay that's keeping up gets a small nudge upward — convergence
+is *expected*, not exceptional. A stranded relay can drag the
+composite by up to a full weight unit, surfacing the lag as a
+visible composite-health drop without requiring a separate alarm
+channel.
+
+**Fully optional:** existing callers without an Era 1340
+coordinator omit `convergence_signal` and see no change in
+behavior. The contribution field is omitted from the output
+when no signal was provided. Backward-compatible across all
+prior Eras' tests.
+
+cargo: 223 (unchanged). deno: 483 → **499 passed** (+16).
+**722 total** tests.
+
+The forensic stack is now self-aware of its own coverage:
+"how much of what the network has seen have I seen?" becomes a
+first-class signal the relay can act on, not just a metric to
+display. Combined with Era 1340's coordinator, a relay that falls
+behind the network shows it in its composite health, which the
+existing COMPOSITE_HEALTH broadcast (Era 1250) already surfaces
+to peers. Lag becomes observable end-to-end.
+
+---
+
 ## 🛰️ **Era 1340: Multi-Peer Sync Coordinator**
 *Статус: Завершено (2026-04-26)*
 

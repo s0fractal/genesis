@@ -23,6 +23,10 @@ import { ConvergenceDetector } from "./convergence_detector.ts";
 import { PeerSnapshotMonitor } from "./peer_snapshot_monitor.ts";
 import { InvestigationConvergenceTracker } from "./investigation_convergence.ts";
 import { AutoInvestigator } from "./auto_investigation.ts";
+import {
+    ConvergenceHealthSignal,
+    convergenceContribution,
+} from "./convergence_health.ts";
 
 export type HealthBand = "healthy" | "watch" | "degraded" | "critical";
 
@@ -41,6 +45,10 @@ export interface CompositeScore {
         consensus_suspects: number;
         /** Quarantine count penalty (Era 1210). */
         quarantines: number;
+        /** Convergence contribution (Era 1350). Positive bonus when fully
+         *  converged, negative when lagging the network. Optional —
+         *  callers without an Era 1340 coordinator omit this field. */
+        convergence?: number;
     };
 }
 
@@ -59,6 +67,11 @@ export interface CompositeOptions {
     penalty_per_quarantine: number;
     /** Cap for quarantine penalty. Default 0.45. */
     max_quarantine_penalty: number;
+    /** Era 1350: weight of the convergence contribution. Default 0.20.
+     *  A fully-stranded relay's convergence pushes the composite down
+     *  by this much; a fully-converged relay gets a small bonus
+     *  capped at 10% of this weight. */
+    weight_convergence: number;
 }
 
 const DEFAULT_OPTS: CompositeOptions = {
@@ -69,6 +82,7 @@ const DEFAULT_OPTS: CompositeOptions = {
     max_consensus_suspect_penalty: 0.30,
     penalty_per_quarantine: 0.15,
     max_quarantine_penalty: 0.45,
+    weight_convergence: 0.20,
 };
 
 const HEALTHY_THRESHOLD = 0.75;
@@ -97,6 +111,9 @@ export interface RelayHealthInputs {
     convergence?: InvestigationConvergenceTracker;
     /** Local Era 1210 investigator. */
     investigator?: AutoInvestigator;
+    /** Era 1350: archive convergence signal from the Era 1340 coordinator.
+     *  Optional — when absent, no convergence contribution is folded in. */
+    convergence_signal?: ConvergenceHealthSignal;
 }
 
 /**
@@ -137,6 +154,16 @@ export function computeRelayHealth(
         quarantinePenalty = -Math.min(raw, opts.max_quarantine_penalty);
     }
 
+    // (5) Era 1350: archive convergence contribution. Positive when
+    // fully converged (small bonus), negative when lagging.
+    let convergenceContrib: number | undefined;
+    if (inputs.convergence_signal) {
+        convergenceContrib = convergenceContribution(
+            inputs.convergence_signal,
+            opts.weight_convergence,
+        );
+    }
+
     // The "no observability yet" base — without a detector with data,
     // we can't claim anything. Contribute a small floor so an empty
     // network reports as "watch" (0.5) rather than "critical" (0).
@@ -146,6 +173,7 @@ export function computeRelayHealth(
         + partitionPenalty
         + consensusPenalty
         + quarantinePenalty
+        + (convergenceContrib ?? 0)
         + noDataFloor;
     const score = clamp01(raw);
 
@@ -157,6 +185,7 @@ export function computeRelayHealth(
             partition_alarms: partitionPenalty,
             consensus_suspects: consensusPenalty,
             quarantines: quarantinePenalty,
+            ...(convergenceContrib !== undefined ? { convergence: convergenceContrib } : {}),
         },
     };
 }
@@ -185,12 +214,18 @@ export function computeMeshHealth(
     let total_part = 0;
     let total_cons = 0;
     let total_quar = 0;
+    let total_conv = 0;
+    let conv_count = 0;
     for (const c of perRelay.values()) {
         total_score += c.score;
         total_red += c.contributions.redundancy;
         total_part += c.contributions.partition_alarms;
         total_cons += c.contributions.consensus_suspects;
         total_quar += c.contributions.quarantines;
+        if (c.contributions.convergence !== undefined) {
+            total_conv += c.contributions.convergence;
+            conv_count++;
+        }
     }
     const n = perRelay.size;
     const avg = total_score / n;
@@ -202,6 +237,7 @@ export function computeMeshHealth(
             partition_alarms: total_part / n,
             consensus_suspects: total_cons / n,
             quarantines: total_quar / n,
+            ...(conv_count > 0 ? { convergence: total_conv / conv_count } : {}),
         },
     };
 }
