@@ -158,10 +158,11 @@ pub struct SignalStore {
 | 1160 | ✅ Complete | `path_selection.ts` — efficiency = reliability × 1000 / TTL. |
 | 1170 | ✅ Complete | `path_diversification.ts` — high-priority WARRANT_VOTE frames duplicated along disjoint paths. |
 | 1180 | ✅ Complete | `convergence_detector.ts` — destination-side observer; redundancy_rate, proven_carriers, stragglers. |
-| 1190 | ✅ Complete | `resilience_snapshot.rs` + JS mirror — 32-byte FNV-1a-CRC report (magic "RS"); Q16 redundancy_rate; partition detection at 10% Q16 diff. Anchor `0x98E5_768B`. |
+| 1190 | ✅ Complete | `resilience_snapshot.rs` + JS mirror — 32-byte FNV-1a-CRC report. Anchor `0x98E5_768B`. |
+| 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest in SporeFrame payload + destination-side partition alarm wiring. |
 
 ### Open Trigger
-- **Era 1200: Snapshot-as-Plasmid** — wrap the 32-byte snapshot inside a SporeFrame payload so resilience metrics ride the same transport as warrants.
+- **Era 1210: Auto-Investigation Proposals** — partition alarms auto-raise a WARRANT_PROPOSAL (action RELOCATE) targeting the suspected relay; honest relays drop suspect frames until cleared.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -235,4 +236,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0105) are COMPLETED. Resilience metrics are now wire-portable: relays serialize their `ConvergenceDetector` stats into 32-byte FNV-1a-CRC reports, broadcast them, and detect partitions when peer measurements disagree by ≥10%. Q16 fixed-point keeps the math integer-only across all four substrates. Cross-language anchor `0x98E5_768B` is the 14th binding constant in the system.
+**Current task status:** All open tasks (0086 → 0106) are COMPLETED. Resilience digests now ride the same SporeFrame transport as warrants and heartbeats; every relay observes peer digests and emits partition alarms when measurements disagree by ≥10%. The lattice's mesh now has a self-aware fault-detection layer that surfaces split-brain scenarios in real time.
