@@ -4,6 +4,95 @@
 
 ---
 
+## 🏷️ **Era 1590: Forensic Sink Schema Versioning**
+*Статус: Завершено (2026-04-26)*
+
+Era 1580 routes by opaque `sink_id: string`. Era 1590 introduces
+structured schema identifiers so a sink's content domain is
+explicit and cross-sink operations can be validated.
+
+**Schema format:**
+
+```
+name:vMAJOR.MINOR
+
+financial-events:v1.0
+system-alarms:v2.5
+```
+
+Allowed name characters: `[a-zA-Z0-9_-]`, length 1..32. Both
+version components are non-negative integers.
+
+**Compatibility predicate:**
+
+```
+compatibleSchemas(a, b) ⟺ a.name === b.name ∧ a.major === b.major
+```
+
+**Three-way semantics:**
+
+| a              | b              | compatible | reason                      |
+|----------------|----------------|-----------|-----------------------------|
+| alarms:v1.0    | alarms:v1.5    | true      | minor drift permissive      |
+| alarms:v1.0    | alarms:v2.0    | false     | major break — refuse merge  |
+| alarms:v1.0    | metrics:v1.0   | false     | different content domain    |
+
+Minor versions permissive because by convention minor bumps are
+additive only (new optional fields, telemetry counters, etc.).
+Major bumps are breaking — mismatched majors signal that one
+side's `applyEventDelta` couldn't make sense of the other's
+records.
+
+**`SinkSchemaRegistry`:**
+
+Optional registry that validates schemas at registration time
+and supports operator queries:
+
+```ts
+const reg = new SinkSchemaRegistry();
+reg.register("alpha", "alarms:v1.0");
+reg.register("beta",  "alarms:v1.5");
+reg.register("gamma", "alarms:v2.0");
+reg.register("delta", "metrics:v1.0");
+
+reg.sinksByName("alarms");
+//   → ["alpha", "beta", "gamma"] (any major, any minor)
+
+reg.compatibleSinks(parseSinkSchema("alarms:v1.3")!);
+//   → ["alpha", "beta"] (only v1.x)
+
+reg.summary();
+//   → [
+//       { schema: "alarms:v1.0",  sink_count: 1 },
+//       { schema: "alarms:v1.5",  sink_count: 1 },
+//       { schema: "alarms:v2.0",  sink_count: 1 },
+//       { schema: "metrics:v1.0", sink_count: 1 },
+//     ]
+```
+
+`register` throws on malformed schema strings or duplicate
+sink_ids — both are programmer errors that should fail loudly,
+not silently corrupt state.
+
+**Why minor permissive, major strict?**
+
+Operators rolling out a v1.0 → v1.5 schema bump should expect
+their old peers to keep working without coordination. Forcing
+all peers to v1.5 simultaneously is operationally infeasible.
+But a v2.0 bump means the binary layout / semantics of records
+changed; merging v1 records into a v2 sink would corrupt the
+chain. Hard refusal is the safer default.
+
+**Era 1600 will integrate this into the wire path:** delta
+sync (Era 1390) will check schemas before applying; mismatch
+results in a typed rejection. The registry becomes the live
+mesh's single source of truth for sink identity.
+
+cargo: 308 (unchanged). deno: 733 → **755 passed** (+22).
+**1063 total** tests.
+
+---
+
 ## 🗂️ **Era 1580: Multi-Sink Investigator**
 *Статус: Завершено (2026-04-26)*
 
