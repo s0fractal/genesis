@@ -4,6 +4,76 @@
 
 ---
 
+## 🔌 **Era 1510: Mesh Event Bridge Adapter**
+*Статус: Завершено (2026-04-26)*
+
+Era 1500 produced the transport-agnostic `WebRTCEventBridge`.
+Era 1510 adapts it onto the existing `WebRTCV2Mesh`'s plasmid
+pipeline — without forcing a rewrite of either side.
+
+**`MeshBridgeTransport`** is the shim:
+
+```ts
+const tx = new MeshBridgeTransport((peer_id, body_json) => {
+    // Caller wires this to mesh.enqueuePlasmid (broadcast) or
+    // channels.get(peerIdStr)?.send(body_json) (unicast).
+    return ok;
+});
+const bridge = new WebRTCEventBridge(my_id, sink, tx);
+```
+
+Whatever bridge `send` produces, the adapter serializes to JSON
+and hands to the caller's emit function. Receivers run
+`decodeMeshPayload(body_json)` to recover the BridgeMessage and
+feed it to their local bridge's `handleIncoming`.
+
+**Plasmid extensions** (additive, no breaking changes):
+
+```ts
+// PlasmidPayload (webrtc_v2.ts):
+semanticType: ... | 'EVENT_SYNC'   // new
+eventSyncBody?: string             // BridgeMessage JSON
+eventSyncTarget?: number           // recipient peer_id
+```
+
+`'EVENT_SYNC'` is reserved but the V2_SYNC dispatch logic is
+unchanged this Era — that's Era 1520's wiring step. Adding the
+type now lets external callers start producing/consuming
+EVENT_SYNC plasmids without modifying the mesh code.
+
+**`eventSyncPlasmidFields(target, msg)`** is a small helper that
+returns the partial PlasmidPayload structure — callers merge it
+into a full plasmid template before enqueuing:
+
+```ts
+const fields = eventSyncPlasmidFields(0xBB, bridgeMessage);
+mesh.enqueuePlasmid({
+    ...standardPlasmidFields,
+    semanticType: 'EVENT_SYNC',
+    ...fields,
+});
+```
+
+**End-to-end test:** two `WebRTCEventBridge`s connected by paired
+`MeshBridgeTransport`s (each one's emit callback delivers to the
+other's `bridge.handleIncoming`). Disjoint sets {0x10, 0x20} and
+{0x30} converge to the union, anchors equal, in 2 broadcast
+rounds — same convergence guarantee as Era 1500's direct
+loopback, just with one more layer of JSON serialization in
+between.
+
+**Why is the mesh wiring deferred to Era 1520?** Modifying
+`WebRTCV2Mesh.tsx` requires careful integration with the
+existing dispatch handlers, attractor zones, and
+hop-count rules. Era 1510 lands the adapter + types so the
+contract is clear; Era 1520 adds the dispatch wiring and a
+JSDOM-level smoke test.
+
+cargo: 308 (unchanged). deno: 629 → **638 passed** (+9).
+**946 total** tests.
+
+---
+
 ## 🌐 **Era 1500: WebRTC Event Bridge**
 *Статус: Завершено (2026-04-26)*
 

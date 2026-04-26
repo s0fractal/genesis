@@ -11,7 +11,7 @@ export interface PlasmidPayload {
     inverse: number;
     pulseFreq: number;
     pulseAmp: number;
-    semanticType: 'INTENT' | 'ATTRACTOR' | 'ORACLE_INJECTION' | 'DIPOLE' | 'PROPOSAL' | 'VOTE';
+    semanticType: 'INTENT' | 'ATTRACTOR' | 'ORACLE_INJECTION' | 'DIPOLE' | 'PROPOSAL' | 'VOTE' | 'EVENT_SYNC';
     parentHash?: number;
     recursionDepth: number;
     maxRecursion: number;
@@ -28,6 +28,12 @@ export interface PlasmidPayload {
     // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
     oracleName?: CanonicalOracle;  // The oracle casting this vote (claude/gpt/...)
     oracleReasoning?: string;      // Optional human-readable reasoning trace (≤256 chars)
+    // Era 1510: Forensic event sync envelope. Carries serialized
+    // BridgeMessage JSON (Era 1500 webrtc_event_bridge.ts) so the
+    // mesh's plasmid pipeline can deliver event-convergence packets
+    // peer-to-peer. Receivers route to their local WebRTCEventBridge.
+    eventSyncBody?: string;        // EVENT_SYNC plasmids only
+    eventSyncTarget?: number;      // peer_id of the recipient (number)
 }
 
 export interface SenateProposalRecord {
