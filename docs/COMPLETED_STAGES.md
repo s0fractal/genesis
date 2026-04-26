@@ -4,6 +4,111 @@
 
 ---
 
+## 🌉 **Era 1620: Cross-Domain Translation Bridge**
+*Статус: Завершено (2026-04-26)*
+
+Era 1610 enforces strict schema compatibility: same name + same
+major. That's correct as a default, but it leaves operators
+stuck during migration windows. A live deployment running
+"alarms:v1.5" can't atomically swap every node to "alarms:v2.0";
+during the transition, both versions must coexist *and*
+exchange data.
+
+Era 1620 introduces `SchemaTranslator` — a function pair
+registered per schema-pair that maps records from one schema
+to another. The translator registry stores translators keyed
+by `(source_name:source_major) → (target_name:target_major)`.
+Operators register translators explicitly for the migration
+pairs they support.
+
+**Translator contract:**
+
+```ts
+type SchemaTranslator = (
+    event: ForensicEvent,
+    source: ForensicSinkSchema,
+    target: ForensicSinkSchema,
+) => ForensicEvent | null;
+```
+
+Returning `null` is an explicit "this record has no equivalent
+in the target schema" signal — useful when v2 dropped a
+category that v1 included. The caller sees a dropped count
+and can log it.
+
+**Registry semantics:**
+
+```ts
+const registry = new SchemaTranslatorRegistry();
+
+registry.register("alarms:v1.0", "alarms:v2.0", upgradeTranslator);
+registry.register("alarms:v2.0", "alarms:v1.0", downgradeTranslator);
+
+registry.translate(event, ALARMS_V1, ALARMS_V2);
+//   → translated event, or null if translator dropped it.
+
+registry.translate(event, ALARMS_V1, ALARMS_V1_5);
+//   → identity (same major; no translation needed).
+
+registry.translate(event, ALARMS_V1, ALARMS_V3);
+//   → null (no translator registered).
+```
+
+**Minor-version key sharing:** translators are keyed by
+`(name, major)` — minor doesn't matter. So a single
+`alarms:v1.0 → alarms:v2.0` translator handles every minor
+on the v1 side (v1.0, v1.5, v1.7) and every minor on the v2
+side. Era 1590's "minor permissive" rule extends naturally
+into translation.
+
+**Cross-domain explicitness:** `translateBatch` refuses
+different-name pairs WITHOUT a registered translator. To
+bridge "alarms:v1.0" → "metrics:v1.0", the operator must
+register the translator explicitly — silent cross-domain
+translation isn't allowed. This preserves Era 1610's
+attack-surface guarantee while opening the door to
+intentional bridging.
+
+**Refusal on duplicate registration:** registering the same
+pair twice throws — programmer error, not a runtime concern.
+Operators have to reason about which translator owns a pair.
+
+**Refusal on identical pairs:** registering an
+`alarms:v1.0 → alarms:v1.5` translator throws because no
+translation is needed (same major). The registry refuses to
+register a translator that would never be invoked.
+
+**`translateBatch` for sync paths:**
+
+```ts
+const result = translateBatch(events, ALARMS_V1, ALARMS_V2, registry);
+if (result === null) {
+    // No translator + cross-major — refuse the exchange.
+}
+result.translated; // events successfully translated
+result.dropped;    // count of events the translator chose to skip
+```
+
+This is the building block for Era 1630, which will wire
+translation into the live schema-validated apply path.
+
+**Future-extensibility for chained translation:** the registry
+currently supports only direct pairs. A v1 → v3 migration
+where only v1 → v2 and v2 → v3 are registered would refuse —
+chained translation is left to a future Era when operator
+demand surfaces.
+
+cargo: 308 (unchanged). deno: 792 → **814 passed** (+22).
+**1122 total** tests.
+
+The forensic stack now has explicit, opt-in cross-major and
+cross-domain translation — closing the migration-window gap
+that Era 1610's strict refusal opened. Operators specify
+exactly which transforms are safe; the protocol enforces the
+rest.
+
+---
+
 ## 🧬 **Era 1610: Schema-Aware Multi-Sink Wiring — 1100 Tests**
 *Статус: Завершено (2026-04-26)*
 
