@@ -66,6 +66,27 @@ pub const FRAME_TYPE_COMPOSITE_HEALTH: u8 = 6;
 ///                        Lossy summary; primary identifier is the digest.
 ///   tick               = window_end_ms truncated to low u32
 pub const FRAME_TYPE_QUORUM_VERDICT: u8 = 7;
+/// Era 1320 (JS-only on this substrate): chunked archive delta envelope.
+pub const FRAME_TYPE_DELTA_CHUNK: u8 = 8;
+/// Era 1410: forensic-event hash list announcement.
+/// Layout in SporeFrame payload slots:
+///   proposal_or_target = sender_relay_id
+///   payload_a          = hash_set_anchor (FNV-1a over sorted event_hash set)
+///   payload_b          = total_hashes (count of event_hashes the sender holds)
+///   payload_c          = sequence_total packed (this_seq u16 << 16 | total_chunks u16)
+///   tick               = broadcast_at_ms low32
+///   reserved           = first event_hash in this chunk (for first chunk only;
+///                        subsequent chunks pack hashes elsewhere)
+pub const FRAME_TYPE_EVENT_HASH_LIST: u8 = 9;
+/// Era 1410: forensic-event delta chunk.
+/// Layout in SporeFrame payload slots (per record-chunk):
+///   proposal_or_target = event_hash (the entry's content address)
+///   payload_a          = sender_relay_id
+///   payload_b          = packed kind-tag (4 ASCII chars truncated)
+///   payload_c          = chain_hash (informational; receiver re-derives on apply)
+///   tick               = envelope_hash (= delta_hash, ties chunks)
+///   reserved           = sequence u16 << 16 | total u16 (sequence 0 = header)
+pub const FRAME_TYPE_EVENT_DELTA_CHUNK: u8 = 10;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -279,6 +300,22 @@ mod tests {
     #[test]
     fn frame_is_exactly_32_bytes() {
         assert_eq!(core::mem::size_of::<SporeFrame>(), SPORE_FRAME_BYTES);
+    }
+
+    /// Era 1410: locked frame-type registry. JS mirror in
+    /// `src/network/spore_frame.ts` must match these values byte-for-byte.
+    #[test]
+    fn frame_type_registry_matches_js() {
+        assert_eq!(FRAME_TYPE_WARRANT_VOTE, 1);
+        assert_eq!(FRAME_TYPE_HALO_STATE, 2);
+        assert_eq!(FRAME_TYPE_HEARTBEAT, 3);
+        assert_eq!(FRAME_TYPE_QUORUM_QUERY, 4);
+        assert_eq!(FRAME_TYPE_SNAPSHOT_DIGEST, 5);
+        assert_eq!(FRAME_TYPE_COMPOSITE_HEALTH, 6);
+        assert_eq!(FRAME_TYPE_QUORUM_VERDICT, 7);
+        assert_eq!(FRAME_TYPE_DELTA_CHUNK, 8);
+        assert_eq!(FRAME_TYPE_EVENT_HASH_LIST, 9);
+        assert_eq!(FRAME_TYPE_EVENT_DELTA_CHUNK, 10);
     }
 
     #[test]

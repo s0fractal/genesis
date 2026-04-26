@@ -4,6 +4,65 @@
 
 ---
 
+## 📡 **Era 1410: SporeFrame Wire-Format for Event Sync**
+*Статус: Завершено (2026-04-26)*
+
+Era 1390's event-sink sync was JS-internal — pure functions over
+in-memory data structures. Era 1400 ported the sink to Rust. Era
+1410 wires them together: chunked `EventDelta` envelopes ride the
+same 32-byte SporeFrame format Era 1320 used for archives.
+
+**Frame registry:**
+
+```rust
+pub const FRAME_TYPE_EVENT_HASH_LIST: u8 = 9;
+pub const FRAME_TYPE_EVENT_DELTA_CHUNK: u8 = 10;
+```
+
+A new locked Rust test (`frame_type_registry_matches_js`) pins the
+entire frame-type registry as a single fact, breaking the build if
+either side reorders or skips a value.
+
+**Envelope structure** mirrors Era 1320 exactly:
+- Header (sequence=0): envelope_hash, initiator_anchor,
+  replied_at_ms, peer_missing_count, total.
+- Records (sequence=1..N): event_hash + packed kind tag (4 ASCII
+  chars in `payloadB`) + chain_hash (informational) + envelope
+  metadata.
+
+**Compact kind encoding:** four-character kind tags pack into a
+u32 via `packKindTag` / `unpackKindTag`. The Cortex-M4F spore
+reads them as a single 4-byte slot — no string allocation, no
+parsing. Kinds longer than 4 chars truncate; the protocol's
+canonical kinds ("alarm", "vrdt", "test") fit comfortably.
+
+**Same convergence guarantees as Era 1320:**
+- Out-of-order frame arrival reassembles correctly.
+- Duplicate frames at same sequence with identical payload dedup.
+- Mismatched payload at same sequence rejected as corruption.
+- Missing chunks reported by sequence number for targeted
+  retransmit.
+- `envelope_hash` self-verifies via `eventHashSetHash` over
+  reconstructed entries — drift detected.
+
+**End-to-end pipeline confirmed:**
+
+```
+Cortex-M4F sink → eventHashSetHash → EventDelta
+    → chunkEventDelta → SporeFrames over wire
+    → reassembleEventDelta → applyEventDelta
+    → JS sink converged
+```
+
+The reverse direction works identically — JS-emitted frames
+parse on the spore. The forensic stack is now a complete,
+substrate-agnostic, wire-deliverable convergence protocol.
+
+cargo: 238 → **239 passed** (+1 frame-type registry lock).
+deno: 575 → **589 passed** (+14). **828 total** tests.
+
+---
+
 ## 🦀 **Era 1400: Cortex-M4F Forensic Spore Bring-up — Rust Mirror**
 *Статус: Завершено (2026-04-26)*
 

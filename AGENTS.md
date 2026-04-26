@@ -180,9 +180,10 @@ pub struct SignalStore {
 | 1380 | ✅ Complete | `forensic_event_sink.ts` — append-only chain-anchored event log; per-entry `chain_hash` folds predecessor; FIFO eviction preserves chain validity for surviving prefix; `verifyChain` detects tampering; `eventChainAnchor` is cross-relay-stable; `diffEventSinks` mirrors Era 1310 set-difference. |
 | 1390 | ✅ Complete | `event_sink_sync.ts` — set-difference sync for event sinks; `EventHashList` / `EventDelta` mirror Era 1310 shapes; `applyEventDelta` re-appends imported entries (fresh local chain links) preserving `event_hash` content address; collision rejection (same hash, different kind); `eventSyncRound` bidirectional convergence. |
 | 1400 | ✅ Complete | `omega_v2/src/forensic_event_sink.rs` — Rust mirror of Era 1380 sink + Era 1390 hash primitives, `no_std`-clean, fixed-capacity ring buffer, `MAX_KIND_LEN=16`, `MAX_ANCHOR_HASHES=64`. Cross-substrate locked anchors `0x929932B5` / `0x843F5862` pinned in both Rust and JS test suites — drift detection on either side. |
+| 1410 | ✅ Complete | `event_sink_wire.ts` + `FRAME_TYPE_EVENT_HASH_LIST=9` / `FRAME_TYPE_EVENT_DELTA_CHUNK=10` (Rust + JS); chunkable event-delta envelope with same out-of-order/idempotent/gap-detecting properties as Era 1320 archive wire; locked Rust frame-type registry test mirrors JS values. |
 
 ### Open Trigger
-- **Era 1410: SporeFrame Wire-Format for Event Sync** — define `FRAME_TYPE_EVENT_HASH_LIST=9` + `FRAME_TYPE_EVENT_DELTA_CHUNK=10` so spores can broadcast `EventHashList` and exchange chunked `EventDelta`s over the same 32-byte transport Era 1320 used for archives; cross-substrate frame round-trip parity.
+- **Era 1420: Spore-Initiated Event Broadcast** — give the bare-metal spore the ability to *emit* `EVENT_HASH_LIST` frames (announcing what it knows) and forward a peer's `EVENT_DELTA_CHUNK` traffic; complete the spore's role from passive sink-holder to first-class participant in the convergence protocol.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

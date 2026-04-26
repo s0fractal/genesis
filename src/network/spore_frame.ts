@@ -19,6 +19,8 @@ export const FRAME_TYPE_SNAPSHOT_DIGEST = 5;
 export const FRAME_TYPE_COMPOSITE_HEALTH = 6;
 export const FRAME_TYPE_QUORUM_VERDICT = 7;
 export const FRAME_TYPE_DELTA_CHUNK = 8;
+export const FRAME_TYPE_EVENT_HASH_LIST = 9;
+export const FRAME_TYPE_EVENT_DELTA_CHUNK = 10;
 
 export interface SporeFrame {
     magic: number;
