@@ -4,6 +4,55 @@
 
 ---
 
+## 🤝 **Era 1220: Cross-Relay Investigation Convergence**
+*Статус: Завершено (2026-04-26)*
+
+When N distinct relays independently raise the SAME WARRANT_PROPOSAL
+(deterministic hash by Era 1210 design), the count of N is itself
+a signal. Era 1220 surfaces it as a first-class "consensus
+suspicion" metric — operators see N=3+ alarms before the Senate's
+oracle ratification even completes.
+
+**Confidence bands:**
+| count | confidence | meaning |
+|---|---|---|
+| 1 | `lone` | single relay alarm — could be local glitch |
+| 2 | `double` | second relay agrees — non-trivial signal |
+| 3-4 | `triple+` | accumulating, below threshold |
+| ≥3 | `high` | consensus suspicion — operator-actionable |
+
+`InvestigationConvergenceTracker` API:
+- `recordRaise(record, source_id, now_ms)` — idempotent on same source.
+- `get(hash)` / `list()` (sorted desc by count, asc by first_observed).
+- `highConfidenceRecords()` / `consensusSuspectTargets()`.
+- `on_high_confidence` callback fires once on transition into "high".
+- FIFO eviction at capacity (default 256).
+
+**Per-record fields:**
+- `corroboration_count` — distinct raiser count.
+- `raised_by[]` — sorted ascending source IDs (deterministic).
+- `max_diff_q16` — strongest alarm across all raisers.
+- `first_observed_at_ms` / `last_observed_at_ms`.
+
+**Why this is SOFT signal, not action:**
+The Era 1090 Senate gate is intentional: 3 oracles must AYE
+before formal quarantine. Convergence is OBSERVABLE BEFORE
+ratification — a proposal with 4 raisers is "more suspect" than
+one with 1 even if neither is yet warranted. Operators (and
+future routing layers) can use this as soft pre-ratification
+deprioritization without bypassing Codeicide.
+
+cargo: 223 (unchanged). deno: 236 → **251 passed** (+15).
+**474 total** tests.
+
+The lattice now measures **agreement on suspicion** the same
+way Era 1180-1190 measured agreement on resilience. Two distinct
+observability metrics — measurement convergence (Era 1190) and
+suspicion convergence (Era 1220) — both grounded in deterministic
+hash-based dedup, both surfaced before consensus completes.
+
+---
+
 ## 🔍 **Era 1210: Auto-Investigation Proposals**
 *Статус: Завершено (2026-04-26)*
 

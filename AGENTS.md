@@ -160,10 +160,11 @@ pub struct SignalStore {
 | 1180 | ✅ Complete | `convergence_detector.ts` — destination-side observer; redundancy_rate, proven_carriers, stragglers. |
 | 1190 | ✅ Complete | `resilience_snapshot.rs` + JS mirror — 32-byte FNV-1a-CRC report. Anchor `0x98E5_768B`. |
 | 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest + partition alarm wiring. |
-| 1210 | ✅ Complete | `auto_investigation.ts` — partition alarms auto-raise WARRANT_PROPOSAL (action RELOCATE); 3-AYE-oracle ratification triggers quarantine; forwarder-side `shouldDropFrameFromOrigin` gate. |
+| 1210 | ✅ Complete | `auto_investigation.ts` — partition alarms auto-raise WARRANT_PROPOSAL; 3-AYE quarantine. |
+| 1220 | ✅ Complete | `investigation_convergence.ts` — tracks distinct relays raising the same proposal_hash; lone / double / triple+ / high confidence bands; consensusSuspectTargets soft signal pre-ratification. |
 
 ### Open Trigger
-- **Era 1220: Cross-Relay Investigation Convergence** — when multiple relays independently raise the same proposal_hash (deterministic by reason), the Senate sees natural dedup at the WarrantLedger; convergent suspicion is a stronger signal than singular alarm.
+- **Era 1230: Reputation Feedback from Convergence** — couple corroboration count back into Era 1140 reputation scoring as a soft penalty before Senate ratification completes.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -237,4 +238,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0107) are COMPLETED. The transport-layer alarm system now feeds directly into the Senate: each partition alarm becomes a deterministic WARRANT_PROPOSAL (action RELOCATE), and three AYE oracles transition the suspect relay to quarantined state. The Era 1080 Codeicide gate ensures no single voice can pause another node — automatic detection, but consensus-required action.
+**Current task status:** All open tasks (0086 → 0108) are COMPLETED. The lattice now MEASURES cross-relay agreement on suspicion: when N distinct relays independently raise the same partition WARRANT_PROPOSAL (deterministic hash), the convergence tracker classifies the proposal as lone / double / triple+ / high. High-confidence proposals (≥3 distinct raisers) become operator-visible "consensus suspects" before the Senate even ratifies — a strong soft signal feeding routing & reputation layers without bypassing the Codeicide gate.
