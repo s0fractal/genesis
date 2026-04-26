@@ -4,6 +4,92 @@
 
 ---
 
+## ⚙️ **Era 1450: Spore Main-Loop Glue + Wire-Driver Hook**
+*Статус: Завершено (2026-04-26)*
+
+Up to Era 1440 the spore had every primitive but no glue — main
+loop, wire driver, frame router were all "exercise for the
+firmware integrator". Era 1450 lands the glue with a clean
+`WireDriver` trait abstracting UART/SPI/BLE behind two
+non-blocking methods.
+
+**`WireDriver` trait:**
+
+```rust
+pub trait WireDriver {
+    fn read(&mut self, buf: &mut [u8]) -> usize;
+    fn write(&mut self, buf: &[u8]) -> usize;
+}
+```
+
+The runtime substitutes UART/SPI/BLE drivers behind this contract.
+A `LoopbackDriver` bundled with the module lets two
+`SporeRunner` instances talk to each other in-process — the
+proving ground for end-to-end convergence on the substrate alone.
+
+**`SporeRunner<N, C>` main loop:**
+
+```rust
+let mut runner: SporeRunner<64, 16> = SporeRunner::new(my_id, ticks_per_broadcast);
+loop {
+    runner.step(&mut driver, current_ms);
+    sleep_until_next_tick();
+}
+```
+
+What `step()` does on each tick:
+1. Drains RX bytes from the driver into a 64-byte staging buffer.
+2. Magic-byte resync: skip leading bytes until `0x4F 0x46`.
+3. Parses 32-byte frames as they become whole.
+4. Routes by `frame_type`:
+   - `EVENT_HASH_LIST` → records peer's anchor for next-Era driver.
+   - `EVENT_DELTA_CHUNK` → feeds the accumulator; on complete,
+     calls `take_delta` + `apply_event_delta` automatically.
+   - Other types → ignored at this layer.
+5. Increments the tick counter; if `broadcast_interval_ticks` has
+   elapsed since last emit, builds + ships a fresh
+   `EVENT_HASH_LIST` announcement.
+
+**`ship_delta`** is the convenience for the next Era's driver:
+given a slice of entries to send + the peer's known anchor, build
+the chunked envelope and write it to the driver in one call.
+
+**Paired-runner convergence test:**
+
+```rust
+// Two runners, four disjoint events between them.
+a.observe_local_event(b"alrm", 0x10, 0);
+a.observe_local_event(b"alrm", 0x20, 0);
+b.observe_local_event(b"alrm", 0x30, 0);
+b.observe_local_event(b"alrm", 0x40, 0);
+
+// Hash-list exchange + delta ship + reassembly.
+// ... a few step() + cross-deliver cycles ...
+
+assert_eq!(a.sink_len(), 4);
+assert_eq!(b.sink_len(), 4);
+assert_eq!(a.anchor(), b.anchor()); // ← convergence
+```
+
+The test runs entirely in pure Rust against the byte stream the
+wire would carry — no JS, no transport, no OS. A pair of
+`omega_spore` instances connected by UART loopback can in
+principle run this exact code and converge.
+
+**Diagnostics counters:** `frames_received`, `frames_applied`,
+`envelopes_completed`, `apply_collisions` — operator-visible
+state for HUD wiring.
+
+**Resync on garbage:** if the wire delivers junk bytes (cold-boot
+mid-stream, wire glitch), the runner skips forward to the next
+`0x4F` magic byte. The test `runner_resyncs_on_garbage_then_valid_frame`
+proves this path is exercised.
+
+cargo: 274 → **280 passed** (+6). deno: 596 (unchanged).
+**876 total** tests.
+
+---
+
 ## 🔗 **Era 1440: Cross-Substrate Convergence Smoke**
 *Статус: Завершено (2026-04-26)*
 

@@ -184,9 +184,10 @@ pub struct SignalStore {
 | 1420 | ✅ Complete | `omega_v2/src/event_broadcast.rs` — Cortex-M4F frame builders (`event_hash_list`, `event_delta_chunk_header`, `event_delta_chunk_record`), `pack_kind_tag` cross-substrate parity, `BroadcastBuffer<N>` no-alloc FIFO, deterministic `broadcast_tick`. Spore is now first-class convergence participant. |
 | 1430 | ✅ Complete | `omega_v2/src/event_sync_loop.rs` — `EventDeltaAccumulator<C>` reassembler (out-of-order, dedup, corruption-detect), `apply_event_delta` two-phase merger with collision rejection, `PeerSyncSlot` + scheduler ops. Smoke-test `two_spores_converge_via_round_trip` confirms substrate-only convergence. |
 | 1440 | ✅ Complete | `omega_v2/src/cross_substrate_wire.rs` + `tests/cross_substrate_wire_test.ts` — `LOCKED_ENVELOPE_BYTES` 128-byte snapshot of a 4-frame envelope; both substrates emit, parse, reassemble, and apply against the same byte sequence with anchor `0x9299_32B5`. Full wire-byte interop, not just structural parity. |
+| 1450 | ✅ Complete | `omega_v2/src/spore_runner.rs` — `WireDriver` trait + `SporeRunner<N,C>` tick-driven loop with magic-byte resync, frame-type routing, automatic apply-on-complete, periodic hash-list broadcast, `ship_delta` helper. `LoopbackDriver` + paired-runner test proves end-to-end convergence over a real byte stream. |
 
 ### Open Trigger
-- **Era 1450: Spore Main-Loop Glue + Wire-Driver Hook** — assemble Eras 1400-1430 inside `omega_spore/src/main.rs`'s tick loop: ingest from UART RX, route by frame_type, call accumulators, drive the scheduler, flush BroadcastBuffer to TX. Provide a clean abstraction for substituting the wire driver (UART vs SPI vs BLE).
+- **Era 1460: Convergence Driver — Set-Difference Initiation** — close the convergence loop on the spore: when `last_peer_anchor != self anchor`, automatically compute the set-difference (which entries the peer doesn't have) and call `ship_delta`; respect Era 1430 scheduler so misbehaving peers don't trigger storms; track per-peer `last_seen_anchor` over a fixed table.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

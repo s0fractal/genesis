@@ -38,6 +38,7 @@ pub mod forensic_event_sink;
 pub mod event_broadcast;
 pub mod event_sync_loop;
 pub mod cross_substrate_wire;
+pub mod spore_runner;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
