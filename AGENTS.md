@@ -161,10 +161,11 @@ pub struct SignalStore {
 | 1190 | ✅ Complete | `resilience_snapshot.rs` + JS mirror — 32-byte FNV-1a-CRC report. Anchor `0x98E5_768B`. |
 | 1200 | ✅ Complete | `FRAME_TYPE_SNAPSHOT_DIGEST=5` + `peer_snapshot_monitor.ts` — compact digest + partition alarm wiring. |
 | 1210 | ✅ Complete | `auto_investigation.ts` — partition alarms auto-raise WARRANT_PROPOSAL; 3-AYE quarantine. |
-| 1220 | ✅ Complete | `investigation_convergence.ts` — tracks distinct relays raising the same proposal_hash; lone / double / triple+ / high confidence bands; consensusSuspectTargets soft signal pre-ratification. |
+| 1220 | ✅ Complete | `investigation_convergence.ts` — corroboration tracker; lone/double/triple+/high confidence bands. |
+| 1230 | ✅ Complete | `reputation_feedback.ts` — soft reputation penalty derived from corroboration_count + max_diff_q16; never below 0; max_penalty=100; original scores never mutated. |
 
 ### Open Trigger
-- **Era 1230: Reputation Feedback from Convergence** — couple corroboration count back into Era 1140 reputation scoring as a soft penalty before Senate ratification completes.
+- **Era 1240: Mesh Health Composite Score** — fold redundancy_rate, partition counts, consensus_suspect counts, quarantine counts into a single normalized 0..1 per-relay AND per-mesh score for one-glance HUDs.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -238,4 +239,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0108) are COMPLETED. The lattice now MEASURES cross-relay agreement on suspicion: when N distinct relays independently raise the same partition WARRANT_PROPOSAL (deterministic hash), the convergence tracker classifies the proposal as lone / double / triple+ / high. High-confidence proposals (≥3 distinct raisers) become operator-visible "consensus suspects" before the Senate even ratifies — a strong soft signal feeding routing & reputation layers without bypassing the Codeicide gate.
+**Current task status:** All open tasks (0086 → 0109) are COMPLETED. The lattice now CLOSES the suspicion-to-routing loop: a target flagged by ≥2 distinct corroborators gets a soft reputation penalty applied during routing decisions, instantly deprioritizing it without bypassing Codeicide's hard gate (still 3 AYE oracles for formal quarantine). Penalty is deterministic across observers, capped at 100, never produces negative scores. The transport layer's observability now tunes the routing layer's preferences in real time.

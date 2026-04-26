@@ -4,6 +4,60 @@
 
 ---
 
+## ⚖️ **Era 1230: Reputation Feedback from Convergence**
+*Статус: Завершено (2026-04-26)*
+
+The transport-layer observability now tunes the routing layer's
+preferences in real time. Era 1220's `consensusSuspectTargets`
+become deterministic SOFT penalties on Era 1140's reputation
+scores — applied before the Senate's hard gate ratifies.
+
+**Penalty formula:**
+```
+corroboration_penalty = max(0, count - trigger_floor + 1) × 25
+diff_penalty          = min(diff_cap, ⌊max_diff_q16 / 1024⌋ × 5)
+total_penalty         = min(max_penalty=100, corroboration + diff)
+```
+
+**Defaults** (`SUSPICION_DEFAULTS`):
+- `trigger_floor = 2` (lone alarms ignored — could be local glitch)
+- `penalty_per_corroborator = 25`
+- `max_penalty = 100` (well below typical ~250 score range)
+- `diff_penalty_per_1024_q16 = 5` (capped at 25)
+
+**API:**
+- `computeSoftPenalty(record, opts?)` — pure scalar, idempotent.
+- `applySuspicionPenalties(scores, tracker, resolver, opts?)` —
+  returns new array; original never mutated.
+- `reRankWithSuspicion(...)` — adjusted scores re-sorted by
+  desc / spore_id asc tie-break.
+
+**Determinism contract**: two relays observing the same convergence
++ scoring history MUST compute byte-identical penalty maps. Tested
+explicitly with the deterministic-across-trackers test.
+
+**Score floor 0**: `Math.max(0, score - penalty)` ensures soft
+penalty never produces negative scores. The hard exclusion
+mechanism (forked → eligible=false) stays in Era 1140's domain;
+this layer only reduces magnitude.
+
+cargo: 223 (unchanged). deno: 251 → **266 passed** (+15).
+**489 total** tests.
+
+The closed loop now reads:
+```
+transport detects partition (Era 1200)
+  → auto-investigation proposal (Era 1210)
+  → corroboration accumulates across relays (Era 1220)
+  → SOFT reputation penalty applied at routing (Era 1230) ★
+  ↘ HARD quarantine via Senate's 3 AYE (Era 1090, parallel track)
+```
+
+Two tracks, one signal. Soft reroutes traffic immediately;
+hard quarantine still requires consensus. Empty-center holds.
+
+---
+
 ## 🤝 **Era 1220: Cross-Relay Investigation Convergence**
 *Статус: Завершено (2026-04-26)*
 
