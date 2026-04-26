@@ -4,6 +4,107 @@
 
 ---
 
+## 🧬 **Era 1610: Schema-Aware Multi-Sink Wiring — 1100 Tests**
+*Статус: Завершено (2026-04-26)*
+
+Era 1580 routes per-sink by opaque id. Era 1590 introduced
+schema. Era 1600 added schema-validated sync. Era 1610 wires
+all three together so the multi-sink orchestrator enforces
+schemas automatically — no operator has to remember to
+validate manually.
+
+**`SchemaAwareMultiSinkInvestigator`** composes:
+- Era 1580 `MultiSinkInvestigator` for sink lifecycle.
+- Era 1590 `SinkSchemaRegistry` for content-domain identity.
+- Era 1600 `validateSchemaCompatibility` for incoming
+  observations.
+
+```ts
+const inv = new SchemaAwareMultiSinkInvestigator(emit);
+
+// Register sinks with explicit schemas:
+inv.addSink("alpha", "alarms:v1.0", alarmsOpts);
+inv.addSink("beta",  "alarms:v1.5", alarmsOpts);
+inv.addSink("gamma", "metrics:v1.0", metricsOpts);
+
+// Schema-validated observation:
+inv.observePeerAnchor("alpha", peer_id, anchor, now_ms, "alarms:v1.5");
+//   → ok: true   (compatible)
+inv.observePeerAnchor("alpha", peer_id, anchor, now_ms, "metrics:v1.0");
+//   → ok: false, reason: "name-mismatch"
+inv.observePeerAnchor("alpha", peer_id, anchor, now_ms, "alarms:v2.0");
+//   → ok: false, reason: "major-mismatch"
+inv.observePeerAnchor("alpha", peer_id, anchor, now_ms, "garbage");
+//   → ok: false, reason: "sender-schema-malformed"
+inv.observePeerAnchor("nope",  peer_id, anchor, now_ms, "alarms:v1.0");
+//   → ok: false, reason: "unknown-sink"
+```
+
+**Atomic sink registration:** `addSink` validates the schema
+string FIRST (via `SinkSchemaRegistry.register`), then
+registers in the multi-sink layer. On any failure (malformed
+schema, duplicate id, multi-sink registration error), the
+registry is rolled back so no half-registered sink lingers.
+
+**Legacy compatibility:** the `peer_schema_string` argument is
+optional. Omitting it bypasses validation entirely — useful for
+peers that pre-date Era 1610's schema gating. Operators can
+phase in schema enforcement domain by domain.
+
+**Telemetry surface:**
+
+```ts
+inv.summary(now_ms);
+//   {
+//     sink_count, sink_ids,
+//     per_sink: [{sink_id, schema}, ...],
+//     per_schema_counts: [{schema: "alarms:v1.0", sink_count: 1}, ...],
+//     rejection_counts: {
+//       unknown_sink, name_mismatch,
+//       major_mismatch, sender_schema_malformed,
+//     },
+//     globally_excluded_count,
+//     total_dissenters,
+//   }
+```
+
+Operators get a single HUD line answering "how many sinks per
+domain, how many rejections per category, how many active
+dissenters" without poking inside individual sinks.
+
+**Discovery helpers:**
+
+```ts
+inv.sinksByName("alarms");
+//   → ["alpha", "beta"]   (any major.minor)
+
+inv.compatibleSinks(parseSinkSchema("alarms:v1.3")!);
+//   → ["alpha", "beta"]   (same major)
+```
+
+**End-to-end protection proven:** with 3 healthy peers on
+"alarms:v1.0" and 1 attacker announcing "metrics:v1.0" trying
+to dissent on the alarms sink, the schema gate rejects the
+attacker silently. No warrant fires; the dissenter doesn't even
+appear in the quorum tracker. Cross-domain attack surface
+closed at the multi-sink layer.
+
+**Composition over mutation:** none of Era 1580/1590/1600 code
+is modified. Operators using only Era 1580 continue unchanged.
+Operators wanting schema enforcement opt in by using the
+`SchemaAware` variant.
+
+cargo: 308 (unchanged). deno: 775 → **792 passed** (+17).
+**1100 total** tests — 1100-test milestone crossed.
+
+The forensic-event protocol now has full multi-domain support
+end-to-end: from sink-level identity (Era 1590) through
+wire-level validation (Era 1600) to multi-sink orchestration
+(Era 1610). Cross-domain leaks are mechanically impossible
+without an operator explicitly opting out.
+
+---
+
 ## 🛡️ **Era 1600: Schema-Validated Cross-Sink Sync**
 *Статус: Завершено (2026-04-26)*
 
