@@ -4,6 +4,75 @@
 
 ---
 
+## 🌀 **Era 1430: Spore Event Sync Loop**
+*Статус: Завершено (2026-04-26)*
+
+The Cortex-M4F substrate had every individual primitive (sink,
+encode, broadcast queue) but no glue. Era 1430 ports the receive
++ apply path to Rust so two spores connected only by UART can
+converge their event sets autonomously — no JS in the middle.
+
+**`EventDeltaAccumulator<const C>`** is a fixed-capacity
+reassembler. Frames drop in via `ingest_frame` and the outcome
+enum reports state advance:
+
+```
+Pending     ← frame accepted, envelope incomplete
+Complete    ← envelope whole + envelope_hash self-verifies
+Ignored     ← non-applicable (wrong type, cross-envelope, dup)
+Corruption  ← conflicting payload at same sequence
+```
+
+Properties:
+- Out-of-order arrival reassembles correctly.
+- Duplicate frames at same sequence with identical payload silently
+  dedup; conflicting payload returns `Corruption` and self-resets.
+- Cross-envelope frames silently dropped (filtered by `tick`).
+- `take_delta()` re-verifies `envelope_hash` against the
+  reconstructed entries' hash set — drift signals tampering and
+  `take_delta` returns `None`.
+
+**`apply_event_delta`** is the two-phase merger:
+- Phase 1: walk all entries, check no `event_hash`+`kind`
+  collision against the local sink. Bail out early on collision —
+  the local sink is left UNCHANGED.
+- Phase 2: append new entries (fresh local chain), count idempotent
+  skips for already-known hashes, return `{added, skipped,
+  new_anchor}`.
+
+**`PeerSyncSlot`** + scheduler ops port Era 1330 onto the spore.
+Same `should_sync_now` / `record_sync_attempt` / `_success` /
+`_failure` / `is_peer_cold` semantics, just over a fixed `[PeerSyncSlot;
+N]` table. Saturating arithmetic everywhere — no overflow on a
+32-bit tick that wraps after ~50 days.
+
+**Smoke test `two_spores_converge_via_round_trip`** is the
+proof: starting with disjoint event sets, two
+`ForensicEventSink<8>` instances reach byte-identical
+`event_chain_anchor` after one round of build-frames →
+accumulator → apply on each side. The convergence claim is now
+verified end-to-end on the bare-metal substrate alone.
+
+**Substrate-only convergence achieved:** a pair of
+`omega_spore` firmware instances connected by UART loopback
+have all the code they need to:
+1. Each holds local event log (Era 1400).
+2. Periodically emit `EventHashList` (Era 1420).
+3. On receiving peer's list, compute set-difference, emit chunked
+   delta (Era 1420).
+4. On receiving peer's chunked delta, reassemble (Era 1430)
+   and apply (Era 1430).
+5. Schedule next sync attempt with backoff/cooldown (Era 1430).
+
+No JS relay required. The forensic stack is now substrate-
+agnostic from the bottom of the wire to the top of the
+protocol.
+
+cargo: 254 → **269 passed** (+15). deno: 591 (unchanged).
+**860 total** tests.
+
+---
+
 ## 🎙️ **Era 1420: Spore-Initiated Event Broadcast**
 *Статус: Завершено (2026-04-26)*
 

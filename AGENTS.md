@@ -182,9 +182,10 @@ pub struct SignalStore {
 | 1400 | ✅ Complete | `omega_v2/src/forensic_event_sink.rs` — Rust mirror of Era 1380 sink + Era 1390 hash primitives, `no_std`-clean, fixed-capacity ring buffer, `MAX_KIND_LEN=16`, `MAX_ANCHOR_HASHES=64`. Cross-substrate locked anchors `0x929932B5` / `0x843F5862` pinned in both Rust and JS test suites — drift detection on either side. |
 | 1410 | ✅ Complete | `event_sink_wire.ts` + `FRAME_TYPE_EVENT_HASH_LIST=9` / `FRAME_TYPE_EVENT_DELTA_CHUNK=10` (Rust + JS); chunkable event-delta envelope with same out-of-order/idempotent/gap-detecting properties as Era 1320 archive wire; locked Rust frame-type registry test mirrors JS values. |
 | 1420 | ✅ Complete | `omega_v2/src/event_broadcast.rs` — Cortex-M4F frame builders (`event_hash_list`, `event_delta_chunk_header`, `event_delta_chunk_record`), `pack_kind_tag` cross-substrate parity, `BroadcastBuffer<N>` no-alloc FIFO, deterministic `broadcast_tick`. Spore is now first-class convergence participant. |
+| 1430 | ✅ Complete | `omega_v2/src/event_sync_loop.rs` — `EventDeltaAccumulator<C>` reassembler (out-of-order, dedup, corruption-detect), `apply_event_delta` two-phase merger with collision rejection, `PeerSyncSlot` + scheduler ops. Smoke-test `two_spores_converge_via_round_trip` confirms substrate-only convergence. |
 
 ### Open Trigger
-- **Era 1430: Spore Event Sync Loop** — full main-loop integration: timer-driven hash-list announcement (every N ticks), incoming-frame routing through reassembler, applyEventDelta on completion, scheduler/cooldown port (Era 1330) onto the spore. Smoke-test: two spores reach byte-identical event_chain_anchor via UART loopback within K rounds.
+- **Era 1440: Cross-Substrate Convergence Smoke** — JS-side test that constructs Era 1420 frames in Rust (via build_delta_chunk_frames), serializes them, parses through the JS `reassembleEventDelta`, and verifies anchor equality with the JS-emitted twin. Closes the loop: JS↔Rust full byte-stream interop, not just structural parity.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
