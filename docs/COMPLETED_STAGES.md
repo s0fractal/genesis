@@ -4,6 +4,88 @@
 
 ---
 
+## 🛡️ **Era 1600: Schema-Validated Cross-Sink Sync**
+*Статус: Завершено (2026-04-26)*
+
+Era 1390's `applyEventDelta` merges any sender's entries into
+the local sink — content domain isn't part of the integrity
+check. For multi-domain deployments that's a hole: a "metrics"
+peer could accidentally push entries into an "alarms" sink
+through a routing bug.
+
+Era 1600 closes that hole with a thin wrapper around Era 1390:
+
+```ts
+const tagged: SchemaTaggedDelta = {
+    schema: "OMEGA-1600/v1",
+    sender_sink_schema: "alarms:v1.5",
+    delta: { /* Era 1390 EventDelta */ },
+};
+
+const outcome = applyEventDeltaWithSchema(local_sink, ALARMS_V1, tagged, now_ms);
+//   .ok=true  → success (delegates to Era 1390)
+//   .ok=false, .reason="name-mismatch"          (sender on different domain)
+//   .ok=false, .reason="major-mismatch"         (sender on incompatible major)
+//   .ok=false, .reason="sender-schema-malformed"
+//   .ok=false, .reason="wrapper-schema-mismatch"
+//   .ok=false, .reason="apply-failed"           (Era 1390 rejection passed through)
+```
+
+**Typed rejection codes:** caller code can distinguish protocol
+errors (the wire layer dropped state) from content errors (the
+sender thought we were a "metrics" sink). Different remediation
+paths apply: protocol errors usually mean retry; content errors
+mean the routing logic is buggy and never retries will help.
+
+**`SchemaAwareSinkSync` convenience class:** binds a sink to its
+schema and provides three high-level methods:
+
+```ts
+const aware = new SchemaAwareSinkSync(sink, ALARMS_V1);
+
+aware.buildHashList(now_ms);
+//   → SchemaTaggedHashList (auto-tagged with our schema)
+
+aware.computeDeltaForPeer(taggedPeerList, now_ms);
+//   → SchemaTaggedDelta or null
+//     (null when peer's schema is incompatible — caller stays silent)
+
+aware.apply(taggedDelta, now_ms);
+//   → SchemaApplyOutcome (with all the typed rejection codes)
+```
+
+The peer-incompatibility-returns-null path is the bandwidth
+optimization: a peer announcing the wrong schema doesn't even
+get a delta computed for them, never mind a wire response.
+
+**Era 1390 unchanged:** the schema layer is *additive*. Existing
+callers using `applyEventDelta` directly continue to work
+without modification. New callers wanting domain isolation use
+the schema variant.
+
+**End-to-end test:** two `SchemaAwareSinkSync` instances at
+"alarms:v1.0" with disjoint events {0x10, 0x20} and {0x20, 0x30}
+converge to {0x10, 0x20, 0x30} after two HASH_LIST exchanges,
+all gated through the schema validation. Anchors equal post-
+convergence.
+
+**Underlying collision rejection preserved:** when Era 1390's
+content-collision check fires (same event_hash, different
+kind), Era 1600 surfaces it as `apply-failed` with the
+underlying `reason` string. The schema layer doesn't mask
+content-level corruption.
+
+cargo: 308 (unchanged). deno: 755 → **775 passed** (+20).
+**1083 total** tests.
+
+The forensic stack now has explicit content-domain identity at
+the wire level. A multi-domain deployment can't silently merge
+entries across domains — every cross-sink operation gates on
+both name and major version, with explicit error paths for each
+rejection mode.
+
+---
+
 ## 🏷️ **Era 1590: Forensic Sink Schema Versioning**
 *Статус: Завершено (2026-04-26)*
 
