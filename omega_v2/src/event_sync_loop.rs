@@ -357,6 +357,172 @@ pub fn is_peer_cold(slot: &PeerSyncSlot, opts: &SchedulerOpts) -> bool {
     slot.consecutive_failures >= opts.failure_giveup_count
 }
 
+// --------------------------------------------------------------- //
+// HASH-LIST RESPONSE ACCUMULATOR (Era 1480)                       //
+// --------------------------------------------------------------- //
+
+/// Maximum hashes a single response envelope can carry on the
+/// spore. At 4 hashes per frame, this caps the per-response
+/// hash count.
+pub const MAX_RESPONSE_HASHES: usize = 64;
+
+/// Reassembled hash-list response.
+pub struct ReassembledHashList {
+    pub request_id: u32,
+    pub hashes: [u32; MAX_RESPONSE_HASHES],
+    pub hash_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HashAccOutcome {
+    Pending,
+    Ignored,
+    Corruption,
+    Complete,
+}
+
+/// Fixed-capacity reassembler for HASH_RESPONSE chunks. Filters
+/// by `request_id` once a non-zero one has been observed.
+pub struct HashListAccumulator<const C: usize> {
+    chunks: [crate::spore_frame::SporeFrame; C],
+    present: [bool; C],
+    request_id: u32,
+    total: u8,
+    armed: bool,
+    corrupted: bool,
+}
+
+impl<const C: usize> HashListAccumulator<C> {
+    pub const fn new() -> Self {
+        Self {
+            chunks: [crate::spore_frame::SporeFrame::empty(); C],
+            present: [false; C],
+            request_id: 0,
+            total: 0,
+            armed: false,
+            corrupted: false,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.present = [false; C];
+        self.request_id = 0;
+        self.total = 0;
+        self.armed = false;
+        self.corrupted = false;
+    }
+
+    pub fn current_request_id(&self) -> u32 { self.request_id }
+
+    pub fn ingest_frame(&mut self, f: crate::spore_frame::SporeFrame) -> HashAccOutcome {
+        use crate::spore_frame::FRAME_TYPE_EVENT_HASH_RESPONSE;
+        if self.corrupted { return HashAccOutcome::Ignored; }
+        if f.frame_type != FRAME_TYPE_EVENT_HASH_RESPONSE {
+            return HashAccOutcome::Ignored;
+        }
+        let seq = ((f._reserved >> 24) & 0xFF) as u8;
+        let total = ((f._reserved >> 16) & 0xFF) as u8;
+        if seq == 0 || seq > total { return HashAccOutcome::Ignored; }
+        if !self.armed {
+            self.request_id = f.tick;
+            self.total = total;
+            self.armed = true;
+        } else {
+            if f.tick != self.request_id { return HashAccOutcome::Ignored; }
+            if total != self.total {
+                self.corrupted = true;
+                return HashAccOutcome::Corruption;
+            }
+        }
+        let idx = (seq - 1) as usize;
+        if idx >= C { return HashAccOutcome::Ignored; }
+        if self.present[idx] {
+            let existing = &self.chunks[idx];
+            if existing.proposal_or_target != f.proposal_or_target
+                || existing.payload_a != f.payload_a
+                || existing.payload_b != f.payload_b
+                || existing.payload_c != f.payload_c
+                || existing._reserved != f._reserved
+            {
+                self.corrupted = true;
+                return HashAccOutcome::Corruption;
+            }
+            return HashAccOutcome::Ignored;
+        }
+        self.chunks[idx] = f;
+        self.present[idx] = true;
+        if self.is_complete() {
+            HashAccOutcome::Complete
+        } else {
+            HashAccOutcome::Pending
+        }
+    }
+
+    pub fn is_complete(&self) -> bool {
+        if !self.armed || self.corrupted { return false; }
+        let need = self.total as usize;
+        if need == 0 || need > C { return false; }
+        for i in 0..need {
+            if !self.present[i] { return false; }
+        }
+        true
+    }
+
+    pub fn take(&mut self) -> Option<ReassembledHashList> {
+        if !self.is_complete() { return None; }
+        let mut hashes = [0u32; MAX_RESPONSE_HASHES];
+        let mut count = 0usize;
+        for i in 0..(self.total as usize) {
+            let f = &self.chunks[i];
+            let valid = ((f._reserved >> 8) & 0xFF) as usize;
+            let slots = [f.proposal_or_target, f.payload_a, f.payload_b, f.payload_c];
+            let take = if valid > 4 { 4 } else { valid };
+            for j in 0..take {
+                if count < MAX_RESPONSE_HASHES {
+                    hashes[count] = slots[j];
+                    count += 1;
+                }
+            }
+        }
+        // Sort ascending for deterministic downstream handling.
+        for i in 1..count {
+            let mut j = i;
+            while j > 0 && hashes[j - 1] > hashes[j] {
+                hashes.swap(j - 1, j);
+                j -= 1;
+            }
+        }
+        let result = ReassembledHashList {
+            request_id: self.request_id,
+            hashes,
+            hash_count: count,
+        };
+        self.reset();
+        Some(result)
+    }
+}
+
+/// Compute the indices of `local_entries` whose `event_hash` is
+/// NOT in `peer_hashes` — i.e. entries the peer is missing.
+/// Returns the count written into `out_indices`.
+pub fn compute_missing_indices(
+    local_entries: &[ForensicEvent],
+    peer_hashes: &[u32],
+    out_indices: &mut [usize],
+) -> usize {
+    let mut count = 0usize;
+    'outer: for (i, e) in local_entries.iter().enumerate() {
+        for &h in peer_hashes {
+            if h == e.event_hash { continue 'outer; }
+        }
+        if count < out_indices.len() {
+            out_indices[count] = i;
+            count += 1;
+        }
+    }
+    count
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -614,5 +780,127 @@ mod tests {
     #[test]
     fn schema_constant() {
         assert_eq!(SYNC_LOOP_SCHEMA, "OMEGA-1430/v1");
+    }
+
+    // --- Era 1480: Hash-list accumulator tests ---
+
+    use crate::spore_frame::SporeFrame as SF;
+
+    fn build_response_chunk(
+        request_id: u32, seq: u8, total: u8, valid: u8, hashes: &[u32; 4],
+    ) -> SF {
+        SF::event_hash_response(request_id, seq, total, valid, hashes)
+    }
+
+    #[test]
+    fn hash_acc_single_chunk_completes() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f = build_response_chunk(99, 1, 1, 3, &[0x10, 0x20, 0x30, 0]);
+        let out = acc.ingest_frame(f);
+        assert_eq!(out, HashAccOutcome::Complete);
+        let r = acc.take().expect("take");
+        assert_eq!(r.request_id, 99);
+        assert_eq!(r.hash_count, 3);
+        assert_eq!(&r.hashes[..3], &[0x10, 0x20, 0x30]);
+    }
+
+    #[test]
+    fn hash_acc_multi_chunk_out_of_order() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f1 = build_response_chunk(7, 1, 2, 4, &[0x10, 0x20, 0x30, 0x40]);
+        let f2 = build_response_chunk(7, 2, 2, 2, &[0x50, 0x60, 0, 0]);
+        // Reverse order.
+        let _ = acc.ingest_frame(f2);
+        let out = acc.ingest_frame(f1);
+        assert_eq!(out, HashAccOutcome::Complete);
+        let r = acc.take().expect("take");
+        assert_eq!(r.hash_count, 6);
+        assert_eq!(&r.hashes[..6], &[0x10, 0x20, 0x30, 0x40, 0x50, 0x60]);
+    }
+
+    #[test]
+    fn hash_acc_dedup_idempotent() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f = build_response_chunk(1, 1, 1, 2, &[0x10, 0x20, 0, 0]);
+        let _ = acc.ingest_frame(f);
+        let out = acc.ingest_frame(f);
+        // Re-ingest of identical frame is Ignored, not Corruption.
+        assert_eq!(out, HashAccOutcome::Ignored);
+        // Accumulator was already complete on first ingest.
+        let r = acc.take().expect("take");
+        assert_eq!(r.hash_count, 2);
+    }
+
+    #[test]
+    fn hash_acc_corruption_on_conflict() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f1 = build_response_chunk(1, 1, 2, 4, &[0x10, 0x20, 0x30, 0x40]);
+        let mut f1_tampered = f1;
+        f1_tampered.proposal_or_target = 0xDEAD;
+        // Recompute CRC so it parses.
+        f1_tampered.crc32 = f1_tampered.compute_crc();
+        let _ = acc.ingest_frame(f1);
+        let out = acc.ingest_frame(f1_tampered);
+        assert_eq!(out, HashAccOutcome::Corruption);
+    }
+
+    #[test]
+    fn hash_acc_filters_cross_request_id() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f_a = build_response_chunk(1, 1, 1, 1, &[0x10, 0, 0, 0]);
+        let f_b = build_response_chunk(2, 1, 1, 1, &[0xAA, 0, 0, 0]);
+        let _ = acc.ingest_frame(f_a);
+        let out = acc.ingest_frame(f_b);
+        // Different request_id → Ignored, not consumed.
+        assert_eq!(out, HashAccOutcome::Ignored);
+        let r = acc.take().expect("take");
+        assert_eq!(r.hashes[0], 0x10);
+    }
+
+    #[test]
+    fn hash_acc_rejects_seq_zero_or_overflow() {
+        let mut acc: HashListAccumulator<8> = HashListAccumulator::new();
+        let f0 = build_response_chunk(1, 0, 1, 1, &[0x10, 0, 0, 0]);
+        assert_eq!(acc.ingest_frame(f0), HashAccOutcome::Ignored);
+        let f_oob = build_response_chunk(1, 5, 2, 1, &[0x10, 0, 0, 0]);
+        assert_eq!(acc.ingest_frame(f_oob), HashAccOutcome::Ignored);
+    }
+
+    #[test]
+    fn compute_missing_indices_basic() {
+        let entries = [
+            mk_event(0x10, b"a"),
+            mk_event(0x20, b"a"),
+            mk_event(0x30, b"a"),
+        ];
+        let peer = [0x10u32, 0x40, 0x50];
+        let mut out = [0usize; 4];
+        let n = compute_missing_indices(&entries, &peer, &mut out);
+        assert_eq!(n, 2);
+        // Indices 1 (0x20) and 2 (0x30) are missing from peer.
+        assert_eq!(out[0], 1);
+        assert_eq!(out[1], 2);
+    }
+
+    #[test]
+    fn compute_missing_indices_peer_superset() {
+        let entries = [mk_event(0x10, b"a")];
+        let peer = [0x10u32, 0x20];
+        let mut out = [0usize; 4];
+        assert_eq!(compute_missing_indices(&entries, &peer, &mut out), 0);
+    }
+
+    #[test]
+    fn compute_missing_indices_capped_by_out_size() {
+        let entries = [
+            mk_event(0x10, b"a"),
+            mk_event(0x20, b"a"),
+            mk_event(0x30, b"a"),
+            mk_event(0x40, b"a"),
+        ];
+        let peer = [0u32; 0];
+        let mut out = [0usize; 2];
+        let n = compute_missing_indices(&entries, &peer, &mut out);
+        assert_eq!(n, 2); // capped at out.len
     }
 }

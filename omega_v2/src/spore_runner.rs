@@ -38,12 +38,14 @@ use crate::event_broadcast::{
 };
 use crate::event_sync_loop::{
     apply_event_delta, AccumulateOutcome, ApplyOutcome,
-    EventDeltaAccumulator,
+    EventDeltaAccumulator, HashAccOutcome, HashListAccumulator,
+    ReassembledHashList,
 };
 use crate::forensic_event_sink::{ForensicEvent, ForensicEventSink};
 use crate::spore_frame::{
     SporeFrame, FRAME_TYPE_EVENT_DELTA_CHUNK,
-    FRAME_TYPE_EVENT_HASH_LIST, SPORE_FRAME_BYTES,
+    FRAME_TYPE_EVENT_HASH_LIST, FRAME_TYPE_EVENT_HASH_REQUEST,
+    FRAME_TYPE_EVENT_HASH_RESPONSE, SPORE_FRAME_BYTES,
 };
 
 pub const RUNNER_SCHEMA: &str = "OMEGA-1450/v1";
@@ -65,6 +67,15 @@ pub trait WireDriver {
 pub struct SporeRunner<const N: usize, const C: usize> {
     pub sink: ForensicEventSink<N>,
     pub accumulator: EventDeltaAccumulator<C>,
+    /// Era 1480: parallel reassembler for HASH_RESPONSE chunks.
+    pub hash_list_accumulator: HashListAccumulator<C>,
+    /// Era 1480: most recently completed hash-list response (for
+    /// the convergence driver to consume on next tick).
+    pub pending_peer_hashes: Option<ReassembledHashList>,
+    /// Era 1480: id of the most recent HASH_REQUEST we received
+    /// (peer wants our list — driver will respond next tick).
+    pub pending_hash_request_id: u32,
+    pub pending_hash_request_from: u32,
     pub self_relay_id: u32,
     /// Most recent peer anchor we observed (informational).
     pub last_peer_anchor: u32,
@@ -90,6 +101,10 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         Self {
             sink: ForensicEventSink::new(),
             accumulator: EventDeltaAccumulator::new(),
+            hash_list_accumulator: HashListAccumulator::new(),
+            pending_peer_hashes: None,
+            pending_hash_request_id: 0,
+            pending_hash_request_from: 0,
             self_relay_id,
             last_peer_anchor: 0,
             tick: 0,
@@ -185,10 +200,27 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
     fn handle_frame(&mut self, f: SporeFrame, now_ms: u32) {
         match f.frame_type {
             FRAME_TYPE_EVENT_HASH_LIST => {
-                // Record peer's anchor; convergence-driver layer (next
-                // Era) will use it to decide when set-difference is
+                // Record peer's anchor; convergence-driver layer
+                // (Era 1460) uses it to decide when set-difference is
                 // worth shipping.
                 self.last_peer_anchor = f.payload_a;
+            }
+            FRAME_TYPE_EVENT_HASH_REQUEST => {
+                // Peer wants our full hash list. Stash the request
+                // for the convergence driver to respond on next tick
+                // (we don't have direct write access to the driver
+                // mid-frame-handle without more lifetimes).
+                self.pending_hash_request_id = f.tick;
+                self.pending_hash_request_from = f.proposal_or_target;
+            }
+            FRAME_TYPE_EVENT_HASH_RESPONSE => {
+                // Buffer chunks; on complete, expose pending_peer_hashes.
+                let outcome = self.hash_list_accumulator.ingest_frame(f);
+                if outcome == HashAccOutcome::Complete {
+                    if let Some(reassembled) = self.hash_list_accumulator.take() {
+                        self.pending_peer_hashes = Some(reassembled);
+                    }
+                }
             }
             FRAME_TYPE_EVENT_DELTA_CHUNK => {
                 let outcome = self.accumulator.ingest_frame(f);
@@ -221,6 +253,93 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         let bytes = frame.as_bytes();
         let _ = driver.write(&bytes);
         self.last_broadcast_tick = self.tick;
+    }
+
+    /// Era 1480: Ship a single HASH_REQUEST frame. Receiver echoes
+    /// `request_id` in its HASH_RESPONSE so concurrent requests don't
+    /// mix.
+    pub fn ship_hash_request<D: WireDriver>(
+        &self,
+        driver: &mut D,
+        request_id: u32,
+    ) -> bool {
+        let f = SporeFrame::event_hash_request(self.self_relay_id, request_id);
+        let bytes = f.as_bytes();
+        driver.write(&bytes) == bytes.len()
+    }
+
+    /// Era 1480: Ship our full hash list as chunked HASH_RESPONSE
+    /// frames. `request_id` should echo the originating REQUEST.
+    pub fn ship_hash_list<D: WireDriver>(
+        &self,
+        driver: &mut D,
+        request_id: u32,
+    ) -> bool {
+        let n = self.sink.len();
+        // Sort the hashes ascending into a scratch buffer.
+        let mut hashes = [0u32; 64];
+        let take = if n > 64 { 64 } else { n };
+        for i in 0..take {
+            hashes[i] = self.sink.entries()[i].event_hash;
+        }
+        for i in 1..take {
+            let mut j = i;
+            while j > 0 && hashes[j - 1] > hashes[j] {
+                hashes.swap(j - 1, j);
+                j -= 1;
+            }
+        }
+        // Compute number of 4-hash chunks (at least 1, even when empty).
+        let total = if take == 0 { 1 } else { (take + 3) / 4 };
+        if total > 0xFF { return false; }
+
+        let mut buf = [0u8; 64 * SPORE_FRAME_BYTES];
+        let mut offset = 0usize;
+        for chunk in 0..total {
+            let start = chunk * 4;
+            let valid = if take > start {
+                core::cmp::min(4, take - start)
+            } else { 0 };
+            let mut slot = [0u32; 4];
+            for k in 0..valid {
+                slot[k] = hashes[start + k];
+            }
+            let f = SporeFrame::event_hash_response(
+                request_id,
+                (chunk + 1) as u8,
+                total as u8,
+                valid as u8,
+                &slot,
+            );
+            let frame_bytes = f.as_bytes();
+            buf[offset..offset + SPORE_FRAME_BYTES].copy_from_slice(&frame_bytes);
+            offset += SPORE_FRAME_BYTES;
+        }
+        let written = driver.write(&buf[..offset]);
+        written == offset
+    }
+
+    /// Era 1480: If a peer's HASH_REQUEST is pending, respond with
+    /// our full hash list. Returns true if a response was sent.
+    pub fn maybe_answer_pending_request<D: WireDriver>(
+        &mut self,
+        driver: &mut D,
+    ) -> bool {
+        if self.pending_hash_request_id == 0 { return false; }
+        let id = self.pending_hash_request_id;
+        let ok = self.ship_hash_list(driver, id);
+        if ok {
+            self.pending_hash_request_id = 0;
+            self.pending_hash_request_from = 0;
+        }
+        ok
+    }
+
+    /// Era 1480: Drain a completed peer hash list (if any). Returns
+    /// `Some(...)` once and only once per completed list — caller
+    /// is expected to compute set-difference and ship missing entries.
+    pub fn take_peer_hashes(&mut self) -> Option<ReassembledHashList> {
+        self.pending_peer_hashes.take()
     }
 
     /// Push a delta envelope (header + records) onto the wire. Useful
@@ -442,6 +561,63 @@ mod tests {
     #[test]
     fn schema_constant() {
         assert_eq!(RUNNER_SCHEMA, "OMEGA-1450/v1");
+    }
+
+    /// Era 1480: end-to-end HASH_REQUEST → HASH_RESPONSE → DIFF ship
+    /// pipeline. A asks B for B's hash list, computes set-difference,
+    /// and ships only the entries B is missing.
+    #[test]
+    fn era_1480_request_response_diff_ship_pipeline() {
+        // A has [0x10, 0x20], B has [0x10, 0x30, 0x40].
+        let mut a: SporeRunner<8, 8> = SporeRunner::new(0xAA, 1);
+        let mut b: SporeRunner<8, 8> = SporeRunner::new(0xBB, 1);
+        a.observe_local_event(b"alrm", 0x10, 0);
+        a.observe_local_event(b"alrm", 0x20, 0);
+        b.observe_local_event(b"alrm", 0x10, 0);
+        b.observe_local_event(b"alrm", 0x30, 0);
+        b.observe_local_event(b"alrm", 0x40, 0);
+
+        let mut da = PairedDriver::new();
+        let mut db = PairedDriver::new();
+
+        // 1. A sends HASH_REQUEST (request_id = 42) to B.
+        let ok = a.ship_hash_request(&mut da, 42);
+        assert!(ok);
+        da.deliver_to_peer(&mut db);
+        b.step(&mut db, 100);
+        // B saw the request — pending state set.
+        assert_eq!(b.pending_hash_request_id, 42);
+
+        // 2. B answers with its hash list.
+        let ok = b.maybe_answer_pending_request(&mut db);
+        assert!(ok);
+        db.deliver_to_peer(&mut da);
+        a.step(&mut da, 200);
+        // A reassembled B's hash list.
+        let peer = a.take_peer_hashes().expect("hash list");
+        assert_eq!(peer.hash_count, 3);
+        // Entries are sorted: [0x10, 0x30, 0x40].
+        assert_eq!(&peer.hashes[..3], &[0x10, 0x30, 0x40]);
+
+        // 3. A computes which of its entries B is missing: 0x20 only.
+        let local_entries: [ForensicEvent; 2] = [
+            mk_event(0x10, b"alrm"),
+            mk_event(0x20, b"alrm"),
+        ];
+        let mut missing_indices = [0usize; 4];
+        let n = crate::event_sync_loop::compute_missing_indices(
+            &local_entries, &peer.hashes[..peer.hash_count], &mut missing_indices,
+        );
+        assert_eq!(n, 1);
+        let to_ship = [local_entries[missing_indices[0]]];
+
+        // 4. A ships ONLY 0x20 (not the full set).
+        a.ship_delta(&mut da, &to_ship, 0, 300);
+        da.deliver_to_peer(&mut db);
+        b.step(&mut db, 400);
+
+        // B should now have [0x10, 0x30, 0x40, 0x20] = 4 events.
+        assert_eq!(b.sink_len(), 4);
     }
 
     fn mk_event(h: u32, kind: &[u8]) -> ForensicEvent {

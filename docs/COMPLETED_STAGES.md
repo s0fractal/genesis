@@ -4,6 +4,84 @@
 
 ---
 
+## 🚇 **Era 1480: HASH_REQUEST → DIFF_SHIP Pipeline on Spore**
+*Статус: Завершено (2026-04-26)*
+
+Era 1470 added the request/response frame types but their handling
+on the spore side was still piece-wise. Era 1480 routes them
+through `SporeRunner` so the bandwidth-efficient pipeline runs
+end-to-end on bare-metal.
+
+**`HashListAccumulator<const C>`** parallels Era 1430's
+`EventDeltaAccumulator` for HASH_RESPONSE chunks:
+- Out-of-order tolerant (indexed by seq).
+- Idempotent dedup of identical chunks at same seq.
+- Conflict at same seq → corruption + reset.
+- Cross-`request_id` filtering once armed.
+- `take()` produces a sorted-ascending hash list.
+
+**`SporeRunner` extensions:**
+
+```rust
+// Routing in handle_frame:
+//   HASH_REQUEST  → stash pending_hash_request_id/from for next tick.
+//   HASH_RESPONSE → feed HashListAccumulator; on complete → expose
+//                   pending_peer_hashes for driver consumption.
+//   HASH_LIST     → record peer anchor (Era 1450).
+//   DELTA_CHUNK   → feed EventDeltaAccumulator (Era 1450).
+
+// Public methods (Era 1480):
+runner.ship_hash_request(driver, request_id) → bool
+runner.ship_hash_list(driver, request_id)    → bool
+runner.maybe_answer_pending_request(driver)  → bool
+runner.take_peer_hashes()                    → Option<ReassembledHashList>
+```
+
+**`compute_missing_indices`** is the embedded analogue of JS
+`computeMissingFromPeer` — operates on a fixed-size `&mut [usize]`
+output buffer to avoid allocation:
+
+```rust
+let mut indices = [0usize; 4];
+let n = compute_missing_indices(&local_entries, &peer_hashes, &mut indices);
+// indices[..n] are the local indices of entries the peer is missing.
+```
+
+**End-to-end pipeline test (`era_1480_request_response_diff_ship_pipeline`):**
+
+```
+A holds [0x10, 0x20]
+B holds [0x10, 0x30, 0x40]
+
+Step 1: A.ship_hash_request(driver, 42)        → 1 frame
+Step 2: B.maybe_answer_pending_request(driver) → 1 frame (3 hashes fit)
+Step 3: A computes set-diff: {0x20 missing from B}
+Step 4: A.ship_delta(driver, [0x20], 0, ...)   → 2 frames (header + 1 record)
+
+Total: 4 frames. (Without Era 1480: 3 frames for full local set —
+the gain shows up exponentially as sinks grow.)
+
+Final: B.sink_len() == 4 (gained 0x20).
+```
+
+This is the bandwidth-optimal version of Era 1460's "ship full
+set on mismatch". For sinks with significant overlap (typical in
+a converging mesh), the pipeline ships only the genuine
+difference instead of the full local set.
+
+cargo: 293 → **303 passed** (+10: 9 hash-acc/missing-indices in
+event_sync_loop, 1 end-to-end in spore_runner). deno: 615
+(unchanged). **918 total** tests.
+
+The forensic-event convergence stack on the bare-metal substrate
+is now feature-complete: chain-anchored sink, wire format,
+broadcast/receive, scheduler, anchor-mismatch detection,
+bandwidth-efficient precise-diff exchange. Era 1490 will wrap
+all of this in a single auto-pipeline so callers stop driving
+the state machine by hand.
+
+---
+
 ## 📨 **Era 1470: Hash-List Request/Response Frames**
 *Статус: Завершено (2026-04-26)*
 
