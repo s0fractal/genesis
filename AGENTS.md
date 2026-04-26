@@ -176,9 +176,10 @@ pub struct SignalStore {
 | 1340 | ✅ Complete | `archive_sync_coordinator.ts` — orchestrates N peers + M envelopes; `selectNextSyncPeers` priority order; `ingestPeerFrames` with originator/contributor tracking; `progressEnvelope` returns action + `target_peers` fanout; `fleetConvergenceRate` Q16 telemetry. |
 | 1350 | ✅ Complete | `convergence_health.ts` — soft-band signal (converged/lagging/diverged/stranded) with alarm flag; folded into Era 1240 composite via optional `convergence_signal` input + `weight_convergence` opt; capped bonus, full-weight downside. |
 | 1360 | ✅ Complete | `network_digest_aggregator.ts` — TTL-bounded per-peer `ArchiveDigestList` store; `networkDigests()` returns deduplicated sorted union of fresh peers; `convergenceSignal()` plumbs union into Era 1350; cross-relay-stable `networkDigestSetHash`. |
+| 1370 | ✅ Complete | `convergence_auto_sync.ts` — `rankPeersByNovelty` set-difference scoring; `selectMostInformativePeer` + `selectAlarmOverrideOrder` bypass cooldown (cold peers still excluded); `convergenceAlarmEvent` with FNV-1a hash anchor for cross-relay corroboration. |
 
 ### Open Trigger
-- **Era 1370: Convergence-Triggered Auto Sync** — wire Era 1350's `alarm` flag through Era 1340's coordinator: when convergence drops, immediately mark peers due-for-sync (bypassing scheduled cooldown), prefer peers whose digest set adds the most missing digests, and emit a forensic event for postmortem audit.
+- **Era 1380: Forensic Event Sink** — durable storage + replay for `ConvergenceAlarmEvent` (and likely future event types from Eras 1180-1370): append-only log with FNV-1a chain-of-custody hash linking each event to its predecessor; bounded eviction; cross-relay event-set merge similar to Era 1310's archive sync.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---

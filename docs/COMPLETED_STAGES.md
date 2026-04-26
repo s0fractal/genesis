@@ -4,6 +4,85 @@
 
 ---
 
+## 🚨 **Era 1370: Convergence-Triggered Auto Sync**
+*Статус: Завершено (2026-04-26)*
+
+The convergence stack was complete in form but passive: Era 1350
+raises the alarm flag, but nothing in the coordinator reacted to
+it. Era 1370 closes the reactive loop with three pure functions
+that turn a low-convergence alarm into immediate, prioritized
+sync action.
+
+**Novelty-driven peer selection:**
+
+```ts
+const ranked = rankPeersByNovelty(agg, local_digests, now_ms);
+// Each entry: {peer_id, novel_count, total_offered}
+// Sorted novel_count DESC, peer_id ASC for stable ties.
+const top = selectMostInformativePeer(agg, local_digests, now_ms);
+// Returns the peer_id whose digest set adds the MOST missing
+// digests to local — or null when no peer adds anything.
+```
+
+A peer that already shares everything we have contributes 0
+novelty; a peer holding 5 digests we lack contributes 5. The
+metric is set-difference cardinality — simple, deterministic,
+no probabilistic structures needed at fleet scale.
+
+**Alarm override bypass:**
+
+```ts
+const order = selectAlarmOverrideOrder(coord, agg, local, now_ms, 3);
+// Returns up to 3 peer_ids ordered by informativeness, regardless
+// of Era 1330's cooldown gate. Cold peers (≥ failure_giveup_count
+// failures) still excluded — bypassing cooldown doesn't fix
+// permanently-broken partners.
+```
+
+The override is the answer to "we're behind the network — who
+catches us up fastest?". Schedule cooldowns exist to dampen
+chatter under normal operation; when convergence is measurably
+poor, that dampening becomes a liability and gets bypassed.
+Cold-peer exclusion stays in effect as a safety floor.
+
+**Forensic event:**
+
+```ts
+const ev = convergenceAlarmEvent(signal, ranked, triggered_at_ms);
+// {schema, triggered_at_ms, score_q16, band, intersection_size,
+//  network_size, informative_peers, event_hash}
+```
+
+`event_hash` is FNV-1a over (rate_q16, intersection, network_size,
+sorted-peer-IDs + their novelty counts). Two relays that hit the
+same alarm with the same network view produce identical event
+hashes — useful for cross-relay corroboration after the fact.
+The event payload is pure data; routing into a durable log is the
+caller's responsibility (Era 1380).
+
+**End-to-end loop:**
+
+```
+peer digest list arrives over the wire
+    → NetworkDigestAggregator.observe
+    → agg.convergenceSignal(local) returns signal with alarm=true
+    → rankPeersByNovelty + selectAlarmOverrideOrder
+    → coordinator initiates sync to top-N informative peers
+       (cooldown bypassed)
+    → convergenceAlarmEvent emitted for forensic audit
+```
+
+This is the first Era where the forensic stack acts on its own
+self-assessment without operator input. A relay that falls
+behind detects it, picks the most useful peer to catch up from,
+and skips its scheduled cooldown — all deterministic, all
+observable, all replayable.
+
+cargo: 223 (unchanged). deno: 515 → **530 passed** (+15).
+**753 total** tests.
+
+---
+
 ## 🌐 **Era 1360: Network Digest Aggregation**
 *Статус: Завершено (2026-04-26)*
 
