@@ -4,6 +4,57 @@
 
 ---
 
+## 🗄️ **Era 1300: Verdict Persistence + Cold Archive**
+*Статус: Завершено (2026-04-27)*
+
+Era 1290's `QuorumAgreementTracker` is in-memory and FIFO-bounded.
+Era 1300 makes high-confidence verdicts persist as newline-delimited
+JSON archives with an integrity-protecting `archive_hash` —
+chain-of-custody across process restarts and across parties.
+
+**Format**: line 0 is the manifest, subsequent lines are records.
+
+```jsonc
+{"schema":"OMEGA-1300/v1","archive_hash_hex":"0x9a2b4e1c","record_count":3,...}
+{"schema":"OMEGA-1300/v1","digest":42,"digest_hex":"0x0000002a",...}
+{"schema":"OMEGA-1300/v1","digest":120,"digest_hex":"0x00000078",...}
+{"schema":"OMEGA-1300/v1","digest":255,"digest_hex":"0x000000ff",...}
+```
+
+**Integrity**: `archive_hash = FNV-1a-32(digests sorted ascending,
+each as 4 BE bytes)`. Importing recomputes from the records and
+rejects on drift — tampering with any record's digest changes the
+hash. Schema mismatch, record_count mismatch, malformed JSON,
+empty blob — all rejected with named reasons.
+
+**Determinism**: records sorted by `digest` ascending then
+`first_seen_at_ms`; `adjudicators[]` sorted ascending within each
+record. Two archivists exporting the same set of digests produce
+byte-identical archive_hash, regardless of insertion order.
+
+**Cross-party diff**: `diffArchives(a, b)` returns
+`{shared, a_only, b_only, overlap_ratio}` for the digest sets.
+Two parties showing high overlap = converging audit trails.
+
+`exportArchive(tracker, opts?)` API:
+- `only_high_confidence` (default true) — filters to triple+ verdicts
+  for adjudication-grade archives.
+- `now_ms` — caller-supplied timestamp for deterministic exports.
+
+`bundleToNdjson(bundle)` / `ndjsonToBundle(blob)` — round-trip
+serialization with integrity verification on import.
+
+cargo: 223 (unchanged). deno: 382 → **405 passed** (+23).
+**628 total** tests.
+
+The forensic stack now extends from real-time alarms (Era 1180)
+to persistent cold-archive verdicts (Era 1300). Audit trails
+travel as plain text, integrity-checked, deterministic across
+parties — every property the original system promised, now
+holding across the time dimension as well.
+
+---
+
 ## 📜 **Era 1290: Quorum-Anchored Post-Mortem Reports — Verdict Broadcast**
 *Статус: Завершено (2026-04-27)*
 

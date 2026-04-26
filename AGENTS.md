@@ -168,10 +168,11 @@ pub struct SignalStore {
 | 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replay; forensic determinism invariant. |
 | 1270 | ✅ Complete | `trace_sync.ts` — observationHash merge; merged replay ≥ individual replays. |
 | 1280 | ✅ Complete | `forensic_quorum.ts` — alarm-vs-merged-replay adjudication; deterministic digest. |
-| 1290 | ✅ Complete | `FRAME_TYPE_QUORUM_VERDICT=7` + `quorum_broadcast.ts` — verdict digests broadcast as compact frames; agreement tracker counts distinct adjudicators per digest (lone/double/triple+ confidence). |
+| 1290 | ✅ Complete | `FRAME_TYPE_QUORUM_VERDICT=7` + `quorum_broadcast.ts` — agreement tracker; lone/double/triple+. |
+| 1300 | ✅ Complete | `verdict_archive.ts` — ND-JSON cold archive; FNV-1a-over-digests `archive_hash` for chain-of-custody; tamper-detection on import; cross-party `diffArchives` for verdict-set comparison. |
 
 ### Open Trigger
-- **Era 1300: Verdict Persistence + Cold Archive** — high-confidence verdicts persist to disk (SQLite / ND-JSON); import/export for long-term audit trails.
+- **Era 1310: Periodic Archive Sync** — two archives exchange only missing digests via wire delta; converge without re-shipping everything.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -245,4 +246,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0115) are COMPLETED. Quorum verdict broadcast is live: an adjudicated `QuorumResult` packs into a compact `FRAME_TYPE_QUORUM_VERDICT` SporeFrame and rides the existing transport. Receivers maintain a `QuorumAgreementTracker` that counts distinct broadcasters per digest, surfacing high-confidence (≥3 adjudicators) verdicts. Multi-party agreement on multi-party agreement on observations — the strongest archival evidence the system can produce.
+**Current task status:** All open tasks (0086 → 0116) are COMPLETED. Cold-archive persistence layer is live: high-confidence verdicts export to ND-JSON with an FNV-1a-over-digests `archive_hash` for chain-of-custody, importing detects tampering via hash drift, and `diffArchives` compares two parties' archives by digest-set membership. Long-term audit trails now survive process restarts and travel as plain text without loss of integrity.
