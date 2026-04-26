@@ -4,6 +4,66 @@
 
 ---
 
+## 🎞️ **Era 1260: Snapshot/Trace Replay — Forensic Reconstruction**
+*Статус: Завершено (2026-04-27)*
+
+Every observability layer is a pure function of frames it observed.
+Era 1260 makes that observable BY DESIGN: a `FrameRecorder` keeps
+an append-only log of incoming frames; `replayWindow` rebuilds any
+observer's state from any time window of the log.
+
+**Core invariant** (tested explicitly):
+```
+live_observer.observe(frame_1)
+            .observe(frame_2)
+            …
+            .observe(frame_N)
+==
+replayWindow(recorder, 0, ∞, () => fresh_observer, feed)
+```
+
+`FrameRecorder` API:
+- `record(frame, t, by)` — shallow-copy ingest with FIFO eviction.
+- Query helpers: `range(t1,t2)`, `byType(t)`, `byDeliverer(id)`,
+  `filter(pred)`.
+- `serialize()` — flat 32-bytes-per-frame `Uint8Array` for archives.
+- `FrameRecorder.fromSerialized(blob)` — corrupted frames silently
+  skipped via CRC validation.
+- `total_recorded` lifetime counter (separate from current `size()`).
+
+`replayWindow` pattern:
+```ts
+const detector = replayWindow(
+    recorder,
+    incident_start_ms,
+    incident_end_ms,
+    () => new ConvergenceDetector(),
+    (cd, frame, by, t) => cd.observe(frame, by, t),
+);
+// detector now reflects what the relay knew during the incident.
+```
+
+`summarize(frames)` aggregates `{total_frames, by_type,
+by_deliverer, earliest_at_ms, latest_at_ms}` for HUDs and
+forensic reports.
+
+**Default capacity = 4096** ≈ 1 hour of 1Hz traffic per spore,
+typical incident-investigation window. Operators can configure
+larger for long-window archives, smaller for memory-constrained
+ESP32 relays.
+
+cargo: 223 (unchanged). deno: 305 → **324 passed** (+19).
+**547 total** tests.
+
+The mesh now has a complete forensic stack: live observability
+(Era 1180-1250) + recorded archives (Era 1260) → any observer's
+state at any point in the recorded window can be reconstructed
+from frames alone, without coordination, without state replay.
+**Pure function reconstruction**: the strongest possible
+guarantee a distributed system can offer about its own past.
+
+---
+
 ## 📡 **Era 1250: Composite Health Broadcast — Meta-Partition Detection**
 *Статус: Завершено (2026-04-27 morning)*
 

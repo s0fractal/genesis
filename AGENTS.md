@@ -164,10 +164,11 @@ pub struct SignalStore {
 | 1220 | ✅ Complete | `investigation_convergence.ts` — corroboration tracker; lone/double/triple+/high confidence bands. |
 | 1230 | ✅ Complete | `reputation_feedback.ts` — soft reputation penalty from corroboration. |
 | 1240 | ✅ Complete | `mesh_health.ts` — composite score `[0, 1]`; bands; Q16-encodable. |
-| 1250 | ✅ Complete | `FRAME_TYPE_COMPOSITE_HEALTH=6` + `composite_monitor.ts` — composite broadcast as compact SporeFrame; meta-partition alarm at ≥0.20 disagreement. |
+| 1250 | ✅ Complete | `FRAME_TYPE_COMPOSITE_HEALTH=6` + `composite_monitor.ts` — composite broadcast; meta-partition at ≥0.20. |
+| 1260 | ✅ Complete | `frame_recorder.ts` — append-only ring buffer + replayWindow / replayThrough / summarize; serialize ↔ fromSerialized for forensic archives; replay-determinism invariant tested. |
 
 ### Open Trigger
-- **Era 1260: Snapshot/Trace Replay** — append-only frame log + replay through observability stack; forensic reconstruction of mesh incidents.
+- **Era 1270: Cross-Substrate Trace Sync** — two relays exchange frame logs covering overlapping windows; merged replay yields more complete forensic reconstruction than either relay alone.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -241,4 +242,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0111) are COMPLETED. Composite health scores now broadcast over the existing SporeFrame transport (frame_type=6 COMPOSITE_HEALTH); peer relays compare composites and emit meta-partition alarms when their judgments diverge by ≥0.20 absolute. The mesh now has a SEMANTIC observability layer — disagreement on counts is one signal, disagreement on conclusions is another, deeper one.
+**Current task status:** All open tasks (0086 → 0112) are COMPLETED. Forensic replay layer is live: every observability module is a pure function of recorded frames, so `replayWindow(recorder, t1, t2, factory, feed)` rebuilds any past observer state from a frame log. The replay-determinism invariant ("replay produces same state as live observation") is unit-tested. Recorders are bounded (default 4096) and serializable to flat 32-bytes-per-frame blobs for archival.
