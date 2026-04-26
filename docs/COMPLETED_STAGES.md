@@ -4,6 +4,78 @@
 
 ---
 
+## 🤝 **Era 1520: Event-Chain Quorum**
+*Статус: Завершено (2026-04-26)*
+
+The convergence stack gets every peer to a sink with the same
+`event_chain_anchor` after enough sync rounds — eventually. While
+in-progress, peers transiently disagree. After convergence,
+network partition or deliberate exclusion can leave a sub-mesh
+with a different anchor. Era 1520 makes that disagreement
+*observable*.
+
+**`EventChainQuorumTracker`** — pure tracker, no I/O:
+
+```ts
+const tracker = new EventChainQuorumTracker({ ttl_ms: 5*60_000, high_threshold: 3 });
+tracker.observe(peer_id, anchor, now_ms);  // record peer's claim
+
+const snap = tracker.snapshot(now_ms);
+// {
+//   consensus_anchor: 0x9299_32B5,  // most-claimed value
+//   consensus_count: 4,             // peers agreeing
+//   total_observers: 5,
+//   band: "high",                   // none/lone/double/triple+/high
+//   dissenter_peer_ids: [0xFF],     // peers reporting different anchors
+//   distinct_anchors: [0x9299_32B5, 0xDEAD_BEEF],
+//   agreement_q16: 52428,           // 4/5 ≈ 0.8 in Q16
+// }
+```
+
+**Confidence bands** mirror Era 1220's investigation
+convergence:
+- `none` — no fresh observations.
+- `lone` — single observer.
+- `double` — two observers agree.
+- `triple+` — 3+ observers agree but below `high_threshold`.
+- `high` — observer count ≥ `high_threshold` (default 3).
+
+**Tie-breaking**: when multiple anchors have equal observer
+counts, the *lower* anchor wins. This is deterministic across
+operators — same input → same consensus answer.
+
+**TTL eviction**: observations older than `ttl_ms` drop on next
+read. A peer that hasn't reported a fresh anchor within the
+window stops counting toward consensus. Implicitly handles
+partition: an unreachable sub-mesh's anchor falls out of the
+denominator within one TTL window.
+
+**Dissenters list**: peers whose most-recent claim differs from
+the consensus, sorted ascending. This is the input Era 1530
+will feed into auto-investigation: any peer in this list is a
+candidate for forensic adjudication.
+
+**Why no `consensus_anchor` for empty input?** When zero peers
+have observed anything, returning a numeric "consensus" would be
+misleading. `null` is the unambiguous "nothing claimed yet"
+signal — caller must handle it explicitly.
+
+**Why is the agreement metric Q16, not a float?** Consistent
+with Era 1140's reputation rates, Era 1240's composite health,
+Era 1340's convergence rate. Q16 fixed-point is the lingua
+franca of cross-substrate metrics.
+
+cargo: 308 (unchanged). deno: 638 → **655 passed** (+17).
+**963 total** tests.
+
+The forensic stack now answers a fundamental cross-relay
+question: "is the network agreed on what's in the event log?".
+With this signal in hand, future Eras can drive automated
+investigation, partition detection, or operator alerts when
+agreement degrades.
+
+---
+
 ## 🔌 **Era 1510: Mesh Event Bridge Adapter**
 *Статус: Завершено (2026-04-26)*
 
