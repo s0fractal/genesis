@@ -153,10 +153,11 @@ pub struct SignalStore {
 | 1110 | ✅ Complete | `spore_frame.rs` + JS mirror — 32-byte FNV-1a-CRC binary frame for UART/SPI/BLE. Anchor `0x00F2_FEFA`. |
 | 1120 | ✅ Complete | `liveness_aggregator.ts` + `tools/spore_relay.ts` — relay observes fleet, classifies each spore. |
 | 1130 | ✅ Complete | `spore_routing.rs` + JS mirror — TTL-bounded peer-to-peer forwarding with FNV-1a trail digest. |
-| 1140 | ✅ Complete | `reputation_routing.ts` — deterministic per-neighbor scores; healthy bonus, heartbeat density, warrant throughput, stall/silence penalties; forked = hard exclusion. `pickBest`/`pickTopK` for routing layer. |
+| 1140 | ✅ Complete | `reputation_routing.ts` — deterministic per-neighbor scores; healthy bonus, heartbeat density, warrant throughput, stall/silence penalties. |
+| 1150 | ✅ Complete | `adaptive_ttl.ts` — per-frame TTL = path_length + ⌈log₂(1/reliability)⌉ + safetyHops, clamped to [1, 16]. Replaces fixed DEFAULT_TTL. |
 
 ### Open Trigger
-- **Era 1150: Adaptive TTL** — compute per-frame TTL from the expected reliability of the chosen path, replacing fixed `DEFAULT_TTL = 4`.
+- **Era 1160: Path Selection by Reputation × TTL Budget** — choose among multiple candidate paths by best (reliability / TTL) tradeoff.
 - **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via `cargo prove build`. Self-test produces `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
 
 ---
@@ -230,4 +231,4 @@ pub struct SignalStore {
 - Never use `Math.random()` in physics-adjacent code. Use `xorshift64` with deterministic seeds.
 - Every Era must be **reversible** — if it breaks, you can flip a boolean (`useToroidalShader`) or revert a task file.
 
-**Current task status:** All open tasks (0086 → 0100) are COMPLETED. The lattice has a **learned routing overlay**: relays score every observed neighbor and forwarders pick the top-k eligible candidates. Forked spores are hard-excluded (drift propagates nothing); healthy spores beat unknown beat stalled beat lost. Two relays observing identical event streams produce byte-identical rankings — determinism preserved end-to-end.
+**Current task status:** All open tasks (0086 → 0101) are COMPLETED. The routing stack is now adaptive end-to-end: per-neighbor reputation feeds per-frame TTL, drift is excluded at the wire AND the score, every layer is deterministic across observers. A field of $5 ESP32 boards now self-organizes its retransmit budget based on observable behavior alone.

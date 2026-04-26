@@ -31,6 +31,8 @@ import {
     frameTtl,
     stampOrigin,
 } from "../src/network/spore_routing.ts";
+import { rankNeighbors } from "../src/network/reputation_routing.ts";
+import { adaptiveTtl, adaptiveTtlReport } from "../src/network/adaptive_ttl.ts";
 
 const log: string[] = [];
 const log_line = (s: string) => log.push(s);
@@ -44,8 +46,8 @@ const SPORES: { id: string; matrix: number }[] = [
     { id: "spore-D", matrix: 0xD0D0_D0D0 >>> 0 },
 ];
 
-function emit_warrant_at_origin(origin_id: string, target: number, oracle_bit: number, tick: number) {
-    const f = stampOrigin(buildWarrantVote(target, oracle_bit, true, tick), DEFAULT_TTL);
+function emit_warrant_at_origin(origin_id: string, target: number, oracle_bit: number, tick: number, ttl: number = DEFAULT_TTL) {
+    const f = stampOrigin(buildWarrantVote(target, oracle_bit, true, tick), ttl);
     log_line(`[${origin_id}] origin emits WARRANT_VOTE target=0x${target.toString(16)} oracle_bit=${oracle_bit} TTL=${frameTtl(f)} trail=0x${frameTrail(f).toString(16)}`);
     return f;
 }
@@ -77,11 +79,28 @@ function relay_through_chain(start_frame: ReturnType<typeof emit_warrant_at_orig
 }
 
 function main() {
-    log_line("=== OMEGA-64 Era 1130 — Relay-Free Mesh Demo ===\n");
+    log_line("=== OMEGA-64 Era 1130+1150 — Relay-Free Mesh w/ Adaptive TTL ===\n");
 
-    // (1) spore-A originates a warrant vote: it claims to be the claude
-    // oracle (oracle_bit=0) AYE on proposal 0xCAFE_BABE.
-    const origin_frame = emit_warrant_at_origin("spore-A", 0xCAFE_BABE >>> 0, 0, 100);
+    // Build a synthetic LivenessAggregator that knows about every spore
+    // in the chain so we can compute reputation-driven adaptive TTL.
+    const NOW = 100_000;
+    const agg = new LivenessAggregator({ classifyAfter: 1, maxSilenceMs: 30_000 });
+    for (const sp of SPORES.slice(1)) {
+        // Make every chain neighbor healthy with a few heartbeats.
+        agg.ingest(sp.id, buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200);
+        agg.ingest(sp.id, buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 100);
+        agg.ingest(sp.id, buildHeartbeat(GENESIS_HASH_V1_0, 3), NOW);
+    }
+    const ranked = rankNeighbors(agg, NOW);
+    const path = SPORES.slice(1).map(sp =>
+        ranked.find(r => r.spore_id === sp.id)!
+    );
+    const ttl_report = adaptiveTtlReport(path);
+    log_line(`[adaptive-ttl] path_length=${ttl_report.path_length}  reliability=${ttl_report.reliability.toFixed(4)}  margin=${ttl_report.margin}  safety=${ttl_report.safety}  ⇒ TTL=${ttl_report.final_ttl}`);
+
+    // (1) spore-A originates a warrant vote with the computed TTL.
+    const ttl = adaptiveTtl(path);
+    const origin_frame = emit_warrant_at_origin("spore-A", 0xCAFE_BABE >>> 0, 0, 100, ttl);
 
     // (2) The frame travels A → B → C → D. At each hop, decide_forward
     // mutates the trail and decrements TTL.

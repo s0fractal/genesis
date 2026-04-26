@@ -4,6 +4,58 @@
 
 ---
 
+## ⏳ **Era 1150: Adaptive TTL**
+*Статус: Завершено (2026-04-26)*
+
+The routing stack's last fixed constant — `DEFAULT_TTL = 4` from Era
+1130 — became a function. The originator now computes per-frame TTL
+from observable reliability:
+
+```
+ttl = clamp( path_length + ⌈log₂(1/reliability)⌉ + safetyHops,
+             MIN_TTL=1, MAX_TTL=16 )
+```
+
+Behavior summary:
+
+| Path                            | Reliability | Margin | TTL  |
+|---------------------------------|-------------|--------|------|
+| 3× healthy (score ≈ 200)        | ~0.5        | 1      | 5    |
+| 3× marginal (score = 125)       | ~0.125      | 3      | 7    |
+| any forked / zero-score hop     | 0           | ∞ → 16 | 16   |
+
+**`src/network/adaptive_ttl.ts`** exposes:
+- `reliabilityOf(score)` — clamp into (0, 1].
+- `pathReliability(scores)` — product of per-hop reliabilities.
+- `marginHops(p)` — `⌈log₂(1/p)⌉` retry headroom.
+- `adaptiveTtl(path, opts)` — main entrypoint, returns clamped TTL.
+- `adaptiveTtlReport(path)` — diagnostic breakdown.
+
+**`tools/simulate_relay_free_mesh.ts`** integrates: builds a synthetic
+aggregator, ranks neighbors, computes adaptive TTL, stamps the origin
+frame with it. Output:
+
+```
+[adaptive-ttl] path_length=3 reliability=0.2430 margin=3 safety=1 ⇒ TTL=7
+[spore-A] origin emits WARRANT_VOTE TTL=7 trail=0x0
+[spore-B] DELIVER_LOCAL TTL→6 trail→0x65136925
+[spore-C] DELIVER_LOCAL TTL→5 trail→0x4f97afcf
+[spore-D] DELIVER_LOCAL TTL→4 trail→0xb3a60e49
+✅ Relay-free mesh end-to-end success
+```
+
+The frame arrives with TTL=4 remaining instead of TTL=1 — the
+originator correctly budgeted retries for the path's actual quality.
+
+cargo: 211 (relay-side is JS-only). deno: 132 → **144 passed**.
+**355** total tests. 12 new adaptive_ttl unit tests, all of them
+deterministic across calls.
+
+The mesh now self-budgets its retransmit headroom from observable
+behavior alone. No operator-tuned constants in the warrant path.
+
+---
+
 ## 🎯 **Era 1140: Reputation-Weighted Routing**
 *Статус: Завершено (2026-04-26)*
 
