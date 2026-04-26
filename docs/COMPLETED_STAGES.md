@@ -4,6 +4,83 @@
 
 ---
 
+## 🚨 **Era 1530: Quorum-Driven Investigation Trigger**
+*Статус: Завершено (2026-04-26)*
+
+Era 1520's tracker reports who disagrees with consensus. Era
+1530 turns that signal into an *actionable* trigger: dissenters
+that have been visible long enough graduate from "observed
+disagreement" to "forensic investigation candidate".
+
+**Three-gate filter:**
+
+```
+peer is in fire_now ⟺
+    consensus.band ≥ min_band                    (default "triple+")
+  ∧ now - first_seen_dissenting ≥ min_dissent_duration_ms
+                                                 (default 10s)
+  ∧ now - last_triggered ≥ per_peer_cooldown_ms (default 60s)
+```
+
+This deliberately avoids firing on transient lag. A peer that
+just hasn't caught up to convergence yet won't be flagged
+until its dissent has persisted for the configured duration —
+plenty of time for Era 1370's auto-sync to resolve normal
+catch-up scenarios.
+
+**State machine:**
+
+```ts
+const trigger = new QuorumInvestigationTrigger();
+
+// Each tick (e.g. once per second):
+const outcome = tickTrigger(tracker, trigger, now_ms);
+// {
+//   fire_now: [0xFF, 0xFE],     // ready for warrant
+//   pending: [0xAA],             // dissenting but cooldown/duration active
+//   dissenter_count: 3,
+// }
+
+// After issuing a warrant:
+trigger.markTriggered(0xFF, now_ms);
+```
+
+**Consensus shift handling:** when the consensus anchor changes
+(e.g. all peers move forward together), `first_seen_dissenting`
+resets so a peer dissenting against the OLD consensus doesn't
+get unfairly counted against the NEW one. But `last_triggered`
+is preserved — a peer just investigated shouldn't get fired
+again immediately even after consensus shifts.
+
+**Auto-cleanup:** when a dissenter agrees with consensus on a
+later tick, its trigger record is dropped automatically. No
+stale state accumulates.
+
+**Pure decision logic, no I/O:** the trigger doesn't issue
+warrants directly. It returns peer_ids; callers wire them into
+whatever warrant-creation pipeline the relay exposes (Era
+1090's `warrant_issuance.rs`, JS equivalents, or test fakes).
+
+**Default conservatism:** `min_band="triple+"` means at least
+3 observers must agree on consensus before any dissenter gets
+investigated. A 2-vs-1 split is "double" band — too uncertain
+to take action. Operators tune this if their mesh has different
+trust topology.
+
+cargo: 308 (unchanged). deno: 655 → **669 passed** (+14).
+**977 total** tests.
+
+The forensic loop is now end-to-end automated:
+- Eras 1310-1500: peers converge their event log.
+- Era 1520: cross-relay quorum on the chain anchor.
+- Era 1530: dissenters past cooldown become investigation
+  candidates.
+- Era 1540 (next): wire candidates into warrant proposals,
+  closing the autonomous loop "disagreement → investigation →
+  oracle adjudication → resolution".
+
+---
+
 ## 🤝 **Era 1520: Event-Chain Quorum**
 *Статус: Завершено (2026-04-26)*
 
