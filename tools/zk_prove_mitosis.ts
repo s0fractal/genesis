@@ -49,19 +49,7 @@ function softProve(r: MitosisReceiptJSON): { verified: boolean; reason?: string 
     return { verified: true };
 }
 
-async function spvAvailable(): Promise<boolean> {
-    try {
-        const cmd = new Deno.Command("cargo", {
-            args: ["prove", "--version"],
-            stdout: "null",
-            stderr: "null",
-        });
-        const { success } = await cmd.output();
-        return success;
-    } catch {
-        return false;
-    }
-}
+
 
 async function readStdin(): Promise<string> {
     const chunks: Uint8Array[] = [];
@@ -130,21 +118,34 @@ async function main() {
         Deno.exit(1);
     }
 
-    if (await spvAvailable()) {
-        // Hand off to SP1. (Stub — wiring `cargo prove run --mode 2` with the
-        // 8 + (4 × n) + 8 stdin tuples lives behind a flag because the
-        // toolchain may not be present in every environment.)
-        // For now, emit a deterministic "would-prove" record so the bundle
-        // is structurally identical to what Phase 3 will eventually produce.
-        const out = {
-            kind: "stark",
-            receiptHash: `0x${(receipt.receiptHash >>> 0).toString(16)}`,
-            parentGenome: `0x${(receipt.parent.genome >>> 0).toString(16)}`,
-            verified: true,
-            note: "SP1 toolchain detected — Phase 3 hookup pending; emitted stub bundle.",
-        };
-        console.log(JSON.stringify(out));
+    // Hand off to real SP1 Host.
+    try {
+        const cmd = new Deno.Command("cargo", {
+            args: ["run", "--manifest-path", "omega_zk_host/Cargo.toml", "--release"],
+            stdin: "piped",
+            stdout: "piped",
+            stderr: "inherit"
+        });
+        const child = cmd.spawn();
+        
+        const writer = child.stdin.getWriter();
+        const encoder = new TextEncoder();
+        await writer.write(encoder.encode(JSON.stringify(receipt)));
+        await writer.close();
+
+        const output = await child.output();
+        if (!output.success) {
+            throw new Error(`Host failed with code ${output.code}`);
+        }
+
+        const decoder = new TextDecoder();
+        const outStr = decoder.decode(output.stdout);
+        const parsed = JSON.parse(outStr);
+        console.log(JSON.stringify(parsed));
         return;
+    } catch (err) {
+        console.error("[zk_prove] Failed to run omega_zk_host:", err);
+        // Fallback to soft proof if the host is unavailable or fails
     }
 
     // Fallback: emit the soft-proof bundle. This matches the in-browser
