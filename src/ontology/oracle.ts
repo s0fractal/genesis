@@ -6,6 +6,7 @@ import { TOPOS_DICTIONARY } from "../shared/topos_dictionary.ts";
 import { WasmMemoryProxy } from "../shared/memory_proxy.ts";
 import { NomosGate } from "./nomos_gate.ts";
 import { apply, lambda_format_term, lambda_parse, measureIR, evaluateFitness, getS, getK, getI, getY, getB, getC, getW, lambda_phenotype_hue, lambda_compile_morphology, lambda_decode_morphology, lambda_decompose_ast, calculateConsonanceBonus, extractInteractionSignal } from "../compiler/pure_lambda.ts";
+import { fetchBitcoinTip } from "../network/bitcoin_anchor.ts";
 
 // Era 208: The Cognitive Zodiac (Decentralized Swarm Policies)
 export enum CognitiveZodiac {
@@ -85,6 +86,7 @@ export class SovereignOracle {
 
     // Vector I: Bitcoin Chronology Thermodynamics
     private btcBlockHeight: number = 0;
+    private btcBlockHash: string = "";
     private btcMutationCost: number = 50000;
     private lastBtcPoll: number = 0;
     
@@ -155,19 +157,12 @@ export class SovereignOracle {
     private async syncBitcoinChronology() {
         if (performance.now() - this.lastBtcPoll < 60000) return;
         this.lastBtcPoll = performance.now();
-        try {
-            const res = await fetch("https://mempool.space/api/v1/blocks/");
-            if (res.ok) {
-                const blocks = await res.json();
-                if (blocks && blocks.length > 0) {
-                    const tip = blocks[0];
-                    this.btcBlockHeight = tip.height;
-                    const secondsSinceBlock = Math.floor(Date.now() / 1000) - tip.timestamp;
-                    this.btcMutationCost = 50000 + Math.max(0, secondsSinceBlock * 166);
-                }
-            }
-        } catch (e) {
-            console.warn("[ORACLE] Bitcoin Chronology sync failed.", e);
+        const tip = await fetchBitcoinTip();
+        if (tip) {
+            this.btcBlockHeight = tip.height;
+            this.btcBlockHash = tip.hash;
+            const secondsSinceBlock = Math.floor(Date.now() / 1000) - tip.timestamp;
+            this.btcMutationCost = 50000 + Math.max(0, secondsSinceBlock * 166);
         }
     }
 
@@ -740,7 +735,9 @@ export class SovereignOracle {
                      if (zodiac === CognitiveZodiac.Cancer) baseLimit = Math.max(20, Math.floor(baseLimit * 2.0));
                      
                      // Era 247: Real thermodynamic entropy creates genetic drift in the interpreter
-                     const entropySeed = Math.floor(this.epochTicks + this.reserveEnergyPool) ^ node.sector;
+                     // Era 2100: Inject actual Bitcoin block hash entropy
+                     const btcEntropy = this.btcBlockHash ? parseInt(this.btcBlockHash.substring(0, 8), 16) : 0;
+                     const entropySeed = Math.floor(this.epochTicks + this.reserveEnergyPool + btcEntropy) ^ node.sector;
                      const { timeout } = evaluateFitness(testTerm, baseLimit, entropySeed);
                      
                      if (timeout) {

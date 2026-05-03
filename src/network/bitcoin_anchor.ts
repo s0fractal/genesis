@@ -1,0 +1,85 @@
+// Era 2100: Bitcoin Sovereign Anchorage
+import { formatInscription } from "./genesis_inscription.ts";
+
+export interface BitcoinTip {
+    height: number;
+    hash: string;
+    timestamp: number;
+}
+
+/**
+ * Fetches the current Bitcoin blockchain tip (height, hash, timestamp) from mempool.space
+ */
+export async function fetchBitcoinTip(): Promise<BitcoinTip | null> {
+    try {
+        const res = await fetch("https://mempool.space/api/v1/blocks/");
+        if (!res.ok) return null;
+        
+        const blocks = await res.json();
+        if (blocks && blocks.length > 0) {
+            const tip = blocks[0];
+            return {
+                height: tip.height,
+                hash: tip.id,
+                timestamp: tip.timestamp
+            };
+        }
+    } catch (e) {
+        console.warn("[BITCOIN_ANCHOR] Failed to fetch chain tip.", e);
+    }
+    return null;
+}
+
+/**
+ * Validates whether a given Bitcoin transaction contains an OP_RETURN output
+ * matching the canonical OMEGA-64 Genesis Inscription.
+ * @param txid The Bitcoin transaction ID
+ * @param expectedHash Optional explicit hash number, defaults to GENESIS_HASH_V1_0 if omitted
+ * @returns true if valid, false otherwise.
+ */
+export async function verifyGenesisInscription(txid: string, expectedHash: number): Promise<boolean> {
+    try {
+        const res = await fetch(`https://mempool.space/api/tx/${txid}`);
+        if (!res.ok) {
+            console.warn(`[BITCOIN_ANCHOR] TXID ${txid} not found or network error.`);
+            return false;
+        }
+
+        const tx = await res.json();
+        if (!tx || !tx.vout) return false;
+
+        const expectedPayload = formatInscription(expectedHash); 
+        // OMEGA1:549a6307
+        // In OP_RETURN, the scriptpubkey.asm looks like: "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3534396136333037"
+        // We can just encode the expected string to hex and look for it.
+        
+        const enc = new TextEncoder();
+        const bytes = enc.encode(expectedPayload);
+        let hexPayload = "";
+        for (const b of bytes) {
+            hexPayload += b.toString(16).padStart(2, '0');
+        }
+
+        for (const out of tx.vout) {
+            if (out.scriptpubkey_type === "op_return") {
+                const asm = out.scriptpubkey_asm || "";
+                // If it explicitly has our hex string
+                if (asm.toLowerCase().includes(hexPayload.toLowerCase())) {
+                    return true;
+                }
+                
+                // Fallback check the raw scriptpubkey
+                const spk = out.scriptpubkey || "";
+                if (spk.toLowerCase().includes(hexPayload.toLowerCase())) {
+                    return true;
+                }
+            }
+        }
+        
+        console.warn(`[BITCOIN_ANCHOR] TXID ${txid} does not contain valid OP_RETURN payload (${expectedPayload}).`);
+        return false;
+    } catch (e) {
+        console.error(`[BITCOIN_ANCHOR] Error verifying TXID ${txid}:`, e);
+        return false;
+    }
+}

@@ -1,6 +1,8 @@
 import { configureCanvas, DOM, setInputMode, tickFps, setHudStat } from "./dom.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
+import { verifyGenesisInscription } from "../network/bitcoin_anchor.ts";
+import { GENESIS_HASH_V1_0 } from "../network/genesis_inscription.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
@@ -104,6 +106,23 @@ export async function bootstrapV2() {
         if (addr0 !== 0) {
             const decoded = PhaseRouter.decode(addr0);
             console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
+        }
+
+        // Era 2100: Bitcoin Genesis Verification
+        const genesisTxid = (window as any).__OMEGA_GENESIS_TXID__;
+        if (genesisTxid) {
+            console.log(`[BOOTSTRAP] Verifying Bitcoin OP_RETURN Anchor for TXID: ${genesisTxid}`);
+            const isValid = await verifyGenesisInscription(genesisTxid, GENESIS_HASH_V1_0);
+            if (!isValid) {
+                console.error("[BOOTSTRAP] 🚨 FATAL: Invalid Bitcoin Genesis Inscription. Network Boot Aborted.");
+                setHudStat("e", "BTC ANCHOR", "FAILED");
+                return;
+            }
+            console.log("[BOOTSTRAP] 🔗 Bitcoin Genesis Inscription Verified.");
+            setHudStat("e", "BTC ANCHOR", "VERIFIED");
+        } else {
+            console.warn("[BOOTSTRAP] No __OMEGA_GENESIS_TXID__ provided. Running in untethered mode.");
+            setHudStat("e", "BTC ANCHOR", "UNTETHERED");
         }
 
         // Boot V2 Mesh Network (Libp2p GossipSub)

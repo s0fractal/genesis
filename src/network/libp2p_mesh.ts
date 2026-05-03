@@ -1045,6 +1045,8 @@ export class Libp2pMesh {
       mh: 8,
       // Era 1010: Recursive Plasmid Ontology
       plasmid,
+      // Era 2100: Bitcoin Anchor
+      btcTx: (window as any).__OMEGA_GENESIS_TXID__ || "untethered"
     });
 
     let deltaBuffer: ArrayBuffer | null = null;
