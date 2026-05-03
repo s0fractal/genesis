@@ -1,7 +1,15 @@
 // deno-lint-ignore-file
 import { walk } from "https://deno.land/std@0.224.0/fs/walk.ts";
 
-const TARGET_EXTS = [".ts", ".rs", ".wgsl", ".toml", ".html", ".json", ".proto"];
+const TARGET_EXTS = [
+  ".ts",
+  ".rs",
+  ".wgsl",
+  ".toml",
+  ".html",
+  ".json",
+  ".proto",
+];
 const EXCLUDE_DIRS = [
   /node_modules/,
   /target/,
@@ -23,28 +31,16 @@ async function main() {
   const pkg = JSON.parse(pkgStr);
   const OMEGA_VERSION = pkg.version;
   const ERA = pkg.era || "Unknown";
-  const OUTPUT_FILE_V1 = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}_V1.md`;
-  const OUTPUT_FILE_V2 = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}_V2.md`;
+  const OUTPUT_FILE = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
+  const chunks: string[] = [];
 
-  const chunksV1: string[] = [];
-  const chunksV2: string[] = [];
-
-  chunksV1.push(
+  chunks.push(
     `# OMEGA-64 | ONTOLOGY ${
       OMEGA_VERSION.split(".")[0]
-    } LEGACY V1 EXPORT | ERA: ${ERA}\n`,
+    } FULL EXPORT | ERA: ${ERA}\n`,
   );
-  chunksV1.push(
-    `This document contains the legacy Core V1 and ZK Guest architecture of the Genesis Spore.\n\n---\n`,
-  );
-
-  chunksV2.push(
-    `# OMEGA-64 | ONTOLOGY ${
-      OMEGA_VERSION.split(".")[0]
-    } BARE-METAL V2 EXPORT | ERA: ${ERA}\n`,
-  );
-  chunksV2.push(
-    `This document contains the bleeding edge V2 engine, encompassing the zero-copy WASM, WebGPU shaders, and Continuous Delta Networking.\n\n---\n`,
+  chunks.push(
+    `This document contains the full architecture of the Genesis Spore.\n\n---\n`,
   );
 
   const addFile = async (path: string) => {
@@ -52,13 +48,8 @@ async function main() {
       const content = await Deno.readTextFile(path);
       const ext = path.split(".").pop() || "text";
       const block = `## \`${path}\`\n\`\`\`${ext}\n${content}\n\`\`\`\n`;
-      
-      // Route files mathematically to V2 if they specifically belong there
-      if (path.includes("v2") || path.includes("V2")) {
-          chunksV2.push(block);
-      } else {
-          chunksV1.push(block);
-      }
+
+      chunks.push(block);
       console.log(`✅ Included: ${path}`);
     } catch (e) {
       console.error(`❌ Failed: ${path}`);
@@ -127,11 +118,10 @@ async function main() {
 
   // Tools/ verification binaries excluded from LLM context payload to save tokens.
 
-  await Deno.writeTextFile(OUTPUT_FILE_V1, chunksV1.join("\n"));
-  await Deno.writeTextFile(OUTPUT_FILE_V2, chunksV2.join("\n"));
-  
+  await Deno.writeTextFile(OUTPUT_FILE, chunks.join("\n"));
+
   console.log(
-    `\n🎉 Successfully exported OMEGA-64 to:\n -> ${OUTPUT_FILE_V1}\n -> ${OUTPUT_FILE_V2}`,
+    `\n🎉 Successfully exported OMEGA-64 to:\n -> ${OUTPUT_FILE}`,
   );
 }
 
