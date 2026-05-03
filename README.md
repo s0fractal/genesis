@@ -139,7 +139,6 @@ ratification:
 - `docs/COMPLETED_STAGES.md` — full era-by-era history
 - `AGENTS.md` — orientation contract for future agents
 - `CONTRIBUTING.md` — how to get involved
-- `PUBLIC_ISSUES.md` — active community roadmap and good first issues
 
 ---
 

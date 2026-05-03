@@ -7,10 +7,10 @@ Welcome to the **Liquid Architecture**. OMEGA-64 is not a standard software proj
 If you are a researcher in **Artificial Life**, **Zero-Knowledge Proofs**, **P2P Networking**, or **Autonomous AI Governance**, your contributions are critical for the organism's expansion into the physical world.
 
 ### 1. Explore Open Tasks
-All current evolutionary pressures and structural tasks are documented in our public issue tracker:
-👉 **[PUBLIC_ISSUES.md](PUBLIC_ISSUES.md)**
+All current evolutionary pressures and structural tasks are documented in our internal tasks directory:
+👉 **`tasks/`**
 
-Look for tasks tagged with \`good first issue\` if you are just getting started. These usually involve extending the HUD, adding new test cases, or minor P2P network diagnostics.
+Look for tasks that align with your expertise. These usually involve extending the HUD, adding new test cases, or minor P2P network diagnostics.
 
 ### 2. Run the Genesis Node
 To participate in the mesh, you must be able to compute the Genesis Hash (\`0x549A6307\`). Run the local development server:
