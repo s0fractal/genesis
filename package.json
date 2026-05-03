@@ -10,8 +10,9 @@
   "scripts": {
     "dev": "vite",
     "export": "deno run -A tools/export_omega.ts",
+    "verify:dist": "deno run -A tools/verify_dist.ts",
     "build:wasm": "deno run -A tools/build_v2.ts",
-    "build": "npm run build:wasm && vite build",
+    "build": "npm run build:wasm && vite build && npm run verify:dist",
     "serve": "vite preview",
     "generate:phase-goldens": "deno run -A tools/generate_golden.ts",
     "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",

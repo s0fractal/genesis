@@ -145,10 +145,27 @@
             font-size: 10px;
             background: rgba(255,255,255,0.05);
         }
+        .paused-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.4);
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 0.5em;
+            pointer-events: none;
+            z-index: 5;
+        }
     </style>
 </head>
 <body>
     <canvas id="lens-canvas"></canvas>
+
+    <div class="paused-overlay" id="paused-overlay">PAUSED</div>
 
     <div class="hud hud-top-left">
         <div class="hud-title">OMEGA-64 Living Museum</div>
@@ -157,6 +174,9 @@
         <div class="hud-row"><span class="label">Resonance (r)</span><span class="value" id="stat-c-value">—</span></div>
         <div class="hud-row"><span class="label">Golden Trace</span><span class="value" id="stat-d-value">—</span></div>
         <div class="hud-row"><span class="label">Attractors</span><span class="value" id="stat-e-value">—</span></div>
+        <div class="hud-row"><span class="label">FPS</span><span class="value" id="stat-fps-value">—</span></div>
+        <div class="hud-row"><span class="label">GPU</span><span class="value" id="stat-gpu-value">—</span></div>
+        <div class="hud-row"><span class="label">Parity</span><span class="value" id="stat-mode-value">—</span></div>
         <div class="hud-row"><span class="label">Mode</span><span class="value" id="stat-f-value">OBSERVING</span></div>
     </div>
 
@@ -205,7 +225,7 @@
             Agents with sustained coherence (energy ≥ 2500) acquire
             <strong>PROTECTED</strong> status. Terminating them requires a
             cryptographic warrant signed by 3 of 5 canonical oracles.
-            This law binds even the creator.
+            <em>Note: The full OMEGA protocol includes Codeicide Law. This Museum runs a read-only observation profile and does not expose termination controls.</em>
         </p>
         <h2>Determinism</h2>
         <p>

@@ -15,6 +15,11 @@ let renderer: PhaseV2Renderer | null = null;
 let isPaused = false;
 let animationId = 0;
 let lastStatsUpdate = 0;
+let currentSeed = 0;
+let framesSinceLastStat = 0;
+let adapterLabel = "Unknown";
+let computeMode = "toroidal";
+let wasmHash = "pending...";
 
 // Attractor presets (matrix, inverse, pulseFreq, pulseAmp)
 const ATTRACTOR_PRESETS: [number, number, number, number][] = [
@@ -37,14 +42,25 @@ async function boot() {
 
     // WebGPU init
     if (!navigator.gpu) {
-        alert("WebGPU is required for the Living Museum. Please use Chrome 113+ or Edge 113+.");
+        showFatalError("WebGPU is required for the Living Museum. Please use Chrome 113+ or Edge 113+.");
         return;
     }
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
-        alert("WebGPU adapter unavailable.");
+        showFatalError("WebGPU adapter unavailable.");
         return;
     }
+    
+    // Era 0202: Record adapter label if available
+    try {
+        if ('requestAdapterInfo' in adapter) {
+            const adapterInfo = await adapter.requestAdapterInfo();
+            adapterLabel = adapterInfo.vendor || adapterInfo.architecture || "WebGPU Adapter";
+        }
+    } catch (e) {
+        console.warn("Could not request adapter info", e);
+    }
+
     const device = await adapter.requestDevice();
     const context = canvas.getContext("webgpu") as unknown as GPUCanvasContext;
     const format = navigator.gpu.getPreferredCanvasFormat();
@@ -55,14 +71,21 @@ async function boot() {
     const ptrs = ENGINE.getMemoryPointers();
 
     // Big Bang — museum scale (~100k agents)
+    currentSeed = Math.floor(Math.random() * 1000000);
     const bigBang = ENGINE.wasm!.exports.v2_ignite_big_bang as CallableFunction;
-    bigBang(0x64_4D_53_45, 100_000);
-    console.log("🎆 [MUSEUM] Big Bang ignited: 100,000 agents.");
+    bigBang(currentSeed, 100_000);
+    console.log(`🎆 [MUSEUM] Big Bang ignited: 100,000 agents. Seed: ${currentSeed}`);
 
     // Renderer
     renderer = new PhaseV2Renderer(context, device, format, ENGINE);
     await renderer.initialize();
     renderer.setComputeMode("toroidal"); // Exact Rust parity for museum stability
+    
+    // Pre-fetch wasm_hash
+    fetch('/v2/omega_v2_core.wasm.sha256')
+        .then(r => r.text())
+        .then(text => wasmHash = text.trim())
+        .catch(err => console.warn("Could not load wasm_hash", err));
 
     // HUD init
     const genesisHex = GENESIS_HASH_V1_0.toString(16).toUpperCase().padStart(8, "0");
@@ -81,6 +104,7 @@ async function boot() {
         if (key === " ") {
             isPaused = !isPaused;
             updateHudStat("f", "Mode", isPaused ? "PAUSED" : "OBSERVING");
+            document.getElementById("paused-overlay")!.style.display = isPaused ? "flex" : "none";
             e.preventDefault();
         } else if (key === "h" || key === "H" || key === "?") {
             toggleInfo(true);
@@ -107,16 +131,23 @@ function frameLoop() {
     if (isPaused || !renderer) return;
 
     renderer.tick();
+    framesSinceLastStat++;
 
     // Stats throttled to 10 Hz
     const now = performance.now();
     if (now - lastStatsUpdate > 100) {
+        const fps = Math.round(framesSinceLastStat / ((now - lastStatsUpdate) / 1000));
+        framesSinceLastStat = 0;
         lastStatsUpdate = now;
-        updateStats();
+        updateStats(fps);
     }
 }
 
-function updateStats() {
+function showFatalError(msg: string) {
+    document.body.innerHTML = `<div style="display:flex; justify-content:center; align-items:center; height:100vh; background:#000; color:#F55; font-family:monospace; padding:2rem; text-align:center;"><h1>[FATAL] ${msg}</h1></div>`;
+}
+
+function updateStats(fps: number) {
     const ptrs = ENGINE.getMemoryPointers();
     const signals = new DataView(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset, 32);
     const activeCount = signals.getUint32(24, true);
@@ -139,6 +170,9 @@ function updateStats() {
     updateHudStat("c", "Resonance", rNorm.toFixed(3));
     updateHudStat("d", "Golden Trace", `0x${traceHex}`);
     updateHudStat("e", "Attractors", attractorCount.toString());
+    updateHudStat("fps", "FPS", fps.toString());
+    updateHudStat("gpu", "GPU", adapterLabel);
+    updateHudStat("mode", "Parity", computeMode.toUpperCase());
 }
 
 function updateHudStat(_slot: string, label: string, value: string) {
@@ -195,12 +229,38 @@ function exportWitness() {
     const tick = signals.getUint32(4, true);
     const active = signals.getUint32(24, true);
 
+    const topology = ENGINE.getTopology();
+    
+    // Read attractors from memory
+    const attractorArr = new DataView(ptrs.attractorBytes.buffer, ptrs.attractorBytes.byteOffset, 80);
+    const attractorCount = attractorArr.getUint32(0, true);
+    const attractors = [];
+    for (let i = 0; i < Math.min(attractorCount, 4); i++) {
+        const offset = 16 + (i * 16);
+        attractors.push({
+            matrix: attractorArr.getUint32(offset, true).toString(16).padStart(8, '0'),
+            inverse: attractorArr.getUint32(offset + 4, true).toString(16).padStart(8, '0'),
+            freq: attractorArr.getInt32(offset + 8, true),
+            amp: attractorArr.getInt32(offset + 12, true)
+        });
+    }
+
     const witness = {
-        schema: "OMEGA-MUSEUM-WITNESS/v1",
+        schema: "OMEGA-MUSEUM-WITNESS/v2",
         genesis: GENESIS_HASH_V1_0.toString(16).padStart(8, "0"),
         timestamp: Date.now(),
+        seed: currentSeed,
+        topology: topology ? {
+            q_sectors: topology.q_sectors,
+            q_radial: topology.q_radial,
+            q_harmonics: topology.q_harmonics,
+            max_agents: topology.maxAllocatedAgents
+        } : null,
+        compute_mode: computeMode,
+        wasm_hash: wasmHash,
         tick,
         active_agents: active,
+        attractors,
         golden_trace: traceNum.toString(16).padStart(8, "0").toUpperCase(),
         url: globalThis.location.href,
     };

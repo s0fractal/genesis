@@ -45,6 +45,11 @@ export class OmegaV2Engine {
         return this.memory?.buffer ?? null;
     }
 
+    /** Era 0202: Expose current topology for Witness generation. */
+    public getTopology(): QTopology | null {
+        return this.currentTopology;
+    }
+
     /**
      * Initializes the bare-metal WASM kernel.
      */
@@ -55,7 +60,7 @@ export class OmegaV2Engine {
         this.currentTopology = await measureHardwareEnvironment(adapter, PHASE_AGENT_MINIMAL_BYTES);
 
         // 2. Fetch the purely compiled 480-byte binary
-        const response = await fetch("/dist/v2/omega_v2_core.wasm");
+        const response = await fetch("/v2/omega_v2_core.wasm");
         const bytes = await response.arrayBuffer();
 
         // 3. Instantiate with zero imports (Pure no_std execution)

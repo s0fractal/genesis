@@ -29,13 +29,21 @@ async function main() {
 
   // Define paths
   const wasmSource = "./target/wasm32-unknown-unknown/release/omega_v2.wasm";
-  const wasmDestDir = "./dist/v2";
+  const wasmDestDir = "./public/v2";
   const wasmDest = `${wasmDestDir}/omega_v2_core.wasm`;
+  const wasmHashPath = `${wasmDestDir}/omega_v2_core.wasm.sha256`;
 
   await Deno.mkdir(wasmDestDir, { recursive: true });
 
   // Move the binary to the distribution folder
   await Deno.copyFile(wasmSource, wasmDest);
+
+  // Compute WASM Hash
+  const wasmBytes = await Deno.readFile(wasmDest);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", wasmBytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  await Deno.writeTextFile(wasmHashPath, hashHex);
 
   const fileInfo = await Deno.stat(wasmDest);
   console.log(`✅ [OMEGA-V2] Build Success! Size: ${(fileInfo.size / 1024).toFixed(2)} KB -> ${wasmDest}`);
