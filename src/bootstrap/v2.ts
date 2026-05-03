@@ -12,26 +12,26 @@ import { oracleDipole } from "../network/oracle_identity.ts";
 import {
     createTranslationPolicyHudHook,
     TranslationPolicyTelemetrySource,
-} from "./translation_policy_hud_hook.ts";
+} from "./translation_policy/translation_policy_hud_hook.ts";
 import {
     installTranslationPolicyBootstrap,
     TranslationPolicyBootstrapInstallOptions,
     TranslationPolicyBootstrapGlobalTarget,
-} from "./translation_policy_bootstrap_installer.ts";
+} from "./translation_policy/translation_policy_bootstrap_installer.ts";
 import {
     createTranslationPolicyRuntimeTickHook,
     TranslationPolicyRuntimeTickHookResult,
     TranslationPolicyRuntimeTickHookOptionsInput,
     TranslationPolicyRuntimeTickSource,
-} from "./translation_policy_runtime_tick_hook.ts";
+} from "./translation_policy/translation_policy_runtime_tick_hook.ts";
 import {
     translationPolicyBootstrapTelemetrySnapshot,
     TranslationPolicyBootstrapTelemetrySnapshot,
-} from "./translation_policy_bootstrap_telemetry.ts";
+} from "./translation_policy/translation_policy_bootstrap_telemetry.ts";
 import {
     createTranslationPolicyTelemetryEventEmitter,
     TranslationPolicyTelemetryEventOptionsInput,
-} from "./translation_policy_telemetry_event.ts";
+} from "./translation_policy/translation_policy_telemetry_event.ts";
 
 let oracleWorker: Worker | null = null;
 try {

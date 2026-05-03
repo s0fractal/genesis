@@ -20,18 +20,18 @@ import {
   ForensicEventSink,
 } from "../src/network/forensic_event_sink.ts";
 import { SchemaTranslatorRegistry } from "../src/network/schema_translator.ts";
-import { TranslationPolicyMonitor } from "../src/network/translation_policy_monitor.ts";
+import { TranslationPolicyMonitor } from "../src/network/translation_policy/translation_policy_monitor.ts";
 import {
   buildTranslationPolicyCorroborationRaise,
   TranslationPolicyCorroborationTracker,
-} from "../src/network/translation_policy_corroboration.ts";
+} from "../src/network/translation_policy/translation_policy_corroboration.ts";
 import {
   BridgeMessage,
   WebRTCEventBridge,
 } from "../src/network/webrtc_event_bridge.ts";
 import {
   TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-} from "../src/network/translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
+} from "../src/network/translation_policy/translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
 
 const T0 = 1_000_000;
 

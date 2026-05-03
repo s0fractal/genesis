@@ -26,16 +26,16 @@ import {
   TranslationPolicyClaim,
   TranslationPolicyMonitor,
   TranslationPolicyObservation,
-} from "./translation_policy_monitor.ts";
+} from "./translation_policy/translation_policy_monitor.ts";
 import {
   PolicyDriftCorroboratedRecord,
   TranslationPolicyCorroborationRaise,
   TranslationPolicyCorroborationTracker,
-} from "./translation_policy_corroboration.ts";
+} from "./translation_policy/translation_policy_corroboration.ts";
 import {
   decodeTranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
   TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-} from "./translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
+} from "./translation_policy/translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
 
 export const MESH_BRIDGE_SCHEMA = "OMEGA-1510/v1";
 
