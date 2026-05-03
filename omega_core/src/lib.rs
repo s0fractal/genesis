@@ -1,3 +1,12 @@
+//! ============================================================================
+//! [ OMEGA-64 PROTOCOL: V1.0 FROZEN ]
+//! ============================================================================
+//! WARNING: This crate (`omega_core`) is considered legacy and frozen as of V1.0.
+//! Do not modify or extend this codebase. It is preserved purely to maintain 
+//! backwards compatibility for the pure lambda evaluation layer.
+//! All new physics and state calculations should happen in `omega_v2`.
+//! ============================================================================
+
 pub mod phase_lattice;
 pub mod granite;
 pub mod constants;

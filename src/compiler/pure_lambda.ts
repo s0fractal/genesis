@@ -1,3 +1,14 @@
+/**
+ * ============================================================================
+ * [ OMEGA-64 PROTOCOL: V1.0 FROZEN ]
+ * ============================================================================
+ * WARNING: This module (and the underlying `omega_core` WASM) is considered
+ * legacy and frozen as of V1.0. Do not modify or extend this codebase. 
+ * It is preserved purely to maintain backwards compatibility for the
+ * `debug_console.ts` utilities and the pure lambda evaluation layer.
+ * All new physics and state calculations should happen in `omega_v2`.
+ * ============================================================================
+ */
 import {
     lambda_parse,
     lambda_evaluate_fitness,

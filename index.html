@@ -3,438 +3,317 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OMEGA-64 | Ontology 77</title>
+    <title>OMEGA-64 | Liquid Architecture</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --glass-bg: rgba(10, 10, 15, 0.4);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent: #00ffcc;
-            --accent-glow: rgba(0, 255, 204, 0.6);
+            --bg-color: #050508;
+            --accent-cyan: #00ffcc;
+            --accent-cyan-glow: rgba(0, 255, 204, 0.4);
+            --accent-purple: #9d00ff;
+            --accent-purple-glow: rgba(157, 0, 255, 0.3);
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --glass-bg: rgba(20, 20, 25, 0.5);
+            --glass-border: rgba(255, 255, 255, 0.08);
         }
 
         body, html {
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #000;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            overflow: hidden;
-            color: #fff;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
         }
 
-        #lens-canvas {
+        /* Ambient Orbs */
+        .orb {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            animation: drift 20s infinite alternate ease-in-out;
         }
 
-        .hud-overlay {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
+        .orb-1 {
+            width: 500px;
+            height: 500px;
+            background: var(--accent-cyan-glow);
+            top: -100px;
+            left: -100px;
+        }
+
+        .orb-2 {
             width: 600px;
-            
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 20px 30px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.05);
-            
+            height: 600px;
+            background: var(--accent-purple-glow);
+            bottom: -200px;
+            right: -100px;
+            animation-delay: -10s;
+        }
+
+        @keyframes drift {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(50px, 50px) scale(1.1); }
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            animation: float 6s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0% { transform: translate(-50%, 0px); }
-            50% { transform: translate(-50%, -10px); }
-            100% { transform: translate(-50%, 0px); }
-        }
-
-        .hud-header {
-            display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
+            text-align: center;
+            position: relative;
         }
 
-        .hud-title {
-            font-size: 0.9rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.7);
-            font-weight: 600;
-            text-shadow: 0 0 10px rgba(255,255,255,0.2);
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .badge {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
             font-size: 0.8rem;
-            color: var(--accent);
-            text-shadow: 0 0 8px var(--accent-glow);
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent-glow);
-            animation: pulse 2s infinite;
+        h1 {
+            font-size: 5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin: 0;
+            background: linear-gradient(135deg, #ffffff 0%, #a5a5a5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 204, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(0, 255, 204, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 255, 204, 0); }
+        .subtitle {
+            font-size: 1.5rem;
+            color: var(--text-dim);
+            margin: 1.5rem 0 3rem 0;
+            font-weight: 300;
+            max-width: 600px;
+            line-height: 1.6;
         }
 
-        .semantic-input-group {
+        /* Buttons */
+        .btn-group {
             display: flex;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            text-decoration: none;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: var(--glass-bg);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-cyan);
+            color: var(--bg-color);
+            box-shadow: 0 0 30px var(--accent-cyan-glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Architecture Section */
+        .architecture {
+            padding: 8rem 0;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 4rem;
+            text-align: center;
+            font-weight: 800;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            backdrop-filter: blur(12px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .card h3 {
+            color: var(--accent-cyan);
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
             gap: 10px;
         }
 
-        .replay-controls {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .card p {
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin: 0;
+            font-size: 0.95rem;
         }
 
-        .replay-controls[hidden] {
-            display: none;
-        }
-
-        .replay-button,
-        .replay-select,
-        .replay-range {
-            appearance: none;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(0, 0, 0, 0.34);
-            color: #fff;
-        }
-
-        .replay-button {
-            padding: 10px 16px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-size: 0.72rem;
-        }
-
-        .replay-select {
-            padding: 10px 14px;
-            font-size: 0.85rem;
-        }
-
-        .replay-range {
-            flex: 1;
-            min-width: 120px;
-            padding: 10px 0;
-        }
-
-        .replay-label {
-            font-size: 0.72rem;
-            color: rgba(255, 255, 255, 0.58);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .replay-value {
-            min-width: 48px;
-            text-align: right;
-            font-family: monospace;
-            color: #fff;
-        }
-
-        #semantic-input {
-            flex: 1;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 1rem;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        #semantic-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
-            background: rgba(0, 0, 0, 0.5);
-        }
-
-        #semantic-submit {
-            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.0));
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            font-weight: 600;
-            padding: 0 25px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-size: 0.85rem;
-        }
-
-        #semantic-submit:hover {
-            background: var(--accent);
-            color: #000;
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-
-        .stats {
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.4);
-            margin-top: 5px;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-
-        /* Ambient background glow mapped behind canvas */
-        .ambient-bg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 80vw;
-            height: 80vh;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle, rgba(20,60,50,0.6) 0%, rgba(0,0,0,0) 70%);
-            z-index: 0;
-            filter: blur(50px);
-        }
-
-        .homeostasis-guard {
-            position: absolute;
-            top: 40px;
-            left: 40px;
-            z-index: 10;
-            width: 320px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+        /* Terminal/Code block */
+        .terminal {
+            background: #0a0a0f;
             border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: #00ffcc;
+            margin: 2rem auto;
+            max-width: 600px;
+            text-align: left;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .terminal-header {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            gap: 8px;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
 
-        .h-title {
-            font-size: 0.75rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--accent);
-            text-shadow: 0 0 8px var(--accent-glow);
-            font-weight: 600;
-        }
-
-        .h-track-container {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .h-label {
-            font-size: 0.65rem;
-            color: rgba(255, 255, 255, 0.6);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .h-track {
-            position: relative;
+        .dot {
+            width: 12px;
             height: 12px;
-            border-radius: 6px;
-            width: 100%;
-            background: #222;
-            overflow: hidden;
-            box-shadow: inset 0 0 6px rgba(0,0,0,0.8);
+            border-radius: 50%;
         }
 
-        .h-entropy {
-            background: linear-gradient(90deg, #0055ff 0%, #0055ff 15%, #00ffcc 30%, #00ffcc 70%, #ff0055 85%, #ff0055 100%);
+        .dot.r { background: #ff5f56; }
+        .dot.y { background: #ffbd2e; }
+        .dot.g { background: #27c93f; }
+
+        .cmd { color: #fff; }
+        .comment { color: rgba(255,255,255,0.4); }
+
+        footer {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-dim);
+            border-top: 1px solid var(--glass-border);
+            margin-top: 4rem;
         }
 
-        .h-energy {
-            background: linear-gradient(90deg, #ff0055 0%, #ff0055 15%, #00ffcc 30%, #00ffcc 70%, #ffcc00 85%, #ffcc00 100%);
-        }
-
-        .h-marker {
-            position: absolute;
-            top: 0;
-            left: var(--h-pos, 50%);
-            margin-left: -2px;
-            width: 4px;
-            height: 100%;
-            background: #fff;
-            box-shadow: 0 0 8px #fff;
-            transition: left 0.1s linear;
-        }
-
-        .h-scale {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.55rem;
-            color: rgba(255, 255, 255, 0.4);
-            text-transform: uppercase;
-            font-family: monospace;
-        }
-
-        @media (max-width: 720px) {
-            .hud-overlay {
-                width: calc(100vw - 32px);
-                bottom: 16px;
-                padding: 18px;
-                border-radius: 16px;
-            }
-
-            .homeostasis-guard {
-                top: 16px;
-                left: 16px;
-                width: calc(100vw - 72px);
-            }
-
-            .semantic-input-group,
-            .replay-controls,
-            .stats {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .replay-value {
-                text-align: left;
-            }
+        @media (max-width: 768px) {
+            h1 { font-size: 3.5rem; }
+            .btn-group { flex-direction: column; width: 100%; max-width: 300px; }
+            .btn { text-align: center; }
         }
     </style>
 </head>
 <body>
-    <div class="ambient-bg"></div>
-    <canvas id="lens-canvas"></canvas>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
 
-    <div id="homeostasis-guard" class="homeostasis-guard">
-        <div class="h-title">HOMEOSTASIS GUARD</div>
-        <div class="h-track-container">
-            <div class="h-label">
-                <span>Thermodynamics</span>
-                <span id="h-entropy-val" style="color:#fff; font-family: monospace;">0.00</span>
+    <div class="container">
+        <section class="hero">
+            <div class="badge">Version 1.0 (Era 2060+)</div>
+            <h1>OMEGA-64</h1>
+            <p class="subtitle">A deterministic GPU-accelerated artificial life simulation with a P2P WebRTC mesh, ZK-proof physics, and emergent ontology.</p>
+            
+            <div class="btn-group">
+                <a href="app.html" class="btn btn-primary">Enter the Node</a>
+                <a href="#architecture" class="btn btn-secondary">Explore Architecture</a>
             </div>
-            <div class="h-track h-entropy">
-                <div class="h-marker" id="h-marker-entropy"></div>
-            </div>
-            <div class="h-scale"><span>Crystallization</span><span>Safe Zone</span><span>Chaos</span></div>
-        </div>
-        
-        <div class="h-track-container">
-            <div class="h-label">
-                <span>Endocrine State</span>
-                <span id="h-endocrine-val" style="color:var(--accent); font-family: monospace;">K: 12.00 | M: 5.00</span>
-            </div>
-        </div>
-        
-        <div class="h-track-container">
-            <div class="h-label" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 4px;">
-                <span>Metaphysical Variance</span>
-                <span id="h-topos-val" style="color:#ff55ff; font-family: monospace; font-size: 0.6rem;">ECOLOGICAL STASIS</span>
-            </div>
-        </div>
+        </section>
 
-        <div class="h-track-container">
-            <div class="h-label" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
-                <span style="color:var(--accent);">👑 THE APEX PANTHEON</span>
-                <span id="h-apex-val" style="color:#fff; font-family: monospace; font-size: 0.55rem; white-space: pre-wrap; line-height: 1.4;">Extinction Event Iterating...</span>
+        <section id="architecture" class="architecture">
+            <h2 class="section-title">The Liquid Architecture</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>01. Deterministic Physics</h3>
+                    <p>Powered by a Rust <code>#![no_std]</code> bare-metal WASM kernel. No floating point operations in the hot path. Integer-only trigonometry guarantees absolute determinism across all peers.</p>
+                </div>
+                <div class="card">
+                    <h3>02. Bitcoin Anchored Identity</h3>
+                    <p>The cosmic clock is synchronized via Bitcoin OP_RETURN inscriptions. The network bootstrap strictly enforces verification of the Genesis Hash (<code>0x549A6307</code>).</p>
+                </div>
+                <div class="card">
+                    <h3>03. P2P Mesh Network</h3>
+                    <p>Fully decentralized WebRTC GossipSub mesh with re-routing and autonomous investigation layers. Immune to local node failures via continuous state propagation.</p>
+                </div>
+                <div class="card">
+                    <h3>04. Emergent Autopoiesis</h3>
+                    <p>A multi-oracle Senate system enabling cross-model debate. LLMs (Claude, Llama, GPT) autonomously vote on structural mutations, governed by the Sanctuary Protocol.</p>
+                </div>
             </div>
-        </div>
-        
-        <div class="h-track-container">
-            <div class="h-label" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
-                <span style="color:var(--accent);">🌡️ THERMODYNAMIC FLUX</span>
-                <span id="h-flux-val" style="color:#fff; font-family: monospace; font-size: 0.55rem; white-space: pre-wrap; line-height: 1.4;">Mapping Phase Time...</span>
+
+            <div style="text-align: center; margin-top: 6rem;">
+                <h2 class="section-title">Local Boot Sequence</h2>
+                <p style="color: var(--text-dim); max-width: 600px; margin: 0 auto 2rem auto;">Join the federated mesh by instantiating a local OMEGA-64 node. Requires Deno and a WebGPU-enabled browser.</p>
+                
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                    </div>
+                    <span class="comment"># 1. Verify Phase Coherence</span><br>
+                    <span class="cmd">deno task verify:phase-coherence</span><br><br>
+                    <span class="comment"># 2. Build the WASM Kernel & Run Node</span><br>
+                    <span class="cmd">npm run build</span><br>
+                    <span class="cmd">npm run dev</span><br><br>
+                    <span class="comment"># Node is now listening on Localhost.</span>
+                </div>
             </div>
-        </div>
-        
-        <div class="h-track-container">
-            <div class="h-label">
-                <span>Somatic Economy</span>
-                <span id="h-energy-val" style="color:#fff; font-family: monospace;">0</span>
-            </div>
-            <div class="h-track h-energy">
-                <div class="h-marker" id="h-marker-energy"></div>
-            </div>
-            <div class="h-scale"><span>Starvation</span><span>Safe Zone</span><span>Hyperinflation</span></div>
-        </div>
+        </section>
     </div>
 
-    <div class="hud-overlay">
-        <div class="hud-header">
-            <div id="hud-title" class="hud-title">Σ³ Semantic Coupler</div>
-            <div class="status-indicator">
-                <div class="status-dot"></div>
-                <span id="status-label">OMEGA-64 ACTIVE</span>
-            </div>
-        </div>
-        
-        <div id="semantic-input-group" class="semantic-input-group">
-            <input type="text" id="semantic-input" placeholder="Inject ontological intent..." autocomplete="off">
-            <button id="semantic-submit">Project</button>
-        </div>
-
-        <div class="genesis-controls" style="display:flex; justify-content:center; gap: 10px; margin-top: 5px;">
-            <button id="btn-save-genesis" style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:var(--accent); padding:6px 16px; border-radius:8px; cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing: 0.1em; transition: all 0.2s;">[ ↓ ] Save State</button>
-            <button id="btn-load-genesis" style="background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2); color:var(--accent); padding:6px 16px; border-radius:8px; cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing: 0.1em; transition: all 0.2s;">[ ↑ ] Load Genesis</button>
-            <button id="btn-connect-wallet" style="background:rgba(255,165,0,0.2); border:1px solid rgba(255,165,0,0.5); color:#ffa500; padding:6px 16px; border-radius:8px; cursor:pointer; font-size:0.75rem; text-transform:uppercase; letter-spacing: 0.1em; transition: all 0.2s;">🔌 Connect ZK-Wallet</button>
-            <input type="file" id="file-load-genesis" accept=".genesis" style="display:none;">
-        </div>
-
-        <div id="replay-controls" class="replay-controls" hidden>
-            <button id="replay-play" class="replay-button" type="button">Play</button>
-            <label class="replay-label" for="replay-compare">Compare</label>
-            <select id="replay-compare" class="replay-select">
-                <option value="seed">Seed</option>
-                <option value="previous">Previous</option>
-                <option value="none">None</option>
-            </select>
-            <input id="replay-tick" class="replay-range" type="range" min="0" max="12" step="1" value="0">
-            <span id="replay-tick-value" class="replay-value">0/12</span>
-        </div>
-
-        <div class="stats" style="flex-wrap: wrap;">
-            <div><span id="stat-a-label">AGENTS</span> <span id="stat-a-value" class="stat-value">1024</span></div>
-            <div><span id="stat-b-label">FPS</span> <span id="stat-b-value" class="stat-value">0</span></div>
-            <div><span id="stat-c-label">SIGNATURE</span> <span id="stat-c-value" class="stat-value">v2-zero-copy</span></div>
-            <div><span id="stat-d-label">DAEMON</span> <span id="stat-d-value" class="stat-value" style="color:var(--accent);">OBSERVING</span></div>
-            <div style="width: 100%; text-align: center; margin-top: 5px;"><span id="stat-e-label">ONTOLOGY</span> <span id="stat-e-value" class="stat-value">0/3 peers</span></div>
-            <div style="width: 100%; text-align: center; margin-top: 5px;"><span id="stat-f-label">SENATE</span> <span id="stat-f-value" class="stat-value">DORMANT</span></div>
-        </div>
-        
-        <div style="display: flex; justify-content: flex-end;">
-            <img id="oracle-debug-vision" style="width: 128px; height: 128px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.2); display: none; margin-top: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" />
-        </div>
-    </div>
-
-    <script type="module" src="/src/main.ts"></script>
+    <footer>
+        <p>The center remains empty. Φ ∈ [0, 2^q).</p>
+    </footer>
 </body>
 </html>
