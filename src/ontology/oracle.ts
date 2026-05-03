@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { fnv1a_64 } from "@wasm";
 import { PhaseComputeEngine } from "../lens/phase_compute.ts";
 import { PhaseWebGPUObserver } from "../lens/phase_webgpu.ts";

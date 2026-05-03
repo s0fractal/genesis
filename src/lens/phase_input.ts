@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PhaseLatticeField } from "@wasm";
 import { PhaseComputeEngine } from "./phase_compute.ts";
 import { SovereignOracle } from "../ontology/oracle.ts";

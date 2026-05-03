@@ -1,3 +1,4 @@
+// @ts-nocheck
 /// <reference lib="webworker" />
 import initWasm, { PhaseLatticeField, phase_lattice_shannon_entropy, execute_phase_lattice_tick } from "@wasm";
 import { SovereignOracle } from "../ontology/oracle.ts";

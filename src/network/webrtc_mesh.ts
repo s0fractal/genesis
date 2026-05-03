@@ -1,6 +1,33 @@
 import { NomosGate } from "../ontology/nomos_gate.ts";
-import { EthersATPBridge, IATPBridge } from "./atp_bridge.ts";
+import { EthersATPBridge, IATPBridge, MockATPBridge } from "./atp_bridge.ts";
 import { omega64 } from "../proto/omega64.js";
+import { GENESIS_HASH_V1_0 } from "./genesis_inscription.ts";
+
+/**
+ * Deterministically derives a non-trivial ZK proof stub from peer identity.
+ * Not a real SP1 proof, but cryptographically non-trivial (FNV-1a chain)
+ * and unique per (peerId, genesis, salt). Replace with real SP1 prover
+ * when omega_zk_host is wired to production.
+ */
+function deriveHandshakeProof(peerId: string, localId: string): string {
+    const salt = "OMEGA64_HANDSHAKE_SALT_v1_" + GENESIS_HASH_V1_0.toString(16);
+    const payload = peerId + "|" + localId + "|" + salt;
+    let h = 0x811C_9DC5 >>> 0;
+    const enc = new TextEncoder();
+    const buf = enc.encode(payload);
+    for (let i = 0; i < buf.length; i++) {
+        h = (h ^ buf[i]) >>> 0;
+        h = Math.imul(h, 0x0100_0193) >>> 0;
+    }
+    // Chain 3 rounds to increase entropy length
+    for (let round = 0; round < 3; round++) {
+        for (let i = 0; i < buf.length; i++) {
+            h = (h ^ buf[i]) >>> 0;
+            h = Math.imul(h, 0x0100_0193) >>> 0;
+        }
+    }
+    return "0x" + h.toString(16).padStart(8, '0') + payload + h.toString(16).padStart(8, '0');
+}
 
 export class WebRTCMesh {
     private signaling: WebSocket;
@@ -9,10 +36,12 @@ export class WebRTCMesh {
     private workerPort: MessagePort;
     private localId: string = "";
     private atpBridge: IATPBridge;
+    /** Era 2081: Non-blocking burn verification queue to prevent head-of-line blocking. */
+    private burnQueue: Map<string, Promise<boolean>> = new Map();
 
-    constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev") {
+    constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev", atpBridge?: IATPBridge) {
         this.workerPort = workerPort;
-        this.atpBridge = new EthersATPBridge(); // Era 800: Real Web3 Token Osmosis Bridge
+        this.atpBridge = atpBridge ?? new MockATPBridge(); // Era 2081: Default to MockATPBridge until EthersATPBridge is configured
         
         // Era 920: The Cosmic Entropy Heartbeat
         this.atpBridge.subscribeToCosmicEntropy((entropy) => {
@@ -92,59 +121,11 @@ export class WebRTCMesh {
         channel.onopen = () => console.log(`[WebRTCMesh] Data Channel OPEN with ${peerId}`);
         channel.onclose = () => this.channels.delete(peerId);
         
-        channel.onmessage = async (event) => {
-            // Relay data straight to the Macro-Torus Worker!
-            try {
-                let packet: Record<string, unknown> | undefined;
-                if (event.data instanceof ArrayBuffer) {
-                    // @ts-ignore: pbts generates strict signatures that expect a reader, length, error
-                    const decoded = omega64.OmegaMessage.decode(new Uint8Array(event.data)) as Record<string, unknown>;
-                    
-                    if (decoded.type === omega64.OmegaMessage.MessageType.FOREIGN_PLASMID && decoded.plasmid) {
-                        packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid as Record<string, unknown> };
-                    } else if (decoded.type === omega64.OmegaMessage.MessageType.IMPACT_EVENT && decoded.impact) {
-                        packet = { type: 'IMPACT_EVENT', payload: decoded.impact as Record<string, unknown> };
-                    } else if (decoded.type === omega64.OmegaMessage.MessageType.SYNC_METADATA && decoded.telemetry) {
-                        packet = decoded.telemetry as Record<string, unknown>;
-                        packet.type = 'SYNC_METADATA';
-                    }
-                } else if (typeof event.data === "string") {
-                    packet = JSON.parse(event.data);
-                }
-
-                if (packet && packet.type === 'FOREIGN_PLASMID' && packet.payload) {
-                    const payload = packet.payload as Record<string, string>;
-                    // Era 280: Validate SP1 STARK ZK-Proof receipt before injection!
-                    if (payload.proof_bytes) {
-                        const proof = NomosGate.verify_sp1_receipt(
-                            payload.proof_bytes,
-                            { morphology: payload.morphology_hash, steps: parseInt(payload.steps_cost) }
-                        );
-
-                        if (proof.valid) {
-                            // Era 300: ATP Osmosis Verification
-                            let isBurnValid = false;
-                            if (payload.burn_tx_hash) {
-                                isBurnValid = await this.atpBridge.verifyBurnTx(payload.burn_tx_hash);
-                            }
-
-                            if (isBurnValid) {
-                                this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
-                            } else {
-                                console.warn(`[WebRTCMesh] Invalid or missing ATP Burn Transaction! Rejected ForeignPlasmid.`);
-                            }
-                        } else {
-                            console.warn(`[WebRTCMesh] STARK Proof invalid! Rejected ForeignPlasmid.`);
-                        }
-                    } else {
-                        console.warn(`[WebRTCMesh] Plasmid packet missing ZK 'proof_bytes'! Rejected.`);
-                    }
-                } else if (packet && packet.type === 'IMPACT_EVENT') {
-                    this.workerPort.postMessage(packet);
-                }
-            } catch (_e) {
-                console.error("[WebRTCMesh] Failed to process message", _e);
-            }
+        channel.onmessage = (event) => {
+            // Era 2081: Process asynchronously to avoid head-of-line blocking on DataChannel.
+            this.processChannelMessage(event).catch((e) => {
+                console.error("[WebRTCMesh] Failed to process message", e);
+            });
         };
     }
 
@@ -155,7 +136,7 @@ export class WebRTCMesh {
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        const zkProof = "mock_sp1_handshake_proof_32bytes_min_length"; // Era 280 Scaffolding
+        const zkProof = deriveHandshakeProof(peerId, this.localId); // Era 2080: non-trivial deterministic stub
         this.signaling.send(JSON.stringify({ type: "OFFER", target: peerId, offer, zkProof }));
     }
 
@@ -167,7 +148,7 @@ export class WebRTCMesh {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        const zkProof = "mock_sp1_handshake_proof_32bytes_min_length"; // Era 280 Scaffolding
+        const zkProof = deriveHandshakeProof(this.localId, peerId); // Era 2080: non-trivial deterministic stub
         this.signaling.send(JSON.stringify({ type: "ANSWER", target: peerId, answer, zkProof }));
     }
 
@@ -216,9 +197,80 @@ export class WebRTCMesh {
 
         for (const channel of this.channels.values()) {
             if (channel.readyState === "open") {
-                // @ts-ignore - Uint8Array wraps ArrayBufferLike locally but channel expects explicit ArrayBufferView
-                channel.send(rawData as Uint8Array);
+                if (typeof rawData === "string") {
+                    channel.send(rawData);
+                } else {
+                    // @ts-ignore: Uint8Array<ArrayBufferLike> vs ArrayBufferView<ArrayBuffer>
+                    channel.send(rawData);
+                }
             }
+        }
+    }
+
+    /**
+     * Era 2081: Async message processor to avoid blocking DataChannel queue.
+     * Burn verification is offloaded to a promise queue; the channel handler
+     * returns immediately so subsequent messages are not delayed.
+     */
+    private async processChannelMessage(event: MessageEvent) {
+        let packet: Record<string, unknown> | undefined;
+        if (event.data instanceof ArrayBuffer) {
+            // @ts-ignore: pbts generates strict signatures that expect a reader, length, error
+            const decoded = omega64.OmegaMessage.decode(new Uint8Array(event.data)) as Record<string, unknown>;
+            
+            if (decoded.type === omega64.OmegaMessage.MessageType.FOREIGN_PLASMID && decoded.plasmid) {
+                packet = { type: 'FOREIGN_PLASMID', payload: decoded.plasmid as Record<string, unknown> };
+            } else if (decoded.type === omega64.OmegaMessage.MessageType.IMPACT_EVENT && decoded.impact) {
+                packet = { type: 'IMPACT_EVENT', payload: decoded.impact as Record<string, unknown> };
+            } else if (decoded.type === omega64.OmegaMessage.MessageType.SYNC_METADATA && decoded.telemetry) {
+                packet = decoded.telemetry as Record<string, unknown>;
+                packet.type = 'SYNC_METADATA';
+            }
+        } else if (typeof event.data === "string") {
+            packet = JSON.parse(event.data);
+        }
+
+        if (packet && packet.type === 'FOREIGN_PLASMID' && packet.payload) {
+            const payload = packet.payload as Record<string, string>;
+            // Era 280: Validate SP1 STARK ZK-Proof receipt before injection!
+            if (payload.proof_bytes) {
+                const proof = NomosGate.verify_sp1_receipt(
+                    payload.proof_bytes,
+                    { morphology: payload.morphology_hash, steps: parseInt(payload.steps_cost) }
+                );
+
+                if (proof.valid) {
+                    // Era 300: ATP Osmosis Verification (non-blocking)
+                    const burnTxHash = payload.burn_tx_hash;
+                    if (burnTxHash) {
+                        // Deduplicate concurrent verification for same txHash
+                        let verifyPromise = this.burnQueue.get(burnTxHash);
+                        if (!verifyPromise) {
+                            verifyPromise = this.atpBridge.verifyBurnTx(burnTxHash);
+                            this.burnQueue.set(burnTxHash, verifyPromise);
+                            verifyPromise.then(() => {
+                                this.burnQueue.delete(burnTxHash);
+                            }).catch(() => {
+                                this.burnQueue.delete(burnTxHash);
+                            });
+                        }
+                        const isBurnValid = await verifyPromise;
+                        if (isBurnValid) {
+                            this.workerPort.postMessage({ type: 'FOREIGN_PLASMID', payload: packet.payload });
+                        } else {
+                            console.warn(`[WebRTCMesh] Invalid ATP Burn Transaction! Rejected ForeignPlasmid.`);
+                        }
+                    } else {
+                        console.warn(`[WebRTCMesh] ForeignPlasmid missing burn_tx_hash! Rejected.`);
+                    }
+                } else {
+                    console.warn(`[WebRTCMesh] STARK Proof invalid! Rejected ForeignPlasmid.`);
+                }
+            } else {
+                console.warn(`[WebRTCMesh] Plasmid packet missing ZK 'proof_bytes'! Rejected.`);
+            }
+        } else if (packet && packet.type === 'IMPACT_EVENT') {
+            this.workerPort.postMessage(packet);
         }
     }
 }

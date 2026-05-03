@@ -111,11 +111,25 @@ Deno.test("schema constant", () => {
     assertEquals(WARRANT_BRIDGE_SCHEMA, "OMEGA-1540/v1");
 });
 
-Deno.test("integration: hash matches WebRTCV2Mesh.senateHash convention", async () => {
+Deno.test("integration: hash matches canonical FNV-1a convention", () => {
     // The bridge's senateHash MUST produce identical results to
-    // the live mesh's static method so warrants flow through the
-    // existing 3-of-5 oracle gate without re-validation drift.
-    const { Libp2pMesh } = await import("../src/network/libp2p_mesh.ts");
+    // the canonical FNV-1a 32-bit implementation over a 64-byte
+    // zero-padded buffer so warrants flow through the existing
+    // 3-of-5 oracle gate without re-validation drift.
+    // Reference implementation (mirrors Rust omega_v2::senate::fnv1a_32):
+    function canonicalFnv1a32(description: string): number {
+        const buf = new Uint8Array(64);
+        const enc = new TextEncoder();
+        const raw = enc.encode(description);
+        const n = Math.min(raw.length, 64);
+        for (let i = 0; i < n; i++) buf[i] = raw[i];
+        let h = 0x811C_9DC5 >>> 0;
+        for (let i = 0; i < 64; i++) {
+            h = (h ^ buf[i]) >>> 0;
+            h = Math.imul(h, 0x0100_0193) >>> 0;
+        }
+        return h >>> 0;
+    }
     const desc = "INV peer=0xdeadbeef consensus=0xcafebabe";
-    assertEquals(senateHash(desc), Libp2pMesh.senateHash(desc));
+    assertEquals(senateHash(desc), canonicalFnv1a32(desc));
 });

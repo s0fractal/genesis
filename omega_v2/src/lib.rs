@@ -123,6 +123,8 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
     }; 4],
     smart_agents_ptr: core::ptr::null_mut(),
     minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
+    tick_snapshot_ptr: core::ptr::null_mut(),
+    attractors_ptr: core::ptr::null(),
     active_agent_count: 0,
 };
 
@@ -183,6 +185,12 @@ pub extern "C" fn v2_sine_lut_ptr() -> *const u8 {
     crate::math::SINE_LUT_128.as_ptr() as *const u8
 }
 
+/// Era 0201: Q10 sine LUT (256 elements) for toroidal shader parity.
+#[no_mangle]
+pub extern "C" fn v2_sine_lut_q10_ptr() -> *const u8 {
+    crate::math::SINE_LUT.as_ptr() as *const u8
+}
+
 #[no_mangle]
 pub extern "C" fn v2_boot_engine() {
     unsafe {
@@ -190,6 +198,8 @@ pub extern "C" fn v2_boot_engine() {
         let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
         let agents = core::ptr::addr_of_mut!(AGENTS_MEMORY) as *mut PhaseAgentMinimal;
         (*lattice).minimal_agents_ptr = agents;
+        (*lattice).tick_snapshot_ptr = core::ptr::addr_of_mut!(LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal;
+        (*lattice).attractors_ptr = core::ptr::addr_of!(ATTRACTOR_ARRAY);
     }
 }
 
@@ -612,6 +622,7 @@ pub extern "C" fn v2_halo_is_connected() -> u32 {
 #[no_mangle]
 pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseAgentMinimal) {
     if agent_ptr.is_null() { return; }
+    if agent_ptr.align_offset(core::mem::align_of::<PhaseAgentMinimal>()) != 0 { return; }
     unsafe {
         let state = core::ptr::addr_of_mut!(HALO_STATE);
         let agent = core::ptr::read(agent_ptr);

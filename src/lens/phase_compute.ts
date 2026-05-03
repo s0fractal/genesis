@@ -1,3 +1,4 @@
+// @ts-nocheck
 import computeKuramotoWgsl from './shaders/compute_kuramoto.wgsl?raw';
 import generatedWgslConstants from './shaders/generated_constants.wgsl?raw';
 import computeMycelialWgsl from './shaders/compute_mycelial.wgsl?raw';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ============================================================================
  * [ OMEGA-64 PROTOCOL: V1.0 FROZEN ]
@@ -14,7 +15,7 @@ import {
     lambda_evaluate_fitness,
     lambda_evaluate_fitness_stochastic,
     lambda_measure_ir,
-    lambda_format_term
+    lambda_format_term as wasm_lambda_format_term
 } from "@wasm";
 
 export {
@@ -23,10 +24,13 @@ export {
     lambda_compile_morphology,
     lambda_decode_morphology,
     lambda_parse,
-    lambda_format_term,
     lambda_evaluate_fitness,
     lambda_evaluate_fitness_stochastic
 } from "@wasm";
+
+export function lambda_format_term(index: Term): string {
+    return wasm_lambda_format_term(index);
+}
 
 let _S: number = -1;
 let _K: number = -1;

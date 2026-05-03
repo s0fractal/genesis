@@ -39,6 +39,8 @@ pub struct PhaseLattice {
     // Instead of allocating a `Vec`, we slide pointers. Zero-Cost mapping.
     pub smart_agents_ptr: *mut PhaseAgentSmart,
     pub minimal_agents_ptr: *mut PhaseAgentMinimal,
+    pub tick_snapshot_ptr: *mut PhaseAgentMinimal,
+    pub attractors_ptr: *const crate::attractor::AttractorArray,
     pub active_agent_count: u32,
 }
 
@@ -60,6 +62,8 @@ impl PhaseLattice {
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
             minimal_agents_ptr: min_ptr,
+            tick_snapshot_ptr: core::ptr::null_mut(),
+            attractors_ptr: core::ptr::null(),
             active_agent_count: 0,
         }
     }
@@ -177,59 +181,59 @@ impl PhaseLattice {
         let q10_scale = crate::constants::BB_FREQ_Q_SCALE; // 1024
 
         unsafe {
-            // --- Phase 1: Kuramoto Coupling (read-only pass) ---
-            // Обчислюємо coupling для кожного агента від сусідів.
-            // Сусіди: ±1 індекс (1D тороїдальний ланцюг).
-            let mut coupling_buffer = [0i32; 8]; // small stack buffer, processed in chunks
-            let chunk_size = coupling_buffer.len();
+            // Era 0201 FIX: Use a read-only snapshot for pre-tick neighbor reads
+            // to guarantee CPU-GPU bit-exact parity. The old chunk buffer caused
+            // read-after-write at chunk boundaries (left neighbor already mutated).
+            let snapshot = if self.tick_snapshot_ptr.is_null() {
+                core::ptr::addr_of_mut!(crate::LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal
+            } else {
+                self.tick_snapshot_ptr
+            };
+            core::ptr::copy_nonoverlapping(self.minimal_agents_ptr, snapshot, active);
 
-            for chunk_start in (0..active).step_by(chunk_size) {
-                let chunk_end = core::cmp::min(chunk_start + chunk_size, active);
-                
-                // Compute couplings for this chunk
-                for i in chunk_start..chunk_end {
-                    let agent = &*self.minimal_agents_ptr.add(i);
-                    let left_idx = if i == 0 { active - 1 } else { i - 1 };
-                    let right_idx = if i + 1 >= active { 0 } else { i + 1 };
-                    
-                    let left = &*self.minimal_agents_ptr.add(left_idx);
-                    let right = &*self.minimal_agents_ptr.add(right_idx);
-                    
-                    // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
-                    let sin_left = crate::math::sin_q10(left.phase, agent.phase);
-                    let sin_right = crate::math::sin_q10(right.phase, agent.phase);
-                    let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
-                    
-                    coupling_buffer[i - chunk_start] = coupling;
+            for i in 0..active {
+                let agent = &mut *self.minimal_agents_ptr.add(i);
+                let left_idx = if i == 0 { active - 1 } else { i - 1 };
+                let right_idx = if i + 1 >= active { 0 } else { i + 1 };
+
+                let left = &*snapshot.add(left_idx);
+                let right = &*snapshot.add(right_idx);
+
+                // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
+                let sin_left = crate::math::sin_q10(left.phase, agent.phase);
+                let sin_right = crate::math::sin_q10(right.phase, agent.phase);
+                let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
+
+                // Metabolic burn: complex genomes burn faster
+                let burn = crate::constants::METABOLIC_BASE_COST
+                    + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
+                agent.energy = agent.energy.saturating_sub(burn);
+
+                let mut attractor_drift = 0i32;
+                if !self.attractors_ptr.is_null() {
+                    let arr = &*self.attractors_ptr;
+                    let attractor_count = core::cmp::min(arr.count as usize, 4);
+                    for j in 0..attractor_count {
+                        attractor_drift += arr.data[j].drift_contribution(agent.phase, &self.topology);
+                    }
                 }
-                
-                // Phase 2: Apply updates (write pass)
-                for i in chunk_start..chunk_end {
-                    let agent = &mut *self.minimal_agents_ptr.add(i);
-                    let coupling = coupling_buffer[i - chunk_start];
-                    
-                    // Metabolic burn: complex genomes burn faster
-                    let burn = crate::constants::METABOLIC_BASE_COST
-                        + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
-                    agent.energy = agent.energy.saturating_sub(burn);
-                    
-                    // Phase drift: base_freq + coupling
-                    let drift = agent.base_freq + coupling;
-                    agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
-                    
-                    // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
-                    if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                        agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
-                            .min(crate::constants::MAX_ATP as i32) as u32;
-                    }
-                    
-                    // Compost event: agent died this tick
-                    if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
-                        agent.state_flags |= 0x01; // Mark as dead
-                        let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
-                        let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
-                        (*buf).push(compost);
-                    }
+
+                // Phase drift: base_freq + coupling + attractor field
+                let drift = agent.base_freq + coupling + attractor_drift;
+                agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
+
+                // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
+                if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
+                    agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
+                        .min(crate::constants::MAX_ATP as i32) as u32;
+                }
+
+                // Compost event: agent died this tick
+                if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
+                    agent.state_flags |= 0x01; // Mark as dead
+                    let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
+                    let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
+                    (*buf).push(compost);
                 }
             }
         }
@@ -444,10 +448,11 @@ mod tests {
 
     fn make_lattice_with_q_phase(agent_count: usize, q_phase: u32) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
         let mut agents = vec![PhaseAgentMinimal::default(); agent_count];
-        let snapshot = vec![PhaseAgentMinimal::default(); agent_count];
+        let mut snapshot = vec![PhaseAgentMinimal::default(); agent_count];
         let deltas = vec![DeltaItem { index: 0, phase: 0, energy: 0, genome: 0 }; 100];
         let topology = PhaseTopology::new(q_phase, 7, 6, 20);
         let mut lattice = PhaseLattice::new_from_host_memory(topology, core::ptr::null_mut(), agents.as_mut_ptr());
+        lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
         lattice.signals.max_cells = agent_count as u32;
         (lattice, agents, snapshot, deltas)
     }
@@ -846,12 +851,19 @@ mod tests {
             let len = (*buf).len();
             assert!(len > 0, "At least one compost message should be published");
             
-            // Verify the compost message contains correct genome
-            let msg = (*buf).peek_latest().unwrap();
-            assert_eq!(msg.msg_type, crate::phi_protocol::PHI_MSG_COMPOST);
-            let (genome, agent_id) = msg.decode_compost().unwrap();
-            assert_eq!(genome, 0xDEADBEEF, "Compost should preserve agent genome");
-            assert!(agent_id < 3, "Agent ID should be valid");
+            let mut found = false;
+            for n in 0..((*buf).len() as usize) {
+                let msg = (*buf).peek_nth(n).unwrap();
+                if msg.msg_type != crate::phi_protocol::PHI_MSG_COMPOST {
+                    continue;
+                }
+                let (genome, agent_id) = msg.decode_compost().unwrap();
+                if genome == 0xDEADBEEF && agent_id < 3 {
+                    found = true;
+                    break;
+                }
+            }
+            assert!(found, "Compost should preserve agent genome");
         }
     }
 

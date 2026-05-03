@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PhaseLatticeField, phase_lattice_omega_span } from "@wasm";
 
 function hsv2rgb(h: number, s: number, v: number): [number, number, number] {

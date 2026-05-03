@@ -76,13 +76,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (index >= signals.active_agent_count) { return; }
 
     var agent = agents_in[index];
-    let active = signals.active_agent_count;
+    let active_count = signals.active_agent_count;
     let max_phase_mask = (1u << topology.q_phase) - 1u;
 
     if (agent.energy > 0u) {
         // --- 1. Toroidal 1D neighbor indices (wrap-around) ---
-        let left_idx = select(index - 1u, active - 1u, index == 0u);
-        let right_idx = select(index + 1u, 0u, index + 1u >= active);
+        let left_idx = select(index - 1u, active_count - 1u, index == 0u);
+        let right_idx = select(index + 1u, 0u, index + 1u >= active_count);
 
         let left = agents_in[left_idx];
         let right = agents_in[right_idx];
@@ -94,13 +94,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- 3. Metabolic burn (complexity-scaled) ---
         let burn = METABOLIC_BASE_COST + (countOneBits(agent.genome) / METABOLIC_BURN_DIVISOR);
-        var new_energy = agent.energy - burn;
+        var new_energy = select(agent.energy - burn, 0u, burn >= agent.energy);
 
         // --- 4. Phase drift (base_freq Q20 + coupling + attractor field) ---
         var attractor_drift: i32 = 0i;
         for (var i = 0u; i < attractor_array.count; i = i + 1u) {
             let a = attractor_array.data[i];
-            let index = (agent.phase - a.matrix) & 0xFFu;
+            let index = (a.matrix - agent.phase) & 0xFFu;
             let sin_val = sine_lut[index];
             attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
         }

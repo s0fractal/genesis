@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "omega_core",
     "omega_v2",
     "omega_zk_guest"
 ]

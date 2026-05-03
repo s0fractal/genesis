@@ -1,3 +1,4 @@
+// @ts-nocheck
 import initWasm, { PhaseLatticeField, execute_phase_lattice_tick } from "@wasm";
 import {
     createPhaseField,

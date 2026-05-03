@@ -21,6 +21,7 @@ export interface V2MemoryPointers {
     uniformBytes: Uint8Array<ArrayBuffer>;
     agentBytes: Uint8Array<ArrayBuffer>;
     sineLutBytes: Int32Array<ArrayBuffer>;
+    sineLutQ10Bytes: Int32Array<ArrayBuffer>;
     deltaBufferBytes: Uint8Array<ArrayBuffer>;
     attractorBytes: Uint8Array<ArrayBuffer>;
     mitosisLogBytes: Uint8Array<ArrayBuffer> | null;
@@ -37,6 +38,11 @@ export class OmegaV2Engine {
 
     public get wasm(): WebAssembly.Instance | null {
         return this.wasmInstance;
+    }
+
+    /** Era 2085: Expose current memory buffer for stability guards in renderer. */
+    public get memoryBuffer(): ArrayBuffer | null {
+        return this.memory?.buffer ?? null;
     }
 
     /**
@@ -124,6 +130,7 @@ export class OmegaV2Engine {
         const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
         const agentsPtr = (exports.v2_agents_ptr as CallableFunction)() as number;
         const lutPtr = (exports.v2_sine_lut_ptr as CallableFunction)() as number;
+        const lutQ10Ptr = (exports.v2_sine_lut_q10_ptr as CallableFunction)() as number;
         const deltaPtr = (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
         const attractorPtr = (exports.v2_attractor_array_ptr as CallableFunction)() as number;
         // Era 1040 Phase 2: Mitosis receipt log (16-byte aligned ring buffer).
@@ -142,6 +149,7 @@ export class OmegaV2Engine {
             uniformBytes: new Uint8Array(memoryBuffer, latticePtr, LATTICE_UNIFORM_SIZE),
             agentBytes: new Uint8Array(memoryBuffer, agentsPtr, actualBytes),
             sineLutBytes: new Int32Array(memoryBuffer, lutPtr, 128),
+            sineLutQ10Bytes: new Int32Array(memoryBuffer, lutQ10Ptr, 256),
             deltaBufferBytes: new Uint8Array(memoryBuffer, deltaPtr, DELTA_BUFFER_BYTES),
             attractorBytes: new Uint8Array(memoryBuffer, attractorPtr, ATTRACTOR_ARRAY_BYTES),
             mitosisLogBytes: mitosisLogPtr !== 0

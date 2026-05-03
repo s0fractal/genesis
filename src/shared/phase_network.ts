@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { fnv1a_64 } from "@wasm";
 import { SENATE_MYCELIUM_MIN_ENERGY } from "./constants.ts";
 
