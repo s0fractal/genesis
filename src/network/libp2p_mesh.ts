@@ -102,6 +102,8 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@libp2p/yamux';
 import { kadDHT } from '@libp2p/kad-dht';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { webRTC } from '@libp2p/webrtc';
+import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 
 /**
  * Era 2060: The Mycelial Mesh
@@ -170,7 +172,18 @@ export class Libp2pMesh {
 
   private async initNode(bootstrapMultiaddr?: string) {
     this.node = await createLibp2p({
-      transports: [webSockets()],
+      transports: [
+        webSockets(),
+        webRTC({
+          rtcConfiguration: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+          }
+        }),
+        circuitRelayTransport({ discoverRelays: 1 })
+      ],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
       services: {

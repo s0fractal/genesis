@@ -1949,6 +1949,7 @@
         "npm:@chainsafe/libp2p-gossipsub@^14.1.2",
         "npm:@chainsafe/libp2p-noise@17",
         "npm:@helia/strings@^5.0.7",
+        "npm:@libp2p/circuit-relay-v2@^4.2.3",
         "npm:@libp2p/kad-dht@^16.1.6",
         "npm:@libp2p/webrtc@^6.0.14",
         "npm:@libp2p/websockets@^10.1.6",
