@@ -182,7 +182,7 @@ export class Libp2pMesh {
             ]
           }
         }),
-        circuitRelayTransport({ discoverRelays: 1 })
+        circuitRelayTransport({ discoverRelays: 1 } as any)
       ],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],

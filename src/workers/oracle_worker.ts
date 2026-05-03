@@ -73,6 +73,50 @@ const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 let latestTelemetry: any = null;
 let isDreamLoopActive = false;
 
+const senateEvaluationQueue: any[] = [];
+let isEvaluatingSenate = false;
+
+async function processSenateQueue() {
+    if (isEvaluatingSenate || senateEvaluationQueue.length === 0 || !engine) return;
+    isEvaluatingSenate = true;
+    
+    while(senateEvaluationQueue.length > 0) {
+        const data = senateEvaluationQueue.shift();
+        const { hash, description, proposingOracle, evalOracle } = data;
+        
+        console.log(`[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`);
+        const prompt = `
+Task: You are the ${evalOracle.toUpperCase()} Oracle in the OMEGA-64 Senate.
+The oracle '${proposingOracle.toUpperCase()}' has proposed the following vision:
+"${description}"
+
+Evaluate this proposal. Does it align with the decentralized, resilient future of the system?
+Output EXACTLY TWO LINES. First line is your reasoning (1-2 sentences). Second line is your stance: EXACTLY one of [AYE, NAY, ABSTAIN].
+Format:
+REASONING: [your reasoning]
+STANCE: [AYE/NAY/ABSTAIN]
+`.trim();
+        
+        try {
+            const reply = await engine.chat.completions.create({
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.7,
+            });
+            const response = reply.choices[0].message.content || "";
+            const stanceMatch = response.match(/STANCE:\s*(AYE|NAY|ABSTAIN)/i);
+            const reasonMatch = response.match(/REASONING:\s*(.+?)(?:\n|$)/i);
+            
+            const stance = stanceMatch ? stanceMatch[1].toUpperCase() : "ABSTAIN";
+            const reasoning = reasonMatch ? reasonMatch[1].trim() : "Internal evaluation error.";
+            
+            self.postMessage({ type: 'SENATE_VOTE', hash, stance, reasoning, oracle: evalOracle });
+        } catch (err) {
+            console.warn("[ORACLE WORKER] Senate Evaluate Error", err);
+        }
+    }
+    isEvaluatingSenate = false;
+}
+
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data as any;
     
@@ -101,6 +145,12 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({ type: 'ERROR', reason: `WebLLM Boot Failed: ${(err as Error).message}` });
             return;
         }
+    }
+
+    if (data.type === 'SENATE_EVALUATE') {
+        senateEvaluationQueue.push(data);
+        processSenateQueue();
+        return;
     }
     
     const entropy = Math.min(1.0, data.globalEnergyPool / 21000000.0);

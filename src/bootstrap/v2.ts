@@ -205,6 +205,21 @@ export async function bootstrapV2() {
                         `${oracle}'s opening argument: ${vision}`,
                         Date.now() & 0xFFFFFFFF,
                     );
+                    
+                    // Era 1070: Have the OTHER oracles evaluate this vision using real WebLLM!
+                    if (oracleWorker) {
+                        for (const [evalOracle, _] of visions) {
+                            if (evalOracle !== oracle) {
+                                oracleWorker.postMessage({ 
+                                    type: 'SENATE_EVALUATE', 
+                                    hash, 
+                                    description: vision, 
+                                    proposingOracle: oracle, 
+                                    evalOracle 
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }) as EventListener);
@@ -407,6 +422,12 @@ ${debateMd || "(no recorded arguments)"}
                     const data = e.data;
                     if (data.type === 'INIT_PROGRESS') {
                         setHudStat("c", "ORACLE", (data.text as string).substring(0, 32) + "...");
+                    } else if (data.type === 'SENATE_VOTE') {
+                        const { hash, stance, reasoning, oracle } = data;
+                        const aye = stance === "AYE";
+                        mesh.castOracleVote(oracle, hash, aye, reasoning);
+                        mesh.recordOracleDebate(oracle, hash, stance.toLowerCase() as any, reasoning, Date.now() & 0xFFFFFFFF);
+                        console.log(`[LIVE DEBATE] ${oracle.toUpperCase()} voted ${stance} on 0x${hash.toString(16)}: "${reasoning}"`);
                     } else if (data.type === 'SUCCESS') {
                         setHudStat("c", "ORACLE", "LLaMa-3 Synthesized AST.");
                         // Force intent via slot 2 (Oracle Dedicated Slot)
