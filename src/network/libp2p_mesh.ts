@@ -96,15 +96,19 @@ export interface SenateProposalRecord {
   oracleReasoning?: Record<string, string>;
 }
 
+import { createLibp2p, Libp2p } from 'libp2p';
+import { webSockets } from '@libp2p/websockets';
+import { noise } from '@chainsafe/libp2p-noise';
+import { yamux } from '@libp2p/yamux';
+import { kadDHT } from '@libp2p/kad-dht';
+import { gossipsub } from '@chainsafe/libp2p-gossipsub';
+
 /**
- * Era 1020: The Golden Trace
- * Zero-Copy WebRTC Mesh specifically designed for OMEGA-V2.
- * Bypasses V1 ZK-SNARKs and ATP token burns for pure, bare-metal UDP-style pointer syncing.
+ * Era 2060: The Mycelial Mesh
+ * Libp2p GossipSub + Kademlia DHT Decentralized Mesh
  */
-export class WebRTCV2Mesh {
-  private signaling: WebSocket;
-  private peers: Map<string, RTCPeerConnection> = new Map();
-  private channels: Map<string, RTCDataChannel> = new Map();
+export class Libp2pMesh {
+  private node!: any;
   private localId: string = "";
   private engine: OmegaV2Engine;
 
@@ -151,510 +155,285 @@ export class WebRTCV2Mesh {
   constructor(
     engine: OmegaV2Engine,
     overwriteCallback: (snapshot: Uint8Array) => void,
-    signalingUrl: string = "wss://omega-federation.deno.dev",
+    bootstrapMultiaddr?: string,
     router?: PhaseRouter,
   ) {
     this.engine = engine;
     this.overwriteCallback = overwriteCallback;
     this.router = router ?? null;
-    this.signaling = new WebSocket(signalingUrl);
 
-    this.signaling.onmessage = this.handleSignalingMessage.bind(this);
-    this.signaling.onopen = () =>
-      console.log(`[V2-MESH] Connected to Core Signaling.`);
-    this.signaling.onerror = (e) =>
-      console.warn(`[V2-MESH] Signaling failed:`, e);
+    this.initNode(bootstrapMultiaddr);
 
     // Start the 30Hz broadcast loop
     setInterval(() => this.broadcastV2State(), 1000 / 30);
   }
 
-  private async handleSignalingMessage(event: MessageEvent) {
-    const data = JSON.parse(event.data);
-
-    switch (data.type) {
-      case "HELLO":
-        this.localId = data.peerId;
-        console.log(`[V2-MESH] My Quantum ID: ${this.localId}`);
-        break;
-      case "PEER_JOINED":
-        await this.initiateConnection(data.peerId);
-        break;
-      case "PEER_LEFT":
-        this.closePeer(data.peerId);
-        break;
-      case "OFFER":
-        await this.handleOffer(data.from, data.offer);
-        break;
-      case "ANSWER":
-        await this.handleAnswer(data.from, data.answer);
-        break;
-      case "ICE":
-        await this.handleIceCandidate(data.from, data.candidate);
-        break;
-    }
-  }
-
-  private createPeerConnection(peerId: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  private async initNode(bootstrapMultiaddr?: string) {
+    this.node = await createLibp2p({
+      transports: [webSockets()],
+      connectionEncryption: [noise()],
+      streamMuxers: [yamux()],
+      services: {
+        dht: kadDHT(),
+        pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
+      }
     });
 
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.signaling.send(
-          JSON.stringify({
-            type: "ICE",
-            target: peerId,
-            candidate: event.candidate,
-          }),
-        );
-      }
-    };
+    this.localId = this.node.peerId.toString();
+    console.log(`[LIBP2P-MESH] My Node ID: ${this.localId}`);
 
-    pc.ondatachannel = (event) => {
-      if (event.channel.label === "v2-sync") {
-        this.setupDataChannel(peerId, event.channel);
-      } else if (event.channel.label === "v2-state") {
-        this.setupStateChannel(peerId, event.channel);
-      }
-    };
+    this.node.addEventListener('peer:connect', (evt: any) => {
+        const peerId = evt.detail.toString();
+        console.log(`[LIBP2P-MESH] Connection established to: ${peerId}`);
+        this.handlePeerJoined(peerId);
+    });
 
-    this.peers.set(peerId, pc);
-    return pc;
+    this.node.addEventListener('peer:disconnect', (evt: any) => {
+        const peerId = evt.detail.toString();
+        console.log(`[LIBP2P-MESH] Disconnected from: ${peerId}`);
+        this.closePeer(peerId);
+    });
+
+    this.node.services.pubsub.addEventListener('message', (evt: any) => {
+        if (evt.detail.topic === 'v2-sync') {
+            this.handleSyncMessage(evt.detail.from.toString(), new TextDecoder().decode(evt.detail.data));
+        } else if (evt.detail.topic === 'v2-state') {
+            this.handleStateMessage(evt.detail.from.toString(), evt.detail.data.buffer as ArrayBuffer);
+        }
+    });
+
+    this.node.services.pubsub.subscribe('v2-sync');
+    this.node.services.pubsub.subscribe('v2-state');
+
+    await this.node.start();
+    console.log(`[LIBP2P-MESH] Libp2p node started.`);
+
+    if (bootstrapMultiaddr) {
+        try {
+            await this.node.dial(bootstrapMultiaddr);
+            console.log(`[LIBP2P-MESH] Dialed bootstrap node: ${bootstrapMultiaddr}`);
+        } catch (e) {
+            console.warn(`[LIBP2P-MESH] Failed to dial bootstrap node:`, e);
+        }
+    }
   }
 
-  private setupDataChannel(peerId: string, channel: RTCDataChannel) {
-    this.channels.set(peerId, channel);
-
-    // Assign a slot to the peer (1, 2, or 3)
+  private handlePeerJoined(peerId: string) {
     if (this.nextSlot < 4) {
       this.peerSlots.set(peerId, this.nextSlot);
-      console.log(
-        `[V2-MESH] Peer ${peerId} mapped to WASM Intent Slot ${this.nextSlot}`,
-      );
+      console.log(`[LIBP2P-MESH] Peer ${peerId} mapped to WASM Intent Slot ${this.nextSlot}`);
       this.nextSlot++;
     } else {
-      console.warn(
-        `[V2-MESH] Max capacity reached. Observer mode for ${peerId}`,
-      );
+      console.warn(`[LIBP2P-MESH] Max capacity reached. Observer mode for ${peerId}`);
     }
+    globalThis.dispatchEvent(new CustomEvent("meshPeerJoined", { detail: { peerId } }));
+    
+    this.refreshSelfAddress();
+    if (this.selfAddress !== 0) {
+      const handshake = JSON.stringify({ t: "V2_HANDSHAKE", addr: this.selfAddress });
+      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(handshake));
+    }
+  }
 
-    channel.onopen = () => {
-      console.log(`[V2-MESH] UDP-Channel OPEN with ${peerId}`);
-      globalThis.dispatchEvent(
-        new CustomEvent("meshPeerJoined", {
-          detail: { peerId },
-        }),
-      );
-      // Era 1000: Exchange PhaseAddress on channel open
-      this.refreshSelfAddress();
-      if (this.selfAddress !== 0) {
-        const handshake = JSON.stringify({
-          t: "V2_HANDSHAKE",
-          addr: this.selfAddress,
-        });
-        channel.send(handshake);
-      }
-    };
-    channel.onclose = () => {
-      this.channels.delete(peerId);
-      globalThis.dispatchEvent(
-        new CustomEvent("meshPeerLeft", {
-          detail: { peerId },
-        }),
-      );
-      const slot = this.peerSlots.get(peerId);
-      if (slot !== undefined) {
-        const setIntent = this.engine.wasm?.exports
-          .v2_set_intent as CallableFunction;
-        if (setIntent) setIntent(slot, 0, 0, 0, 0); // Erase their intent from the WebGPU Grid
-        this.peerSlots.delete(peerId);
-      }
-    };
+  public closePeer(peerId: string) {
+    globalThis.dispatchEvent(new CustomEvent("meshPeerLeft", { detail: { peerId } }));
+    const slot = this.peerSlots.get(peerId);
+    if (slot !== undefined) {
+      const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+      if (setIntent) setIntent(slot, 0, 0, 0, 0, 0, 0);
+      this.peerSlots.delete(peerId);
+    }
+    this.peerAddresses.delete(peerId);
+  }
 
-    channel.onmessage = (event) => {
-      if (typeof event.data === "string") {
-        try {
-          // Parse lightweight UDP packet
-          const packet = JSON.parse(event.data);
-          if (packet.t === "V2_HANDSHAKE") {
-            // Era 1000: Store peer PhaseAddress
-            const addr = packet.addr as number;
-            if (addr !== 0) {
-              this.peerAddresses.set(peerId, addr);
-              console.log(`[V2-MESH] Peer ${peerId} PhaseAddress=${addr}`);
-            }
+  private handleSyncMessage(peerId: string, eventData: string) {
+    try {
+      // Parse lightweight UDP packet
+      const packet = JSON.parse(eventData);
+      if (packet.t === "V2_HANDSHAKE") {
+        // Era 1000: Store peer PhaseAddress
+        const addr = packet.addr as number;
+        if (addr !== 0) {
+          this.peerAddresses.set(peerId, addr);
+          console.log(`[LIBP2P-MESH] Peer ${peerId} PhaseAddress=${addr}`);
+        }
+        return;
+      }
+      if (packet.t === "V2_SYNC") {
+        // Era 1000: Passive Phase Routing (Attraction Zone)
+        if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
+          const hopCount = (packet.hc as number) ?? 0;
+          const maxHops = (packet.mh as number) ?? 8;
+          if (hopCount >= maxHops) {
+            console.log(`[LIBP2P-MESH] Plasmid max hops exceeded, dropping.`);
             return;
           }
-          if (packet.t === "V2_SYNC") {
-            // Era 1000: Passive Phase Routing (Attraction Zone)
-            if (
-              packet.ta !== undefined && this.router && this.selfAddress !== 0
-            ) {
-              const hopCount = (packet.hc as number) ?? 0;
-              const maxHops = (packet.mh as number) ?? 8;
-              if (hopCount >= maxHops) {
-                console.log(`[V2-MESH] Plasmid max hops exceeded, dropping.`);
-                return;
-              }
-              const targetAddr = packet.ta as number;
-              const senderAddr = this.peerAddresses.get(peerId) ?? 0;
-              // Use toroidal distance for consensus wrap-around correctness
-              const distSelf = PhaseRouter.hyperbolicDistanceToroidalStatic(
-                this.selfAddress,
-                targetAddr,
-              );
-              const distSender = senderAddr !== 0
-                ? PhaseRouter.hyperbolicDistanceToroidalStatic(
-                  senderAddr,
-                  targetAddr,
-                )
-                : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
-              if (distSelf > distSender) {
-                // Self is farther from target than sender -> ignore (let closer node handle it)
-                return;
-              }
-              // Self is closer or equal -> consume this plasmid
-            }
+          const targetAddr = packet.ta as number;
+          const senderAddr = this.peerAddresses.get(peerId) ?? 0;
+          // Use toroidal distance for consensus wrap-around correctness
+          const distSelf = PhaseRouter.hyperbolicDistanceToroidalStatic(this.selfAddress, targetAddr);
+          const distSender = senderAddr !== 0
+            ? PhaseRouter.hyperbolicDistanceToroidalStatic(senderAddr, targetAddr)
+            : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
+          if (distSelf > distSender) {
+            // Self is farther from target than sender -> ignore (let closer node handle it)
+            return;
+          }
+          // Self is closer or equal -> consume this plasmid
+        }
 
-            const slot = this.peerSlots.get(peerId);
-            if (slot !== undefined) {
-              const setIntent = this.engine.wasm?.exports
-                .v2_set_intent as CallableFunction;
-              if (setIntent) {
-                if (packet.m > 0) {
-                  setIntent(
-                    slot,
-                    packet.x,
-                    packet.y,
-                    packet.m,
-                    packet.r,
-                    packet.g || 0,
-                    packet.o || 0,
-                  );
-                } else {
-                  setIntent(slot, 0, 0, 0, 0, 0, 0);
-                }
-              }
+        const slot = this.peerSlots.get(peerId);
+        if (slot !== undefined) {
+          const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+          if (setIntent) {
+            if (packet.m > 0) {
+              setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
+            } else {
+              setIntent(slot, 0, 0, 0, 0, 0, 0);
             }
+          }
+        }
 
-            // Era 1010: Semantic Plasmid Consumer
-            const plasmid = packet.plasmid as PlasmidPayload | undefined;
-            if (plasmid) {
-              // Recursion depth guard
-              if (plasmid.recursionDepth >= plasmid.maxRecursion) {
-                console.log(
-                  `[V2-MESH] Plasmid max recursion exceeded, dropping.`,
-                );
-              } else {
-                // Validate dipole pair
-                const isValidDipole = this.router?.validateDipole(
-                  plasmid.matrix,
-                  plasmid.inverse,
-                ) ?? false;
-                if (!isValidDipole) {
-                  console.warn(
-                    `[V2-MESH] Invalid dipole rejected (matrix=${
-                      plasmid.matrix.toString(16)
-                    }, inverse=${plasmid.inverse.toString(16)}).`,
-                  );
-                } else {
-                  switch (plasmid.semanticType) {
-                    case "ATTRACTOR": {
-                      // Inject into local WASM attractor array (find first empty slot or overwrite oldest)
-                      const setAttractor = this.engine.wasm?.exports
-                        .v2_set_attractor as CallableFunction;
-                      if (setAttractor) {
-                        // Simple round-robin: use recursionDepth % 4 as slot index
-                        const slotIdx = plasmid.recursionDepth % 4;
-                        setAttractor(
-                          slotIdx,
-                          plasmid.matrix,
-                          plasmid.inverse,
-                          plasmid.pulseFreq,
-                          plasmid.pulseAmp,
-                        );
-                        console.log(
-                          `[V2-MESH] Injected ATTRACTOR plasmid into slot ${slotIdx} (matrix=${
-                            plasmid.matrix.toString(16)
-                          }).`,
-                        );
-                      }
-                      // Era 1020: Track consensus for this peer + matrix
-                      this.attractorConsensusPeers.add(peerId);
-                      const ledgerEntry = this.consensusLedger.get(
-                        plasmid.matrix,
-                      );
-                      if (ledgerEntry) {
-                        ledgerEntry.peerCount += 1;
-                      } else {
-                        this.consensusLedger.set(plasmid.matrix, {
-                          matrix: plasmid.matrix,
-                          inverse: plasmid.inverse,
-                          pulseFreq: plasmid.pulseFreq,
-                          pulseAmp: plasmid.pulseAmp,
-                          peerCount: 1,
-                        });
-                      }
-                      if (
-                        !this.era1020Unlocked &&
-                        this.attractorConsensusPeers.size >= 3
-                      ) {
-                        this.era1020Unlocked = true;
-                        console.log(
-                          `🌌 [ERA 1020] UNLOCKED: Attractor consensus reached (${this.attractorConsensusPeers.size} peers).`,
-                        );
-                        globalThis.dispatchEvent(
-                          new CustomEvent("era1020-unlocked", {
-                            detail: {
-                              peerCount: this.attractorConsensusPeers.size,
-                              ledger: Array.from(this.consensusLedger.values()),
-                            },
-                          }),
-                        );
-                      }
-                      this.checkEra1030Trigger();
-                      break;
-                    }
-                    case "PROPOSAL": {
-                      this.handleProposal(plasmid, peerId);
-                      break;
-                    }
-                    case "VOTE": {
-                      this.handleVote(plasmid, peerId);
-                      break;
-                    }
-                    case "ORACLE_INJECTION": {
-                      // Forward to SovereignOracle via global event bus
-                      globalThis.dispatchEvent(
-                        new CustomEvent("oraclePlasmidInjection", {
-                          detail: { plasmid, fromPeer: peerId },
-                        }),
-                      );
-                      break;
-                    }
-                    case "DIPOLE": {
-                      // Era 1040: If the announcement carries a mitosis-proof bundle,
-                      // verify locally before accepting. Boundary rule: any DIPOLE
-                      // plasmid with a parent + claimedChild MUST re-derive bit-for-bit
-                      // and the receiptHash MUST match. Plasmids without proof bundles
-                      // are still echoed as informational events for backward compat.
-                      if (
-                        plasmid.parent && plasmid.claimedChild &&
-                        plasmid.qPhase !== undefined
-                      ) {
-                        const ok = WebRTCV2Mesh.verifyMitosisProof(plasmid);
-                        if (!ok) {
-                          console.warn(
-                            `[V2-MESH] DIPOLE proof rejected from ${peerId} (matrix=${
-                              plasmid.matrix.toString(16)
-                            }).`,
-                          );
-                          break;
-                        }
-                        this.verifiedDipoleCount += 1;
-                        this.checkEra1050Trigger();
-                        // Era 1040 → Era 1030 feedback: each verified mitosis
-                        // proof counts as a quiet AYE on the lattice's own
-                        // Era-1040 proposal. The Senate observes that ZK
-                        // verification works in the wild and ratifies the spec.
-                        this.autoRatifyEra1040Proposal(
-                          plasmid.matrix,
-                          plasmid.inverse,
-                        );
-                      }
-                      globalThis.dispatchEvent(
-                        new CustomEvent("dipoleBirthAnnouncement", {
-                          detail: {
-                            plasmid,
-                            fromPeer: peerId,
-                            verified: !!plasmid.claimedChild,
-                          },
-                        }),
-                      );
-                      break;
-                    }
-                    case "INTENT": {
-                      // INTENT plasmids are consumed as local mouse/peer intents
-                      const intentSlot = this.peerSlots.get(peerId);
-                      const setIntent = this.engine.wasm?.exports
-                        .v2_set_intent as CallableFunction;
-                      if (setIntent && intentSlot !== undefined) {
-                        setIntent(
-                          intentSlot,
-                          plasmid.attractorAddress,
-                          plasmid.matrix,
-                          plasmid.pulseFreq,
-                          plasmid.pulseAmp,
-                        );
-                      }
-                      break;
-                    }
-                    case "TRANSLATION_POLICY": {
-                      // Era 1660: passive policy-claim delivery. The monitor
-                      // remains owned by the application layer; mesh just
-                      // surfaces the raw claim envelope.
-                      if (plasmid.translationPolicyBody) {
-                        globalThis.dispatchEvent(
-                          new CustomEvent("translationPolicyClaim", {
-                            detail: {
-                              body: plasmid.translationPolicyBody,
-                              targetPeer: plasmid.translationPolicyTarget,
-                              fromPeer: peerId,
-                            },
-                          }),
-                        );
-                      }
-                      break;
-                    }
-                    case "TRANSLATION_POLICY_CORROBORATION": {
-                      // Era 1700: passive corroboration-raise delivery.
-                      // Application-owned trackers validate and apply.
-                      if (plasmid.translationPolicyCorroborationBody) {
-                        globalThis.dispatchEvent(
-                          new CustomEvent(
-                            "translationPolicyCorroborationRaise",
-                            {
-                              detail: {
-                                body:
-                                  plasmid.translationPolicyCorroborationBody,
-                                targetPeer:
-                                  plasmid.translationPolicyCorroborationTarget,
-                                fromPeer: peerId,
-                              },
-                            },
-                          ),
-                        );
-                      }
-                      break;
-                    }
-                    case "TRANSLATION_POLICY_REPLAY_DIGEST": {
-                      // Era 1870: passive replay-digest claim delivery.
-                      // Consumers compare compact interpretation anchors
-                      // after forensic sink sync, without full timelines.
-                      if (plasmid.translationPolicyReplayDigestBody) {
-                        globalThis.dispatchEvent(
-                          new CustomEvent(
-                            "translationPolicyReplayDigestClaim",
-                            {
-                              detail: {
-                                body: plasmid.translationPolicyReplayDigestBody,
-                                targetPeer:
-                                  plasmid.translationPolicyReplayDigestTarget,
-                                fromPeer: peerId,
-                              },
-                            },
-                          ),
-                        );
-                      }
-                      break;
-                    }
-                    case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST": {
-                      // Era 1950: passive tpdq replay-digest claim delivery.
-                      // Consumers compare Era 1940 interpretation anchors
-                      // without full replay timelines.
-                      if (plasmid.translationPolicyReplayDigestDigestBody) {
-                        globalThis.dispatchEvent(
-                          new CustomEvent(
-                            "translationPolicyReplayDigestDigestClaim",
-                            {
-                              detail: {
-                                body: plasmid
-                                  .translationPolicyReplayDigestDigestBody,
-                                targetPeer: plasmid
-                                  .translationPolicyReplayDigestDigestTarget,
-                                fromPeer: peerId,
-                              },
-                            },
-                          ),
-                        );
-                      }
-                      break;
-                    }
-                    case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST": {
-                      // Era 2040: passive tpdd forensic replay-digest
-                      // claim delivery. Consumers remain application-owned;
-                      // mesh only surfaces the compact Era 2030 claim.
-                      if (
-                        plasmid
-                          .translationPolicyReplayDigestDigestForensicReplayDigestBody
-                      ) {
-                        globalThis.dispatchEvent(
-                          new CustomEvent(
-                            "translationPolicyReplayDigestDigestForensicReplayDigestClaim",
-                            {
-                              detail: {
-                                body: plasmid
-                                  .translationPolicyReplayDigestDigestForensicReplayDigestBody,
-                                targetPeer: plasmid
-                                  .translationPolicyReplayDigestDigestForensicReplayDigestTarget,
-                                fromPeer: peerId,
-                              },
-                            },
-                          ),
-                        );
-                      }
-                      break;
-                    }
+        // Era 1010: Semantic Plasmid Consumer
+        const plasmid = packet.plasmid as PlasmidPayload | undefined;
+        if (plasmid) {
+          // Recursion depth guard
+          if (plasmid.recursionDepth >= plasmid.maxRecursion) {
+            console.log(`[LIBP2P-MESH] Plasmid max recursion exceeded, dropping.`);
+          } else {
+            // Validate dipole pair
+            const isValidDipole = this.router?.validateDipole(plasmid.matrix, plasmid.inverse) ?? false;
+            if (!isValidDipole) {
+              console.warn(`[LIBP2P-MESH] Invalid dipole rejected (matrix=${plasmid.matrix.toString(16)}, inverse=${plasmid.inverse.toString(16)}).`);
+            } else {
+              switch (plasmid.semanticType) {
+                case "ATTRACTOR": {
+                  const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
+                  if (setAttractor) {
+                    const slotIdx = plasmid.recursionDepth % 4;
+                    setAttractor(slotIdx, plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp);
                   }
-
-                  // Era 1010: Recursive relay — propagate to closer neighbours
-                  // Only re-broadcast if we haven't hit the recursion ceiling
-                  const nextDepth = plasmid.recursionDepth + 1;
-                  if (nextDepth < plasmid.maxRecursion) {
-                    this.enqueuePlasmid({
-                      ...plasmid,
-                      recursionDepth: nextDepth,
-                    });
+                  this.attractorConsensusPeers.add(peerId);
+                  const ledgerEntry = this.consensusLedger.get(plasmid.matrix);
+                  if (ledgerEntry) ledgerEntry.peerCount += 1;
+                  else this.consensusLedger.set(plasmid.matrix, { matrix: plasmid.matrix, inverse: plasmid.inverse, pulseFreq: plasmid.pulseFreq, pulseAmp: plasmid.pulseAmp, peerCount: 1 });
+                  
+                  if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
+                    this.era1020Unlocked = true;
+                    globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
                   }
+                  this.checkEra1030Trigger();
+                  break;
                 }
+                case "PROPOSAL": this.handleProposal(plasmid, peerId); break;
+                case "VOTE": this.handleVote(plasmid, peerId); break;
+                case "ORACLE_INJECTION": globalThis.dispatchEvent(new CustomEvent("oraclePlasmidInjection", { detail: { plasmid, fromPeer: peerId } })); break;
+                case "DIPOLE": {
+                  if (plasmid.parent && plasmid.claimedChild && plasmid.qPhase !== undefined) {
+                    const ok = Libp2pMesh.verifyMitosisProof(plasmid);
+                    if (!ok) {
+                      console.warn(`[LIBP2P-MESH] DIPOLE proof rejected from ${peerId} (matrix=${plasmid.matrix.toString(16)}).`);
+                      break;
+                    }
+                    this.verifiedDipoleCount += 1;
+                    this.checkEra1050Trigger();
+                    this.autoRatifyEra1040Proposal(plasmid.matrix, plasmid.inverse);
+                  }
+                  globalThis.dispatchEvent(new CustomEvent("dipoleBirthAnnouncement", { detail: { plasmid, fromPeer: peerId, verified: !!plasmid.claimedChild } }));
+                  break;
+                }
+                case "INTENT": {
+                  const intentSlot = this.peerSlots.get(peerId);
+                  const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+                  if (setIntent && intentSlot !== undefined) {
+                    setIntent(intentSlot, plasmid.attractorAddress, plasmid.matrix, plasmid.pulseFreq, plasmid.pulseAmp);
+                  }
+                  break;
+                }
+                case "TRANSLATION_POLICY":
+                  if (plasmid.translationPolicyBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyClaim", { detail: { body: plasmid.translationPolicyBody, targetPeer: plasmid.translationPolicyTarget, fromPeer: peerId } }));
+                  break;
+                case "TRANSLATION_POLICY_CORROBORATION":
+                  if (plasmid.translationPolicyCorroborationBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyCorroborationRaise", { detail: { body: plasmid.translationPolicyCorroborationBody, targetPeer: plasmid.translationPolicyCorroborationTarget, fromPeer: peerId } }));
+                  break;
+                case "TRANSLATION_POLICY_REPLAY_DIGEST":
+                  if (plasmid.translationPolicyReplayDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestBody, targetPeer: plasmid.translationPolicyReplayDigestTarget, fromPeer: peerId } }));
+                  break;
+                case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST":
+                  if (plasmid.translationPolicyReplayDigestDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestDigestBody, targetPeer: plasmid.translationPolicyReplayDigestDigestTarget, fromPeer: peerId } }));
+                  break;
+                case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST":
+                  if (plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestDigestForensicReplayDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody, targetPeer: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestTarget, fromPeer: peerId } }));
+                  break;
               }
-            }
 
-            // Golden Trace Validation
-            const localTrace = (this.engine.wasm?.exports
-              .v2_get_golden_trace as CallableFunction)?.() as number;
-            const remoteGt = packet.gt as number;
-            if (localTrace !== remoteGt && !this.isSyncFrozen) {
-              console.warn(
-                `[V2-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${
-                  localTrace.toString(16)
-                } | Remote: ${remoteGt.toString(16)})`,
-              );
-              // Simplistic tie-breaker for Authority: The higher Hash rules.
-              if (remoteGt > localTrace) {
-                console.log(
-                  `[V2-MESH] Requesting Overmind State Snapshot from Authority...`,
-                );
-                this.isSyncFrozen = true;
-                const stateChannel = this.getOrOpenStateChannel(peerId);
-                if (stateChannel?.readyState === "open") {
-                  stateChannel.send(JSON.stringify({ t: "REQ_SNAPSHOT" }));
-                }
+              const nextDepth = plasmid.recursionDepth + 1;
+              if (nextDepth < plasmid.maxRecursion) {
+                this.enqueuePlasmid({ ...plasmid, recursionDepth: nextDepth });
               }
             }
           }
-        } catch (_e) {
-          // Ignore parse errors on UDP layer
         }
-      } else if (event.data instanceof ArrayBuffer) {
+
+        // Golden Trace Validation
+        const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
+        const remoteGt = packet.gt as number;
+        if (localTrace !== remoteGt && !this.isSyncFrozen) {
+          console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
+          if (remoteGt > localTrace) {
+            console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
+            this.isSyncFrozen = true;
+            // Since we use pubsub for sync, we will broadcast a REQ_SNAPSHOT intent.
+            // The authority will hear this and broadcast SNAPSHOT_HEADER.
+            const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
+            this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
+          }
+        }
+      } else if (packet.t === "REQ_SNAPSHOT") {
+        if (this.latestSnapshot) {
+          console.log(`[LIBP2P-MESH] Sending 32MB Snapshot to pubsub...`);
+          const header = JSON.stringify({ t: "SNAPSHOT_HEADER", size: this.latestSnapshot.byteLength });
+          this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(header));
+          const CHUNK_SIZE = 64000;
+          for (let i = 0; i < this.latestSnapshot.byteLength; i += CHUNK_SIZE) {
+            const chunk = this.latestSnapshot.slice(i, i + CHUNK_SIZE);
+            this.node.services.pubsub.publish("v2-state", chunk);
+          }
+        }
+      } else if (packet.t === "SNAPSHOT_HEADER") {
+        console.log(`[LIBP2P-MESH] Incoming 32MB Snapshot (${packet.size} bytes)...`);
+        this.incomingSnapshot = new Uint8Array(packet.size);
+        this.incomingBytesReceived = 0;
+        this.isSyncFrozen = true;
+      }
+    } catch (_e) {
+      // Ignore parse errors on UDP layer
+    }
+  }
+
+  private handleStateMessage(peerId: string, eventData: ArrayBuffer) {
+    if (this.incomingSnapshot) {
+      const chunk = new Uint8Array(eventData);
+      this.incomingSnapshot.set(chunk, this.incomingBytesReceived);
+      this.incomingBytesReceived += chunk.byteLength;
+
+      if (this.incomingBytesReceived >= this.incomingSnapshot.byteLength) {
+        console.log(`[LIBP2P-MESH] Snapshot Assembly Complete! Injecting to GPU Memory.`);
+        this.overwriteCallback(this.incomingSnapshot);
+        this.incomingSnapshot = null;
+        this.isSyncFrozen = false;
+      }
+    } else {
         // ERA 6000: Continuous Delta Mutagens
         const ptrs = this.engine.getMemoryPointers();
         if (!ptrs) return;
 
-        const deltasU32 = new Uint32Array(event.data);
-        const gridU32 = new Uint32Array(
-          ptrs.wasmMemoryBuffer,
-          ptrs.agentBytes.byteOffset,
-          ptrs.agentBytes.byteLength / 4,
-        );
+        const deltasU32 = new Uint32Array(eventData);
+        const gridU32 = new Uint32Array(ptrs.wasmMemoryBuffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
         const maxAgents = gridU32.length / 8;
 
         const numMutations = Math.floor(deltasU32.length / 4);
-        console.log(
-          `[V2-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`,
-        );
+        console.log(`[LIBP2P-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`);
 
         for (let i = 0; i < numMutations; i++) {
           const index = deltasU32[i * 4 + 0];
@@ -662,175 +441,21 @@ export class WebRTCV2Mesh {
           const energy = deltasU32[i * 4 + 2];
           const genome = deltasU32[i * 4 + 3];
 
-          // SECURITY: Bounds check against malicious remote index
-          if (index >= maxAgents) {
-            console.warn(
-              `[V2-MESH] ⚠️ Delta index ${index} out of bounds (max ${maxAgents}), dropping mutation.`,
-            );
-            continue;
-          }
-
-          // Update 32-byte PhaseAgentMinimal (8x u32s)
+          if (index >= maxAgents) continue;
           gridU32[index * 8 + 0] = phase;
           gridU32[index * 8 + 1] = energy;
           gridU32[index * 8 + 4] = genome;
         }
-      }
-    };
-  }
-
-  private stateChannels: Map<string, RTCDataChannel> = new Map();
-
-  private getOrOpenStateChannel(peerId: string): RTCDataChannel | undefined {
-    let sc = this.stateChannels.get(peerId);
-    if (!sc) {
-      const pc = this.peers.get(peerId);
-      if (pc) {
-        sc = pc.createDataChannel("v2-state", { ordered: true });
-        sc.binaryType = "arraybuffer";
-        this.setupStateChannel(peerId, sc);
-      }
-    }
-    return sc;
-  }
-
-  private setupStateChannel(peerId: string, channel: RTCDataChannel) {
-    this.stateChannels.set(peerId, channel);
-    channel.binaryType = "arraybuffer";
-    channel.onopen = () =>
-      console.log(`[V2-STATE] TCP-Style State Channel OPEN with ${peerId}`);
-    channel.onmessage = (event) => {
-      if (typeof event.data === "string") {
-        const msg = JSON.parse(event.data);
-        if (msg.t === "REQ_SNAPSHOT") {
-          if (this.latestSnapshot) {
-            console.log(`[V2-STATE] Sending 32MB Snapshot to ${peerId}...`);
-            channel.send(
-              JSON.stringify({
-                t: "SNAPSHOT_HEADER",
-                size: this.latestSnapshot.byteLength,
-              }),
-            );
-
-            // Blast 64KB chunks
-            const CHUNK_SIZE = 64000;
-            for (
-              let i = 0;
-              i < this.latestSnapshot.byteLength;
-              i += CHUNK_SIZE
-            ) {
-              const chunk = this.latestSnapshot.slice(i, i + CHUNK_SIZE);
-              channel.send(chunk);
-            }
-          }
-        } else if (msg.t === "SNAPSHOT_HEADER") {
-          console.log(
-            `[V2-STATE] Incoming 32MB Snapshot (${msg.size} bytes)...`,
-          );
-          this.incomingSnapshot = new Uint8Array(msg.size);
-          this.incomingBytesReceived = 0;
-          this.isSyncFrozen = true;
-        }
-      } else if (event.data instanceof ArrayBuffer) {
-        if (this.incomingSnapshot) {
-          const chunk = new Uint8Array(event.data);
-          this.incomingSnapshot.set(chunk, this.incomingBytesReceived);
-          this.incomingBytesReceived += chunk.byteLength;
-
-          if (this.incomingBytesReceived >= this.incomingSnapshot.byteLength) {
-            console.log(
-              `[V2-STATE] Snapshot Assembly Complete! Injecting to GPU Memory.`,
-            );
-            this.overwriteCallback(this.incomingSnapshot);
-            this.incomingSnapshot = null;
-            this.isSyncFrozen = false;
-          }
-        }
-      }
-    };
-  }
-
-  private async initiateConnection(peerId: string) {
-    const pc = this.createPeerConnection(peerId);
-    // Create an UNRELIABLE, UNORDERED channel for max speed intentions
-    const channel = pc.createDataChannel("v2-sync", {
-      ordered: false,
-      maxRetransmits: 0,
-    });
-    // ER-6000: Set DataChannel explicitly to accept raw ArrayBuffers to decode Deltas instantly
-    channel.binaryType = "arraybuffer";
-    this.setupDataChannel(peerId, channel);
-
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    this.signaling.send(
-      JSON.stringify({ type: "OFFER", target: peerId, offer }),
-    );
-  }
-
-  private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
-    let pc = this.peers.get(peerId);
-    if (!pc) pc = this.createPeerConnection(peerId);
-
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    this.signaling.send(
-      JSON.stringify({ type: "ANSWER", target: peerId, answer }),
-    );
-  }
-
-  private async handleAnswer(
-    peerId: string,
-    answer: RTCSessionDescriptionInit,
-  ) {
-    const pc = this.peers.get(peerId);
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
-  }
-
-  private async handleIceCandidate(
-    peerId: string,
-    candidate: RTCIceCandidateInit,
-  ) {
-    const pc = this.peers.get(peerId);
-    if (pc && pc.remoteDescription) {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
     }
   }
+
 
   private refreshSelfAddress() {
     if (!this.router || !this.engine.wasm) return;
     this.selfAddress = this.router.addressFromAgent(0);
   }
 
-  private closePeer(peerId: string) {
-    const pc = this.peers.get(peerId);
-    if (pc) {
-      pc.close();
-      this.peers.delete(peerId);
-    }
-    const channel = this.channels.get(peerId);
-    if (channel) {
-      channel.close();
-      this.channels.delete(peerId);
-    }
 
-    // Zero out intent
-    const slot = this.peerSlots.get(peerId);
-    if (slot !== undefined) {
-      const setIntent = this.engine.wasm?.exports
-        .v2_set_intent as CallableFunction;
-      if (setIntent) setIntent(slot, 0, 0, 0, 0, 0, 0);
-      this.peerSlots.delete(peerId);
-    }
-    this.peerAddresses.delete(peerId);
-    console.log(`[V2-MESH] Connection closed: ${peerId}`);
-    globalThis.dispatchEvent(
-      new CustomEvent("meshPeerLeft", {
-        detail: { peerId },
-      }),
-    );
-  }
 
   public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
   private latestGoldenTraceNum: number = 0;
@@ -922,7 +547,7 @@ export class WebRTCV2Mesh {
     ) {
       return;
     }
-    const expected = WebRTCV2Mesh.senateHash(plasmid.proposalDescription);
+    const expected = Libp2pMesh.senateHash(plasmid.proposalDescription);
     if (expected !== (plasmid.proposalHash >>> 0)) {
       console.warn(
         `[V2-MESH] PROPOSAL hash mismatch (expected=${
@@ -1140,7 +765,7 @@ export class WebRTCV2Mesh {
       console.warn(`[V2-MESH] Cannot propose: invalid proposer dipole.`);
       return 0;
     }
-    const hash = WebRTCV2Mesh.senateHash(description);
+    const hash = Libp2pMesh.senateHash(description);
     if (this.senate.has(hash)) {
       console.log(
         `[V2-MESH] Duplicate proposal 0x${hash.toString(16)} — skipping.`,
@@ -1398,7 +1023,7 @@ export class WebRTCV2Mesh {
   }
 
   private broadcastV2State() {
-    if (this.channels.size === 0) return;
+    if (!this.node || this.node.status !== 'started') return;
 
     this.refreshSelfAddress();
 
@@ -1436,13 +1061,13 @@ export class WebRTCV2Mesh {
       }
     }
 
-    for (const [_id, channel] of this.channels.entries()) {
-      if (channel.readyState === "open") {
-        channel.send(payload);
-        if (deltaBuffer) {
-          channel.send(deltaBuffer);
-        }
+    try {
+      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(payload));
+      if (deltaBuffer) {
+        this.node.services.pubsub.publish("v2-sync", new Uint8Array(deltaBuffer));
       }
+    } catch (e) {
+      console.warn(`[LIBP2P-MESH] Failed to publish state:`, e);
     }
   }
 }

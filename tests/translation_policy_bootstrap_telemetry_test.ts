@@ -1,7 +1,7 @@
 // Era 1810: Translation policy bootstrap telemetry snapshot tests.
 import { assertEquals } from "jsr:@std/assert";
 import { LocalEventSource } from "../src/network/quarantine_lifecycle_bridge.ts";
-import { PlasmidPayload } from "../src/network/webrtc_v2.ts";
+import { PlasmidPayload } from "../src/network/libp2p_mesh.ts";
 import { SchemaTranslatorRegistry } from "../src/network/schema_translator.ts";
 import {
     installTranslationPolicyBootstrap,

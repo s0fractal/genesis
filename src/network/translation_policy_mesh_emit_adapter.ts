@@ -2,6 +2,7 @@
 //
 // Era 1770's factory intentionally accepts narrow emit callbacks. This
 // adapter turns a live WebRTCV2Mesh-like object into those callbacks
+// adapter turns a live Libp2pMesh-like object into those callbacks
 // using the existing plasmid envelope fields.
 
 import type {
@@ -9,7 +10,7 @@ import type {
     TranslationPolicyPlasmidEmit,
 } from "./mesh_event_bridge.ts";
 import type { WarrantProposalPayload } from "./quorum_warrant_bridge.ts";
-import type { PlasmidPayload } from "./webrtc_v2.ts";
+import type { Libp2pMesh, PlasmidPayload } from "./libp2p_mesh.ts";
 
 export const TRANSLATION_POLICY_MESH_EMIT_ADAPTER_SCHEMA = "OMEGA-1780/v1";
 

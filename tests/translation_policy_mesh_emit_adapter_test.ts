@@ -1,6 +1,6 @@
 // Era 1780: Translation policy mesh emit adapter tests.
 import { assertEquals, assertThrows } from "jsr:@std/assert";
-import { PlasmidPayload } from "../src/network/webrtc_v2.ts";
+import { PlasmidPayload } from "../src/network/libp2p_mesh.ts";
 import {
     WarrantProposalPayload,
     senateHash,

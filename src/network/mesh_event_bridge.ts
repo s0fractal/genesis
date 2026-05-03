@@ -3,7 +3,7 @@
 // 🛰️ Era 1700 — Translation Policy Corroboration Wire Sync
 //
 // Era 1500's `WebRTCEventBridge` is transport-agnostic. Era 1510
-// adapts it onto the existing `WebRTCV2Mesh`'s plasmid pipeline so
+// adapts it onto the existing `Libp2pMesh`'s plasmid pipeline so
 // browser peers can run forensic-event convergence on the same
 // mesh that already carries warrants, votes, and resilience data.
 //

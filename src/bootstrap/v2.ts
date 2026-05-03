@@ -1,6 +1,6 @@
 import { configureCanvas, DOM, setInputMode, tickFps, setHudStat } from "./dom.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
-import { WebRTCV2Mesh, PlasmidPayload } from "../network/webrtc_v2.ts";
+import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
@@ -106,10 +106,11 @@ export async function bootstrapV2() {
             console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
         }
 
-        // Boot V2 Mesh Network for Golden Trace syncing
-        const mesh = new WebRTCV2Mesh(engine, (snapshot) => {
+        // Boot V2 Mesh Network (Libp2p GossipSub)
+        const bootstrapMultiaddr = "/dns4/libp2p-relay.omega-federation.dev/tcp/443/wss/p2p-webrtc-star"; // placeholder
+        const mesh = new Libp2pMesh(engine, (snapshot) => {
             renderer.overwriteGPUState(snapshot);
-        }, undefined, router);
+        }, bootstrapMultiaddr, router);
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
         // Era 1790: optional installer composes mesh emit adapter,

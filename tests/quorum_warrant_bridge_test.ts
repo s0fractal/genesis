@@ -115,7 +115,7 @@ Deno.test("integration: hash matches WebRTCV2Mesh.senateHash convention", async 
     // The bridge's senateHash MUST produce identical results to
     // the live mesh's static method so warrants flow through the
     // existing 3-of-5 oracle gate without re-validation drift.
-    const { WebRTCV2Mesh } = await import("../src/network/webrtc_v2.ts");
+    const { Libp2pMesh } = await import("../src/network/libp2p_mesh.ts");
     const desc = "INV peer=0xdeadbeef consensus=0xcafebabe";
-    assertEquals(senateHash(desc), WebRTCV2Mesh.senateHash(desc));
+    assertEquals(senateHash(desc), Libp2pMesh.senateHash(desc));
 });

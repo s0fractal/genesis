@@ -1,7 +1,7 @@
 {
   "name": "omega-genesis",
   "version": "1.0.0",
-  "era": "1070 (Cross-Model Ratification)",
+  "era": "2060 (Translation Policy Spine Compression)",
   "genesisHash": "0x549A6307",
   "opReturn": "OMEGA1:549a6307",
   "protocol": "OMEGA-64/RFC-001/v1.0",
@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "export": "deno run -A tools/export_omega.ts",
-    "build:wasm": "cd omega_core && wasm-pack build --target web --out-dir pkg",
+    "build:wasm": "deno run -A tools/build_v2.ts",
     "build": "npm run build:wasm && vite build",
     "serve": "vite preview",
     "generate:phase-goldens": "deno run -A tools/generate_golden.ts",
@@ -17,8 +17,7 @@
     "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
     "verify:phase-coherence": "deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
     "verify:phase-stack": "deno task verify:phase-coherence",
-    "verify:golden": "deno run -A tools/verify_golden.ts",
-    "start:signal": "deno run -A tools/webrtc_signal.ts"
+    "verify:golden": "deno run -A tools/verify_golden.ts"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",
