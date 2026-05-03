@@ -421,7 +421,11 @@ fn compute_main(
             agents_out[index].phase = new_phase;
             agents_out[index].energy = new_energy;
             agents_out[index].base_freq = new_base_freq;
-            agents_out[index].state_flags = agent.state_flags;
+            if (new_energy == 0u) {
+                agents_out[index].state_flags = agent.state_flags | 0x01u;
+            } else {
+                agents_out[index].state_flags = agent.state_flags;
+            }
             agents_out[index].genome = new_genome;
             agents_out[index].memory_x = new_mem_x;
             agents_out[index].memory_y = new_mem_y;

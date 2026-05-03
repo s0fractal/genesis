@@ -115,7 +115,10 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         agent.phase = new_phase;
         agent.energy = new_energy;
-        // base_freq, genome, state_flags, memory are unchanged during physics tick
+        if (new_energy == 0u) {
+            agent.state_flags = agent.state_flags | 0x01u;
+        }
+        // base_freq, genome, memory are unchanged during physics tick
     }
 
     // Ping-pong: write result to agents_out (dead cells copied unchanged)

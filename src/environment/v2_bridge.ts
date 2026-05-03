@@ -91,6 +91,16 @@ export class OmegaV2Engine {
         }
     }
 
+    /** Era 0205: Fully reset the internal engine state. */
+    public reset(): void {
+        if (!this.wasmInstance) return;
+        const resetFn = this.wasmInstance.exports.v2_reset_runtime_state as CallableFunction;
+        if (resetFn) {
+            resetFn();
+            console.log("🔄 [V2-BRIDGE] Engine runtime state reset to pure vacuum.");
+        }
+    }
+
     /**
      * Pushes the Q-Topology down to Rust via zero-cost exported functions.
      */

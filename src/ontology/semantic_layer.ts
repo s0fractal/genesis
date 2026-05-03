@@ -1,4 +1,4 @@
-// @ts-nocheck
+
 import { fnv1a_64 } from "@wasm";
 
 export class SemanticCoupler {

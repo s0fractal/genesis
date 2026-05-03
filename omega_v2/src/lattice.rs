@@ -185,7 +185,7 @@ impl PhaseLattice {
             // to guarantee CPU-GPU bit-exact parity. The old chunk buffer caused
             // read-after-write at chunk boundaries (left neighbor already mutated).
             let snapshot = if self.tick_snapshot_ptr.is_null() {
-                core::ptr::addr_of_mut!(crate::LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal
+                core::ptr::addr_of_mut!(crate::SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal
             } else {
                 self.tick_snapshot_ptr
             };
@@ -193,39 +193,42 @@ impl PhaseLattice {
 
             for i in 0..active {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
-                let left_idx = if i == 0 { active - 1 } else { i - 1 };
-                let right_idx = if i + 1 >= active { 0 } else { i + 1 };
+                
+                if agent.energy > 0 {
+                    let left_idx = if i == 0 { active - 1 } else { i - 1 };
+                    let right_idx = if i + 1 >= active { 0 } else { i + 1 };
 
-                let left = &*snapshot.add(left_idx);
-                let right = &*snapshot.add(right_idx);
+                    let left = &*snapshot.add(left_idx);
+                    let right = &*snapshot.add(right_idx);
 
-                // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
-                let sin_left = crate::math::sin_q10(left.phase, agent.phase);
-                let sin_right = crate::math::sin_q10(right.phase, agent.phase);
-                let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
+                    // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
+                    let sin_left = crate::math::sin_q10(left.phase, agent.phase);
+                    let sin_right = crate::math::sin_q10(right.phase, agent.phase);
+                    let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
 
-                // Metabolic burn: complex genomes burn faster
-                let burn = crate::constants::METABOLIC_BASE_COST
-                    + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
-                agent.energy = agent.energy.saturating_sub(burn);
+                    // Metabolic burn: complex genomes burn faster
+                    let burn = crate::constants::METABOLIC_BASE_COST
+                        + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
+                    agent.energy = agent.energy.saturating_sub(burn);
 
-                let mut attractor_drift = 0i32;
-                if !self.attractors_ptr.is_null() {
-                    let arr = &*self.attractors_ptr;
-                    let attractor_count = core::cmp::min(arr.count as usize, 4);
-                    for j in 0..attractor_count {
-                        attractor_drift += arr.data[j].drift_contribution(agent.phase, &self.topology);
+                    let mut attractor_drift = 0i32;
+                    if !self.attractors_ptr.is_null() {
+                        let arr = &*self.attractors_ptr;
+                        let attractor_count = core::cmp::min(arr.count as usize, 4);
+                        for j in 0..attractor_count {
+                            attractor_drift += arr.data[j].drift_contribution(agent.phase, &self.topology);
+                        }
                     }
-                }
 
-                // Phase drift: base_freq + coupling + attractor field
-                let drift = agent.base_freq + coupling + attractor_drift;
-                agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
+                    // Phase drift: base_freq + coupling + attractor field
+                    let drift = agent.base_freq + coupling + attractor_drift;
+                    agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
-                // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
-                if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                    agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
-                        .min(crate::constants::MAX_ATP as i32) as u32;
+                    // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
+                    if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
+                        agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
+                            .min(crate::constants::MAX_ATP as i32) as u32;
+                    }
                 }
 
                 // Compost event: agent died this tick

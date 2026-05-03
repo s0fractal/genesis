@@ -77,7 +77,7 @@ static mut AGENTS_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentM
 }; MAX_MINIMAL_AGENTS];
 
 // ERA 6000: 32MB Shadow Memory + Differential Output Buffer
-static mut LAST_SNAPSHOT_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
+static mut SHADOW_LATTICE_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
     phase: 0,
     energy: 0,
     base_freq: 0,
@@ -198,7 +198,7 @@ pub extern "C" fn v2_boot_engine() {
         let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
         let agents = core::ptr::addr_of_mut!(AGENTS_MEMORY) as *mut PhaseAgentMinimal;
         (*lattice).minimal_agents_ptr = agents;
-        (*lattice).tick_snapshot_ptr = core::ptr::addr_of_mut!(LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal;
+        (*lattice).tick_snapshot_ptr = core::ptr::addr_of_mut!(SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal;
         (*lattice).attractors_ptr = core::ptr::addr_of!(ATTRACTOR_ARRAY);
     }
 }
@@ -233,6 +233,36 @@ pub extern "C" fn v2_tick() {
     unsafe {
         let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
         (*lattice).tick_physics();
+    }
+}
+
+/// Era 0205: Fully reset the runtime state for deterministic testing or demo boot
+#[no_mangle]
+pub extern "C" fn v2_reset_runtime_state() {
+    unsafe {
+        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
+        (*lattice).signals.dirty_flags = 0;
+        (*lattice).signals.absolute_tick = 0;
+        (*lattice).signals.active_agent_count = 0;
+        (*lattice).intents = [crate::topology::OntologicalIntent::empty(); 4];
+        
+        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
+        (*arr).clear();
+        
+        let field = core::ptr::addr_of_mut!(RESONANCE_FIELD);
+        *field = ResonanceField::zero();
+        
+        let halo = core::ptr::addr_of_mut!(HALO_STATE);
+        *halo = HaloState::empty();
+        
+        let phi_buf = core::ptr::addr_of_mut!(PHI_MESSAGE_BUFFER);
+        *phi_buf = PhiMessageBuffer::new();
+        
+        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
+        *anchor = PhiAnchorChain::new();
+        
+        let epi = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
+        (*epi).clear();
     }
 }
 
@@ -277,7 +307,7 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     unsafe {
         let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
         let agents = core::ptr::addr_of!(AGENTS_MEMORY) as *const PhaseAgentMinimal;
-        let snapshot = core::ptr::addr_of_mut!(LAST_SNAPSHOT_MEMORY) as *mut PhaseAgentMinimal;
+        let snapshot = core::ptr::addr_of_mut!(SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal;
         let delta = core::ptr::addr_of_mut!(DELTA_BUFFER) as *mut crate::lattice::DeltaItem;
         (*lattice).generate_delta_snapshot(agents, snapshot, delta, MAX_DELTA_ITEMS)
     }
