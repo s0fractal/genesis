@@ -5,6 +5,8 @@ export interface NomosZKProof {
     valid: boolean;
 }
 
+import { isProduction } from "../shared/config.ts";
+
 export interface NomosProof {
     hash: string;
     gas_used: number;
@@ -20,6 +22,16 @@ export class NomosGate {
      * using the hardcoded verification key (vkey) of `omega_zk_guest`.
      */
     static verify_sp1_receipt(proof_bytes: string, public_values: any): NomosZKProof {
+        if (isProduction()) {
+            console.error("[NomosGate] FATAL: SP1 Verification is mocked, but system is in PRODUCTION mode! Failing closed.");
+            return {
+                morphology_hash: public_values.morphology || "0x0000000000000000",
+                gas_used: public_values.steps || 0,
+                proof_bytes,
+                valid: false // STRICTLY FAIL-CLOSED
+            };
+        }
+
         // Mock ZK implementation for architecture scaffolding
         console.warn("[NomosGate] SP1 Verification explicitly mocked for Era 280 scaffolding.");
         

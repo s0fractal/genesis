@@ -1,5 +1,6 @@
 import { ethers, Provider, Contract, Wallet } from "ethers";
 import { Xorshift64TS } from "../math/xorshift.ts";
+import { isProduction } from "../shared/config.ts";
 
 /**
  * OMEGA-64: Era 300 ATP Bridge
@@ -49,6 +50,9 @@ export class MockATPBridge implements IATPBridge {
     private rng: Xorshift64TS;
 
     constructor(seed: bigint = 42n) {
+        if (isProduction()) {
+            throw new Error("[MockATPBridge] FATAL: Cannot instantiate MockATPBridge in production mode.");
+        }
         this.rng = new Xorshift64TS(seed);
     }
 

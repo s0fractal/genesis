@@ -2,6 +2,7 @@ import { NomosGate } from "../ontology/nomos_gate.ts";
 import { EthersATPBridge, IATPBridge, MockATPBridge } from "./atp_bridge.ts";
 import { omega64 } from "../proto/omega64.js";
 import { GENESIS_HASH_V1_0 } from "./genesis_inscription.ts";
+import { isProduction } from "../shared/config.ts";
 
 /**
  * Deterministically derives a non-trivial ZK proof stub from peer identity.
@@ -41,6 +42,10 @@ export class WebRTCMesh {
 
     constructor(workerPort: MessagePort, signalingUrl: string = "wss://omega-federation.deno.dev", atpBridge?: IATPBridge) {
         this.workerPort = workerPort;
+        if (isProduction() && (!atpBridge || atpBridge instanceof MockATPBridge)) {
+            throw new Error("[WebRTCMesh] FATAL: Production mode requires a strict EthersATPBridge. Failing closed.");
+        }
+        
         this.atpBridge = atpBridge ?? new MockATPBridge(); // Era 2081: Default to MockATPBridge until EthersATPBridge is configured
         
         // Era 920: The Cosmic Entropy Heartbeat
