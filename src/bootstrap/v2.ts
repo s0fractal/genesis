@@ -7,6 +7,29 @@ import { PhaseRouter } from "../network/routing_bridge.ts";
 import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole } from "../network/oracle_identity.ts";
+import {
+    createTranslationPolicyHudHook,
+    TranslationPolicyTelemetrySource,
+} from "./translation_policy_hud_hook.ts";
+import {
+    installTranslationPolicyBootstrap,
+    TranslationPolicyBootstrapInstallOptions,
+    TranslationPolicyBootstrapGlobalTarget,
+} from "./translation_policy_bootstrap_installer.ts";
+import {
+    createTranslationPolicyRuntimeTickHook,
+    TranslationPolicyRuntimeTickHookResult,
+    TranslationPolicyRuntimeTickHookOptionsInput,
+    TranslationPolicyRuntimeTickSource,
+} from "./translation_policy_runtime_tick_hook.ts";
+import {
+    translationPolicyBootstrapTelemetrySnapshot,
+    TranslationPolicyBootstrapTelemetrySnapshot,
+} from "./translation_policy_bootstrap_telemetry.ts";
+import {
+    createTranslationPolicyTelemetryEventEmitter,
+    TranslationPolicyTelemetryEventOptionsInput,
+} from "./translation_policy_telemetry_event.ts";
 
 let oracleWorker: Worker | null = null;
 try {
@@ -17,6 +40,29 @@ try {
 }
 
 let isOracleBound = false;
+
+declare global {
+    interface Window {
+        __OMEGA_TRANSLATION_POLICY_RUNTIME__?: {
+            telemetry(now_ms: number): unknown;
+        };
+        __OMEGA_TRANSLATION_POLICY_HUD__?: boolean | {
+            enabled?: boolean;
+            slot?: "a" | "b" | "c" | "d" | "e" | "f";
+            min_interval_ms?: number;
+            label?: string;
+            hud?: { max_summary_len?: number };
+        };
+        __OMEGA_TRANSLATION_POLICY_BOOTSTRAP__?:
+            TranslationPolicyBootstrapInstallOptions;
+        __OMEGA_TRANSLATION_POLICY_TICK__?:
+            boolean | TranslationPolicyRuntimeTickHookOptionsInput;
+        __OMEGA_TRANSLATION_POLICY_TELEMETRY__?:
+            TranslationPolicyBootstrapTelemetrySnapshot;
+        __OMEGA_TRANSLATION_POLICY_TELEMETRY_EVENT__?:
+            boolean | TranslationPolicyTelemetryEventOptionsInput;
+    }
+}
 
 export async function bootstrapV2() {
     console.log("🌌 [V2] Bootstrapping Zero-Copy Minimalist Engine...");
@@ -66,6 +112,18 @@ export async function bootstrapV2() {
         }, undefined, router);
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
+        // Era 1790: optional installer composes mesh emit adapter,
+        // translation-policy runtime, and HUD global wiring.
+        const translationPolicyInstall = installTranslationPolicyBootstrap(
+            mesh,
+            window.__OMEGA_TRANSLATION_POLICY_BOOTSTRAP__,
+            window as TranslationPolicyBootstrapGlobalTarget,
+        );
+        if (translationPolicyInstall.installed) {
+            console.log("🧭 [TPOL] Translation policy runtime installed.");
+        } else if (translationPolicyInstall.reason === "install-error") {
+            console.warn("[TPOL] Translation policy install failed:", translationPolicyInstall.error);
+        }
 
         // Era 1020: Listen for consensus unlock and install harmonic convergence well
         globalThis.addEventListener('era1020-unlocked', ((e: CustomEvent) => {
@@ -279,6 +337,40 @@ ${debateMd || "(no recorded arguments)"}
         let isReadingGPU = false;
         // Era 1040 Phase 2: tracks how many mitosis receipts we've already drained.
         let lastMitosisSeen = 0;
+        // Era 1760: optional operator-owned translation-policy HUD bridge.
+        const translationPolicyHudConfig = window.__OMEGA_TRANSLATION_POLICY_HUD__;
+        const translationPolicyHudHook = createTranslationPolicyHudHook(
+            window.__OMEGA_TRANSLATION_POLICY_RUNTIME__ as TranslationPolicyTelemetrySource | undefined,
+            setHudStat,
+            typeof translationPolicyHudConfig === "object"
+                ? { ...translationPolicyHudConfig, enabled: translationPolicyHudConfig.enabled === true }
+                : { enabled: translationPolicyHudConfig === true },
+        );
+        // Era 1800: bounded outbound policy-broadcast tick. Separate
+        // from HUD formatting so display cadence never drives network IO.
+        const translationPolicyTickConfig = window.__OMEGA_TRANSLATION_POLICY_TICK__;
+        const translationPolicyTickHook = createTranslationPolicyRuntimeTickHook(
+            window.__OMEGA_TRANSLATION_POLICY_RUNTIME__ as TranslationPolicyRuntimeTickSource | undefined,
+            typeof translationPolicyTickConfig === "object"
+                ? { ...translationPolicyTickConfig, enabled: translationPolicyTickConfig.enabled === true }
+                : { enabled: translationPolicyTickConfig === true },
+        );
+        // Era 1820: optional snapshot event emission. Consumers subscribe to
+        // `translationPolicyTelemetry` without polling the frame-loop global.
+        const translationPolicyTelemetryEventConfig =
+            window.__OMEGA_TRANSLATION_POLICY_TELEMETRY_EVENT__;
+        const translationPolicyTelemetryEventEmitter =
+            createTranslationPolicyTelemetryEventEmitter(
+                window,
+                typeof translationPolicyTelemetryEventConfig === "object"
+                    ? {
+                        ...translationPolicyTelemetryEventConfig,
+                        enabled:
+                            translationPolicyTelemetryEventConfig.enabled === true,
+                    }
+                    : { enabled: translationPolicyTelemetryEventConfig === true },
+            );
+        let lastTranslationPolicyTick: TranslationPolicyRuntimeTickHookResult | null = null;
 
         const loop = () => {
             tickFps();
@@ -354,6 +446,22 @@ ${debateMd || "(no recorded arguments)"}
             } else {
                 setHudStat("f", "SENATE", `OPEN ${senate.proposalCount}`);
             }
+            const policyNow = performance.now();
+            lastTranslationPolicyTick =
+                translationPolicyTickHook?.tick(policyNow) ?? lastTranslationPolicyTick;
+            translationPolicyHudHook?.tick(policyNow);
+            const translationPolicySnapshot =
+                translationPolicyBootstrapTelemetrySnapshot(
+                    translationPolicyInstall,
+                    lastTranslationPolicyTick,
+                    policyNow,
+                );
+            window.__OMEGA_TRANSLATION_POLICY_TELEMETRY__ =
+                translationPolicySnapshot;
+            translationPolicyTelemetryEventEmitter?.tick(
+                translationPolicySnapshot,
+                policyNow,
+            );
 
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {

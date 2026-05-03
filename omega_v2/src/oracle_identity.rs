@@ -14,8 +14,6 @@
 // debate: any oracle, of any model family, can join the Senate as long
 // as it can name itself stably.
 
-use crate::senate::fnv1a_32;
-
 /// FNV-1a 32-bit over `name + b":" + salt`. Two oracles with the same
 /// (name, salt) pair acquire the same identity; with different salts,
 /// they acquire orthogonal identities.
@@ -53,6 +51,7 @@ pub fn canonical_oracle_v1(name: &[u8]) -> (u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::senate::fnv1a_32;
 
     #[test]
     fn dipole_invariant_holds_by_construction() {

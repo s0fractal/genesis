@@ -1,4 +1,5 @@
 // 🌌 OMEGA-64: Era 1600 — Schema-Validated Cross-Sink Sync
+// 🌉 Era 1630 — Translation-Aware Apply Path
 //
 // Era 1390's `applyEventDelta` merges entries from any sender
 // into the local sink — the sender's content-domain identity
@@ -22,6 +23,14 @@
 // PRINCIPLE: Era 1390's apply path is unchanged — schema
 // validation is an outer layer. Existing callers continue to
 // work; new callers gate via the schema variant.
+//
+// ERA 1630 ADDENDUM:
+// Era 1620 introduced explicit opt-in translators for schema major
+// migrations. Era 1630 wires that registry into this apply path:
+// incompatible majors still refuse by default, but when the caller
+// provides a SchemaTranslatorRegistry with a registered sender→local
+// pair, missing_entries are translated, delta_hash is recomputed over
+// the translated set, and the result delegates to Era 1390 unchanged.
 
 import {
     ForensicEventSink,
@@ -33,6 +42,7 @@ import {
     computeEventDelta,
     buildEventHashList,
     EventHashList,
+    eventHashSetHash,
 } from "./event_sink_sync.ts";
 import {
     ForensicSinkSchema,
@@ -40,6 +50,10 @@ import {
     formatSinkSchema,
     parseSinkSchema,
 } from "./forensic_sink_schema.ts";
+import {
+    SchemaTranslatorRegistry,
+    translateBatch,
+} from "./schema_translator.ts";
 
 export const SCHEMA_SYNC_SCHEMA = "OMEGA-1600/v1";
 
@@ -66,7 +80,7 @@ export interface SchemaTaggedHashList {
  *  are surfaced before the underlying applyEventDelta runs;
  *  `apply-failed` wraps Era 1390's own rejection. */
 export type SchemaApplyOutcome =
-    | { ok: true; added_count: number; skipped_count: number; new_anchor: number }
+    | { ok: true; added_count: number; skipped_count: number; new_anchor: number; translated_count?: number; dropped_count?: number }
     | { ok: false; reason: "wrapper-schema-mismatch"; got: string }
     | { ok: false; reason: "sender-schema-malformed"; got: string }
     | { ok: false; reason: "local-schema-malformed"; got: string }
@@ -105,6 +119,7 @@ export function applyEventDeltaWithSchema(
     local_schema: ForensicSinkSchema,
     tagged: SchemaTaggedDelta,
     now_ms: number,
+    translator_registry?: SchemaTranslatorRegistry,
 ): SchemaApplyOutcome {
     if (tagged.schema !== SCHEMA_SYNC_SCHEMA) {
         return { ok: false, reason: "wrapper-schema-mismatch", got: tagged.schema };
@@ -122,6 +137,30 @@ export function applyEventDeltaWithSchema(
         };
     }
     if (local_schema.major !== senderParsed.major) {
+        const translated = translator_registry
+            ? translateBatch(tagged.delta.missing_entries, senderParsed, local_schema, translator_registry)
+            : null;
+        if (translated) {
+            const translatedDelta: EventDelta = {
+                ...tagged.delta,
+                missing_entries: translated.translated,
+                delta_hash: eventHashSetHash(
+                    translated.translated.map((e) => e.event_hash >>> 0),
+                ),
+            };
+            const outcome = applyEventDelta(local_sink, translatedDelta, now_ms);
+            if (outcome.ok) {
+                return {
+                    ok: true,
+                    added_count: outcome.added_count,
+                    skipped_count: outcome.skipped_count,
+                    new_anchor: outcome.new_anchor,
+                    translated_count: translated.translated.length,
+                    dropped_count: translated.dropped,
+                };
+            }
+            return { ok: false, reason: "apply-failed", underlying: outcome.reason };
+        }
         return {
             ok: false,
             reason: "major-mismatch",
@@ -179,6 +218,7 @@ export class SchemaAwareSinkSync {
     constructor(
         public readonly sink: ForensicEventSink,
         public readonly schema: ForensicSinkSchema,
+        public readonly translatorRegistry?: SchemaTranslatorRegistry,
     ) {}
 
     /** Build a HASH_LIST tagged with our schema. */
@@ -199,14 +239,23 @@ export class SchemaAwareSinkSync {
         if (tagged_list.schema !== SCHEMA_SYNC_SCHEMA) return null;
         const peerParsed = parseSinkSchema(tagged_list.sender_sink_schema);
         if (!peerParsed) return null;
-        if (!compatibleSchemas(this.schema, peerParsed)) return null;
+        if (
+            !compatibleSchemas(this.schema, peerParsed) &&
+            !this.translatorRegistry?.canTranslate(this.schema, peerParsed)
+        ) return null;
         const delta = computeEventDelta(tagged_list.list, this.sink.list(), now_ms);
         return buildSchemaTaggedDelta(delta, this.schema);
     }
 
     /** Apply a tagged delta to our local sink. */
     apply(tagged: SchemaTaggedDelta, now_ms: number): SchemaApplyOutcome {
-        return applyEventDeltaWithSchema(this.sink, this.schema, tagged, now_ms);
+        return applyEventDeltaWithSchema(
+            this.sink,
+            this.schema,
+            tagged,
+            now_ms,
+            this.translatorRegistry,
+        );
     }
 
     /** Echo Era 1390's underlying schema for diagnostics. */

@@ -29,10 +29,6 @@
 // Rust test fails — and conversely, a Rust regression breaks
 // against the JS snapshot.
 
-use crate::event_sync_loop::{
-    apply_event_delta, AccumulateOutcome, EventDeltaAccumulator,
-};
-use crate::forensic_event_sink::ForensicEventSink;
 use crate::spore_frame::{SporeFrame, SPORE_FRAME_BYTES};
 
 /// Wire bytes for a 4-frame envelope with `delta_hash = 0x929932B5`,
@@ -73,6 +69,8 @@ pub fn parse_envelope_stream(buf: &[u8], out: &mut [SporeFrame]) -> Option<usize
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event_sync_loop::{apply_event_delta, EventDeltaAccumulator};
+    use crate::forensic_event_sink::ForensicEventSink;
 
     /// Locked vector parses on Rust side cleanly.
     #[test]

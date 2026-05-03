@@ -4,6 +4,7 @@ import {
     SCHEMA_AWARE_MULTI_SCHEMA,
     SchemaAwareMultiSinkInvestigator,
 } from "../src/network/multi_sink_schema_aware.ts";
+import { SchemaTranslator } from "../src/network/schema_translator.ts";
 import { WarrantEmit } from "../src/network/auto_investigation_loop.ts";
 import { WarrantProposalPayload } from "../src/network/quorum_warrant_bridge.ts";
 
@@ -18,6 +19,8 @@ const TEST_OPTS = {
     },
     bridge: { dedup_window_ms: 5_000 },
 };
+
+const passthroughTranslator: SchemaTranslator = (event) => event;
 
 function makeInvestigator() {
     const emitted: Array<WarrantProposalPayload & { sink_id?: string }> = [];
@@ -170,6 +173,86 @@ Deno.test("compatibleSinks: filters by name + major", () => {
         { name: "alarms", major: 1, minor: 3 },
     );
     assertEquals(compat, ["a", "b"]);
+});
+
+Deno.test("translatableSinks: returns registered migration targets only", () => {
+    const { investigator } = makeInvestigator();
+    investigator.addSink("a", "alarms:v1.0", TEST_OPTS);
+    investigator.addSink("b", "alarms:v2.0", TEST_OPTS);
+    investigator.addSink("c", "alarms:v3.0", TEST_OPTS);
+    investigator.addSink("d", "metrics:v1.0", TEST_OPTS);
+    investigator.registerTranslator("alarms:v2.0", "alarms:v1.0", passthroughTranslator);
+    investigator.registerTranslator("alarms:v2.0", "alarms:v3.0", passthroughTranslator);
+    assertEquals(
+        investigator.translatableSinks({ name: "alarms", major: 2, minor: 7 }),
+        ["a", "c"],
+    );
+});
+
+Deno.test("compatibleOrTranslatableSinks: merges direct + migration fanout", () => {
+    const { investigator } = makeInvestigator();
+    investigator.addSink("a", "alarms:v1.0", TEST_OPTS);
+    investigator.addSink("b", "alarms:v2.0", TEST_OPTS);
+    investigator.addSink("c", "alarms:v2.5", TEST_OPTS);
+    investigator.registerTranslator("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
+    assertEquals(
+        investigator.compatibleOrTranslatableSinks({ name: "alarms", major: 1, minor: 8 }),
+        ["a", "b", "c"],
+    );
+});
+
+Deno.test("observe: major mismatch accepted when translator registered", () => {
+    const { investigator } = makeInvestigator();
+    investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
+    investigator.registerTranslator("alarms:v2.0", "alarms:v1.0", passthroughTranslator);
+    const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "alarms:v2.0");
+    assertEquals(r.ok, true);
+    if (r.ok) assertEquals(r.translated_schema, true);
+    const summary = investigator.summary(T0);
+    assertEquals(summary.rejection_counts.major_mismatch, 0);
+    assertEquals(summary.translation_counts.translatable_observations, 1);
+    assertEquals(summary.translation_counts.per_sink, [{
+        sink_id: "alpha",
+        translated_count: 0,
+        dropped_count: 0,
+        translatable_observations: 1,
+    }]);
+});
+
+Deno.test("observe: major mismatch still rejected without translator", () => {
+    const { investigator } = makeInvestigator();
+    investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
+    investigator.registerTranslator("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
+    const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "alarms:v2.0");
+    assertEquals(r.ok, false);
+    if (!r.ok) assertEquals(r.reason, "major-mismatch");
+});
+
+Deno.test("translation telemetry: record apply counts per sink", () => {
+    const { investigator } = makeInvestigator();
+    investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
+    assertEquals(investigator.recordTranslationApply("missing", 1, 2), false);
+    assertEquals(investigator.recordTranslationApply("alpha", 3, 1), true);
+    assertEquals(investigator.recordTranslationApply("alpha", 2, 4), true);
+    const counts = investigator.summary(T0).translation_counts;
+    assertEquals(counts.translated_count, 5);
+    assertEquals(counts.dropped_count, 5);
+    assertEquals(counts.per_sink, [{
+        sink_id: "alpha",
+        translated_count: 5,
+        dropped_count: 5,
+        translatable_observations: 0,
+    }]);
+});
+
+Deno.test("summary: exposes registered translator pairs", () => {
+    const { investigator } = makeInvestigator();
+    investigator.registerTranslator("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
+    investigator.registerTranslator("metrics:v1.0", "metrics:v2.0", passthroughTranslator);
+    assertEquals(investigator.summary(T0).translation_counts.registered_pairs, [
+        { source: "alarms:v1", target: "alarms:v2" },
+        { source: "metrics:v1", target: "metrics:v2" },
+    ]);
 });
 
 // --- End-to-end ---

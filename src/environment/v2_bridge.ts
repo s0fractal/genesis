@@ -8,10 +8,30 @@
 
 import { measureHardwareEnvironment, QTopology } from "./environmental_vector.ts";
 
+const PHASE_AGENT_MINIMAL_BYTES = 32;
+const LATTICE_UNIFORM_SIZE = 160;
+const DELTA_BUFFER_BYTES = 6400 * 16;
+const ATTRACTOR_ARRAY_BYTES = 80;
+const MITOSIS_LOG_HEADER = 16;
+const MITOSIS_RECEIPT_SIZE = 160;
+const MITOSIS_LOG_CAPACITY = 32;
+const MITOSIS_LOG_BYTES = MITOSIS_LOG_HEADER + MITOSIS_RECEIPT_SIZE * MITOSIS_LOG_CAPACITY;
+
+export interface V2MemoryPointers {
+    uniformBytes: Uint8Array<ArrayBuffer>;
+    agentBytes: Uint8Array<ArrayBuffer>;
+    sineLutBytes: Int32Array<ArrayBuffer>;
+    deltaBufferBytes: Uint8Array<ArrayBuffer>;
+    attractorBytes: Uint8Array<ArrayBuffer>;
+    mitosisLogBytes: Uint8Array<ArrayBuffer> | null;
+    wasmMemoryBuffer: ArrayBuffer;
+}
+
 export class OmegaV2Engine {
     private wasmInstance: WebAssembly.Instance | null = null;
     private memory: WebAssembly.Memory | null = null;
     private currentTopology: QTopology | null = null;
+    private cachedPointers: V2MemoryPointers | null = null;
 
     constructor() {}
 
@@ -26,7 +46,7 @@ export class OmegaV2Engine {
         console.log("🌌 [OMEGA-V2] Bootstrapping Bare-Metal Engine...");
 
         // 1. Fetch Dynamic Derived Constraints from Host Device
-        this.currentTopology = await measureHardwareEnvironment(adapter, 16);
+        this.currentTopology = await measureHardwareEnvironment(adapter, PHASE_AGENT_MINIMAL_BYTES);
 
         // 2. Fetch the purely compiled 480-byte binary
         const response = await fetch("/dist/v2/omega_v2_core.wasm");
@@ -94,9 +114,11 @@ export class OmegaV2Engine {
      */
     getMemoryPointers() {
         if (!this.wasmInstance || !this.memory || !this.currentTopology) throw new Error("V2 Engine Not Initialized");
+        const memoryBuffer = this.memory.buffer as ArrayBuffer;
+        if (this.cachedPointers?.wasmMemoryBuffer === memoryBuffer) {
+            return this.cachedPointers;
+        }
         const exports = this.wasmInstance.exports;
-
-        // 1. Get raw WASM pointers offset integers
 
         // 1. Get raw WASM pointers offset integers
         const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
@@ -108,36 +130,26 @@ export class OmegaV2Engine {
         const mitosisLogPtrFn = exports.v2_mitosis_log_ptr as CallableFunction | undefined;
         const mitosisLogPtr = mitosisLogPtrFn ? (mitosisLogPtrFn() as number) : 0;
 
-        // 2. Struct Size known from Rust #[repr(C)] (PhaseTopology=16 + SignalStore=16 + [OntologicalIntent; 4]=128 -> Total 160 bytes)
-        const LATTICE_UNIFORM_SIZE = 160;
-
         // 3. Gracefully Clamp WASM memory mapping just in case GPU VRAM > WASM .bss allocation
-        const requestedBytes = this.currentTopology.maxAllocatedAgents * 32; // Era 2000: 32 bytes per agent
-        const maxSafeBytes = this.memory.buffer.byteLength - agentsPtr;
-        const _safeAgentsBytes = Math.min(requestedBytes, this.memory.buffer.byteLength - agentsPtr);
+        const requestedBytes = this.currentTopology.maxAllocatedAgents * PHASE_AGENT_MINIMAL_BYTES;
+        const maxSafeBytes = memoryBuffer.byteLength - agentsPtr;
         const actualBytes = Math.min(requestedBytes, maxSafeBytes);
 
         // Update Darwinian limits down to the WASM bottleneck if necessary
-        this.currentTopology.maxAllocatedAgents = Math.floor(actualBytes / 16);
+        this.currentTopology.maxAllocatedAgents = Math.floor(actualBytes / PHASE_AGENT_MINIMAL_BYTES);
 
-        // MitosisLog: head(4) + total_written(4) + _pad(8) + 32 × MitosisReceipt(160).
-        // Receipt layout: parent(32) + child(32) + attractors(80) + q_phase(4) + receipt_hash(4) + tick(4) + _pad(4).
-        const MITOSIS_LOG_HEADER = 16;
-        const MITOSIS_RECEIPT_SIZE = 160;
-        const MITOSIS_LOG_CAPACITY = 32;
-        const MITOSIS_LOG_BYTES = MITOSIS_LOG_HEADER + MITOSIS_RECEIPT_SIZE * MITOSIS_LOG_CAPACITY;
-
-        return {
-            uniformBytes: new Uint8Array(this.memory.buffer, latticePtr, LATTICE_UNIFORM_SIZE),
-            agentBytes: new Uint8Array(this.memory.buffer, agentsPtr, actualBytes),
-            sineLutBytes: new Int32Array(this.memory.buffer, lutPtr, 128),
-            deltaBufferBytes: new Uint8Array(this.memory.buffer, deltaPtr, 6400 * 16),
-            attractorBytes: new Uint8Array(this.memory.buffer, attractorPtr, 80),
+        this.cachedPointers = {
+            uniformBytes: new Uint8Array(memoryBuffer, latticePtr, LATTICE_UNIFORM_SIZE),
+            agentBytes: new Uint8Array(memoryBuffer, agentsPtr, actualBytes),
+            sineLutBytes: new Int32Array(memoryBuffer, lutPtr, 128),
+            deltaBufferBytes: new Uint8Array(memoryBuffer, deltaPtr, DELTA_BUFFER_BYTES),
+            attractorBytes: new Uint8Array(memoryBuffer, attractorPtr, ATTRACTOR_ARRAY_BYTES),
             mitosisLogBytes: mitosisLogPtr !== 0
-                ? new Uint8Array(this.memory.buffer, mitosisLogPtr, MITOSIS_LOG_BYTES)
+                ? new Uint8Array(memoryBuffer, mitosisLogPtr, MITOSIS_LOG_BYTES)
                 : null,
-            wasmMemoryBuffer: this.memory.buffer
+            wasmMemoryBuffer: memoryBuffer
         };
+        return this.cachedPointers;
     }
 
     /** Era 1040 Phase 2: total mitosis receipts written since boot. */
@@ -230,16 +242,16 @@ export class OmegaV2Engine {
 
     /// Harvest thriving agents (energy > threshold) into epigenetic memory.
     public harvestSurvivors(threshold: number = 1500) {
-        if (!this.wasmInstance || !this.memory || !this.currentTopology) return;
-        const agentsPtr = (this.wasmInstance.exports.v2_agents_ptr as CallableFunction)() as number;
+        if (!this.wasmInstance || !this.currentTopology) return;
         const count = this.currentTopology.maxAllocatedAgents;
-        const agentView = new Uint8Array(this.memory.buffer, agentsPtr, count * 32);
+        const agentView = this.getMemoryPointers().agentBytes;
+        const view = new DataView(agentView.buffer, agentView.byteOffset, agentView.byteLength);
 
         let harvested = 0;
         for (let i = 0; i < count; i++) {
-            const offset = i * 32;
-            const energy = new DataView(agentView.buffer, agentView.byteOffset + offset + 4, 4).getUint32(0, true);
-            const genome = new DataView(agentView.buffer, agentView.byteOffset + offset + 16, 4).getUint32(0, true);
+            const offset = i * PHASE_AGENT_MINIMAL_BYTES;
+            const energy = view.getUint32(offset + 4, true);
+            const genome = view.getUint32(offset + 16, true);
             if (energy > threshold) {
                 this.recordEpigenetic(genome);
                 harvested++;

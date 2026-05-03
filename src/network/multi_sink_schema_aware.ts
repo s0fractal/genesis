@@ -1,4 +1,5 @@
 // 🌌 OMEGA-64: Era 1610 — Schema-Aware Multi-Sink Wiring
+// 🌉 Era 1640 — Translation-Aware Multi-Sink Discovery
 //
 // Era 1580's `MultiSinkInvestigator` keys sinks by opaque
 // `sink_id` strings. Era 1590 introduced structured
@@ -31,11 +32,16 @@ import {
 import {
     ForensicSinkSchema,
     SinkSchemaRegistry,
+    compatibleSchemas,
     parseSinkSchema,
 } from "./forensic_sink_schema.ts";
 import {
     validateSchemaCompatibility,
 } from "./event_sink_sync_schema.ts";
+import {
+    SchemaTranslator,
+    SchemaTranslatorRegistry,
+} from "./schema_translator.ts";
 
 export const SCHEMA_AWARE_MULTI_SCHEMA = "OMEGA-1610/v1";
 
@@ -47,7 +53,7 @@ export interface SchemaAwareSinkInfo {
 
 /** Outcome of a schema-validated peer observation. */
 export type SchemaObserveOutcome =
-    | { ok: true; sink_id: string }
+    | { ok: true; sink_id: string; translated_schema?: boolean }
     | { ok: false; reason: "unknown-sink"; sink_id: string }
     | { ok: false; reason: "name-mismatch"; sender: string; local: string }
     | { ok: false; reason: "major-mismatch"; sender: string; local: string }
@@ -60,19 +66,40 @@ export interface RejectionCounts {
     sender_schema_malformed: number;
 }
 
+export interface SinkTranslationTelemetry {
+    sink_id: string;
+    translated_count: number;
+    dropped_count: number;
+    translatable_observations: number;
+}
+
+export interface TranslationCounts {
+    registered_pairs: Array<{ source: string; target: string }>;
+    translated_count: number;
+    dropped_count: number;
+    translatable_observations: number;
+    per_sink: SinkTranslationTelemetry[];
+}
+
 export class SchemaAwareMultiSinkInvestigator {
     public readonly multi: MultiSinkInvestigator;
     public readonly registry: SinkSchemaRegistry;
+    public readonly translatorRegistry: SchemaTranslatorRegistry;
     private rejection_counts: RejectionCounts = {
         unknown_sink: 0,
         name_mismatch: 0,
         major_mismatch: 0,
         sender_schema_malformed: 0,
     };
+    private translation_counts = new Map<string, SinkTranslationTelemetry>();
 
-    constructor(emit: WarrantEmit) {
+    constructor(
+        emit: WarrantEmit,
+        translatorRegistry: SchemaTranslatorRegistry = new SchemaTranslatorRegistry(),
+    ) {
         this.multi = new MultiSinkInvestigator(emit);
         this.registry = new SinkSchemaRegistry();
+        this.translatorRegistry = translatorRegistry;
     }
 
     /** Register a sink with both its content schema (Era 1590)
@@ -103,6 +130,37 @@ export class SchemaAwareMultiSinkInvestigator {
     removeSink(sink_id: string): void {
         this.multi.removeSink(sink_id);
         this.registry.unregister(sink_id);
+        this.translation_counts.delete(sink_id);
+    }
+
+    /** Register a schema translator used by Era 1640 discovery
+     *  and observation gates. */
+    registerTranslator(
+        source_schema_string: string,
+        target_schema_string: string,
+        translator: SchemaTranslator,
+    ): void {
+        this.translatorRegistry.register(
+            source_schema_string,
+            target_schema_string,
+            translator,
+        );
+    }
+
+    /** Record apply-path translation telemetry from Era 1630.
+     *  The multi-sink layer does not apply deltas itself, so
+     *  callers feed successful translation outcomes back here
+     *  after `SchemaAwareSinkSync.apply(...)`. */
+    recordTranslationApply(
+        sink_id: string,
+        translated_count: number,
+        dropped_count: number,
+    ): boolean {
+        if (!this.registry.get(sink_id)) return false;
+        const tele = this.ensureTranslationTelemetry(sink_id);
+        tele.translated_count += translated_count;
+        tele.dropped_count += dropped_count;
+        return true;
     }
 
     /** Observe a peer's anchor for a given sink, validating
@@ -137,17 +195,25 @@ export class SchemaAwareMultiSinkInvestigator {
                     return { ok: false, reason: "name-mismatch", sender: validation.sender, local: validation.local };
                 }
                 if (validation.reason === "major-mismatch") {
-                    this.rejection_counts.major_mismatch++;
-                    return { ok: false, reason: "major-mismatch", sender: validation.sender, local: validation.local };
-                }
-                if (validation.reason === "sender-schema-malformed") {
+                    const peerSchema = parseSinkSchema(peer_schema_string);
+                    if (
+                        peerSchema &&
+                        this.translatorRegistry.canTranslate(peerSchema, localSchema)
+                    ) {
+                        this.ensureTranslationTelemetry(sink_id)
+                            .translatable_observations++;
+                    } else {
+                        this.rejection_counts.major_mismatch++;
+                        return { ok: false, reason: "major-mismatch", sender: validation.sender, local: validation.local };
+                    }
+                } else if (validation.reason === "sender-schema-malformed") {
                     this.rejection_counts.sender_schema_malformed++;
                     return { ok: false, reason: "sender-schema-malformed", got: validation.got };
+                } else {
+                    // Other reasons should not surface from
+                    // validateSchemaCompatibility; keep the gate closed.
+                    return { ok: false, reason: "sender-schema-malformed", got: peer_schema_string };
                 }
-                // Other reasons (wrapper-schema-mismatch, apply-failed,
-                // local-schema-malformed) shouldn't surface from
-                // validateSchemaCompatibility — fall through defensively.
-                return { ok: false, reason: "sender-schema-malformed", got: peer_schema_string };
             }
         }
         const ok = this.multi.observePeerAnchor(sink_id, peer_id, anchor, now_ms);
@@ -155,7 +221,12 @@ export class SchemaAwareMultiSinkInvestigator {
             this.rejection_counts.unknown_sink++;
             return { ok: false, reason: "unknown-sink", sink_id };
         }
-        return { ok: true, sink_id };
+        return {
+            ok: true,
+            sink_id,
+            translated_schema: peer_schema_string !== undefined &&
+                this.wasTranslationObservation(sink_id, peer_schema_string),
+        };
     }
 
     /** Tick all sinks. Pass-through to the underlying multi-sink
@@ -197,6 +268,33 @@ export class SchemaAwareMultiSinkInvestigator {
         return this.registry.compatibleSinks(schema);
     }
 
+    /** Sink ids that can accept `schema` only via an explicitly
+     *  registered translator. Compatible sinks are excluded so
+     *  callers can distinguish no-op fanout from migration fanout. */
+    translatableSinks(schema: ForensicSinkSchema): string[] {
+        const out: string[] = [];
+        for (const id of this.registry.sinksByName(schema.name)) {
+            const local = this.registry.get(id);
+            if (
+                local &&
+                !compatibleSchemas(local, schema) &&
+                this.translatorRegistry.canTranslate(schema, local)
+            ) {
+                out.push(id);
+            }
+        }
+        return out.sort();
+    }
+
+    /** Sink ids that can receive data for `schema` either by
+     *  direct compatibility or by explicit translation. */
+    compatibleOrTranslatableSinks(schema: ForensicSinkSchema): string[] {
+        return [...new Set([
+            ...this.compatibleSinks(schema),
+            ...this.translatableSinks(schema),
+        ])].sort();
+    }
+
     /** Enriched telemetry combining Era 1580's multi-sink
      *  summary with Era 1610's schema bookkeeping. */
     summary(now_ms: number): {
@@ -205,6 +303,7 @@ export class SchemaAwareMultiSinkInvestigator {
         per_sink: SchemaAwareSinkInfo[];
         per_schema_counts: Array<{ schema: string; sink_count: number }>;
         rejection_counts: RejectionCounts;
+        translation_counts: TranslationCounts;
         globally_excluded_count: number;
         total_dissenters: number;
     } {
@@ -221,8 +320,51 @@ export class SchemaAwareMultiSinkInvestigator {
             per_sink,
             per_schema_counts: this.registry.summary(),
             rejection_counts: { ...this.rejection_counts },
+            translation_counts: this.translationSummary(),
             globally_excluded_count: base.globally_excluded_count,
             total_dissenters: base.total_dissenters,
+        };
+    }
+
+    private ensureTranslationTelemetry(sink_id: string): SinkTranslationTelemetry {
+        let tele = this.translation_counts.get(sink_id);
+        if (!tele) {
+            tele = {
+                sink_id,
+                translated_count: 0,
+                dropped_count: 0,
+                translatable_observations: 0,
+            };
+            this.translation_counts.set(sink_id, tele);
+        }
+        return tele;
+    }
+
+    private wasTranslationObservation(sink_id: string, peer_schema_string: string): boolean {
+        const local = this.registry.get(sink_id);
+        const peer = parseSinkSchema(peer_schema_string);
+        return !!local && !!peer && !compatibleSchemas(local, peer) &&
+            this.translatorRegistry.canTranslate(peer, local);
+    }
+
+    private translationSummary(): TranslationCounts {
+        const per_sink = [...this.translation_counts.values()]
+            .map((x) => ({ ...x }))
+            .sort((a, b) => a.sink_id.localeCompare(b.sink_id));
+        let translated_count = 0;
+        let dropped_count = 0;
+        let translatable_observations = 0;
+        for (const x of per_sink) {
+            translated_count += x.translated_count;
+            dropped_count += x.dropped_count;
+            translatable_observations += x.translatable_observations;
+        }
+        return {
+            registered_pairs: this.translatorRegistry.listPairs(),
+            translated_count,
+            dropped_count,
+            translatable_observations,
+            per_sink,
         };
     }
 }

@@ -39,7 +39,6 @@ use crate::forensic_event_sink::{
     event_hash_set_hash,
     ForensicEvent,
     ForensicEventSink,
-    EVENT_SINK_SCHEMA,
 };
 use crate::spore_frame::{FRAME_TYPE_EVENT_DELTA_CHUNK, SporeFrame};
 

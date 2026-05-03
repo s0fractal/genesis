@@ -377,7 +377,7 @@ fn generate_request_id(self_relay_id: u32, now_ms: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::forensic_event_sink::{ForensicEvent, ForensicEventSink};
+    use crate::forensic_event_sink::ForensicEvent;
     use crate::spore_runner::LoopbackDriver;
 
     fn mk_event(h: u32, kind: &[u8]) -> ForensicEvent {
@@ -526,8 +526,6 @@ mod tests {
     }
 
     // --- Era 1490: AutoPipeline tests ---
-
-    use crate::spore_frame::{SporeFrame, SPORE_FRAME_BYTES};
 
     /// Simple paired driver pattern reused from spore_runner tests.
     struct PD {

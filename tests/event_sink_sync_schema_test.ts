@@ -15,6 +15,7 @@ import {
     computeEventDelta,
 } from "../src/network/event_sink_sync.ts";
 import { parseSinkSchema } from "../src/network/forensic_sink_schema.ts";
+import { SchemaTranslatorRegistry } from "../src/network/schema_translator.ts";
 
 const T0 = 1_000_000;
 
@@ -97,6 +98,49 @@ Deno.test("apply: major mismatch → major-mismatch rejection", () => {
         assertEquals(out.sender, "alarms:v2.0");
         assertEquals(out.local, "alarms:v1.0");
     }
+});
+
+Deno.test("apply: major mismatch with registered translator → translated apply", () => {
+    const localSink = makeSink([]);
+    const senderSink = makeSink([{ kind: "alrm2", hash: 0x42 }]);
+    const tagged = buildSchemaTaggedDelta(
+        computeEventDelta(buildEventHashList(localSink, T0), senderSink.list(), T0),
+        ALARMS_V2,
+    );
+    const registry = new SchemaTranslatorRegistry();
+    registry.register("alarms:v2.0", "alarms:v1.0", (event) => ({
+        ...event,
+        kind: "alrm",
+        payload: { translated_from: "alarms:v2", original: event.payload },
+    }));
+    const out = applyEventDeltaWithSchema(localSink, ALARMS_V1, tagged, T0, registry);
+    assert(out.ok);
+    if (out.ok) {
+        assertEquals(out.added_count, 1);
+        assertEquals(out.translated_count, 1);
+        assertEquals(out.dropped_count, 0);
+    }
+    assertEquals(localSink.size(), 1);
+    assertEquals(localSink.list()[0].kind, "alrm");
+});
+
+Deno.test("apply: translator drop is a verified no-op", () => {
+    const localSink = makeSink([]);
+    const senderSink = makeSink([{ kind: "alrm2", hash: 0x42 }]);
+    const tagged = buildSchemaTaggedDelta(
+        computeEventDelta(buildEventHashList(localSink, T0), senderSink.list(), T0),
+        ALARMS_V2,
+    );
+    const registry = new SchemaTranslatorRegistry();
+    registry.register("alarms:v2.0", "alarms:v1.0", () => null);
+    const out = applyEventDeltaWithSchema(localSink, ALARMS_V1, tagged, T0, registry);
+    assert(out.ok);
+    if (out.ok) {
+        assertEquals(out.added_count, 0);
+        assertEquals(out.translated_count, 0);
+        assertEquals(out.dropped_count, 1);
+    }
+    assertEquals(localSink.size(), 0);
 });
 
 Deno.test("apply: malformed sender schema → sender-schema-malformed", () => {
@@ -200,6 +244,23 @@ Deno.test("aware: computeDeltaForPeer with incompatible schema returns null", ()
     assertEquals(aware.computeDeltaForPeer(peerList, T0), null);
 });
 
+Deno.test("aware: computeDeltaForPeer allows major mismatch when translator registered", () => {
+    const localSink = makeSink([{ kind: "alrm2", hash: 0x20 }]);
+    const peerSink = makeSink([]);
+    const registry = new SchemaTranslatorRegistry();
+    registry.register("alarms:v2.0", "alarms:v1.0", (event) => ({
+        ...event,
+        kind: "alrm",
+    }));
+    const aware = new SchemaAwareSinkSync(localSink, ALARMS_V2, registry);
+    const peerAware = new SchemaAwareSinkSync(peerSink, ALARMS_V1, registry);
+    const peerList = peerAware.buildHashList(T0);
+    const delta = aware.computeDeltaForPeer(peerList, T0);
+    assert(delta !== null);
+    assertEquals(delta!.sender_sink_schema, "alarms:v2.0");
+    assertEquals(delta!.delta.missing_entries.length, 1);
+});
+
 Deno.test("aware: computeDeltaForPeer rejects bad wrapper schema", () => {
     const localSink = makeSink([]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
@@ -233,6 +294,28 @@ Deno.test("aware: apply major-mismatch delta refuses", () => {
     const result = aware.apply(tagged, T0 + 100);
     assertEquals(result.ok, false);
     if (!result.ok) assertEquals(result.reason, "major-mismatch");
+});
+
+Deno.test("aware: apply major-mismatch delta translates with registry", () => {
+    const localSink = makeSink([]);
+    const registry = new SchemaTranslatorRegistry();
+    registry.register("alarms:v2.0", "alarms:v1.0", (event) => ({
+        ...event,
+        kind: "alrm",
+    }));
+    const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1, registry);
+    const senderSink = makeSink([{ kind: "alrm2", hash: 0x20 }]);
+    const tagged = buildSchemaTaggedDelta(
+        computeEventDelta(buildEventHashList(localSink, T0), senderSink.list(), T0),
+        ALARMS_V2,
+    );
+    const result = aware.apply(tagged, T0 + 100);
+    assert(result.ok);
+    if (result.ok) {
+        assertEquals(result.added_count, 1);
+        assertEquals(result.translated_count, 1);
+    }
+    assertEquals(localSink.list()[0].kind, "alrm");
 });
 
 Deno.test("aware: underlyingSyncSchema reports Era 1390 string", () => {
