@@ -108,8 +108,9 @@ Era 1030       Senate               (autopoietic legislation; first self-proposa
 Era 1040 P1+2  ZK-Notarized         (mitosis proofs, MitosisLog, mesh boundary verification)
 Era 1050       Genesis Inscription  (RFC v1.0 frozen, hash 0x549A6307)
 Era 1060       Multi-Oracle Senate  (claude/gpt/gemini/qwen/llama seats)
-Era 1070       Cross-Model Debate   (ratification mechanism, awaiting live ORACLE-RESONANCE)
+Era 1070       Cross-Model Debate   (live WebLLM deployment and ORACLE-RESONANCE)
 Era 1650–2060  Translation Policy   (schema translation governance, live mesh policy claims, forensic replay/digest layers, protocol registry, compression policy, diagnostics)
+Era 3000+      Global Swarm         (NAT traversal, live LLM Senate, OP_RETURN Bitcoin anchoring)
 ```
 
 The next important Era is now selected by protocol pressure, not by mechanical
@@ -137,7 +138,8 @@ ratification:
 - `docs/STATE_OF_OMEGA_2026-04-26.md` — most recent deep audit
 - `docs/COMPLETED_STAGES.md` — full era-by-era history
 - `AGENTS.md` — orientation contract for future agents
-- `tasks/` — task files numbered 0086 → 0193+
+- `CONTRIBUTING.md` — how to get involved
+- `PUBLIC_ISSUES.md` — active community roadmap and good first issues
 
 ---
 
