@@ -92,6 +92,14 @@ export class WebRTCMesh {
             case "ICE":
                 await this.handleIceCandidate(data.from, data.candidate);
                 break;
+            case "SPORE_TELEMETRY":
+                // Era 0212: Hardware Spore bridge telemetry via Signaling Server
+                this.workerPort.postMessage({
+                    type: "SPORE_TELEMETRY",
+                    sporeId: data.sporeId,
+                    frameBase64: data.frameBase64
+                });
+                break;
         }
     }
 
