@@ -1,0 +1,113 @@
+/**
+ * Φ-SDK: Passive WebRTC Client
+ * Allows read-only observation of an OMEGA-64 peer network.
+ */
+import { PhaseAgentMinimal, PhaseAgentParser, SignalStore, SignalStoreParser } from './phi_types.ts';
+import { calculateGoldenTrace } from './phi_crypto.ts';
+
+export interface WitnessData {
+    timestamp: number;
+    agentCount: number;
+    goldenTrace: string;
+    peersConnected: number;
+}
+
+export type PayloadHandler = (type: number, payload: Uint8Array) => void;
+
+export class PhiClient {
+    private peerConnection: RTCPeerConnection | null = null;
+    private dataChannel: RTCDataChannel | null = null;
+    private handlers: Map<number, PayloadHandler[]> = new Map();
+    
+    public witnessHistory: WitnessData[] = [];
+    public connected: boolean = false;
+
+    constructor() {}
+
+    /**
+     * Connects to a known signaling server or directly via an SDP offer.
+     * This is a minimal stub representing the future P2P bootstrapping mechanism.
+     */
+    public async connect(signalingUrl: string, targetPeerId: string): Promise<void> {
+        this.peerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+
+        this.peerConnection.oniceconnectionstatechange = () => {
+            if (this.peerConnection?.iceConnectionState === 'connected') {
+                this.connected = true;
+                console.log(`[Φ-SDK] Connected to peer: ${targetPeerId}`);
+            }
+        };
+
+        // For a passive observer, we only receive data channels.
+        this.peerConnection.ondatachannel = (event) => {
+            this.dataChannel = event.channel;
+            this.setupDataChannel();
+        };
+
+        // In a real implementation, you would perform signaling here:
+        // 1. Create offer (if active) or wait for offer (if passive).
+        // 2. Exchange via signalingUrl.
+        console.warn("[Φ-SDK] Signaling not fully implemented in minimal read-only package.");
+    }
+
+    private setupDataChannel() {
+        if (!this.dataChannel) return;
+        this.dataChannel.binaryType = "arraybuffer";
+
+        this.dataChannel.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+                const buffer = new Uint8Array(event.data);
+                if (buffer.length < 1) return;
+                
+                const frameType = buffer[0];
+                const payload = buffer.subarray(1);
+                
+                this.dispatchEvent(frameType, payload);
+            }
+        };
+    }
+
+    /**
+     * Registers a listener for specific OMEGA-64 frame types.
+     * e.g. 5 = Snapshot Digest, 7 = Quorum Verdict
+     */
+    public onFrame(frameType: number, handler: PayloadHandler) {
+        if (!this.handlers.has(frameType)) {
+            this.handlers.set(frameType, []);
+        }
+        this.handlers.get(frameType)!.push(handler);
+    }
+
+    private dispatchEvent(frameType: number, payload: Uint8Array) {
+        const typeHandlers = this.handlers.get(frameType);
+        if (typeHandlers) {
+            for (const handler of typeHandlers) {
+                handler(frameType, payload);
+            }
+        }
+    }
+
+    /**
+     * Helper to process a raw binary export of an OMEGA state buffer.
+     * Extracts agents, counts them, and calculates the cryptographic trace.
+     */
+    public processWitnessSnapshot(buffer: Uint8Array, signalStoreBuffer: Uint8Array): WitnessData {
+        const signalView = new DataView(signalStoreBuffer.buffer, signalStoreBuffer.byteOffset, signalStoreBuffer.byteLength);
+        const signals = SignalStoreParser.parse(signalView, 0);
+
+        const hashNum = calculateGoldenTrace(buffer, signals.activeAgentCount);
+        const hashStr = hashNum.toString(16).toUpperCase().padStart(8, '0');
+
+        const data: WitnessData = {
+            timestamp: Date.now(),
+            agentCount: signals.activeAgentCount,
+            goldenTrace: hashStr,
+            peersConnected: this.connected ? 1 : 0
+        };
+
+        this.witnessHistory.push(data);
+        return data;
+    }
+}
