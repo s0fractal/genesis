@@ -33,6 +33,9 @@ export class OmegaV2Engine {
     private memory: WebAssembly.Memory | null = null;
     private currentTopology: QTopology | null = null;
     private cachedPointers: V2MemoryPointers | null = null;
+    
+    // Era 3000: Bitcoin Weather Multiplier (Q10, 1024 = 1.0x)
+    public currentWeatherMultiplier: number = 1024;
 
     constructor() {}
 
@@ -48,6 +51,13 @@ export class OmegaV2Engine {
     /** Era 0202: Expose current topology for Witness generation. */
     public getTopology(): QTopology | null {
         return this.currentTopology;
+    }
+
+    /** Era 3000: Inject new weather multiplier */
+    public setWeather(multiplier: number) {
+        if (this.currentWeatherMultiplier === multiplier) return;
+        this.currentWeatherMultiplier = multiplier;
+        this.injectClimate();
     }
 
     /**
@@ -114,7 +124,8 @@ export class OmegaV2Engine {
         setEnv(
             this.currentTopology.q_sectors,
             this.currentTopology.q_radial,
-            this.currentTopology.q_harmonics
+            this.currentTopology.q_harmonics,
+            this.currentWeatherMultiplier
         );
         
         console.log(`🌪️ [OMEGA-V2] Climate Topology Injected: Q(${this.currentTopology.q_sectors}, ${this.currentTopology.q_radial}, ${this.currentTopology.q_harmonics})`);

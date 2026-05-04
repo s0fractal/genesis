@@ -30,6 +30,35 @@ export async function fetchBitcoinTip(): Promise<BitcoinTip | null> {
     return null;
 }
 
+export interface BitcoinAnchorStats {
+    balanceSats: number;
+    txCount: number;
+}
+
+/**
+ * Era 3000: Fetches the balance and activity of a Bitcoin address.
+ * Used to modulate the "Weather" (Metabolic Rate) of the simulation.
+ */
+export async function fetchAnchorBalance(address: string): Promise<BitcoinAnchorStats | null> {
+    try {
+        const res = await fetch(`https://mempool.space/api/address/${address}`);
+        if (!res.ok) return null;
+        
+        const data = await res.json();
+        if (data && data.chain_stats) {
+            const funded = data.chain_stats.funded_txo_sum || 0;
+            const spent = data.chain_stats.spent_txo_sum || 0;
+            return {
+                balanceSats: funded - spent,
+                txCount: data.chain_stats.tx_count || 0
+            };
+        }
+    } catch (e) {
+        console.warn(`[BITCOIN_ANCHOR] Failed to fetch balance for ${address}.`, e);
+    }
+    return null;
+}
+
 /**
  * Validates whether a given Bitcoin transaction contains an OP_RETURN output
  * matching the canonical OMEGA-64 Genesis Inscription.

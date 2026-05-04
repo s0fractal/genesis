@@ -37,6 +37,9 @@ pub struct PhaseTopology {
     
     /// Power of 2 defining the math fixed-point precision (e.g. 20 -> Q20 notation).
     pub q_math: u32,
+
+    /// Era 3000: Bitcoin UTXO Weather Multiplier in Q10 (1024 = 1.0x)
+    pub weather_multiplier: u32,
 }
 
 impl PhaseTopology {
@@ -51,6 +54,7 @@ impl PhaseTopology {
             q_sectors,
             q_radial,
             q_math,
+            weather_multiplier: 1024,
         }
     }
 

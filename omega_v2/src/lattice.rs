@@ -73,11 +73,14 @@ impl PhaseLattice {
 
     /// Extracted API for the JS Env Vector to easily inject Climate Changes into WASM.
     #[no_mangle]
-    pub extern "C" fn set_environment(&mut self, q_sectors: u32, q_radial: u32, _q_harmonics: u32) {
+    pub extern "C" fn set_environment(&mut self, q_sectors: u32, q_radial: u32, _q_harmonics: u32, weather_multiplier: u32) {
         // CRIT-6 FIX: validate bounds to prevent shift overflow in topology math
         assert!(q_sectors < 32 && q_radial < 32, "q_sectors/q_radial must be < 32");
         self.topology.q_sectors = q_sectors;
         self.topology.q_radial = q_radial;
+        if weather_multiplier > 0 {
+            self.topology.weather_multiplier = weather_multiplier;
+        }
         
         // Hoist the Topology Changed flag. The actual arrays will not reallocate here!
         // Instead, the next `tick_physics` will read this flag and gracefully Darwnin-kill
@@ -235,7 +238,10 @@ impl PhaseLattice {
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
                     let efficiency_adj = 2i32 - (phenotype.metabolic_efficiency as i32 / 64);
-                    let base_burn = (crate::constants::METABOLIC_BASE_COST as i32 + efficiency_adj).max(1) as u32;
+                    
+                    // Era 3000: Apply Bitcoin UTXO Weather (1024 = 1.0x)
+                    let base_cost = (crate::constants::METABOLIC_BASE_COST as u64 * self.topology.weather_multiplier as u64) / 1024;
+                    let base_burn = (base_cost as i32 + efficiency_adj).max(1) as u32;
 
                     // Resilience flat reduction
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
@@ -588,7 +594,7 @@ mod tests {
     fn test_set_environment_sets_dirty_flag() {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
-        lattice.set_environment(5, 4, 0);
+        lattice.set_environment(5, 4, 0, 1024);
         assert_eq!(lattice.topology.q_sectors, 5);
         assert_eq!(lattice.topology.q_radial, 4);
         assert!(lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED != 0);

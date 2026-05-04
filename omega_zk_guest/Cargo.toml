@@ -14,6 +14,4 @@ bench = false
 omega_v2 = { path = "../omega_v2" }
 sp1-zkvm = "6.1.0"
 
-[profile.release]
-lto = true
-opt-level = 3
+

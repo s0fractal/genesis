@@ -93,3 +93,79 @@ export async function measureHardwareEnvironment(adapter: GPUAdapter, agentSize:
         maxAllocatedAgents: calculatedAgents
     };
 }
+
+/**
+ * Era 3000: Bitcoin UTXO Weather Controller
+ * Connects the Digital Organism's metabolism to the physical reality of the Bitcoin blockchain.
+ */
+import { fetchAnchorBalance } from "../network/bitcoin_anchor.ts";
+
+export class BitcoinWeatherController {
+    private anchorAddress: string;
+    private checkIntervalMs: number;
+    private lastTxCount: number = -1;
+    private intervalId: number | null = null;
+    
+    // Q10 representation of 1.0 = 1024
+    public currentMetabolicMultiplier: number = 1024;
+    public currentLabel: string = "☀️ 1.0x (Calm)";
+
+    public onWeatherChange: ((multiplier: number, label: string) => void) | null = null;
+
+    constructor(anchorAddress: string = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", checkIntervalMs: number = 600000) {
+        this.anchorAddress = anchorAddress;
+        this.checkIntervalMs = checkIntervalMs;
+    }
+
+    public start() {
+        if (this.intervalId !== null) return;
+        this.checkWeather();
+        // @ts-ignore
+        this.intervalId = setInterval(() => this.checkWeather(), this.checkIntervalMs);
+    }
+
+    public stop() {
+        if (this.intervalId !== null) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
+    public async checkWeather() {
+        const stats = await fetchAnchorBalance(this.anchorAddress);
+        if (!stats) return;
+
+        let multiplier = 1024; // 1.0x baseline
+        let label = "☀️ 1.0x (Calm)";
+
+        // 1. Transaction Velocity = Metabolic Heat
+        if (this.lastTxCount !== -1) {
+            const txDelta = stats.txCount - this.lastTxCount;
+            if (txDelta > 0) {
+                // Network is active -> Higher metabolism (faster decay)
+                multiplier = 1024 + (txDelta * 100); // 1.0x + 0.1x per TX
+                label = `🌩️ ${(multiplier / 1024).toFixed(2)}x (Active)`;
+            }
+        }
+        this.lastTxCount = stats.txCount;
+
+        // 2. High Balance = Evolutionary Stress / Abundance
+        // If balance > 1 BTC (100M sats), it's a massive weather event
+        if (stats.balanceSats > 100_000_000) {
+            multiplier += 512; // +0.5x
+            label = `🌋 ${(multiplier / 1024).toFixed(2)}x (Heavy)`;
+        } else if (stats.balanceSats === 0) {
+            multiplier = Math.max(512, multiplier - 256); // -0.25x (Calm, dormant)
+            if (multiplier < 1024) label = `❄️ ${(multiplier / 1024).toFixed(2)}x (Dormant)`;
+        }
+
+        // Clamp between 0.5x and 4.0x
+        this.currentMetabolicMultiplier = Math.min(4096, Math.max(512, multiplier));
+
+        if (this.onWeatherChange) {
+            this.onWeatherChange(this.currentMetabolicMultiplier, label);
+        }
+        
+        console.log(`[WEATHER] Anchor ${this.anchorAddress} | Sats: ${stats.balanceSats} | TXs: ${stats.txCount} | Weather: ${label}`);
+    }
+}

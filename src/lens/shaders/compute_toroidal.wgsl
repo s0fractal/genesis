@@ -10,6 +10,7 @@ struct PhaseTopology {
     q_sectors: u32,
     q_radial: u32,
     q_math: u32,
+    weather_multiplier: u32,
 }
 
 struct SignalStore {
@@ -143,7 +144,8 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
         var base_burn: u32 = 1u;
-        let raw_base = i32(METABOLIC_BASE_COST) + efficiency_adj;
+        let base_cost = (METABOLIC_BASE_COST * topology.weather_multiplier) / 1024u;
+        let raw_base = i32(base_cost) + efficiency_adj;
         if (raw_base > 1i) { base_burn = u32(raw_base); }
 
         let resilience_reduction = p_resilience / 128u;

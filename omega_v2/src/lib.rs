@@ -107,6 +107,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         q_sectors: 7,
         q_radial: 6,
         q_math: 20,
+        weather_multiplier: 1024,
     },
     signals: SignalStore {
         dirty_flags: 0,
@@ -207,10 +208,10 @@ pub extern "C" fn v2_boot_engine() {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics: u32) {
+pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics: u32, weather_multiplier: u32) {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        lattice.set_environment(q_sectors, q_radial, _q_harmonics);
+        lattice.set_environment(q_sectors, q_radial, _q_harmonics, weather_multiplier);
     }
 }
 

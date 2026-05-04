@@ -7,6 +7,7 @@ struct PhaseTopology {
     q_sectors: u32,   // Resolves 2^q_sectors geographic sectors
     q_radial: u32,
     q_math: u32,
+    weather_multiplier: u32,
 }
 
 struct SignalStore {
@@ -347,7 +348,8 @@ fn compute_main(
 
     let efficiency_adj = 2i - i32(p_efficiency / 64u);
     var base_burn: u32 = 1u;
-    let raw_base = 1i + efficiency_adj;
+    let base_cost = (1u * topology.weather_multiplier) / 1024u;
+    let raw_base = i32(base_cost) + efficiency_adj;
     if (raw_base > 1i) { base_burn = u32(raw_base); }
 
     let resilience_reduction = p_resilience / 128u;

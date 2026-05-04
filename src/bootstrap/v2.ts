@@ -100,6 +100,15 @@ export async function bootstrapV2() {
         const engine = new OmegaV2Engine();
         await engine.boot(adapter);
         
+        // Era 3000: Bitcoin UTXO Weather (Metabolic Rate Modulation)
+        const { BitcoinWeatherController } = await import("../environment/environmental_vector.ts");
+        const weatherController = new BitcoinWeatherController();
+        weatherController.onWeatherChange = (multiplier, label) => {
+            engine.setWeather(multiplier);
+            setHudStat("d", "WEATHER", label);
+        };
+        weatherController.start();
+
         // Era 1000: Initialize Phase Router before mesh so it can be wired into P2P
         const router = new PhaseRouter(engine.wasm);
         const addr0 = router.addressFromAgent(0);
@@ -459,9 +468,6 @@ ${debateMd || "(no recorded arguments)"}
             const ptrs = engine.getMemoryPointers();
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
-            
-            // Era 9000: Display Daemon Status
-            setHudStat("d", "DAEMON", renderer.daemonState);
 
             // Era 1020: Display Ontology Consensus Progress
             const consensus = mesh.getConsensusState();
