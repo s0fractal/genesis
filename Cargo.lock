@@ -762,6 +762,9 @@ dependencies = [
 [[package]]
 name = "omega_v2"
 version = "0.1.0"
+dependencies = [
+ "sha2",
+]
 
 [[package]]
 name = "omega_zk_guest"

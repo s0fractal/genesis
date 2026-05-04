@@ -43,7 +43,7 @@ pub mod cross_substrate_wire;
 pub mod spore_runner;
 pub mod convergence_driver;
 pub mod sync;
-
+pub mod bitcoin_oracle;
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
 use agent::PhaseAgentMinimal;
@@ -216,18 +216,32 @@ pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics
 
 #[no_mangle]
 pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
+    let ge = crate::bitcoin_oracle::get_genesis_entropy();
+    let ge_u32 = u32::from_le_bytes([ge[0], ge[1], ge[2], ge[3]]);
+    let final_seed = seed ^ ge_u32;
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        lattice.ignite_big_bang(seed, agent_count);
+        lattice.ignite_big_bang(final_seed, agent_count);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32) {
+    let ge = crate::bitcoin_oracle::get_genesis_entropy();
+    let ge_u32 = u32::from_le_bytes([ge[0], ge[1], ge[2], ge[3]]);
+    let final_seed = seed ^ ge_u32;
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         let mut mem = EPIGENETIC_MEMORY.lock();
-        lattice.ignite_epigenetic_big_bang(seed, agent_count, &*mem);
+        lattice.ignite_epigenetic_big_bang(final_seed, agent_count, &*mem);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_get_genesis_entropy(out_ptr: *mut u8) {
+    let ge = crate::bitcoin_oracle::get_genesis_entropy();
+    unsafe {
+        core::ptr::copy_nonoverlapping(ge.as_ptr(), out_ptr, 32);
     }
 }
 

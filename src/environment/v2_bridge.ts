@@ -284,4 +284,33 @@ export class OmegaV2Engine {
             console.log(`🧬 [V2-EPIGENETICS] Harvested ${harvested} survivors into collective memory.`);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // ERA 0206 Temporal Binding (Bitcoin Genesis Anchor)
+    // -----------------------------------------------------------------------
+
+    public getGenesisEntropy(): Uint8Array {
+        if (!this.wasmInstance || !this.memory) {
+            return new Uint8Array(32);
+        }
+        
+        // Allocate a tiny 32-byte chunk at the end of memory (or just reuse a safe offset if we can, but since WASM memory is static, let's just pass a pointer).
+        // Wait, actually `v2_get_genesis_entropy` takes a pointer. 
+        // We can use the start of the delta buffer temporarily since we only need to read it once during boot, 
+        // or just ask WASM to return a pointer.
+        // Actually, let's add `v2_genesis_entropy_ptr()` to lib.rs so we don't need to pass a pointer.
+        
+        // Ah, in my plan I added `v2_get_genesis_entropy(out_ptr: *mut u8)`.
+        // I will use `this.getMemoryPointers().deltaBufferBytes.byteOffset` as the temporary out_ptr.
+        const ptrs = this.getMemoryPointers();
+        const tempPtr = ptrs.deltaBufferBytes.byteOffset;
+        
+        const getGeFn = this.wasmInstance.exports.v2_get_genesis_entropy as CallableFunction;
+        if (getGeFn) {
+            getGeFn(tempPtr);
+            // Copy it to a new array so it doesn't get overwritten by delta buffer writes later
+            return new Uint8Array(this.memory.buffer.slice(tempPtr, tempPtr + 32));
+        }
+        return new Uint8Array(32);
+    }
 }

@@ -71,10 +71,11 @@ async function boot() {
     const ptrs = ENGINE.getMemoryPointers();
 
     // Big Bang — museum scale (~100k agents)
-    currentSeed = Math.floor(Math.random() * 1000000);
+    const ge = ENGINE.getGenesisEntropy();
+    currentSeed = new DataView(ge.buffer, ge.byteOffset, ge.byteLength).getUint32(0, true);
     const bigBang = ENGINE.wasm!.exports.v2_ignite_big_bang as CallableFunction;
     bigBang(currentSeed, 100_000);
-    console.log(`🎆 [MUSEUM] Big Bang ignited: 100,000 agents. Seed: ${currentSeed}`);
+    console.log(`🎆 [MUSEUM] Big Bang ignited: 100,000 agents. GE Seed: 0x${currentSeed.toString(16)}`);
 
     // Renderer
     renderer = new PhaseV2Renderer(context, device, format, ENGINE);
