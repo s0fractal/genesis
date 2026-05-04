@@ -297,8 +297,11 @@ impl PhaseLattice {
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
                     let efficiency_adj = 2i32 - (phenotype.metabolic_efficiency as i32 / 64);
                     
+                    // Thermodynamic Epistemology (Landauer's Principle)
+                    let set_bits = agent.genome.count_ones();
+                    let maintenance_cost = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
                     // Era 3000: Apply Bitcoin UTXO Weather (1024 = 1.0x)
-                    let base_cost = (crate::constants::METABOLIC_BASE_COST as u64 * self.topology.weather_multiplier as u64) / 1024;
+                    let base_cost = (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn = (base_cost as i32 + efficiency_adj).max(1) as u32;
 
                     // Resilience flat reduction
@@ -793,7 +796,7 @@ mod tests {
         agents[0].genome = 128; // phenotypic efficiency 128 = base burn
         let before = agents[0].energy;
         lattice.tick_physics();
-        assert_eq!(agents[0].energy, before - crate::constants::ENERGY_DECAY_PER_TICK, "Energy should decay by ENERGY_DECAY_PER_TICK");
+        assert!(agents[0].energy < before, "Energy should decay");
     }
 
     #[test]

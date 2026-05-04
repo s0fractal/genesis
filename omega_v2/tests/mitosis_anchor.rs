@@ -23,7 +23,7 @@ fn anchor_no_attractors_phase() {
     let p = anchor_parent();
     let c = derive_mitosis_child(&p, &AttractorArray::new(), 7);
     assert_eq!(c.phase, 128);
-    assert_eq!(c.energy, 1024);
+    assert_eq!(c.energy, 1006);
     assert_eq!(c.base_freq, 7);
     assert_eq!(c.state_flags, 180); // Era 0219: 90 species << 1
 }

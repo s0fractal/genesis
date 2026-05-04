@@ -93,9 +93,21 @@ export function deriveMitosisChild(
     const species = genome & 0x7F;
     stateFlags = ((stateFlags & ~0xFE) | (species << 1)) >>> 0;
 
+    // Thermodynamic Epistemology (Landauer's Principle):
+    // Deduct exact energy cost for every bit flipped during mitosis.
+    let flippedBits = 0;
+    let flipMask = (parent.genome ^ genome) >>> 0;
+    while (flipMask > 0) {
+        flippedBits += (flipMask & 1);
+        flipMask >>>= 1;
+    }
+    // LANDAUER_BIT_COST = 1
+    let childEnergy = CHILD_ENERGY_SEED - flippedBits;
+    if (childEnergy <= 0) childEnergy = 1;
+
     return {
         phase: ((parent.phase + halfPhase) >>> 0) & 0xFFFF_FFFF,
-        energy: CHILD_ENERGY_SEED >>> 0,
+        energy: childEnergy >>> 0,
         base_freq: parent.base_freq | 0,
         state_flags: stateFlags,
         genome,

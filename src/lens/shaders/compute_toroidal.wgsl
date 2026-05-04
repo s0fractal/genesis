@@ -66,8 +66,8 @@ struct PhaseAgentMinimal {
 // --- Constants (must match omega_v2/src/constants.rs) ---
 const KURAMOTO_COUPLING_BASE: i32 = 1024;
 const Q10_SCALE: i32 = 1024;
-const METABOLIC_BASE_COST: u32 = 1u;
-const METABOLIC_BURN_DIVISOR: u32 = 4u;
+const LANDAUER_BIT_COST: u32 = 1u;
+const STRUCTURAL_MAINTENANCE_DIVISOR: u32 = 8u;
 const RESONANCE_PHASE_MODULUS: u32 = 64u;
 const RESONANCE_ATP_BONUS: i32 = 128;
 const MAX_ATP: u32 = 4096u;
@@ -179,7 +179,12 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
         var base_burn: u32 = 1u;
-        let base_cost = (METABOLIC_BASE_COST * topology.weather_multiplier) / 1024u;
+        
+        let set_bits = countOneBits(agent.genome);
+        var maintenance_cost = (set_bits / STRUCTURAL_MAINTENANCE_DIVISOR) * LANDAUER_BIT_COST;
+        if (maintenance_cost == 0u) { maintenance_cost = 1u; }
+        
+        let base_cost = (maintenance_cost * topology.weather_multiplier) / 1024u;
         let raw_base = i32(base_cost) + efficiency_adj;
         if (raw_base > 1i) { base_burn = u32(raw_base); }
 

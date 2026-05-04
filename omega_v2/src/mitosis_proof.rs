@@ -91,9 +91,17 @@ pub fn derive_mitosis_child(
     let species = genome & 0x7F;
     state_flags = (state_flags & !0xFE) | (species << 1);
 
+    // Thermodynamic Epistemology (Landauer's Principle):
+    // Deduct exact energy cost for every bit flipped during mitosis.
+    let flipped_bits = (parent.genome ^ genome).count_ones();
+    let mut energy = CHILD_ENERGY_SEED.saturating_sub(flipped_bits * crate::constants::LANDAUER_BIT_COST);
+    if energy == 0 {
+        energy = 1; // Always give the child a minimal chance
+    }
+
     PhaseAgentMinimal {
         phase: parent.phase.wrapping_add(half_phase),
-        energy: CHILD_ENERGY_SEED,
+        energy,
         base_freq: parent.base_freq,
         state_flags,
         genome,
@@ -158,11 +166,13 @@ mod tests {
     }
 
     #[test]
-    fn child_energy_is_seed_constant() {
+    fn child_energy_is_seed_minus_flips() {
         let p = parent();
         let arr = empty_array();
         let c = derive_mitosis_child(&p, &arr, 7);
-        assert_eq!(c.energy, CHILD_ENERGY_SEED);
+        let flipped = (p.genome ^ c.genome).count_ones();
+        let expected = CHILD_ENERGY_SEED.saturating_sub(flipped * crate::constants::LANDAUER_BIT_COST).max(1);
+        assert_eq!(c.energy, expected);
     }
 
     #[test]

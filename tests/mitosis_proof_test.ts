@@ -34,10 +34,16 @@ Deno.test("mitosis proof: child phase = parent + half", async () => {
     assertEquals(c.phase, (p.phase + 64) >>> 0);
 });
 
-Deno.test("mitosis proof: child energy = CHILD_ENERGY_SEED", async () => {
+Deno.test("mitosis proof: child energy = CHILD_ENERGY_SEED minus flips", async () => {
     const p = parent();
     const c = deriveMitosisChild(p, [], 7);
-    assertEquals(c.energy, CHILD_ENERGY_SEED);
+    let flippedBits = 0;
+    let flipMask = (p.genome ^ c.genome) >>> 0;
+    while (flipMask > 0) {
+        flippedBits += (flipMask & 1);
+        flipMask >>>= 1;
+    }
+    assertEquals(c.energy, CHILD_ENERGY_SEED - flippedBits);
 });
 
 Deno.test("mitosis proof: dominant attractor sets birth flag", async () => {
@@ -85,7 +91,7 @@ Deno.test("mitosis proof: cross-language anchor (no attractors)", async () => {
     const p = parent();
     const c = deriveMitosisChild(p, [], 7);
     assertEquals(c.phase, 128);
-    assertEquals(c.energy, 1024);
+    assertEquals(c.energy, 1006);
     assertEquals(c.base_freq, 7);
     assertEquals(c.state_flags, 180); // Era 0219 Epigenetic
     assertEquals(c.genome, 3549459802);

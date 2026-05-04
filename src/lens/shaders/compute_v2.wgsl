@@ -375,7 +375,12 @@ fn compute_main(
 
     let efficiency_adj = 2i - i32(p_efficiency / 64u);
     var base_burn: u32 = 1u;
-    let base_cost = (1u * topology.weather_multiplier) / 1024u;
+    
+    let set_bits = countOneBits(agent.genome);
+    var maintenance_cost = (set_bits / 8u) * 1u; // STRUCTURAL_MAINTENANCE_DIVISOR=8, LANDAUER_BIT_COST=1
+    if (maintenance_cost == 0u) { maintenance_cost = 1u; }
+    
+    let base_cost = (maintenance_cost * topology.weather_multiplier) / 1024u;
     let raw_base = i32(base_cost) + efficiency_adj;
     if (raw_base > 1i) { base_burn = u32(raw_base); }
 
@@ -460,7 +465,15 @@ fn compute_main(
                 let opcode = agent.memory_y;
                 if (opcode == 1u) {
                     // Opcode 1: Lysogenic Viral Integration (XOR Inversion)
+                    let old_genome = new_genome;
                     new_genome = new_genome ^ 0xFFFFFFFFu;
+                    let flipped_bits = countOneBits(old_genome ^ new_genome);
+                    let flip_cost = flipped_bits * 1u; // LANDAUER_BIT_COST
+                    if (new_energy > flip_cost) {
+                        new_energy = new_energy - flip_cost;
+                    } else {
+                        new_energy = 0u;
+                    }
                     new_mem_z = 0u; // Consume packet
                 } else if (opcode == 2u) {
                     // Opcode 2: Somatic Burst (Forced Mitosis prep)

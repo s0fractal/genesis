@@ -29,9 +29,9 @@ pub fn evaluate_poeuw_trace(
     // ZK Trace Loop (Reproducing WebGPU shader metabolic burn & opcode dynamics)
     for tick in 0..cycles {
         // 1. Biological Metabolic Decay
-        // Baseline decay scaled by how complex the genome is (Population set bit count)
+        // Landauer's Principle: Maintenance of complex genome away from equilibrium costs ATP.
         let set_bits = agent.genome.count_ones();
-        let metabolic_burn = crate::constants::METABOLIC_BASE_COST + (set_bits / crate::constants::METABOLIC_BURN_DIVISOR); // Complex genomes burn ATP faster
+        let metabolic_burn = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
         
         let mut new_energy = agent.energy as i32 - metabolic_burn as i32;
         
@@ -67,7 +67,12 @@ pub fn evaluate_poeuw_trace(
             let opcode = agent.memory[1];
             if opcode == 1 {
                 // Opcode 1: Lysogenic Viral Integration (XOR Inversion)
+                let old_genome = agent.genome;
                 agent.genome ^= 0xFFFFFFFF;
+                // Landauer's Principle: Erasing/flipping bits costs exact energy
+                let flipped_bits = (old_genome ^ agent.genome).count_ones();
+                let bit_flip_cost = flipped_bits * crate::constants::LANDAUER_BIT_COST;
+                agent.energy = agent.energy.saturating_sub(bit_flip_cost);
                 agent.memory[2] = 0;
             } else if opcode == 2 {
                 // Opcode 2: Somatic Burst
@@ -128,8 +133,7 @@ mod tests {
 
     #[test]
     fn test_pouw_high_burn_reduces_energy() {
-        // Max-complexity genome (32 set bits = 8 extra burn per tick)
-        // Base burn = 1 + 32/4 = 9 per tick.
+        // Max-complexity genome (32 set bits = 32/8 = 4 ATP burn per tick)
         // Use diffusion=3 to avoid opcodes for first 5 ticks (stressor_mod never hits 0/1/2).
         let (_genome, _freq, energy) = evaluate_poeuw_trace(
             0xFFFF_FFFF, // max complexity
@@ -137,11 +141,11 @@ mod tests {
             3,           // stressor seed 3 → no opcodes in ticks 0..4
             5,
         );
-        // tick0: phase=0, resonance +128, burn -9 → cap 4096
-        // tick1: phase=1, burn -9 → 3991
-        // tick2: phase=2, burn -9 → 3982
-        // tick3: phase=3, burn -9 → 3973
-        // tick4: phase=4, burn -9 → 3964
+        // tick0: phase=0, resonance +128, burn -4 → cap 4096
+        // tick1: phase=1, burn -4 → 3991 -> 4092
+        // tick2: phase=2, burn -4 → 3982 -> 4088
+        // tick3: phase=3, burn -4 → 3973 -> 4084
+        // tick4: phase=4, burn -4 → 3964 -> 4080
         assert!(energy < crate::constants::MAX_ATP, "High-burn agent should lose energy within 5 ticks");
     }
 

@@ -30,10 +30,10 @@ pub const PHASE_MASK_8BIT: u32 = 255;
 pub const RESONANCE_PHASE_MODULUS: u32 = 64;
 /// ATP replenishment on resonance alignment
 pub const RESONANCE_ATP_BONUS: i32 = (MAX_ATP / 32) as i32; // 128
-/// Metabolic burn divisor: complexity scaling
-pub const METABOLIC_BURN_DIVISOR: u32 = 4;
-/// Baseline metabolic cost (minimum burn per tick)
-pub const METABOLIC_BASE_COST: u32 = 1;
+/// Landauer's Principle: Minimum energy to flip/erase a bit
+pub const LANDAUER_BIT_COST: u32 = MAX_ATP / 4096; // 1
+/// Energy cost divisor to maintain structural 1-bits away from equilibrium per tick
+pub const STRUCTURAL_MAINTENANCE_DIVISOR: u32 = 8;
 /// Stressor LCG mixer prime
 pub const STRESSOR_MIXER: u32 = 17;
 /// Stressor modulus (probability denominator)
@@ -44,8 +44,7 @@ pub const HOMEOSTASIS_Q_SHIFT: u32 = 10;
 // --- Kuramoto Coupling & Hebbian Learning ---
 /// Base coupling strength in Q10 fixed-point (1.0 = 1024)
 pub const KURAMOTO_COUPLING_BASE: i32 = 1024;
-/// Energy decay per tick (metabolic burn)
-pub const ENERGY_DECAY_PER_TICK: u32 = 1;
+// ENERGY_DECAY_PER_TICK replaced by dynamic maintenance costs
 /// Phase drift divisor: base_freq >> Q_SHIFT applied per tick
 pub const PHASE_DRIFT_Q_SHIFT: u32 = 20;
 
