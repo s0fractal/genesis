@@ -64,7 +64,7 @@ pub fn derive_mitosis_child(
     let birth_near_attractor = best_dist < quarter_phase && best_matrix != 0;
 
     // Mutation mask + state flags.
-    let (genome, memory0, state_flags) = if birth_near_attractor {
+    let (genome, memory0, mut state_flags) = if birth_near_attractor {
         let new_state_flags = parent.state_flags | BIRTH_NEAR_ATTRACTOR_FLAG;
         (
             parent.genome ^ best_matrix,
@@ -72,7 +72,13 @@ pub fn derive_mitosis_child(
             new_state_flags,
         )
     } else {
-        let mut_seed = crate::math::xorshift64_once(parent.genome as u64);
+        // Era 0219: Epigenetic Inheritance
+        // The parent's lived experience (memory) and stress (energy) alters the mutation vector.
+        let epigenetic_base = (parent.genome as u64)
+            ^ ((parent.memory[1] as u64) << 16)
+            ^ ((parent.memory[2] as u64) << 32)
+            ^ (parent.energy as u64);
+        let mut_seed = crate::math::xorshift64_once(epigenetic_base);
         let mask = mut_seed as u32;
         (
             parent.genome ^ mask,
@@ -80,6 +86,10 @@ pub fn derive_mitosis_child(
             parent.state_flags,
         )
     };
+
+    // Era 0218: Species Specialization
+    let species = genome & 0x7F;
+    state_flags = (state_flags & !0xFE) | (species << 1);
 
     PhaseAgentMinimal {
         phase: parent.phase.wrapping_add(half_phase),
@@ -160,7 +170,14 @@ mod tests {
         let p = parent();
         let arr = empty_array();
         let c = derive_mitosis_child(&p, &arr, 7);
-        let expected_mask = crate::math::xorshift64_once(p.genome as u64) as u32;
+        let epigenetic_base = (p.genome as u64)
+            ^ ((p.memory[1] as u64) << 16)
+            ^ ((p.memory[2] as u64) << 32)
+            ^ (p.energy as u64);
+        let expected_mask = crate::math::xorshift64_once(epigenetic_base) as u32;
+        // The genome has the mask applied, but also species bits embedded?
+        // Actually, derive_mitosis_child sets genome = p.genome ^ mask.
+        // The state_flags has the species bits, not the genome!
         assert_eq!(c.genome, p.genome ^ expected_mask);
         // Birth flag NOT set when no attractor was dominant.
         assert_eq!(c.state_flags & BIRTH_NEAR_ATTRACTOR_FLAG, 0);

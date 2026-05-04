@@ -153,6 +153,18 @@ fn deterministic_atan2(y: i32, x: i32, q_phase: u32) -> u32 {
     return (u32(full_angle) >> shift_down) & ((1u << q_phase) - 1u);
 }
 
+// Era 0218: Circular Food Web
+fn species_advantage(a: u32, b: u32) -> i32 {
+    if (a == b) { return 0i; }
+    let diff = (a - b) & 0x7Fu;
+    if (diff > 0u && diff <= 8u) {
+        return 1i;
+    } else if (diff >= 120u && diff <= 127u) {
+        return -1i;
+    }
+    return 0i;
+}
+
 @compute @workgroup_size(64)
 fn compute_main(
     @builtin(global_invocation_id) global_id: vec3<u32>,
@@ -347,6 +359,21 @@ fn compute_main(
     // ERA 3000: ATP METABOLISM
     var metabolic_delta: i32 = -i32(burn); // Entropy (Base Burn)
     
+    // Era 0218: Species Specialization (Predator-Prey)
+    let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
+    let steal = 5i; // PREDATOR_ENERGY_STEAL
+    if (signals.active_agent_count > 4u) {
+        for (var i = 0u; i < 4u; i++) {
+            let n = agents_in[n_indices[i]];
+            if (n.energy > 0u) {
+                let n_species = (n.state_flags >> 1u) & 0x7Fu;
+                let adv = species_advantage(agent_species, n_species);
+                if (adv == 1i) { metabolic_delta += steal; }
+                else if (adv == -1i) { metabolic_delta -= steal; }
+            }
+        }
+    }
+
     // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
     if (new_phase % 64u == 0u) {
         metabolic_delta += 150; 

@@ -44,6 +44,9 @@ pub struct PhaseLattice {
     pub active_agent_count: u32,
 }
 
+unsafe impl Send for PhaseLattice {}
+
+
 impl PhaseLattice {
     /// Bootstraps the grid directly on top of pre-allocated WebGPU host memory
     pub fn new_from_host_memory(
@@ -88,8 +91,8 @@ impl PhaseLattice {
     pub extern "C" fn ingest_cosmic_entropy(&mut self, raw_hash_u64: u64) {
         // Ingest block hash into the φ-anchor chain.
         unsafe {
-            let anchor = core::ptr::addr_of_mut!(crate::PHI_ANCHOR_CHAIN);
-            (*anchor).ingest_block(raw_hash_u64);
+            let mut anchor = crate::PHI_ANCHOR_CHAIN.lock();
+            anchor.ingest_block(raw_hash_u64);
         }
         self.signals.dirty_flags |= SIGNAL_CONSENSUS_SHIFT;
     }
@@ -119,7 +122,7 @@ impl PhaseLattice {
                     phase,
                     energy,
                     base_freq,
-                    state_flags: 0,
+                    state_flags: (genome & 0x7F) << 1,
                     genome,
                     memory: [0, 0, 0],
                 };
@@ -150,7 +153,7 @@ impl PhaseLattice {
                     phase,
                     energy,
                     base_freq,
-                    state_flags: 0,
+                    state_flags: (genome & 0x7F) << 1,
                     genome,
                     memory: [0, 0, 0],
                 };
@@ -185,7 +188,7 @@ impl PhaseLattice {
             // to guarantee CPU-GPU bit-exact parity. The old chunk buffer caused
             // read-after-write at chunk boundaries (left neighbor already mutated).
             let snapshot = if self.tick_snapshot_ptr.is_null() {
-                core::ptr::addr_of_mut!(crate::SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal
+                crate::SHADOW_LATTICE_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal
             } else {
                 self.tick_snapshot_ptr
             };
@@ -238,7 +241,25 @@ impl PhaseLattice {
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
                     let burn = base_burn.saturating_sub(resilience_reduction).max(1);
 
-                    agent.energy = agent.energy.saturating_sub(burn);
+                    // Era 0218: Species Specialization (Predator-Prey)
+                    let agent_species = (agent.state_flags >> 1) & 0x7F;
+                    let left_species = (left.state_flags >> 1) & 0x7F;
+                    let right_species = (right.state_flags >> 1) & 0x7F;
+
+                    let mut energy_delta = -(burn as i32);
+
+                    let adv_left = crate::agent::species_advantage(agent_species, left_species);
+                    let adv_right = crate::agent::species_advantage(agent_species, right_species);
+
+                    let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
+                    if adv_left == 1 { energy_delta += steal; } else if adv_left == -1 { energy_delta -= steal; }
+                    if adv_right == 1 { energy_delta += steal; } else if adv_right == -1 { energy_delta -= steal; }
+
+                    if energy_delta < 0 {
+                        agent.energy = agent.energy.saturating_sub(energy_delta.abs() as u32);
+                    } else {
+                        agent.energy = agent.energy.saturating_add(energy_delta as u32).min(crate::constants::MAX_ATP);
+                    }
 
                     let mut attractor_drift = 0i32;
                     if !self.attractors_ptr.is_null() {
@@ -264,8 +285,8 @@ impl PhaseLattice {
                 if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
                     agent.state_flags |= 0x01; // Mark as dead
                     let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
-                    let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
-                    (*buf).push(compost);
+                    let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+                    buf.push(compost);
                 }
             }
         }
@@ -286,8 +307,8 @@ impl PhaseLattice {
         if (self.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT) != 0 {
             // Cosmic entropy: apply global phase shift from Bitcoin anchor
             unsafe {
-                let anchor = core::ptr::addr_of!(crate::PHI_ANCHOR_CHAIN);
-                let global_phi = (*anchor).global_phi();
+                let mut anchor = crate::PHI_ANCHOR_CHAIN.lock();
+                let global_phi = anchor.global_phi();
                 let active = self.signals.active_agent_count as usize;
                 for i in 0..active {
                     let agent = &mut *self.minimal_agents_ptr.add(i);
@@ -350,7 +371,7 @@ impl PhaseLattice {
                         // lattice path is bit-for-bit identical to the path that the SP1
                         // ZK guest executes when verifying receipts. Any divergence here
                         // would invalidate proofs across the mesh.
-                        let arr = core::ptr::addr_of!(crate::ATTRACTOR_ARRAY);
+                        let mut arr = crate::ATTRACTOR_ARRAY.lock();
                         let derived = crate::mitosis_proof::derive_mitosis_child(
                             &parent_snapshot,
                             &*arr,
@@ -370,8 +391,8 @@ impl PhaseLattice {
                             tick: self.signals.absolute_tick,
                             _pad: 0,
                         };
-                        let log = core::ptr::addr_of_mut!(crate::MITOSIS_LOG);
-                        (*log).push(receipt);
+                        let mut log = crate::MITOSIS_LOG.lock();
+                        log.push(receipt);
 
                         replications += 1;
                     }
@@ -406,8 +427,8 @@ impl PhaseLattice {
         let tick = self.signals.absolute_tick;
         let heartbeat = crate::phi_protocol::PhiMessage::encode_heartbeat(hash, tick, self.topology.q_phase as u8);
         unsafe {
-            let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
-            (*buf).push(heartbeat);
+            let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+            buf.push(heartbeat);
         }
 
         hash
@@ -610,9 +631,9 @@ mod tests {
 
         // Inject an attractor near the parent's phase
         unsafe {
-            let arr = core::ptr::addr_of_mut!(crate::ATTRACTOR_ARRAY);
-            (*arr).count = 1;
-            (*arr).data[0] = crate::attractor::AttractorMatrix::new(50, !50, 10, 512);
+            let mut arr = crate::ATTRACTOR_ARRAY.lock();
+            arr.count = 1;
+            arr.data[0] = crate::attractor::AttractorMatrix::new(50, !50, 10, 512);
         }
 
         lattice.darwinian_mitosis();
@@ -625,8 +646,8 @@ mod tests {
 
         // Cleanup global state for other tests
         unsafe {
-            let arr = core::ptr::addr_of_mut!(crate::ATTRACTOR_ARRAY);
-            (*arr).clear();
+            let mut arr = crate::ATTRACTOR_ARRAY.lock();
+            arr.clear();
         }
     }
 
@@ -873,20 +894,20 @@ mod tests {
         
         // Clear phi buffer before test
         unsafe {
-            let buf = core::ptr::addr_of_mut!(crate::PHI_MESSAGE_BUFFER);
-            (*buf).reset();
+            let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+            buf.reset();
         }
         
         lattice.tick_physics();
         
         unsafe {
-            let buf = core::ptr::addr_of!(crate::PHI_MESSAGE_BUFFER);
-            let len = (*buf).len();
+            let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+            let len = buf.len();
             assert!(len > 0, "At least one compost message should be published");
             
             let mut found = false;
-            for n in 0..((*buf).len() as usize) {
-                let msg = (*buf).peek_nth(n).unwrap();
+            for n in 0..(buf.len() as usize) {
+                let msg = buf.peek_nth(n).unwrap();
                 if msg.msg_type != crate::phi_protocol::PHI_MSG_COMPOST {
                     continue;
                 }

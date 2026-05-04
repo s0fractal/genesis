@@ -77,6 +77,18 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
     return sine_lut[index];
 }
 
+// Era 0218: Circular Food Web
+fn species_advantage(a: u32, b: u32) -> i32 {
+    if (a == b) { return 0i; }
+    let diff = (a - b) & 0x7Fu;
+    if (diff > 0u && diff <= 8u) {
+        return 1i;
+    } else if (diff >= 120u && diff <= 127u) {
+        return -1i;
+    }
+    return 0i;
+}
+
 
 @compute @workgroup_size(64)
 fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -140,7 +152,35 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             burn = base_burn - resilience_reduction;
         }
 
-        var new_energy = select(agent.energy - burn, 0u, burn >= agent.energy);
+        // Era 0218: Species Specialization (Predator-Prey)
+        let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
+        let left_species = (left.state_flags >> 1u) & 0x7Fu;
+        let right_species = (right.state_flags >> 1u) & 0x7Fu;
+
+        var energy_delta: i32 = -i32(burn);
+
+        let adv_left = species_advantage(agent_species, left_species);
+        let adv_right = species_advantage(agent_species, right_species);
+        let steal = 5i; // PREDATOR_ENERGY_STEAL
+
+        if (adv_left == 1i) { energy_delta = energy_delta + steal; }
+        else if (adv_left == -1i) { energy_delta = energy_delta - steal; }
+
+        if (adv_right == 1i) { energy_delta = energy_delta + steal; }
+        else if (adv_right == -1i) { energy_delta = energy_delta - steal; }
+
+        var new_energy: u32 = 0u;
+        if (energy_delta < 0i) {
+            let abs_delta = u32(abs(energy_delta));
+            if (agent.energy > abs_delta) {
+                new_energy = agent.energy - abs_delta;
+            } else {
+                new_energy = 0u;
+            }
+        } else {
+            new_energy = agent.energy + u32(energy_delta);
+            if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
+        }
 
         // --- 4. Phase drift (base_freq Q20 + coupling + attractor field) ---
         var attractor_drift: i32 = 0i;

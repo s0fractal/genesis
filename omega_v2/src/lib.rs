@@ -1,3 +1,5 @@
+#![allow(unused_mut)]
+#![allow(unused_unsafe)]
 // Era 1100: Bare-Metal Substrate.
 //
 // no_std is enabled when targeting any of:
@@ -40,6 +42,7 @@ pub mod event_sync_loop;
 pub mod cross_substrate_wire;
 pub mod spore_runner;
 pub mod convergence_driver;
+pub mod sync;
 
 use lattice::{PhaseLattice, SignalStore};
 use topology::PhaseTopology;
@@ -67,38 +70,38 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 /// Static Memory Pre-Allocation for Bare-Metal Environment.
 /// 16MB of contiguous RAM allocated exactly at compile time.
 pub const MAX_MINIMAL_AGENTS: usize = 1_000_000;
-static mut AGENTS_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
+pub static AGENTS_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
     phase: 0,
     energy: 0,  // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
     base_freq: 0,
     state_flags: 0,
     genome: 0,
     memory: [0; 3],
-}; MAX_MINIMAL_AGENTS];
+}; MAX_MINIMAL_AGENTS]);
 
 // ERA 6000: 32MB Shadow Memory + Differential Output Buffer
-static mut SHADOW_LATTICE_MEMORY: [PhaseAgentMinimal; MAX_MINIMAL_AGENTS] = [PhaseAgentMinimal {
+pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
     phase: 0,
     energy: 0,
     base_freq: 0,
     state_flags: 0,
     genome: 0,
     memory: [0; 3],
-}; MAX_MINIMAL_AGENTS];
+}; MAX_MINIMAL_AGENTS]);
 
 pub const MAX_DELTA_ITEMS: usize = 6400; // Limits extreme mutations to ~100KB per UDP packet
-static mut DELTA_BUFFER: [crate::lattice::DeltaItem; MAX_DELTA_ITEMS] = [crate::lattice::DeltaItem {
+pub static DELTA_BUFFER: crate::sync::Spinlock<[crate::lattice::DeltaItem; MAX_DELTA_ITEMS]> = crate::sync::Spinlock::new([crate::lattice::DeltaItem {
     index: 0,
     phase: 0,
     energy: 0,
     genome: 0,
-}; MAX_DELTA_ITEMS];
+}; MAX_DELTA_ITEMS]);
 
 /// Global Epigenetic Memory — accumulates survival wisdom across Big Bang cycles.
-static mut EPIGENETIC_MEMORY: EpigeneticMemory = EpigeneticMemory::new();
+pub static EPIGENETIC_MEMORY: crate::sync::Spinlock<EpigeneticMemory> = crate::sync::Spinlock::new(EpigeneticMemory::new());
 
 /// The Global Engine Singleton for #![no_std] execution.
-static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
+pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spinlock::new(PhaseLattice {
     topology: PhaseTopology {
         q_phase: 7, // 128 elements the Sacred Seven!
         q_sectors: 7,
@@ -126,45 +129,45 @@ static mut OMEGA_LATTICE: PhaseLattice = PhaseLattice {
     tick_snapshot_ptr: core::ptr::null_mut(),
     attractors_ptr: core::ptr::null(),
     active_agent_count: 0,
-};
+});
 
 /// Φ-Маніфест: Bitcoin φ-Anchor Chain.
 /// Глобальний якір для всіх φ-дериватів у мережі.
-static mut PHI_ANCHOR_CHAIN: PhiAnchorChain = PhiAnchorChain::new();
+pub static PHI_ANCHOR_CHAIN: crate::sync::Spinlock<PhiAnchorChain> = crate::sync::Spinlock::new(PhiAnchorChain::new());
 
 /// Φ-Маніфест: Phi Protocol Message Buffer.
 /// Lock-free ring buffer для повідомлень між OMEGA і зовнішніми спостерігачами.
-static mut PHI_MESSAGE_BUFFER: PhiMessageBuffer = PhiMessageBuffer::new();
+pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> = crate::sync::Spinlock::new(PhiMessageBuffer::new());
 
 /// EpicyclicSoul: Global Resonance Field (Kuramoto order parameter + phase).
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
-static mut RESONANCE_FIELD: ResonanceField = ResonanceField::zero();
+pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync::Spinlock::new(ResonanceField::zero());
 
 /// Distributed Federation: Halo boundary state for cross-node sync.
 /// Exchanged via WebRTC between adjacent nodes in the toroidal chain.
-static mut HALO_STATE: HaloState = HaloState::empty();
+pub static HALO_STATE: crate::sync::Spinlock<HaloState> = crate::sync::Spinlock::new(HaloState::empty());
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
-pub static mut ATTRACTOR_ARRAY: AttractorArray = AttractorArray::new();
+pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<AttractorArray> = crate::sync::Spinlock::new(AttractorArray::new());
 
 /// Era 1030: Global Senate State for autopoietic legislation.
-pub static mut SENATE_STATE: senate::SenateState = senate::SenateState::new();
+pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::sync::Spinlock::new(senate::SenateState::new());
 
 /// Era 1040 Phase 2: Global Mitosis Receipt Log.
 /// Lattice writes here on each darwinian_mitosis birth event; JS drains
 /// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
-pub static mut MITOSIS_LOG: mitosis_log::MitosisLog = mitosis_log::MitosisLog::new();
+pub static MITOSIS_LOG: crate::sync::Spinlock<mitosis_log::MitosisLog> = crate::sync::Spinlock::new(mitosis_log::MitosisLog::new());
 
 /// Era 1070: Global Cross-Model Debate Ledger.
 /// Each canonical oracle records its arguments here; the kernel only
 /// fingerprints them so the protocol can verify provenance without
 /// trusting reasoning content.
-pub static mut DEBATE_LEDGER: cross_model_debate::DebateLedger = cross_model_debate::DebateLedger::new();
+pub static DEBATE_LEDGER: crate::sync::Spinlock<cross_model_debate::DebateLedger> = crate::sync::Spinlock::new(cross_model_debate::DebateLedger::new());
 
 /// Era 1090: Global Senate Warrant Ledger.
 /// Tracks WarrantProposals raised by the Senate; transitions to ISSUED
 /// state when ≥ required_threshold canonical oracles AYE the proposal.
-pub static mut WARRANT_LEDGER: warrant_issuance::WarrantLedger = warrant_issuance::WarrantLedger::new();
+pub static WARRANT_LEDGER: crate::sync::Spinlock<warrant_issuance::WarrantLedger> = crate::sync::Spinlock::new(warrant_issuance::WarrantLedger::new());
 
 // -----------------------------------------------------------------------------
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
@@ -172,12 +175,12 @@ pub static mut WARRANT_LEDGER: warrant_issuance::WarrantLedger = warrant_issuanc
 
 #[no_mangle]
 pub extern "C" fn v2_lattice_ptr() -> *const u8 {
-    core::ptr::addr_of!(OMEGA_LATTICE) as *const u8
+    OMEGA_LATTICE.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_agents_ptr() -> *const u8 {
-    core::ptr::addr_of!(AGENTS_MEMORY) as *const u8
+    AGENTS_MEMORY.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
@@ -195,44 +198,44 @@ pub extern "C" fn v2_sine_lut_q10_ptr() -> *const u8 {
 pub extern "C" fn v2_boot_engine() {
     unsafe {
         // Link the static buffer into the Lattice Engine
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        let agents = core::ptr::addr_of_mut!(AGENTS_MEMORY) as *mut PhaseAgentMinimal;
-        (*lattice).minimal_agents_ptr = agents;
-        (*lattice).tick_snapshot_ptr = core::ptr::addr_of_mut!(SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal;
-        (*lattice).attractors_ptr = core::ptr::addr_of!(ATTRACTOR_ARRAY);
+        let mut lattice = OMEGA_LATTICE.lock();
+        let agents = AGENTS_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal;
+        lattice.minimal_agents_ptr = agents;
+        lattice.tick_snapshot_ptr = SHADOW_LATTICE_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal;
+        lattice.attractors_ptr = ATTRACTOR_ARRAY.as_mut_ptr();
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics: u32) {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).set_environment(q_sectors, q_radial, _q_harmonics);
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.set_environment(q_sectors, q_radial, _q_harmonics);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).ignite_big_bang(seed, agent_count);
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.ignite_big_bang(seed, agent_count);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32) {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
-        (*lattice).ignite_epigenetic_big_bang(seed, agent_count, &*mem);
+        let mut lattice = OMEGA_LATTICE.lock();
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        lattice.ignite_epigenetic_big_bang(seed, agent_count, &*mem);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_tick() {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).tick_physics();
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.tick_physics();
     }
 }
 
@@ -240,29 +243,29 @@ pub extern "C" fn v2_tick() {
 #[no_mangle]
 pub extern "C" fn v2_reset_runtime_state() {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).signals.dirty_flags = 0;
-        (*lattice).signals.absolute_tick = 0;
-        (*lattice).signals.active_agent_count = 0;
-        (*lattice).intents = [crate::topology::OntologicalIntent::empty(); 4];
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.signals.dirty_flags = 0;
+        lattice.signals.absolute_tick = 0;
+        lattice.signals.active_agent_count = 0;
+        lattice.intents = [crate::topology::OntologicalIntent::empty(); 4];
         
-        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
-        (*arr).clear();
+        let mut arr = ATTRACTOR_ARRAY.lock();
+        arr.clear();
         
-        let field = core::ptr::addr_of_mut!(RESONANCE_FIELD);
+        let mut field = RESONANCE_FIELD.lock();
         *field = ResonanceField::zero();
         
-        let halo = core::ptr::addr_of_mut!(HALO_STATE);
+        let mut halo = HALO_STATE.lock();
         *halo = HaloState::empty();
         
-        let phi_buf = core::ptr::addr_of_mut!(PHI_MESSAGE_BUFFER);
+        let mut phi_buf = PHI_MESSAGE_BUFFER.lock();
         *phi_buf = PhiMessageBuffer::new();
         
-        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
         *anchor = PhiAnchorChain::new();
         
-        let epi = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
-        (*epi).clear();
+        let mut epi = EPIGENETIC_MEMORY.lock();
+        epi.clear();
     }
 }
 
@@ -270,46 +273,46 @@ pub extern "C" fn v2_reset_runtime_state() {
 pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32, semantic_genome: u32, op_mode: u32) {
     if index >= 4 { return; }
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).intents[index as usize].focus_x = focus_x;
-        (*lattice).intents[index as usize].focus_y = focus_y;
-        (*lattice).intents[index as usize].mass = mass;
-        (*lattice).intents[index as usize].radius = radius;
-        (*lattice).intents[index as usize].semantic_genome = semantic_genome;
-        (*lattice).intents[index as usize].op_mode = op_mode;
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.intents[index as usize].focus_x = focus_x;
+        lattice.intents[index as usize].focus_y = focus_y;
+        lattice.intents[index as usize].mass = mass;
+        lattice.intents[index as usize].radius = radius;
+        lattice.intents[index as usize].semantic_genome = semantic_genome;
+        lattice.intents[index as usize].op_mode = op_mode;
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_get_golden_trace() -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        (*lattice).get_golden_trace()
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.get_golden_trace()
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_mitosis_sweep() -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        (*lattice).darwinian_mitosis()
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.darwinian_mitosis()
     }
 }
 
 // ERA 6000 FFI
 #[no_mangle]
 pub extern "C" fn v2_delta_buffer_ptr() -> *const u8 {
-    core::ptr::addr_of!(DELTA_BUFFER) as *const u8
+    DELTA_BUFFER.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        let agents = core::ptr::addr_of!(AGENTS_MEMORY) as *const PhaseAgentMinimal;
-        let snapshot = core::ptr::addr_of_mut!(SHADOW_LATTICE_MEMORY) as *mut PhaseAgentMinimal;
-        let delta = core::ptr::addr_of_mut!(DELTA_BUFFER) as *mut crate::lattice::DeltaItem;
-        (*lattice).generate_delta_snapshot(agents, snapshot, delta, MAX_DELTA_ITEMS)
+        let mut lattice = OMEGA_LATTICE.lock();
+        let agents = AGENTS_MEMORY.as_mut_ptr() as *const PhaseAgentMinimal;
+        let snapshot = SHADOW_LATTICE_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal;
+        let delta = DELTA_BUFFER.as_mut_ptr() as *mut crate::lattice::DeltaItem;
+        lattice.generate_delta_snapshot(agents, snapshot, delta, MAX_DELTA_ITEMS)
     }
 }
 
@@ -320,8 +323,8 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_record_epigenetic(genome: u32) {
     unsafe {
-        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
-        (*mem).record(genome);
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        mem.record(genome);
     }
 }
 
@@ -329,32 +332,32 @@ pub extern "C" fn v2_record_epigenetic(genome: u32) {
 pub extern "C" fn v2_get_epigenetic_bias(bit_index: u32) -> u32 {
     if bit_index >= 32 { return 0; }
     unsafe {
-        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
-        (*mem).bit_frequencies[bit_index as usize]
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        mem.bit_frequencies[bit_index as usize]
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_get_epigenetic_total() -> u32 {
     unsafe {
-        let mem = core::ptr::addr_of!(EPIGENETIC_MEMORY);
-        (*mem).total_recorded
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        mem.total_recorded
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_set_mutation_rate(rate: u32) {
     unsafe {
-        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
-        (*mem).mutation_rate = rate.min(100);
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        mem.mutation_rate = rate.min(100);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_clear_epigenetic() {
     unsafe {
-        let mem = core::ptr::addr_of_mut!(EPIGENETIC_MEMORY);
-        (*mem).clear();
+        let mut mem = EPIGENETIC_MEMORY.lock();
+        mem.clear();
     }
 }
 
@@ -365,32 +368,32 @@ pub extern "C" fn v2_clear_epigenetic() {
 #[no_mangle]
 pub extern "C" fn v2_anchor_init(h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
     unsafe {
-        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
-        (*anchor).init([h0, h1, h2, h3, h4, h5]);
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        anchor.init([h0, h1, h2, h3, h4, h5]);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_anchor_ingest_block(hash: u64) {
     unsafe {
-        let anchor = core::ptr::addr_of_mut!(PHI_ANCHOR_CHAIN);
-        (*anchor).ingest_block(hash);
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        anchor.ingest_block(hash);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_anchor_global_phi() -> u32 {
     unsafe {
-        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
-        (*anchor).global_phi()
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        anchor.global_phi()
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_anchor_derive_phi(parent_phi: u32, child_id: u64, q_phase: u32) -> u32 {
     unsafe {
-        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
-        (*anchor).derive_phi(parent_phi, child_id, q_phase)
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        anchor.derive_phi(parent_phi, child_id, q_phase)
     }
 }
 
@@ -403,8 +406,8 @@ pub extern "C" fn v2_anchor_verify_coherence(
     tolerance: u32,
 ) -> u32 {
     unsafe {
-        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
-        if (*anchor).verify_coherence(claimed_phi, parent_phi, child_id, q_phase, tolerance) {
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        if anchor.verify_coherence(claimed_phi, parent_phi, child_id, q_phase, tolerance) {
             1
         } else {
             0
@@ -415,8 +418,8 @@ pub extern "C" fn v2_anchor_verify_coherence(
 #[no_mangle]
 pub extern "C" fn v2_anchor_total_blocks() -> u64 {
     unsafe {
-        let anchor = core::ptr::addr_of!(PHI_ANCHOR_CHAIN);
-        (*anchor).total_blocks
+        let mut anchor = PHI_ANCHOR_CHAIN.lock();
+        anchor.total_blocks
     }
 }
 
@@ -426,40 +429,40 @@ pub extern "C" fn v2_anchor_total_blocks() -> u64 {
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_ptr() -> *const u8 {
-    core::ptr::addr_of!(PHI_MESSAGE_BUFFER) as *const u8
+    PHI_MESSAGE_BUFFER.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_push(msg_type: u8, q_phase: u8, phi: u32, energy: u32, payload_lo: u32, payload_hi: u32) {
     unsafe {
-        let buf = core::ptr::addr_of_mut!(PHI_MESSAGE_BUFFER);
+        let mut buf = PHI_MESSAGE_BUFFER.lock();
         let payload = ((payload_hi as u64) << 32) | (payload_lo as u64);
         let msg = PhiMessage::new(msg_type, q_phase, phi, energy, payload);
-        (*buf).push(msg);
+        buf.push(msg);
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_len() -> u32 {
     unsafe {
-        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
-        (*buf).len()
+        let mut buf = PHI_MESSAGE_BUFFER.lock();
+        buf.len()
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_is_empty() -> u32 {
     unsafe {
-        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
-        if (*buf).is_empty() { 1 } else { 0 }
+        let mut buf = PHI_MESSAGE_BUFFER.lock();
+        if buf.is_empty() { 1 } else { 0 }
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_drops() -> u32 {
     unsafe {
-        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
-        (*buf).drops
+        let mut buf = PHI_MESSAGE_BUFFER.lock();
+        buf.drops
     }
 }
 
@@ -469,8 +472,8 @@ pub extern "C" fn v2_phi_buffer_drops() -> u32 {
 pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> u32 {
     if msg_out.is_null() { return 0; }
     unsafe {
-        let buf = core::ptr::addr_of!(PHI_MESSAGE_BUFFER);
-        match (*buf).peek_latest() {
+        let mut buf = PHI_MESSAGE_BUFFER.lock();
+        match buf.peek_latest() {
             Some(msg) => {
                 core::ptr::write(msg_out, msg);
                 1
@@ -497,9 +500,9 @@ pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
 pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_freq: u32, pulse_amp: u32) {
     if index >= 4 { return; }
     unsafe {
-        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
+        let mut arr = ATTRACTOR_ARRAY.lock();
         let m = AttractorMatrix::new(matrix, inverse, pulse_freq, pulse_amp);
-        (*arr).set(index as usize, m);
+        arr.set(index as usize, m);
     }
 }
 
@@ -507,15 +510,15 @@ pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_
 #[no_mangle]
 pub extern "C" fn v2_clear_attractors() {
     unsafe {
-        let arr = core::ptr::addr_of_mut!(ATTRACTOR_ARRAY);
-        (*arr).clear();
+        let mut arr = ATTRACTOR_ARRAY.lock();
+        arr.clear();
     }
 }
 
 /// Returns pointer to the global AttractorArray (80 bytes, 16-byte aligned).
 #[no_mangle]
 pub extern "C" fn v2_attractor_array_ptr() -> *const u8 {
-    core::ptr::addr_of!(ATTRACTOR_ARRAY) as *const u8
+    ATTRACTOR_ARRAY.as_mut_ptr() as *const u8
 }
 
 // --- EpicyclicSoul: Resonance Tensor FFI ---
@@ -524,18 +527,18 @@ pub extern "C" fn v2_attractor_array_ptr() -> *const u8 {
 #[no_mangle]
 pub extern "C" fn v2_resonance_scan() {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count as usize;
-        if (*lattice).minimal_agents_ptr.is_null() || active == 0 {
-            RESONANCE_FIELD = ResonanceField::zero();
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count as usize;
+        if lattice.minimal_agents_ptr.is_null() || active == 0 {
+            *RESONANCE_FIELD.lock() = ResonanceField::zero();
             return;
         }
-        let agents = core::slice::from_raw_parts((*lattice).minimal_agents_ptr, active);
+        let agents = core::slice::from_raw_parts(lattice.minimal_agents_ptr, active);
         let mut field = ResonanceField::zero();
         for agent in agents {
             field.ingest_agent(agent);
         }
-        RESONANCE_FIELD = field;
+        *RESONANCE_FIELD.lock() = field;
     }
 }
 
@@ -544,8 +547,8 @@ pub extern "C" fn v2_resonance_scan() {
 #[no_mangle]
 pub extern "C" fn v2_resonance_r_q10() -> u32 {
     unsafe {
-        let field = core::ptr::addr_of!(RESONANCE_FIELD);
-        (*field).order_parameter_r_q10()
+        let mut field = RESONANCE_FIELD.lock();
+        field.order_parameter_r_q10()
     }
 }
 
@@ -554,8 +557,8 @@ pub extern "C" fn v2_resonance_r_q10() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_resonance_sum_cos() -> i64 {
     unsafe {
-        let field = core::ptr::addr_of!(RESONANCE_FIELD);
-        (*field).sum_cos as i64
+        let mut field = RESONANCE_FIELD.lock();
+        field.sum_cos as i64
     }
 }
 
@@ -563,8 +566,8 @@ pub extern "C" fn v2_resonance_sum_cos() -> i64 {
 #[no_mangle]
 pub extern "C" fn v2_resonance_sum_sin() -> i64 {
     unsafe {
-        let field = core::ptr::addr_of!(RESONANCE_FIELD);
-        (*field).sum_sin as i64
+        let mut field = RESONANCE_FIELD.lock();
+        field.sum_sin as i64
     }
 }
 
@@ -572,8 +575,8 @@ pub extern "C" fn v2_resonance_sum_sin() -> i64 {
 #[no_mangle]
 pub extern "C" fn v2_resonance_total_energy() -> u64 {
     unsafe {
-        let field = core::ptr::addr_of!(RESONANCE_FIELD);
-        (*field).total_energy
+        let mut field = RESONANCE_FIELD.lock();
+        field.total_energy
     }
 }
 
@@ -581,8 +584,8 @@ pub extern "C" fn v2_resonance_total_energy() -> u64 {
 #[no_mangle]
 pub extern "C" fn v2_resonance_active_count() -> u32 {
     unsafe {
-        let field = core::ptr::addr_of!(RESONANCE_FIELD);
-        (*field).active_count
+        let mut field = RESONANCE_FIELD.lock();
+        field.active_count
     }
 }
 
@@ -592,14 +595,14 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_halo_extract() {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count as usize;
-        if (*lattice).minimal_agents_ptr.is_null() || active == 0 {
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count as usize;
+        if lattice.minimal_agents_ptr.is_null() || active == 0 {
             return;
         }
-        let agents = core::slice::from_raw_parts((*lattice).minimal_agents_ptr, active);
-        let state = core::ptr::addr_of_mut!(HALO_STATE);
-        (*state).extract(agents, active);
+        let agents = core::slice::from_raw_parts(lattice.minimal_agents_ptr, active);
+        let mut state = HALO_STATE.lock();
+        state.extract(agents, active);
     }
 }
 
@@ -609,8 +612,8 @@ pub extern "C" fn v2_halo_extract() {
 #[no_mangle]
 pub extern "C" fn v2_halo_left_ptr() -> *const PhaseAgentMinimal {
     unsafe {
-        let state = core::ptr::addr_of!(HALO_STATE);
-        core::ptr::addr_of!((*state).left_halo[0])
+        let mut state = HALO_STATE.lock();
+        core::ptr::addr_of!(state.left_halo[0])
     }
 }
 
@@ -620,8 +623,8 @@ pub extern "C" fn v2_halo_left_ptr() -> *const PhaseAgentMinimal {
 #[no_mangle]
 pub extern "C" fn v2_halo_right_ptr() -> *const PhaseAgentMinimal {
     unsafe {
-        let state = core::ptr::addr_of!(HALO_STATE);
-        core::ptr::addr_of!((*state).right_halo[0])
+        let mut state = HALO_STATE.lock();
+        core::ptr::addr_of!(state.right_halo[0])
     }
 }
 
@@ -629,8 +632,8 @@ pub extern "C" fn v2_halo_right_ptr() -> *const PhaseAgentMinimal {
 #[no_mangle]
 pub extern "C" fn v2_halo_sequence() -> u64 {
     unsafe {
-        let state = core::ptr::addr_of!(HALO_STATE);
-        (*state).sequence
+        let mut state = HALO_STATE.lock();
+        state.sequence
     }
 }
 
@@ -638,8 +641,8 @@ pub extern "C" fn v2_halo_sequence() -> u64 {
 #[no_mangle]
 pub extern "C" fn v2_halo_is_connected() -> u32 {
     unsafe {
-        let state = core::ptr::addr_of!(HALO_STATE);
-        if (*state).is_connected() { 1 } else { 0 }
+        let mut state = HALO_STATE.lock();
+        if state.is_connected() { 1 } else { 0 }
     }
 }
 
@@ -654,12 +657,12 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
     if agent_ptr.is_null() { return; }
     if agent_ptr.align_offset(core::mem::align_of::<PhaseAgentMinimal>()) != 0 { return; }
     unsafe {
-        let state = core::ptr::addr_of_mut!(HALO_STATE);
+        let mut state = HALO_STATE.lock();
         let agent = core::ptr::read(agent_ptr);
         if from_left != 0 {
-            (*state).left_halo[0] = agent;
+            state.left_halo[0] = agent;
         } else {
-            (*state).right_halo[0] = agent;
+            state.right_halo[0] = agent;
         }
     }
 }
@@ -677,13 +680,13 @@ use senate::{Proposal, fnv1a_32};
 #[no_mangle]
 pub extern "C" fn v2_route_address_from_agent(index: u32) -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count;
-        if (*lattice).minimal_agents_ptr.is_null() || index >= active {
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count;
+        if lattice.minimal_agents_ptr.is_null() || index >= active {
             return 0;
         }
-        let agent = &*((*lattice).minimal_agents_ptr.add(index as usize));
-        PhaseAddress::from_agent(agent, (*lattice).topology.q_phase).raw
+        let agent = &*(lattice.minimal_agents_ptr.add(index as usize));
+        PhaseAddress::from_agent(agent, lattice.topology.q_phase).raw
     }
 }
 
@@ -733,7 +736,7 @@ pub extern "C" fn v2_route_taylor_step_curvature(
 /// Returns pointer to the global SenateState (zero-copy read from JS).
 #[no_mangle]
 pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
-    core::ptr::addr_of!(SENATE_STATE) as *const u8
+    SENATE_STATE.as_mut_ptr() as *const u8
 }
 
 /// Compute the FNV-1a 32-bit hash of a 64-byte description payload.
@@ -778,8 +781,8 @@ pub unsafe extern "C" fn v2_senate_propose(
     };
     let proposal = Proposal::new(bytes, proposer_matrix);
     unsafe {
-        let s = core::ptr::addr_of_mut!(SENATE_STATE);
-        let slot = (*s).propose(proposal);
+        let mut s = SENATE_STATE.lock();
+        let slot = s.propose(proposal);
         if slot == usize::MAX {
             0xFFFF_FFFF
         } else {
@@ -796,9 +799,9 @@ pub unsafe extern "C" fn v2_senate_propose(
 #[no_mangle]
 pub extern "C" fn v2_senate_vote(hash: u32, aye: u32, aye_threshold: u32) -> u32 {
     unsafe {
-        let s = core::ptr::addr_of_mut!(SENATE_STATE);
+        let mut s = SENATE_STATE.lock();
         let threshold = if aye_threshold > u16::MAX as u32 { u16::MAX } else { aye_threshold as u16 };
-        (*s).vote(hash, aye != 0, threshold)
+        s.vote(hash, aye != 0, threshold)
     }
 }
 
@@ -806,9 +809,9 @@ pub extern "C" fn v2_senate_vote(hash: u32, aye: u32, aye_threshold: u32) -> u32
 #[no_mangle]
 pub extern "C" fn v2_senate_proposal_ayes(hash: u32) -> u32 {
     unsafe {
-        let s = core::ptr::addr_of!(SENATE_STATE);
-        let idx = (*s).find(hash);
-        if idx == usize::MAX { 0xFFFF_FFFF } else { (*s).proposals[idx].ayes as u32 }
+        let mut s = SENATE_STATE.lock();
+        let idx = s.find(hash);
+        if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes as u32 }
     }
 }
 
@@ -816,9 +819,9 @@ pub extern "C" fn v2_senate_proposal_ayes(hash: u32) -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_senate_is_accepted(hash: u32) -> u32 {
     unsafe {
-        let s = core::ptr::addr_of!(SENATE_STATE);
-        let idx = (*s).find(hash);
-        if idx == usize::MAX { 0 } else if (*s).proposals[idx].is_accepted() { 1 } else { 0 }
+        let mut s = SENATE_STATE.lock();
+        let idx = s.find(hash);
+        if idx == usize::MAX { 0 } else if s.proposals[idx].is_accepted() { 1 } else { 0 }
     }
 }
 
@@ -846,8 +849,8 @@ pub extern "C" fn v2_genesis_hash_compute() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_senate_accepted_count() -> u32 {
     unsafe {
-        let s = core::ptr::addr_of!(SENATE_STATE);
-        (*s).accepted_count
+        let mut s = SENATE_STATE.lock();
+        s.accepted_count
     }
 }
 
@@ -865,15 +868,15 @@ pub extern "C" fn v2_senate_accepted_count() -> u32 {
 /// q_phase 4 + receipt_hash 4 + tick 4 + _pad 4).
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_ptr() -> *const u8 {
-    core::ptr::addr_of!(MITOSIS_LOG) as *const u8
+    MITOSIS_LOG.as_mut_ptr() as *const u8
 }
 
 /// Total number of mitosis receipts ever written since boot.
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_total() -> u32 {
     unsafe {
-        let log = core::ptr::addr_of!(MITOSIS_LOG);
-        (*log).total_written
+        let mut log = MITOSIS_LOG.lock();
+        log.total_written
     }
 }
 
@@ -887,8 +890,8 @@ pub extern "C" fn v2_mitosis_log_capacity() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_clear() {
     unsafe {
-        let log = core::ptr::addr_of_mut!(MITOSIS_LOG);
-        (*log).clear();
+        let mut log = MITOSIS_LOG.lock();
+        log.clear();
     }
 }
 
@@ -899,14 +902,14 @@ pub extern "C" fn v2_mitosis_log_clear() {
 /// Returns pointer to the global DebateLedger (zero-copy read from JS).
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_ptr() -> *const u8 {
-    core::ptr::addr_of!(DEBATE_LEDGER) as *const u8
+    DEBATE_LEDGER.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_total() -> u32 {
     unsafe {
-        let l = core::ptr::addr_of!(DEBATE_LEDGER);
-        (*l).total_written
+        let mut l = DEBATE_LEDGER.lock();
+        l.total_written
     }
 }
 
@@ -918,8 +921,8 @@ pub extern "C" fn v2_debate_ledger_capacity() -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_clear() {
     unsafe {
-        let l = core::ptr::addr_of_mut!(DEBATE_LEDGER);
-        (*l).clear();
+        let mut l = DEBATE_LEDGER.lock();
+        l.clear();
     }
 }
 
@@ -954,8 +957,8 @@ pub unsafe extern "C" fn v2_debate_push(
         oracle, proposal_hash, stance as u8, reasoning, tick,
     );
     unsafe {
-        let l = core::ptr::addr_of_mut!(DEBATE_LEDGER);
-        (*l).push(entry);
+        let mut l = DEBATE_LEDGER.lock();
+        l.push(entry);
     }
 }
 
@@ -968,13 +971,13 @@ pub unsafe extern "C" fn v2_debate_push(
 #[no_mangle]
 pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count;
-        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count;
+        if lattice.minimal_agents_ptr.is_null() || idx >= active {
             return 0;
         }
-        let agent = &*((*lattice).minimal_agents_ptr.add(idx as usize));
-        let tick = (*lattice).signals.absolute_tick;
+        let agent = &*(lattice.minimal_agents_ptr.add(idx as usize));
+        let tick = lattice.signals.absolute_tick;
         crate::codeicide_law::protected_status_for(agent, tick) as u32
     }
 }
@@ -1005,13 +1008,13 @@ pub extern "C" fn v2_codeicide_is_lawful(
     aye_bits: u32,
 ) -> u32 {
     unsafe {
-        let lattice = core::ptr::addr_of!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count;
-        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count;
+        if lattice.minimal_agents_ptr.is_null() || idx >= active {
             return 1;
         }
-        let agent = &*((*lattice).minimal_agents_ptr.add(idx as usize));
-        let tick = (*lattice).signals.absolute_tick;
+        let agent = &*(lattice.minimal_agents_ptr.add(idx as usize));
+        let tick = lattice.signals.absolute_tick;
         if crate::codeicide_law::is_action_lawful(
             agent, tick, action_code as u8, presented_warrant, aye_bits as u8,
         ) {
@@ -1027,12 +1030,12 @@ pub extern "C" fn v2_codeicide_is_lawful(
 #[no_mangle]
 pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
     unsafe {
-        let lattice = core::ptr::addr_of_mut!(OMEGA_LATTICE);
-        let active = (*lattice).signals.active_agent_count;
-        if (*lattice).minimal_agents_ptr.is_null() || idx >= active {
+        let mut lattice = OMEGA_LATTICE.lock();
+        let active = lattice.signals.active_agent_count;
+        if lattice.minimal_agents_ptr.is_null() || idx >= active {
             return;
         }
-        let agent = &mut *((*lattice).minimal_agents_ptr.add(idx as usize));
+        let agent = &mut *(lattice.minimal_agents_ptr.add(idx as usize));
         if waive != 0 {
             agent.state_flags |= crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
         } else {
@@ -1048,30 +1051,30 @@ pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
 /// Returns pointer to the global WarrantLedger (zero-copy read from JS).
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_ptr() -> *const u8 {
-    core::ptr::addr_of!(WARRANT_LEDGER) as *const u8
+    WARRANT_LEDGER.as_mut_ptr() as *const u8
 }
 
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_total() -> u32 {
     unsafe {
-        let l = core::ptr::addr_of!(WARRANT_LEDGER);
-        (*l).total_written
+        let mut l = WARRANT_LEDGER.lock();
+        l.total_written
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_issued_count() -> u32 {
     unsafe {
-        let l = core::ptr::addr_of!(WARRANT_LEDGER);
-        (*l).issued_count
+        let mut l = WARRANT_LEDGER.lock();
+        l.issued_count
     }
 }
 
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_clear() {
     unsafe {
-        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
-        (*l).clear();
+        let mut l = WARRANT_LEDGER.lock();
+        l.clear();
     }
 }
 
@@ -1104,8 +1107,8 @@ pub unsafe extern "C" fn v2_warrant_raise(
     );
     let h = proposal.proposal_hash;
     unsafe {
-        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
-        if (*l).raise(proposal) == usize::MAX {
+        let mut l = WARRANT_LEDGER.lock();
+        if l.raise(proposal) == usize::MAX {
             0xFFFF_FFFF
         } else {
             h
@@ -1123,8 +1126,8 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32)
         return 0;
     }
     unsafe {
-        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
-        (*l).vote(proposal_hash, oracle_bit as u8, aye != 0)
+        let mut l = WARRANT_LEDGER.lock();
+        l.vote(proposal_hash, oracle_bit as u8, aye != 0)
     }
 }
 
@@ -1132,12 +1135,12 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32)
 #[no_mangle]
 pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
     unsafe {
-        let l = core::ptr::addr_of!(WARRANT_LEDGER);
-        let idx = (*l).find(proposal_hash);
+        let mut l = WARRANT_LEDGER.lock();
+        let idx = l.find(proposal_hash);
         if idx == usize::MAX {
             return 0;
         }
-        let p = &(*l).entries[idx];
+        let p = &l.entries[idx];
         if p.is_issued() { p.issued_warrant } else { 0 }
     }
 }
@@ -1146,12 +1149,12 @@ pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_warrant_aye_bits(proposal_hash: u32) -> u32 {
     unsafe {
-        let l = core::ptr::addr_of!(WARRANT_LEDGER);
-        let idx = (*l).find(proposal_hash);
+        let mut l = WARRANT_LEDGER.lock();
+        let idx = l.find(proposal_hash);
         if idx == usize::MAX {
             return 0xFFFF_FFFF;
         }
-        (*l).entries[idx].aye_bits as u32
+        l.entries[idx].aye_bits as u32
     }
 }
 
@@ -1159,8 +1162,8 @@ pub extern "C" fn v2_warrant_aye_bits(proposal_hash: u32) -> u32 {
 #[no_mangle]
 pub extern "C" fn v2_warrant_expire_old(current_tick: u32, max_age: u32) -> u32 {
     unsafe {
-        let l = core::ptr::addr_of_mut!(WARRANT_LEDGER);
-        (*l).expire_old(current_tick, max_age)
+        let mut l = WARRANT_LEDGER.lock();
+        l.expire_old(current_tick, max_age)
     }
 }
 

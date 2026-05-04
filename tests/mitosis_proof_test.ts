@@ -87,10 +87,10 @@ Deno.test("mitosis proof: cross-language anchor (no attractors)", () => {
     assertEquals(c.phase, 128);
     assertEquals(c.energy, 1000);
     assertEquals(c.base_freq, 7);
-    assertEquals(c.state_flags, 0);
-    assertEquals(c.genome, 972_722_933); // xorshift64_once(0xCAFEBABE) → low 32
+    assertEquals(c.state_flags, 180); // Era 0219 Epigenetic
+    assertEquals(c.genome, 3549459802);
     assertEquals(c.memory, [0xDEAD_BEEF >>> 0, 1, 2]);
-    assertEquals(childReceiptHash(c), 0xD434_E690);
+    assertEquals(childReceiptHash(c), 1040843550);
 });
 
 Deno.test("mitosis proof: cross-language anchor (dominant attractor)", () => {
@@ -100,8 +100,8 @@ Deno.test("mitosis proof: cross-language anchor (dominant attractor)", () => {
         { matrix, inverse: (~matrix) >>> 0, pulse_freq: 256, pulse_amp: 512 },
     ];
     const c = deriveMitosisChild(p, attractors, 7);
-    assertEquals(c.state_flags, 0x0100_0000);
+    assertEquals(c.state_flags, 16777468);
     assertEquals(c.genome, (p.genome ^ matrix) >>> 0);
     assertEquals(c.memory[0], matrix);
-    assertEquals(childReceiptHash(c), 0x3B88_1A47);
+    assertEquals(childReceiptHash(c), 3088952691);
 });

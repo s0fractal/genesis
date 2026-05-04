@@ -139,7 +139,9 @@ export class RendererPipelines {
             this.useToroidalShader = false;
             console.log("🌌 [V2-WEBGPU] Mode: V2 (Mean Field + intents)");
             const ptrs = this.engine.getMemoryPointers();
-            this.device.queue.writeBuffer(buffers.sineLutBuffer, 0, ptrs.sineLutQ7Bytes);
+            if (buffers.sineLutBuffer) {
+                this.device.queue.writeBuffer(buffers.sineLutBuffer, 0, ptrs.sineLutBytes);
+            }
         }
     }
 }

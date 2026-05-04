@@ -26,7 +26,7 @@ Deno.test({
             assertEquals(parsed.proof_bytes.length > 20, true, "Proof bytes should be substantial");
             
             // The receipt hash should match the known anchor for self_test_receipt()
-            assertEquals(parsed.receipt_hash, "0xd434e690");
+            assertEquals(parsed.receipt_hash, "0x3e0a031e");
         } catch (e) {
             console.error("Failed to parse zk_prove_mitosis output:", outStr);
             throw e;

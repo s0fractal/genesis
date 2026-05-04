@@ -58,6 +58,10 @@ pub const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 /// Represents "1/8 of full period is a significant phase change".
 pub const DELTA_PHASE_DIVISOR: u32 = 8;
 /// Divisor for adaptive energy threshold: threshold = MAX_ATP / DIVISOR
+// --- Era 0218: Species Specialization ---
+/// ATP transferred from prey to predator per tick
+pub const PREDATOR_ENERGY_STEAL: u32 = 5;
+
 /// Represents "1/128 of max capacity is a significant energy change".
 pub const DELTA_ENERGY_DIVISOR: u32 = 128;
 

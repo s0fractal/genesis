@@ -75,13 +75,23 @@ export function deriveMitosisChild(
         memory0 = bestMatrix >>> 0;
         stateFlags = (parent.state_flags | BIRTH_NEAR_ATTRACTOR_FLAG) >>> 0;
     } else {
-        const seed = BigInt(parent.genome >>> 0);
-        const mutSeed = xorshift64Once(seed);
+        // Era 0219: Epigenetic Inheritance
+        // The parent's lived experience (memory) and stress (energy) alters the mutation vector.
+        const mem1 = BigInt(parent.memory[1] >>> 0) << 16n;
+        const mem2 = BigInt(parent.memory[2] >>> 0) << 32n;
+        const energy = BigInt(parent.energy >>> 0);
+        const epigeneticBase = BigInt(parent.genome >>> 0) ^ mem1 ^ mem2 ^ energy;
+        
+        const mutSeed = xorshift64Once(epigeneticBase);
         const mask = Number(mutSeed & 0xFFFF_FFFFn) >>> 0;
         genome = (parent.genome ^ mask) >>> 0;
         memory0 = parent.memory[0] >>> 0;
         stateFlags = parent.state_flags >>> 0;
     }
+
+    // Era 0218: Decode Species from Genome
+    const species = genome & 0x7F;
+    stateFlags = ((stateFlags & ~0xFE) | (species << 1)) >>> 0;
 
     return {
         phase: ((parent.phase + halfPhase) >>> 0) & 0xFFFF_FFFF,

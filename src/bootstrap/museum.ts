@@ -54,7 +54,7 @@ async function boot() {
     // Era 0202: Record adapter label if available
     try {
         if ('requestAdapterInfo' in adapter) {
-            const adapterInfo = await adapter.requestAdapterInfo();
+            const adapterInfo = await (adapter as any).requestAdapterInfo();
             adapterLabel = adapterInfo.vendor || adapterInfo.architecture || "WebGPU Adapter";
         }
     } catch (e) {
