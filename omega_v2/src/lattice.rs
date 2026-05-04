@@ -610,7 +610,7 @@ mod tests {
         agents[1].energy = 0;
         let reps = lattice.darwinian_mitosis();
         assert_eq!(reps, 1);
-        assert_eq!(agents[0].energy, 2000); // Parent lost 1000 ATP
+        assert_eq!(agents[0].energy, 1976); // Parent lost 1024 ATP (MAX_ATP / 4)
         assert!(agents[1].energy > 0);      // Child resurrected
     }
 

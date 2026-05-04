@@ -2,9 +2,12 @@
 //! All thresholds derived from first principles or explicitly documented.
 
 // --- Big Bang Initialization ---
+/// Maximum ATP capacity (agent energy cap) - Base for derivations
+pub const MAX_ATP: u32 = 4096;
+
 /// Energy range for new agents: [BB_ENERGY_BASE, BB_ENERGY_BASE + BB_ENERGY_RANGE)
-pub const BB_ENERGY_RANGE: u32 = 900;
-pub const BB_ENERGY_BASE: u32 = 100;
+pub const BB_ENERGY_RANGE: u32 = MAX_ATP / 4; // 1024
+pub const BB_ENERGY_BASE: u32 = MAX_ATP / 32; // 128
 
 /// Base frequency range in raw units: [-BB_FREQ_OFFSET, BB_FREQ_OFFSET)
 pub const BB_FREQ_RANGE: u32 = 4000;
@@ -14,21 +17,19 @@ pub const BB_FREQ_Q_SCALE: i32 = 1024;
 
 // --- Darwinian Mitosis ---
 /// Minimum ATP required for a cell to undergo mitosis
-pub const MITOSIS_THRESHOLD: u32 = 2000;
+pub const MITOSIS_THRESHOLD: u32 = MAX_ATP / 2; // 2048
 /// ATP cost deducted from parent during replication
-pub const MITOSIS_COST: u32 = 1000;
+pub const MITOSIS_COST: u32 = MAX_ATP / 4; // 1024
 /// Initial ATP granted to the child cell
-pub const CHILD_ENERGY_SEED: u32 = 1000;
+pub const CHILD_ENERGY_SEED: u32 = MAX_ATP / 4; // 1024
 
 // --- PoUW ZK-VM Evaluator ---
-/// Maximum ATP capacity (agent energy cap)
-pub const MAX_ATP: u32 = 4000;
 /// Phase mask for 8-bit phase resolution (0-255)
 pub const PHASE_MASK_8BIT: u32 = 255;
 /// Resonance phase modulus: 1/4 of 8-bit period
 pub const RESONANCE_PHASE_MODULUS: u32 = 64;
 /// ATP replenishment on resonance alignment
-pub const RESONANCE_ATP_BONUS: i32 = 150;
+pub const RESONANCE_ATP_BONUS: i32 = (MAX_ATP / 32) as i32; // 128
 /// Metabolic burn divisor: complexity scaling
 pub const METABOLIC_BURN_DIVISOR: u32 = 4;
 /// Baseline metabolic cost (minimum burn per tick)
@@ -60,7 +61,7 @@ pub const DELTA_PHASE_DIVISOR: u32 = 8;
 /// Divisor for adaptive energy threshold: threshold = MAX_ATP / DIVISOR
 // --- Era 0218: Species Specialization ---
 /// ATP transferred from prey to predator per tick
-pub const PREDATOR_ENERGY_STEAL: u32 = 5;
+pub const PREDATOR_ENERGY_STEAL: u32 = (MAX_ATP / 1024) + 1; // 5
 
 /// Represents "1/128 of max capacity is a significant energy change".
 pub const DELTA_ENERGY_DIVISOR: u32 = 128;

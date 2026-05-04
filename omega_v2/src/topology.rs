@@ -130,7 +130,7 @@ impl PhaseTopology {
 
     /// HIGH-2 FIX: Adaptive energy delta threshold derived from energy scale.
     /// threshold = max(1, MAX_ATP / DELTA_ENERGY_DIVISOR)
-    /// With MAX_ATP=4000: threshold = 31.
+    /// With MAX_ATP=4096: threshold = 32.
     #[inline(always)]
     pub fn delta_energy_threshold(&self) -> u32 {
         core::cmp::max(1, crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR)
@@ -159,8 +159,8 @@ mod tests {
     #[test]
     fn test_delta_energy_threshold_constant() {
         let t = PhaseTopology::new(7, 7, 7, 20);
-        // MAX_ATP=4000, DIVISOR=128 -> 4000/128 = 31
-        assert_eq!(t.delta_energy_threshold(), 31, "Energy threshold should be MAX_ATP/DIVISOR");
+        // MAX_ATP=4096, DIVISOR=128 -> 4096/128 = 32
+        assert_eq!(t.delta_energy_threshold(), 32, "Energy threshold should be MAX_ATP/DIVISOR");
     }
 
     #[test]

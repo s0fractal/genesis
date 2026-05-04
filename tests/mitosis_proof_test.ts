@@ -85,7 +85,7 @@ Deno.test("mitosis proof: cross-language anchor (no attractors)", async () => {
     const p = parent();
     const c = deriveMitosisChild(p, [], 7);
     assertEquals(c.phase, 128);
-    assertEquals(c.energy, 1000);
+    assertEquals(c.energy, 1024);
     assertEquals(c.base_freq, 7);
     assertEquals(c.state_flags, 180); // Era 0219 Epigenetic
     assertEquals(c.genome, 3549459802);

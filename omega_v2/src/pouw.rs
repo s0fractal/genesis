@@ -137,7 +137,7 @@ mod tests {
             3,           // stressor seed 3 → no opcodes in ticks 0..4
             5,
         );
-        // tick0: phase=0, resonance +150, burn -9 → cap 4000
+        // tick0: phase=0, resonance +128, burn -9 → cap 4096
         // tick1: phase=1, burn -9 → 3991
         // tick2: phase=2, burn -9 → 3982
         // tick3: phase=3, burn -9 → 3973
@@ -194,8 +194,8 @@ mod tests {
             0,           // no stressors
             100,
         );
-        // Burn = 1 per tick. Resonance = +150 per tick.
-        // Net = +149 per tick. Should cap at MAX_ATP = 4000.
+        // Burn = 1 per tick. Resonance = +128 per tick.
+        // Net = +127 per tick. Should cap at MAX_ATP = 4096.
         assert_eq!(energy, crate::constants::MAX_ATP, "Agent should cap at MAX_ATP with continuous resonance");
     }
 }

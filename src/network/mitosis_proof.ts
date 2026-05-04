@@ -26,7 +26,7 @@ export interface AttractorEntry {
     pulse_amp: number;  // u32
 }
 
-export const CHILD_ENERGY_SEED = 1000;
+export const CHILD_ENERGY_SEED = 1024;
 export const BIRTH_NEAR_ATTRACTOR_FLAG = 0x0100_0000;
 
 /** Mirror of omega_v2::math::xorshift64_once (single-step variant). */

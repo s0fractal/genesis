@@ -415,14 +415,14 @@ fn compute_main(
 
     // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
     if (new_phase % 64u == 0u) {
-        metabolic_delta += 150; 
+        metabolic_delta += 128; 
     }
     
     let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;
     var new_energy: u32 = 0u;
     if (new_energy_calc > 0) {
         new_energy = u32(new_energy_calc);
-        if (new_energy > 4000u) { new_energy = 4000u; } // Maximum ATP Capacity
+        if (new_energy > 4096u) { new_energy = 4096u; } // Maximum ATP Capacity
     }
 
     // 5. ERA 2000: NEURAL CELLULAR AUTOMATA (NCA) -> ERA 5000: QCD Stability
@@ -464,7 +464,7 @@ fn compute_main(
                     new_mem_z = 0u; // Consume packet
                 } else if (opcode == 2u) {
                     // Opcode 2: Somatic Burst (Forced Mitosis prep)
-                    new_energy = 4000u; // Immediate peak ATP
+                    new_energy = 4096u; // Immediate peak ATP
                     new_mem_z = 0u;
                 } else if (opcode == 3u) {
                     // Opcode 3: Neural Paralysis (Deep Freeze)
