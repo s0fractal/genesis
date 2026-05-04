@@ -1,0 +1,6 @@
+@@ -345,2 +345,5 @@
+                     let drift = (agent.base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
++                    if i == 0 {
++                        println!("CPU Agent 0 tick: stress={} mult={} burn={} extra_burn={} coupling={} diff={} drift={}", thermodynamic_stress, time_dilation_multiplier, burn, extra_burn, coupling, energy_diffusion, drift);
++                    }
+ 

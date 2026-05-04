@@ -333,13 +333,13 @@ impl PhaseLattice {
                     energy_delta += energy_diffusion;
 
                     // Philosophy Vector 3: Relativistic Chronotopology (Time Dilation)
-                    let thermodynamic_stress = (coupling.abs() + energy_diffusion.abs()) as u32;
+                    let thermodynamic_stress = coupling.abs() + energy_diffusion.abs();
                     let time_dilation_multiplier = 1 + core::cmp::min(
-                        thermodynamic_stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
+                        (thermodynamic_stress as u32) / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
                         crate::constants::MAX_TIME_DILATION - 1
                     );
 
-                    // Apply time dilation to the burn penalty
+                    // Apply time dilation to the burn penalty (since base `burn` was already subtracted once)
                     let extra_burn = burn * (time_dilation_multiplier - 1);
                     energy_delta -= extra_burn as i32;
 
@@ -352,7 +352,7 @@ impl PhaseLattice {
                     let mut attractor_drift = 0i32;
                     if !self.attractors_ptr.is_null() {
                         let arr = &*self.attractors_ptr;
-                        let attractor_count = core::cmp::min(arr.count, 4) as usize;
+                        let attractor_count = core::cmp::min(arr.count as usize, 4);
                         for j in 0..attractor_count {
                             attractor_drift += arr.data[j].drift_contribution(agent.phase, &self.topology);
                         }
@@ -362,7 +362,7 @@ impl PhaseLattice {
                     let drift = (agent.base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
-                    // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
+                    // The Dipole Invariant: Exactly refund the dilated metabolic burn accumulated over the phase cycle.
                     if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
                         let dipole_bonus = burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
                         agent.energy = (agent.energy as u64 + dipole_bonus as u64)

@@ -7,6 +7,7 @@ export interface WasmExports {
     v2_route_address_from_agent?: (index: number) => number;
     v2_route_hyperbolic_distance?: (a: number, b: number) => number;
     v2_route_hyperbolic_distance_toroidal?: (a: number, b: number) => number;
+    v2_route_hyperbolic_distance_3d?: (a: number, tau_a: number, b: number, tau_b: number) => number;
     v2_route_taylor_step?: (src: number, dst: number, maxStep: number) => number;
     v2_route_taylor_step_curvature?: (src: number, dst: number, maxStep: number, curv: number) => number;
     v2_validate_dipole?: (matrix: number, inverse: number) => number;
@@ -62,6 +63,20 @@ export class PhaseRouter {
         const fn = this.exports.v2_route_hyperbolic_distance_toroidal;
         if (!fn) return PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
         return fn(a, b);
+    }
+
+    /**
+     * Era 2060: 3D Toroidal hyperbolic distance (with Time Curvature penalty). Scaled ×8.
+     */
+    hyperbolicDistanceToroidal3D(a: PhaseAddress, tauA: number, b: PhaseAddress, tauB: number): number {
+        const fn = this.exports.v2_route_hyperbolic_distance_3d;
+        if (!fn) {
+            const baseDist = PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
+            const tauDiff = Math.abs(tauA - tauB);
+            const penalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
+            return baseDist + penalty;
+        }
+        return fn(a, tauA, b, tauB);
     }
 
     /**

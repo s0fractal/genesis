@@ -69,6 +69,8 @@ const Q10_SCALE: i32 = 1024;
 const LANDAUER_BIT_COST: u32 = 1u;
 const STRUCTURAL_MAINTENANCE_DIVISOR: u32 = 8u;
 const RESONANCE_PHASE_MODULUS: u32 = 64u;
+const CHRONOTOPOLOGY_STRESS_DIVISOR: u32 = 32u;
+const MAX_TIME_DILATION: u32 = 8u;
 const MAX_ATP: u32 = 4096u;
 const HEBBIAN_DEFAULT_WEIGHT: i32 = 1024;
 const HEBBIAN_MAX_WEIGHT: i32 = 4096;
@@ -216,33 +218,39 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
         energy_delta += energy_diffusion;
 
+        // Philosophy Vector 3: Relativistic Chronotopology (Time Dilation)
+        let thermodynamic_stress = u32(abs(coupling)) + u32(abs(energy_diffusion));
+        var time_dilation_multiplier = 1u + (thermodynamic_stress / CHRONOTOPOLOGY_STRESS_DIVISOR);
+        if (time_dilation_multiplier > MAX_TIME_DILATION) {
+            time_dilation_multiplier = MAX_TIME_DILATION;
+        }
+
+        let extra_burn = burn * (time_dilation_multiplier - 1u);
+        energy_delta -= i32(extra_burn);
+
         var new_energy: u32 = 0u;
         if (energy_delta < 0i) {
             let abs_delta = u32(abs(energy_delta));
-            if (agent.energy > abs_delta) {
-                new_energy = agent.energy - abs_delta;
-            } else {
-                new_energy = 0u;
-            }
+            if (agent.energy > abs_delta) { new_energy = agent.energy - abs_delta; }
         } else {
             new_energy = agent.energy + u32(energy_delta);
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 
-        // --- 4. Phase drift (base_freq Q20 + coupling + attractor field) ---
+        // --- 4. Cosmic Attractor Navigation (Era 1010) ---
         var attractor_drift: i32 = 0i;
-        for (var i = 0u; i < attractor_array.count; i = i + 1u) {
-            let a = attractor_array.data[i];
+        for (var j = 0u; j < attractor_array.count; j = j + 1u) {
+            let a = attractor_array.data[j];
             let index = (a.matrix - agent.phase) & 0xFFu;
             let sin_val = sine_lut[index];
             attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
         }
-        let drift = agent.base_freq + coupling + attractor_drift;
+        let drift = (agent.base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         if (new_phase % RESONANCE_PHASE_MODULUS == 0u && new_energy > 0u) {
-            new_energy = new_energy + (burn * RESONANCE_PHASE_MODULUS);
+            new_energy = new_energy + (burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS);
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 

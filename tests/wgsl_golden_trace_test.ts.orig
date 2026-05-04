@@ -9,7 +9,7 @@ const computeToroidalSrc = await Deno.readTextFile("src/lens/shaders/compute_tor
 const gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator;
 
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
-    const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
+    const bytes = await Deno.readFile("dist/v2/omega_v2_core.wasm");
     const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
     return instance;
 }

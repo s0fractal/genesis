@@ -1,5 +1,6 @@
 
 import { fnv1a_64 } from "@wasm";
+import { CompostEvent } from "../liquid/compost_consumer.ts";
 
 export class SemanticCoupler {
     private injector: IPerturbationInjector;
@@ -32,7 +33,32 @@ export class SemanticCoupler {
         
         // Inject the conceptual perturbation into the lock-free shared physical reality
         // In Ontology 11, we inject the raw Hash array as an 8-byte Plasmid Memory structure
-        this.injector["inject"](x, y, energy, radius, phaseShift, hashBytes);
+        this.injector.inject(x, y, energy, radius, phaseShift, hashBytes);
         console.log(`[Σ³] Projected Plasmid '${intent}' -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
+    }
+
+    // Era 2060: Injects the semantic feedback of a deceased agent's compost into the lattice
+    public projectCompost(event: CompostEvent) {
+        // 1. Hash the deceased agent's genome to map it to a topological resonance
+        const hash_u64 = fnv1a_64(event.genome.toString(16));
+        
+        // 2. Map BigInt 64-bit into Little-Endian Uint8Array
+        const view = new DataView(new ArrayBuffer(8));
+        view.setBigUint64(0, hash_u64, true); 
+        const hashBytes = new Uint8Array(view.buffer);
+        
+        // 3. Derive spatial coordinates from the hash resonance
+        const x = (hashBytes[0] ^ hashBytes[1]) % 256;
+        const y = (hashBytes[2] ^ hashBytes[3]) % 256;
+        
+        // 4. Energy at death determines the magnitude of the semantic perturbation
+        const energy = Math.min((event.energy_at_death || 100) * 2, 60000);
+        const radius = (hashBytes[5] & 0x0F) + 2; // Tighter radius for compost
+        
+        // 5. Phase shift aligned with the moment of death
+        const phaseShift = event.phase & 0xFF;
+        
+        this.injector.inject(x, y, energy, radius, phaseShift, hashBytes);
+        console.log(`[Σ³] Projected Compost (ID:${event.agent_id}) -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Genome=0x${event.genome.toString(16).toUpperCase()}`);
     }
 }

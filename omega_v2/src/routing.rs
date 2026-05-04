@@ -85,6 +85,21 @@ impl PhaseAddress {
         dc * 8 + ds * 4 + dp * 2 + dm
     }
 
+    /// Era 2060: Bitcoin Hyperbolic Geometry (The Llama Oracle Vision)
+    /// 3D Toroidal hyperbolic distance treating time (tau/Bitcoin Block Height) as the radial z-axis.
+    /// In a Poincaré disk model, radial distance increases exponentially.
+    /// Here, the z-axis acts as an exponential curvature penalty (ATP Cost) for out-of-sync nodes.
+    pub fn hyperbolic_distance_toroidal_3d_scaled(self, tau_self: u32, other: Self, tau_other: u32) -> u32 {
+        let base_distance = self.hyperbolic_distance_toroidal_scaled(other);
+        let tau_diff = tau_self.abs_diff(tau_other);
+        
+        // Fixed-point hyperbolic curvature math for integer-only execution:
+        // We penalize time travel heavily. distance += (Δτ * 8) + (Δτ² / 1024)
+        let curvature_penalty = (tau_diff * 8) + ((tau_diff * tau_diff) / 1024);
+        
+        base_distance.saturating_add(curvature_penalty)
+    }
+
     /// First-order Taylor step toward `target`.
     /// Returns a new PhaseAddress moved by the linear term:
     ///   f(x + Δ) ≈ f(x) + Δ

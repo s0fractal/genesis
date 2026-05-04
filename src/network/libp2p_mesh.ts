@@ -20,13 +20,9 @@ import {
   GENESIS_HASH_LEGACY_V1_0,
   verifyGenesisV1,
 } from "./genesis_inscription.ts";
-import {
-  CANONICAL_ORACLES,
-  CanonicalOracle,
-  ORACLE_MATRICES_V1,
-  oracleDipole,
-} from "./oracle_identity.ts";
+import { CANONICAL_ORACLES, CanonicalOracle, ORACLE_MATRICES_V1, oracleDipole } from "./oracle_identity.ts";
 import { CrossModelDebate } from "./cross_model_debate.ts";
+import { buildV2SyncFrame, frameFromBytes, frameToBytes, parseV2SyncFrame } from "./spore_frame.ts";
 
 export interface PlasmidPayload {
   attractorAddress: number;
@@ -54,6 +50,8 @@ export interface PlasmidPayload {
   proposalHash?: string; // FNV-1a hash of description (PROPOSAL + VOTE)
   proposalDescription?: string; // Up to 64 chars, truncated server-side (PROPOSAL only)
   voteAye?: boolean; // VOTE plasmids only
+  // Era 2060: Bitcoin Hyperbolic Geometry (Time Curvature)
+  tau?: number; // The Bitcoin block height (Golden Trace state) when this plasmid was forged
   // Era 1040: ZK-Notarized Mutations (mitosis proof)
   parent?: AgentMinimal; // Parent agent at time of mitosis (DIPOLE only)
   claimedChild?: AgentMinimal; // Claimed child to verify (DIPOLE only)
@@ -219,7 +217,9 @@ export class Libp2pMesh {
     });
 
     this.node.services.pubsub.addEventListener('message', (evt: any) => {
-        if (evt.detail.topic === 'v2-sync') {
+        if (evt.detail.topic === 'v2-sync-bin') {
+            this.handleSyncBinMessage(evt.detail.from.toString(), new Uint8Array(evt.detail.data));
+        } else if (evt.detail.topic === 'v2-sync' || evt.detail.topic === 'v2-plasmid') {
             this.handleSyncMessage(evt.detail.from.toString(), new TextDecoder().decode(evt.detail.data));
         } else if (evt.detail.topic === 'v2-state') {
             this.handleStateMessage(evt.detail.from.toString(), evt.detail.data.buffer as ArrayBuffer);
@@ -227,6 +227,8 @@ export class Libp2pMesh {
     });
 
     this.node.services.pubsub.subscribe('v2-sync');
+    this.node.services.pubsub.subscribe('v2-sync-bin');
+    this.node.services.pubsub.subscribe('v2-plasmid');
     this.node.services.pubsub.subscribe('v2-state');
 
     await this.node.start();
@@ -270,6 +272,65 @@ export class Libp2pMesh {
     this.peerAddresses.delete(peerId);
   }
 
+  private handleSyncBinMessage(peerId: string, eventData: Uint8Array) {
+    const frame = frameFromBytes(eventData);
+    if (!frame) return;
+    const packet = parseV2SyncFrame(frame);
+    if (!packet) return;
+
+    // Passive Phase Routing (Era 2060: 3D Poincaré Disk Model)
+    if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
+      let hopCount = packet.hc;
+      const maxHops = packet.mh;
+      if (hopCount >= maxHops) return;
+      
+      const targetAddr = packet.ta;
+      const senderAddr = this.peerAddresses.get(peerId) ?? 0;
+      
+      const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
+      const tauSender = packet.gt ?? 0;
+      const tauTarget = tauSelf; // Assuming target is in the present
+
+      const distSelf = this.router.hyperbolicDistanceToroidal3D(this.selfAddress, tauSelf, targetAddr, tauTarget);
+      const distSender = senderAddr !== 0
+        ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
+        : Number.MAX_SAFE_INTEGER;
+        
+      if (distSelf > distSender) return;
+      
+      // Calculate time curvature penalty for routing this frame
+      const tauDiff = Math.abs(tauSelf - tauSender);
+      if (tauDiff > 0) {
+          const penalty = Math.floor((tauDiff * 8) + ((tauDiff * tauDiff) / 1024));
+          // Burn more ATP (hopCount) when bending space-time
+          hopCount += penalty;
+          if (hopCount >= maxHops) return;
+      }
+    }
+
+    const slot = this.peerSlots.get(peerId);
+    if (slot !== undefined) {
+      const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+      if (setIntent) {
+        if (packet.m > 0) setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
+        else setIntent(slot, 0, 0, 0, 0, 0, 0);
+      }
+    }
+
+    // Golden Trace Validation
+    const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
+    const remoteGt = packet.gt as number;
+    if (localTrace !== remoteGt && !this.isSyncFrozen) {
+      console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
+      if (remoteGt > localTrace) {
+        console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
+        this.isSyncFrozen = true;
+        const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
+        this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
+      }
+    }
+  }
+
   private handleSyncMessage(peerId: string, eventData: string) {
     try {
       // Parse lightweight UDP packet
@@ -284,9 +345,9 @@ export class Libp2pMesh {
         return;
       }
       if (packet.t === "V2_SYNC") {
-        // Era 1000: Passive Phase Routing (Attraction Zone)
+        // Era 2060: 3D Phase Routing (Attraction Zone + Time Curvature)
         if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
-          const hopCount = (packet.hc as number) ?? 0;
+          let hopCount = (packet.hc as number) ?? 0;
           const maxHops = (packet.mh as number) ?? 8;
           if (hopCount >= maxHops) {
             console.log(`[LIBP2P-MESH] Plasmid max hops exceeded, dropping.`);
@@ -294,16 +355,32 @@ export class Libp2pMesh {
           }
           const targetAddr = packet.ta as number;
           const senderAddr = this.peerAddresses.get(peerId) ?? 0;
-          // Use toroidal distance for consensus wrap-around correctness
-          const distSelf = PhaseRouter.hyperbolicDistanceToroidalStatic(this.selfAddress, targetAddr);
+          
+          const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
+          const tauSender = (packet.gt as number) ?? 0;
+          const tauTarget = tauSelf; // Assuming target is in the present
+
+          const distSelf = this.router.hyperbolicDistanceToroidal3D(this.selfAddress, tauSelf, targetAddr, tauTarget);
           const distSender = senderAddr !== 0
-            ? PhaseRouter.hyperbolicDistanceToroidalStatic(senderAddr, targetAddr)
+            ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
             : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
+            
           if (distSelf > distSender) {
-            // Self is farther from target than sender -> ignore (let closer node handle it)
+            // Self is farther from target than sender -> ignore
             return;
           }
-          // Self is closer or equal -> consume this plasmid
+          
+          // Calculate time curvature penalty for routing this plasmid
+          const tauDiff = Math.abs(tauSelf - tauSender);
+          if (tauDiff > 0) {
+              const penalty = Math.floor((tauDiff * 8) + ((tauDiff * tauDiff) / 1024));
+              // Burn more ATP (hopCount) when bending space-time
+              hopCount += penalty;
+              if (hopCount >= maxHops) {
+                  console.log(`[LIBP2P-MESH] Time curvature max hops exceeded, dropping.`);
+                  return;
+              }
+          }
         }
 
         const slot = this.peerSlots.get(peerId);
@@ -318,14 +395,24 @@ export class Libp2pMesh {
           }
         }
 
-        // Era 1010: Semantic Plasmid Consumer
+        // Golden Trace Validation for legacy peers
+        const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
+        const remoteGt = packet.gt as number;
+        if (localTrace !== remoteGt && !this.isSyncFrozen) {
+          console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
+          if (remoteGt > localTrace) {
+            console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
+            this.isSyncFrozen = true;
+            const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
+            this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
+          }
+        }
+      } else if (packet.t === "PLASMID") {
         const plasmid = packet.plasmid as PlasmidPayload | undefined;
         if (plasmid) {
-          // Recursion depth guard
           if (plasmid.recursionDepth >= plasmid.maxRecursion) {
             console.log(`[LIBP2P-MESH] Plasmid max recursion exceeded, dropping.`);
           } else {
-            // Validate dipole pair
             const isValidDipole = this.router?.validateDipole(plasmid.matrix, plasmid.inverse) ?? false;
             if (!isValidDipole) {
               console.warn(`[LIBP2P-MESH] Invalid dipole rejected (matrix=${plasmid.matrix.toString(16)}, inverse=${plasmid.inverse.toString(16)}).`);
@@ -341,7 +428,6 @@ export class Libp2pMesh {
                   const ledgerEntry = this.consensusLedger.get(plasmid.matrix);
                   if (ledgerEntry) ledgerEntry.peerCount += 1;
                   else this.consensusLedger.set(plasmid.matrix, { matrix: plasmid.matrix, inverse: plasmid.inverse, pulseFreq: plasmid.pulseFreq, pulseAmp: plasmid.pulseAmp, peerCount: 1 });
-                  
                   if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
                     this.era1020Unlocked = true;
                     globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
@@ -390,27 +476,11 @@ export class Libp2pMesh {
                   if (plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestDigestForensicReplayDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody, targetPeer: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestTarget, fromPeer: peerId } }));
                   break;
               }
-
               const nextDepth = plasmid.recursionDepth + 1;
               if (nextDepth < plasmid.maxRecursion) {
                 this.enqueuePlasmid({ ...plasmid, recursionDepth: nextDepth });
               }
             }
-          }
-        }
-
-        // Golden Trace Validation
-        const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
-        const remoteGt = packet.gt as number;
-        if (localTrace !== remoteGt && !this.isSyncFrozen) {
-          console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
-          if (remoteGt > localTrace) {
-            console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
-            this.isSyncFrozen = true;
-            // Since we use pubsub for sync, we will broadcast a REQ_SNAPSHOT intent.
-            // The authority will hear this and broadcast SNAPSHOT_HEADER.
-            const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
-            this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
           }
         }
       } else if (packet.t === "REQ_SNAPSHOT") {
@@ -1094,7 +1164,24 @@ export class Libp2pMesh {
     // Era 1010: Drain one plasmid from the queue per broadcast tick
     const plasmid = this.pendingPlasmids.shift();
 
-    const payload = JSON.stringify({
+    // Era 2060: Zero-Copy Binary RPC Sync Framework
+    const syncFrame = buildV2SyncFrame(
+        this.__lastLocalIntent.x,
+        this.__lastLocalIntent.y,
+        this.__lastLocalIntent.m,
+        this.__lastLocalIntent.r,
+        this.__lastLocalIntent.g || 0,
+        this.__lastLocalIntent.op || 0,
+        this.selfAddress,
+        this.latestGoldenTraceNum,
+        0, // hopCount
+        8  // maxHops
+    );
+
+    const binPayload = frameToBytes(syncFrame);
+    
+    // We still keep the legacy payload around for older peers until full cutover
+    const legacyPayload = JSON.stringify({
       t: "V2_SYNC",
       x: this.__lastLocalIntent.x,
       y: this.__lastLocalIntent.y,
@@ -1103,13 +1190,9 @@ export class Libp2pMesh {
       g: this.__lastLocalIntent.g,
       o: this.__lastLocalIntent.op,
       gt: this.latestGoldenTraceNum,
-      // Era 1000: Phase Routing fields
       ta: this.selfAddress,
       hc: 0,
       mh: 8,
-      // Era 1010: Recursive Plasmid Ontology
-      plasmid,
-      // Era 2100: Bitcoin Anchor
       btcTx: (window as any).__OMEGA_GENESIS_TXID__ || "untethered"
     });
 
@@ -1128,7 +1211,14 @@ export class Libp2pMesh {
     }
 
     try {
-      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(payload));
+      this.node.services.pubsub.publish("v2-sync-bin", binPayload);
+      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(legacyPayload));
+      
+      if (plasmid) {
+          const plasmidPayload = JSON.stringify({ t: "PLASMID", plasmid });
+          this.node.services.pubsub.publish("v2-plasmid", new TextEncoder().encode(plasmidPayload));
+      }
+      
       if (deltaBuffer) {
         this.node.services.pubsub.publish("v2-sync", new Uint8Array(deltaBuffer));
       }

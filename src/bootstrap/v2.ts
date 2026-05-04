@@ -9,6 +9,8 @@ import { PhaseRouter } from "../network/routing_bridge.ts";
 import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
+import { CompostConsumer } from "../liquid/compost_consumer.ts";
+import { SemanticCoupler } from "../ontology/semantic_layer.ts";
 import {
     createTranslationPolicyHudHook,
     TranslationPolicyTelemetrySource,
@@ -144,6 +146,26 @@ export async function bootstrapV2() {
             const decoded = PhaseRouter.decode(addr0);
             console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
         }
+
+        // Era 2060: Liquid Autopoiesis
+        const injector: IPerturbationInjector = {
+            inject: (x, y, energy, radius, phaseShift, plasmidBytes) => {
+                const setIntent = engine.wasm?.exports.v2_set_intent as CallableFunction;
+                if (setIntent) {
+                    let g = 0;
+                    let o = 0;
+                    if (plasmidBytes.length >= 8) {
+                        const view = new DataView(plasmidBytes.buffer, plasmidBytes.byteOffset, plasmidBytes.byteLength);
+                        g = view.getUint32(0, true);
+                        o = view.getUint32(4, true);
+                    }
+                    // Slot 3 is dedicated to Liquid Ontology semantic injections
+                    setIntent(3, x, y, energy, radius, g, o);
+                }
+            }
+        };
+        const semanticCoupler = new SemanticCoupler(injector);
+        const compostConsumer = new CompostConsumer(engine);
 
         // Era 2100: Bitcoin Genesis Verification
         const genesisTxid = (window as any).__OMEGA_GENESIS_TXID__;
@@ -558,6 +580,13 @@ ${debateMd || "(no recorded arguments)"}
                     // package each birth as a fully-verifiable DIPOLE plasmid (parent
                     // snapshot + claimed child + attractor field + receipt hash).
                     const ptrs = engine.getMemoryPointers();
+                    
+                    // Era 2060: Drain the dead agents (Compost) from PhiMessageBuffer
+                    const compostEvents = compostConsumer.harvest();
+                    for (const event of compostEvents) {
+                        semanticCoupler.projectCompost(event);
+                    }
+
                     let birthCount = 0;
                     if (ptrs.mitosisLogBytes) {
                         const { receipts, nowSeen } = drainMitosisLog(ptrs.mitosisLogBytes, lastMitosisSeen);

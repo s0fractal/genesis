@@ -23,6 +23,7 @@ export const FRAME_TYPE_EVENT_HASH_LIST = 9;
 export const FRAME_TYPE_EVENT_DELTA_CHUNK = 10;
 export const FRAME_TYPE_EVENT_HASH_REQUEST = 11;
 export const FRAME_TYPE_EVENT_HASH_RESPONSE = 12;
+export const FRAME_TYPE_V2_SYNC = 13;
 
 export interface SporeFrame {
     magic: number;
@@ -222,6 +223,58 @@ export function buildQuorumVerdict(
     f.tick = windowEndMsLow32 >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;
+}
+
+/** Era 2060: Zero-Copy Binary RPC. Packs v2-sync state into a SporeFrame. */
+export function buildV2SyncFrame(
+    x: number, y: number, m: number, r: number, g: number, o: number,
+    ta: number, gt: number, hc: number, mh: number
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_V2_SYNC;
+    
+    // pack x and y into oracleBit and highest byte of payloadA
+    f.oracleBit = x & 0xFF;
+    const y_clamped = y & 0xFF;
+    const r_clamped = r & 0xFF;
+    
+    // payloadA: [y:8 | r:8 | m:16 (energy/magnitude)]
+    f.payloadA = ((y_clamped << 24) | (r_clamped << 16) | (m & 0xFFFF)) >>> 0;
+    
+    // payloadB: g (genome/matrix)
+    f.payloadB = g >>> 0;
+    
+    // payloadC: o (op/inverse)
+    f.payloadC = o >>> 0;
+    
+    // proposalOrTarget: ta (target address)
+    f.proposalOrTarget = ta >>> 0;
+    
+    // tick: gt (golden trace)
+    f.tick = gt >>> 0;
+    
+    // reserved: [hc:8 | mh:8 | 0:16]
+    f.reserved = (((hc & 0xFF) << 24) | ((mh & 0xFF) << 16)) >>> 0;
+    
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Decodes a V2_SYNC frame back into an object */
+export function parseV2SyncFrame(f: SporeFrame) {
+    if (f.frameType !== FRAME_TYPE_V2_SYNC) return null;
+    return {
+        x: f.oracleBit,
+        y: (f.payloadA >>> 24) & 0xFF,
+        r: (f.payloadA >>> 16) & 0xFF,
+        m: f.payloadA & 0xFFFF,
+        g: f.payloadB,
+        o: f.payloadC,
+        ta: f.proposalOrTarget,
+        gt: f.tick,
+        hc: (f.reserved >>> 24) & 0xFF,
+        mh: (f.reserved >>> 16) & 0xFF,
+    };
 }
 
 /** Find the magic bytes 0x4F 0x46 in a streaming buffer. */

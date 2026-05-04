@@ -1,0 +1,10 @@
+@@ -29,6 +29,9 @@
+             imports.env = {
+                 memory: memory,
++                v2_log: (v: number) => {
++                    console.log(`[WASM v2_log] ${v}`);
++                },
+                 setHudStat: () => {},
+                 onEpochComplete: () => {}
+             };
+ 

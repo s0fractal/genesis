@@ -729,6 +729,14 @@ pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, b_raw: u32) 
     a.hyperbolic_distance_toroidal_scaled(b)
 }
 
+/// Era 2060: 3D Toroidal hyperbolic distance with Time (Z-axis). Scaled ×8.
+#[no_mangle]
+pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, tau_a: u32, b_raw: u32, tau_b: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw);
+    let b = PhaseAddress::from_raw(b_raw);
+    a.hyperbolic_distance_toroidal_3d_scaled(tau_a, b, tau_b)
+}
+
 /// First-order Taylor step from `src_raw` toward `dst_raw`, clamped to `max_step` per level.
 #[no_mangle]
 pub extern "C" fn v2_route_taylor_step(src_raw: u32, dst_raw: u32, max_step: u8) -> u32 {
