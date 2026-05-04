@@ -23,7 +23,7 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
 
     // Read uniform signals
     const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
-    const signalsView = new DataView(memory.buffer, latticePtr + 16, 16);
+    const signalsView = new DataView(memory.buffer, latticePtr + 32, 32);
     const signals = SignalStoreParser.parse(signalsView, 0);
     
     assertEquals(signals.activeAgentCount, AGENT_COUNT, "SignalStoreParser should correctly extract active agent count");

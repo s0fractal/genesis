@@ -9,7 +9,7 @@
 import { measureHardwareEnvironment, QTopology } from "./environmental_vector.ts";
 
 const PHASE_AGENT_MINIMAL_BYTES = 32;
-const LATTICE_UNIFORM_SIZE = 160;
+const LATTICE_UNIFORM_SIZE = 192;
 const DELTA_BUFFER_BYTES = 6400 * 16;
 const ATTRACTOR_ARRAY_BYTES = 80;
 const MITOSIS_LOG_HEADER = 16;

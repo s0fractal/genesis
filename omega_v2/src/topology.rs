@@ -40,6 +40,11 @@ pub struct PhaseTopology {
 
     /// Era 3000: Bitcoin UTXO Weather Multiplier in Q10 (1024 = 1.0x)
     pub weather_multiplier: u32,
+    
+    // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
+    pub _pad1: u32,
+    pub _pad2: u32,
+    pub _pad3: u32,
 }
 
 impl PhaseTopology {
@@ -55,6 +60,9 @@ impl PhaseTopology {
             q_radial,
             q_math,
             weather_multiplier: 1024,
+            _pad1: 0,
+            _pad2: 0,
+            _pad3: 0,
         }
     }
 

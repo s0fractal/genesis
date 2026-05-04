@@ -503,7 +503,7 @@ ${debateMd || "(no recorded arguments)"}
             }
 
             const ptrs = engine.getMemoryPointers();
-            const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
+            const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
 
             // Era 1020: Display Ontology Consensus Progress

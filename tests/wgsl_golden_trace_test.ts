@@ -70,7 +70,7 @@ if (gpuAvailable) {
                 const lutQ10Ptr = (exports.v2_sine_lut_q10_ptr as CallableFunction)() as number;
                 const attractorPtr = (exports.v2_attractor_array_ptr as CallableFunction)() as number;
 
-                const uniformBytes = new Uint8Array(memory.buffer, latticePtr, 160);
+                const uniformBytes = new Uint8Array(memory.buffer, latticePtr, 192);
                 const agentBytes = new Uint8Array(memory.buffer, agentsPtr, AGENT_COUNT * 32);
                 const sineLutBytes = new Int32Array(memory.buffer, lutQ10Ptr, 256);
                 const attractorBytes = new Uint8Array(memory.buffer, attractorPtr, 80);
@@ -79,11 +79,11 @@ if (gpuAvailable) {
 
                 // --- 3. Buffers ---
                 const topologyBuf = device.createBuffer({
-                    size: 16,
+                    size: 32,
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
                 const signalsBuf = device.createBuffer({
-                    size: 16,
+                    size: 32,
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
                 const agentsInBuf = device.createBuffer({
@@ -107,8 +107,8 @@ if (gpuAvailable) {
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
 
-                device.queue.writeBuffer(topologyBuf, 0, uniformBytes, 0, 16);
-                device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 16, 16);
+                device.queue.writeBuffer(topologyBuf, 0, uniformBytes, 0, 32);
+                device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 32, 32);
                 device.queue.writeBuffer(agentsInBuf, 0, gpuAgentBytes);
                 device.queue.writeBuffer(sineLutBuf, 0, sineLutBytes);
                 device.queue.writeBuffer(attractorBuf, 0, attractorBytes);
@@ -142,7 +142,7 @@ if (gpuAvailable) {
                     (exports.v2_tick as CallableFunction)();
 
                     // 2. Sync uniforms
-                    device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 16, 16);
+                    device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 32, 32);
                     device.queue.writeBuffer(attractorBuf, 0, attractorBytes);
 
                     // 3. GPU Tick

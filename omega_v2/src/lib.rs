@@ -108,12 +108,19 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         q_radial: 6,
         q_math: 20,
         weather_multiplier: 1024,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
     },
     signals: SignalStore {
         dirty_flags: 0,
         absolute_tick: 0,
         active_agent_count: 0,
         max_cells: 0,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
+        _pad4: 0,
     },
     intents: [crate::topology::OntologicalIntent {
         focus_x: 0,
@@ -688,7 +695,7 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
 
 use routing::PhaseAddress;
 use attractor::{AttractorMatrix, AttractorArray};
-use senate::{Proposal, fnv1a_32};
+use senate::Proposal;
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns 0 if the index is out of bounds or the lattice is not booted.

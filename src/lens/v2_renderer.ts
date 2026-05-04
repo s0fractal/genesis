@@ -49,7 +49,7 @@ export class PhaseV2Renderer {
         const ptrs = this.engine.getMemoryPointers();
 
         // Increment absolute_tick in WASM memory
-        const tickView = new DataView(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16, 16);
+        const tickView = new DataView(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32, 32);
         const currentTick = tickView.getUint32(4, true);
         tickView.setUint32(4, currentTick + 1, true);
 
@@ -72,7 +72,7 @@ export class PhaseV2Renderer {
                 ? this.pipelines.computeBindGroupToroidalA
                 : this.pipelines.computeBindGroupToroidalB;
         } else {
-            this.device.queue.writeBuffer(this.buffers.intentBuffer, 0, stablePtrs.uniformBytes, 32, 128);
+            this.device.queue.writeBuffer(this.buffers.intentBuffer, 0, stablePtrs.uniformBytes, 64, 128);
             commandEncoder.clearBuffer(this.buffers.newMeanFieldBuffer);
             
             computePipeline = this.pipelines.computePipeline;
@@ -90,7 +90,7 @@ export class PhaseV2Renderer {
         passEncoder.setPipeline(computePipeline);
         passEncoder.setBindGroup(0, computeBindGroup);
         
-        const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 16 + 8, 1)[0];
+        const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
         const dispatchSize = Math.ceil(activeCount / 64);
         if (dispatchSize > 0) { passEncoder.dispatchWorkgroups(dispatchSize); }
         passEncoder.end();

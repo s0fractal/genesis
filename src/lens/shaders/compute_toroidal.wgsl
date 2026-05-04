@@ -11,6 +11,9 @@ struct PhaseTopology {
     q_radial: u32,
     q_math: u32,
     weather_multiplier: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 struct SignalStore {
@@ -18,6 +21,10 @@ struct SignalStore {
     absolute_tick: u32,
     active_agent_count: u32,
     max_cells: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
+    _pad4: u32,
 }
 
 // Era 1010: Attractor Matrix (16 bytes)
@@ -91,6 +98,13 @@ fn species_advantage(a: u32, b: u32) -> i32 {
 }
 
 
+// Era 950: 2D Hex Grid Wrap
+fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> u32 {
+    let wx = (x + w) % w;
+    let wy = (y + h) % h;
+    return u32(wy * w + wx);
+}
+
 @compute @workgroup_size(64)
 fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let index = global_id.x;
@@ -101,9 +115,23 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let max_phase_mask = (1u << topology.q_phase) - 1u;
 
     if (agent.energy > 0u) {
-        // --- 1. Toroidal 1D neighbor indices (wrap-around) ---
-        let left_idx = select(index - 1u, active_count - 1u, index == 0u);
-        let right_idx = select(index + 1u, 0u, index + 1u >= active_count);
+        let max_r_cells = 1u << topology.q_radial;
+        let w = i32(max_r_cells);
+        let h = max(1i, i32(active_count) / w);
+        let cx = i32(index) % w;
+        let cy = i32(index) / w;
+        
+        let n_indices = array<u32, 6>(
+            wrap_index_2d(cx - 1, cy, w, h),
+            wrap_index_2d(cx + 1, cy, w, h),
+            wrap_index_2d(cx, cy - 1, w, h),
+            wrap_index_2d(cx, cy + 1, w, h),
+            wrap_index_2d(cx + 1, cy - 1, w, h),
+            wrap_index_2d(cx - 1, cy + 1, w, h)
+        );
+
+        let left_idx = select(n_indices[0], 0u, n_indices[0] >= active_count);
+        let right_idx = select(n_indices[1], 0u, n_indices[1] >= active_count);
 
         let left = agents_in[left_idx];
         let right = agents_in[right_idx];
@@ -132,14 +160,21 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         agent.memory_y = u32(weight_left);
         agent.memory_z = u32(weight_right);
 
-        // --- 2. Kuramoto Q10 coupling via LUT modulated by Hebbian weights ---
+        // --- 2. 6-Neighbor Kuramoto Q10 coupling ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
-        let sin_left = sin_q10(left.phase, agent.phase);
-        let sin_right = sin_q10(right.phase, agent.phase);
         
-        let coupling_left = (sin_left * weight_left) / Q10_SCALE;
-        let coupling_right = (sin_right * weight_right) / Q10_SCALE;
-        let coupling = ((coupling_left + coupling_right) * k) / (2i * Q10_SCALE);
+        var total_coupling: i32 = 0i;
+        for (var i = 0u; i < 6u; i = i + 1u) {
+            let n_idx = n_indices[i];
+            if (n_idx < active_count) {
+                let n = agents_in[n_idx];
+                if (n.energy > 0u) {
+                    let sin_n = sin_q10(n.phase, agent.phase);
+                    total_coupling += (sin_n * HEBBIAN_DEFAULT_WEIGHT) / Q10_SCALE;
+                }
+            }
+        }
+        let coupling = (total_coupling * k) / (6i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
@@ -156,20 +191,26 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Era 0218: Species Specialization (Predator-Prey)
         let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
-        let left_species = (left.state_flags >> 1u) & 0x7Fu;
-        let right_species = (right.state_flags >> 1u) & 0x7Fu;
 
         var energy_delta: i32 = -i32(burn);
-
-        let adv_left = species_advantage(agent_species, left_species);
-        let adv_right = species_advantage(agent_species, right_species);
         let steal = 5i; // PREDATOR_ENERGY_STEAL
+        var energy_diffusion: i32 = 0i;
 
-        if (adv_left == 1i) { energy_delta = energy_delta + steal; }
-        else if (adv_left == -1i) { energy_delta = energy_delta - steal; }
-
-        if (adv_right == 1i) { energy_delta = energy_delta + steal; }
-        else if (adv_right == -1i) { energy_delta = energy_delta - steal; }
+        for (var i = 0u; i < 6u; i = i + 1u) {
+            let n_idx = n_indices[i];
+            if (n_idx < active_count) {
+                let n = agents_in[n_idx];
+                if (n.energy > 0u) {
+                    let n_species = (n.state_flags >> 1u) & 0x7Fu;
+                    let adv = species_advantage(agent_species, n_species);
+                    if (adv == 1i) { energy_delta += steal; }
+                    else if (adv == -1i) { energy_delta -= steal; }
+                    
+                    energy_diffusion += (i32(n.energy) - i32(agent.energy)) / 8i;
+                }
+            }
+        }
+        energy_delta += energy_diffusion;
 
         var new_energy: u32 = 0u;
         if (energy_delta < 0i) {

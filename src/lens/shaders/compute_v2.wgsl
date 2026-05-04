@@ -8,6 +8,9 @@ struct PhaseTopology {
     q_radial: u32,
     q_math: u32,
     weather_multiplier: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
 }
 
 struct SignalStore {
@@ -15,6 +18,10 @@ struct SignalStore {
     absolute_tick: u32,
     active_agent_count: u32,
     max_cells: u32,
+    _pad1: u32,
+    _pad2: u32,
+    _pad3: u32,
+    _pad4: u32,
 }
 
 struct OntologicalIntent {

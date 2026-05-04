@@ -26,12 +26,12 @@ export class RendererBuffers {
         const pointers = this.engine.getMemoryPointers();
 
         this.topologyBuffer = this.device.createBuffer({
-            size: 16,
+            size: 32,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
         this.signalsBuffer = this.device.createBuffer({
-            size: 16,
+            size: 32,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -87,9 +87,9 @@ export class RendererBuffers {
     }
 
     public writeUniforms(ptrs: ReturnType<OmegaV2Engine["getMemoryPointers"]>) {
-        this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 16);
-        this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 16, 16);
+        this.device.queue.writeBuffer(this.topologyBuffer, 0, ptrs.uniformBytes, 0, 32);
+        this.device.queue.writeBuffer(this.signalsBuffer, 0, ptrs.uniformBytes, 32, 32);
         this.device.queue.writeBuffer(this.attractorBuffer, 0, ptrs.attractorBytes, 0, 80);
-        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 32, 128);
+        this.device.queue.writeBuffer(this.intentBuffer, 0, ptrs.uniformBytes, 64, 128);
     }
 }

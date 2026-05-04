@@ -27,6 +27,12 @@ pub struct SignalStore {
     pub absolute_tick: u32,
     pub active_agent_count: u32,
     pub max_cells: u32,
+    
+    // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
+    pub _pad1: u32,
+    pub _pad2: u32,
+    pub _pad3: u32,
+    pub _pad4: u32,
 }
 
 #[repr(C)]
@@ -61,6 +67,10 @@ impl PhaseLattice {
                 absolute_tick: 0,
                 active_agent_count: 0,
                 max_cells: 0,
+                _pad1: 0,
+                _pad2: 0,
+                _pad3: 0,
+                _pad4: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
@@ -276,8 +286,8 @@ impl PhaseLattice {
 
                     // Era 0218: Species Specialization (Predator-Prey)
                     let agent_species = (agent.state_flags >> 1) & 0x7F;
-                    let left_species = (left.state_flags >> 1) & 0x7F;
-                    let right_species = (right.state_flags >> 1) & 0x7F;
+                    let _left_species = (left.state_flags >> 1) & 0x7F;
+                    let _right_species = (right.state_flags >> 1) & 0x7F;
 
                     let mut energy_delta = -(burn as i32);
                     let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
