@@ -116,7 +116,7 @@ Deno.test("integration: hash matches canonical FNV-1a convention", async () => {
     // the canonical FNV-1a 32-bit implementation over a 64-byte
     // zero-padded buffer so warrants flow through the existing
     // 3-of-5 oracle gate without re-validation drift.
-    // Reference implementation (mirrors Rust omega_v2::senate::fnv1a_32):
+    // Reference implementation (mirrors Rust omega_v2::senate::sha256_u32_32):
     function canonicalFnv1a32(description: string): number {
         const buf = new Uint8Array(64);
         const enc = new TextEncoder();

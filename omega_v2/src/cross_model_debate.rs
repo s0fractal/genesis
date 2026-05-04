@@ -13,7 +13,7 @@
 // debate doesn't change votes mechanically, but it makes the *reasoning*
 // behind cross-model alignment cryptographically auditable.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 pub const DEBATE_LEDGER_CAPACITY: usize = 64;
 pub const ORACLE_NAME_BYTES: usize = 16;
@@ -61,7 +61,7 @@ impl DebateEntry {
             proposal_hash,
             stance,
             _pad: [0u8; 3],
-            reasoning_hash: fnv1a_32(reasoning),
+            reasoning_hash: sha256_u32(reasoning),
             tick,
         }
     }
@@ -148,7 +148,7 @@ mod tests {
         let e = DebateEntry::new(b"claude", 0xCAFE_BABE, 1, b"because X", 100);
         assert_eq!(e.proposal_hash, 0xCAFE_BABE);
         assert_eq!(e.stance, 1);
-        assert_eq!(e.reasoning_hash, fnv1a_32(b"because X"));
+        assert_eq!(e.reasoning_hash, sha256_u32(b"because X"));
         assert_eq!(e.tick, 100);
         assert!(e.matches_oracle(b"claude"));
         assert!(!e.matches_oracle(b"gpt"));

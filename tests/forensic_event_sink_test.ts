@@ -16,7 +16,7 @@ const T0 = 1_000_000;
 Deno.test("sink: empty has size 0 + zero anchor", async () => {
     const s = new ForensicEventSink();
     assertEquals(s.size(), 0);
-    assertEquals(s.eventChainAnchor(), 0x811C_9DC5); // FNV-1a empty
+    assertEquals(s.eventChainAnchor(), 0xe3b0c442); // FNV-1a empty
     assertEquals(s.verifyChain(), null);
 });
 

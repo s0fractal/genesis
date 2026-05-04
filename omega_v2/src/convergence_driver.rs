@@ -359,7 +359,7 @@ fn find_slot_mut(
 }
 
 fn generate_request_id(self_relay_id: u32, now_ms: u32) -> u32 {
-    use crate::senate::fnv1a_32;
+    use crate::crypto::sha256_u32;
     let mut buf = [0u8; 8];
     buf[0] = (self_relay_id >> 24) as u8;
     buf[1] = (self_relay_id >> 16) as u8;
@@ -369,7 +369,7 @@ fn generate_request_id(self_relay_id: u32, now_ms: u32) -> u32 {
     buf[5] = (now_ms >> 16) as u8;
     buf[6] = (now_ms >> 8) as u8;
     buf[7] = now_ms as u8;
-    let h = fnv1a_32(&buf);
+    let h = sha256_u32(&buf);
     // Avoid 0 — that's our "no pending" sentinel.
     if h == 0 { 1 } else { h }
 }

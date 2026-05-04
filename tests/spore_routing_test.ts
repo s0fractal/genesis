@@ -90,7 +90,7 @@ Deno.test("routing: trail mix is deterministic", async () => {
 
 Deno.test("routing: cross-language trail anchor", async () => {
     // Anchored against omega_v2/src/spore_routing.rs cross_lang test.
-    assertEquals(mixTrail(0, 0x6B70_A8AB), 0xEB3D_D38B);
+    assertEquals(mixTrail(0, 0x6B70_A8AB), 0x0c105977);
 });
 
 Deno.test("routing: unknown frame type rejected", async () => {

@@ -133,7 +133,7 @@ export interface ConvergenceAlarmEvent {
     event_hash: number;
 }
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 /** Construct the forensic event. The hash is deterministic given
  *  the same inputs, enabling cross-relay corroboration. */
@@ -173,6 +173,6 @@ export function convergenceAlarmEvent(
         intersection_size: signal.intersection_size,
         network_size: signal.network_size,
         informative_peers: top,
-        event_hash: fnv1a32(hashBytes),
+        event_hash: sha256_u32(hashBytes),
     };
 }

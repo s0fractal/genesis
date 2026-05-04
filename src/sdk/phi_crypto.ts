@@ -123,5 +123,5 @@ export function sha256_hash(data: Uint8Array): Uint8Array {
 export function sha256_u32(data: Uint8Array): number {
     const hash = sha256_hash(data);
     const dv = new DataView(hash.buffer);
-    return dv.getUint32(0, true); // Little endian to match Rust's from_le_bytes
+    return dv.getUint32(0, false); // Big-endian to match Rust's sha256_u32 (from_be_bytes of first 4 bytes)
 }

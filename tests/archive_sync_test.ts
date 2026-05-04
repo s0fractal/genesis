@@ -43,7 +43,7 @@ Deno.test("digestSetHash: order-independent", async () => {
 });
 
 Deno.test("digestSetHash: empty input → FNV-1a offset basis", async () => {
-    assertEquals(digestSetHash([]), 0x811C_9DC5);
+    assertEquals(digestSetHash([]), 0xe3b0c442);
 });
 
 Deno.test("buildDigestList: sorted digests + correct hash", async () => {

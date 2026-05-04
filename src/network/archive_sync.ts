@@ -22,7 +22,7 @@
 // receiver still re-verifies that ≥3 distinct adjudicators
 // claim the digest before treating it as high-confidence.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     ArchivedVerdict,
     ArchiveBundle,
@@ -71,7 +71,7 @@ export function digestSetHash(digests: ReadonlyArray<number>): number {
         buf[i * 4 + 2] = (v >>> 8) & 0xFF;
         buf[i * 4 + 3] = v & 0xFF;
     }
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Build a digest list from a local archive snapshot. */

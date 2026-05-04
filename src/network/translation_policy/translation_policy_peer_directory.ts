@@ -5,7 +5,7 @@
 // WebRTC internals into the scheduler.
 
 import type { EventSource } from "../quarantine_lifecycle_bridge.ts";
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import { TranslationPolicyBroadcastScheduler } from "./translation_policy_broadcast_scheduler.ts";
 
 export const TRANSLATION_POLICY_PEER_DIRECTORY_SCHEMA = "OMEGA-1730/v1";
@@ -41,7 +41,7 @@ export interface TranslationPolicyPeerDirectoryTelemetry {
 export function deriveTranslationPolicyPeerId(raw: unknown): number | null {
     if (typeof raw === "number" && Number.isFinite(raw)) return raw >>> 0;
     if (typeof raw === "string" && raw.length > 0) {
-        return fnv1a32(new TextEncoder().encode(raw));
+        return sha256_u32(new TextEncoder().encode(raw));
     }
     return null;
 }

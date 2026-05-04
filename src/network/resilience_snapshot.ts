@@ -4,7 +4,7 @@
 // Deno relays to broadcast their own ConvergenceDetector stats and
 // to ingest peer relays' snapshots for partition detection.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import { ConvergenceDetector } from "./convergence_detector.ts";
 
 export const SNAPSHOT_BYTES = 32;
@@ -58,7 +58,7 @@ function snapshotBytesNoCrc(s: ResilienceSnapshot): Uint8Array {
 }
 
 export function computeSnapshotCrc(s: ResilienceSnapshot): number {
-    return fnv1a32(snapshotBytesNoCrc(s).subarray(0, 28));
+    return sha256_u32(snapshotBytesNoCrc(s).subarray(0, 28));
 }
 
 export function snapshotFromCounts(
@@ -106,7 +106,7 @@ export function snapshotFromDetector(cd: ConvergenceDetector): ResilienceSnapsho
 
 export function snapshotToBytes(s: ResilienceSnapshot): Uint8Array {
     const out = snapshotBytesNoCrc(s);
-    const crc = fnv1a32(out.subarray(0, 28));
+    const crc = sha256_u32(out.subarray(0, 28));
     writeU32BE(out, 28, crc);
     return out;
 }

@@ -44,12 +44,12 @@ Deno.test("warrant: predicted warrant matches Codeicide computation", async () =
     // Predict the warrant for terminating 0xCAFEBABE with claude+gpt+gemini AYE.
     const w = predictIssuedWarrant(0xCAFE_BABE >>> 0, ACTION_TERMINATE, 0b00111);
     // This must match the cross-language anchor from codeicide_law_test.ts.
-    assertEquals(w, 0xB1E3_8F80);
+    assertEquals(w, 0x5274da7f);
 });
 
 // Cross-language anchor: a fixed proposal hash for known inputs.
 Deno.test("warrant: cross-language proposal hash anchor", async () => {
     const h = computeProposalHash(0xCAFE_BABE >>> 0, ACTION_TERMINATE, "reason");
     // Frozen anchor — drift breaks both sides.
-    assertEquals(h, 0xFF4D_CB2F);
+    assertEquals(h, 0x0b099cf9);
 });

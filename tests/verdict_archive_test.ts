@@ -66,12 +66,12 @@ Deno.test("export: archive_hash_hex is well-formed", async () => {
     assert(/^0x[0-9a-f]{8}$/.test(bundle.archive_hash_hex));
 });
 
-Deno.test("export: empty tracker → empty bundle with hash 0x811C9DC5", async () => {
+Deno.test("export: empty tracker → empty bundle with hash 0xe3b0c442", async () => {
     const t = new QuorumAgreementTracker();
     const bundle = exportArchive(t, { now_ms: NOW });
     assertEquals(bundle.record_count, 0);
-    // FNV-1a offset basis applied to empty input.
-    assertEquals(bundle.archive_hash_hex, "0x811c9dc5");
+    // SHA-256 of empty input, first u32 big-endian.
+    assertEquals(bundle.archive_hash_hex, "0xe3b0c442");
 });
 
 Deno.test("export: records sorted by digest ascending", async () => {

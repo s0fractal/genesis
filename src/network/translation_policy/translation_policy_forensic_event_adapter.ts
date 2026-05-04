@@ -5,7 +5,7 @@
 // without making bootstrap know about sinks.
 
 import type { EventSource } from "../quarantine_lifecycle_bridge.ts";
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import {
     ForensicEvent,
     ForensicEventSink,
@@ -154,7 +154,7 @@ export class TranslationPolicyForensicEventAdapter {
         }
         const payload = translationPolicyForensicPayload(eventDetail);
         const projection = translationPolicyForensicProjection(payload);
-        const eventHash = fnv1a32(encoder.encode(projection));
+        const eventHash = sha256_u32(encoder.encode(projection));
         if (this.lastProjection === projection) {
             this.stats.skipped_unchanged++;
             return this.result("unchanged", null, eventHash);

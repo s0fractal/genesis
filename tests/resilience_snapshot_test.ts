@@ -69,7 +69,7 @@ Deno.test("snapshot: short buffer rejected", async () => {
 Deno.test("snapshot: cross-language CRC anchor", async () => {
     // Mirror of omega_v2/src/resilience_snapshot.rs::cross_lang_anchor_snapshot_crc.
     const s = snapshotFromCounts(100, 30, 60, 10, 25);
-    assertEquals(s.crc32, 0x98E5_768B);
+    assertEquals(s.crc32, 0xab422b98);
 });
 
 Deno.test("snapshot: from ConvergenceDetector aggregates stats", async () => {

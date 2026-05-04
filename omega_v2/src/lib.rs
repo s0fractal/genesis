@@ -1203,9 +1203,9 @@ pub extern "C" fn v2_warrant_expire_old(current_tick: u32, max_age: u32) -> u32 
 #[no_mangle]
 pub unsafe extern "C" fn v2_debate_reasoning_hash(ptr: *const u8, len: u32) -> u32 {
     if ptr.is_null() || len == 0 {
-        return crate::senate::fnv1a_32(&[]);
+        return crate::crypto::sha256_u32(&[]);
     }
     let n = if len > 256 { 256 } else { len } as usize;
     let bytes = unsafe { core::slice::from_raw_parts(ptr, n) };
-    crate::senate::fnv1a_32(bytes)
+    crate::crypto::sha256_u32(bytes)
 }

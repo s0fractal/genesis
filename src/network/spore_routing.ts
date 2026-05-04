@@ -5,7 +5,7 @@
 // will decide to do with an incoming frame, without round-tripping
 // through the actual hardware.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     FRAME_TYPE_HEARTBEAT,
     FRAME_TYPE_WARRANT_VOTE,
@@ -30,7 +30,7 @@ export function mixTrail(existing: number, sporeId: number): number {
     const dv = new DataView(buf.buffer);
     dv.setUint32(0, existing >>> 0, false);
     dv.setUint32(4, sporeId >>> 0, false);
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 export function frameTtl(f: SporeFrame): number {

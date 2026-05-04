@@ -7,7 +7,7 @@
 // Cross-language anchors live in tests/codeicide_law_test.ts.
 
 import { ORACLE_MATRICES_V1 } from "./oracle_identity.ts";
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 export const ANCIENT_AGE_TICKS = 10_000;
 
@@ -55,7 +55,7 @@ export function warrantHash(targetGenome: number, actionCode: number, quorumHash
     pushU32BE(buf, quorumHash >>> 0);
     // domain separator "WRT0"
     buf.push(0x57, 0x52, 0x54, 0x30);
-    return fnv1a32(new Uint8Array(buf));
+    return sha256_u32(new Uint8Array(buf));
 }
 
 /** AYE-bit positions: 0=claude, 1=gpt, 2=gemini, 3=qwen, 4=llama. */
@@ -73,7 +73,7 @@ export function quorumHash(ayeBits: number): number {
     pushU32BE(buf, gemini);
     pushU32BE(buf, qwen);
     pushU32BE(buf, llama);
-    return fnv1a32(new Uint8Array(buf));
+    return sha256_u32(new Uint8Array(buf));
 }
 
 /** popcount of low-5 bits. */

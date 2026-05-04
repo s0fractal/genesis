@@ -18,7 +18,7 @@
 //       16     4  triple_plus         (u32 BE)
 //       20     4  redundancy_rate_q16 (u32 BE; rate × 2^16)
 //       24     4  proven_carrier_count (u32 BE)
-//       28     4  fnv1a_crc           (BE; over bytes 0..28)
+//       28     4  sha256_crc           (BE; over bytes 0..28)
 //
 // `redundancy_rate_q16` is `(rate * 65536)` rounded; receivers
 // recover the rate as `value / 65536.0`. Integer-only on the wire,
@@ -28,7 +28,7 @@
 // (added to spore_frame's enum) so they ride the same TTL/CRC/routing
 // machinery as warrant votes and heartbeats.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 pub const SNAPSHOT_BYTES: usize = 32;
 pub const SNAPSHOT_MAGIC: u16 = 0x5253; // "RS"
@@ -97,7 +97,7 @@ impl ResilienceSnapshot {
     /// FNV-1a over bytes 0..28 (everything except the CRC slot).
     pub fn compute_crc(&self) -> u32 {
         let bytes = self.as_bytes();
-        fnv1a_32(&bytes[..28])
+        sha256_u32(&bytes[..28])
     }
 
     pub fn is_valid(&self) -> bool {
@@ -251,6 +251,6 @@ mod tests {
         // Frozen test vector for the JS port.
         let s = ResilienceSnapshot::from_counts(100, 30, 60, 10, 25);
         eprintln!("rust snapshot crc = 0x{:08x}", s.crc32);
-        assert_eq!(s.crc32, 0x98E5_768B);
+        assert_eq!(s.crc32, 0xab42_2b98);
     }
 }

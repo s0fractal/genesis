@@ -1,6 +1,6 @@
 // Era 1650: Translation policy digest + drift alarm tests.
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert";
-import { fnv1a32 } from "../../src/network/cross_model_debate.ts";
+import { sha256_u32 } from "../../src/sdk/phi_crypto.ts";
 import { ForensicEvent } from "../../src/network/forensic_event_sink.ts";
 import { ForensicEventSink } from "../../src/network/forensic_event_sink.ts";
 import { SchemaTranslatorRegistry } from "../../src/network/schema_translator.ts";
@@ -25,7 +25,7 @@ function registry(pairs: Array<[string, string]>): SchemaTranslatorRegistry {
 }
 
 Deno.test("digest: empty policy is FNV offset basis", async () => {
-    assertEquals(translationPolicyDigest(registry([])), fnv1a32(new Uint8Array()));
+    assertEquals(translationPolicyDigest(registry([])), sha256_u32(new Uint8Array()));
 });
 
 Deno.test("digest: order-independent over canonical pairs", async () => {

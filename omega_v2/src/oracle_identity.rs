@@ -18,12 +18,12 @@
 /// (name, salt) pair acquire the same identity; with different salts,
 /// they acquire orthogonal identities.
 pub fn oracle_matrix(name: &[u8], salt: &[u8]) -> u32 {
-    // Hash name||':'||salt as a single byte stream.
-    let mut h: u32 = 0x811C_9DC5;
-    for &b in name { h ^= b as u32; h = h.wrapping_mul(0x0100_0193); }
-    h ^= b':' as u32; h = h.wrapping_mul(0x0100_0193);
-    for &b in salt { h ^= b as u32; h = h.wrapping_mul(0x0100_0193); }
-    h
+    let mut buf = [0u8; 128];
+    let mut idx = 0;
+    for &b in name { if idx < buf.len() { buf[idx] = b; idx += 1; } }
+    if idx < buf.len() { buf[idx] = b':'; idx += 1; }
+    for &b in salt { if idx < buf.len() { buf[idx] = b; idx += 1; } }
+    crate::crypto::sha256_u32(&buf[..idx])
 }
 
 /// Returns the perfect dipole pair `(matrix, inverse)` for an oracle.
@@ -33,7 +33,7 @@ pub fn oracle_dipole(name: &[u8], salt: &[u8]) -> (u32, u32) {
     (m, !m)
 }
 
-/// Convenience: same as `fnv1a_32` but exposed under this module's name
+/// Convenience: same as `sha256_u32` but exposed under this module's name
 /// for symmetry with the JS mirror.
 pub fn oracle_hash(name: &[u8], salt: &[u8]) -> u32 {
     oracle_matrix(name, salt)
@@ -51,7 +51,7 @@ pub fn canonical_oracle_v1(name: &[u8]) -> (u32, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::senate::fnv1a_32;
+    use crate::crypto::sha256_u32;
 
     #[test]
     fn dipole_invariant_holds_by_construction() {
@@ -100,8 +100,8 @@ mod tests {
 
     #[test]
     fn fnv1a_consistency_with_senate_module() {
-        // Sanity: oracle_matrix uses the same FNV-1a polynomial as senate.
-        let direct = fnv1a_32(b"claude:OMEGA-64/RFC-001/v1.0");
+        // Sanity: oracle_matrix uses the same polynomial as senate (now SHA-256).
+        let direct = sha256_u32(b"claude:OMEGA-64/RFC-001/v1.0");
         let oracle = oracle_matrix(b"claude", ORACLE_SALT_V1);
         assert_eq!(direct, oracle);
     }

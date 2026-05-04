@@ -12,7 +12,7 @@
 // identical `event_chain_anchor` values across Rust, JS, and SP1.
 // Tests in this file verify the same anchors as the JS test suite.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 /// Event sink schema, must match JS `EVENT_SINK_SCHEMA` exactly.
 pub const EVENT_SINK_SCHEMA: &str = "OMEGA-1380/v1";
@@ -83,7 +83,7 @@ pub fn compute_chain_hash(
         buf[p + 3] = word as u8;
         p += 4;
     }
-    fnv1a_32(&buf[..p])
+    sha256_u32(&buf[..p])
 }
 
 /// Fixed-capacity sink. Generic over `N` (compile-time capacity).
@@ -205,7 +205,7 @@ impl<const N: usize> ForensicEventSink<N> {
             buf[i * 4 + 2] = (v >> 8) as u8;
             buf[i * 4 + 3] = v as u8;
         }
-        fnv1a_32(&buf[..n * 4])
+        sha256_u32(&buf[..n * 4])
     }
 }
 
@@ -230,7 +230,7 @@ pub fn event_hash_set_hash(hashes: &[u32]) -> u32 {
         buf[i * 4 + 2] = (v >> 8) as u8;
         buf[i * 4 + 3] = v as u8;
     }
-    fnv1a_32(&buf[..n * 4])
+    sha256_u32(&buf[..n * 4])
 }
 
 #[cfg(test)]
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn empty_sink_anchor_is_fnv_offset_basis() {
         let s: ForensicEventSink<8> = ForensicEventSink::new();
-        assert_eq!(s.event_chain_anchor(), 0x811C_9DC5);
+        assert_eq!(s.event_chain_anchor(), 0xe3b0_c442);
     }
 
     #[test]
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn event_hash_set_hash_matches_fnv1a_offset_basis_when_empty() {
-        assert_eq!(event_hash_set_hash(&[]), 0x811C_9DC5);
+        assert_eq!(event_hash_set_hash(&[]), 0xe3b0_c442);
     }
 
     #[test]
@@ -347,7 +347,7 @@ mod tests {
         s.append(b"test", 0x10, 0);
         s.append(b"test", 0x20, 0);
         s.append(b"test", 0x30, 0);
-        assert_eq!(s.event_chain_anchor(), 0x9299_32B5);
+        assert_eq!(s.event_chain_anchor(), 0x0adf_dc42);
     }
 
     /// Locked cross-substrate anchor for `[0xAA, 0xBB]`.
@@ -356,7 +356,7 @@ mod tests {
         let mut s: ForensicEventSink<4> = ForensicEventSink::new();
         s.append(b"a", 0xBB, 0);
         s.append(b"a", 0xAA, 0);
-        assert_eq!(s.event_chain_anchor(), 0x843F_5862);
+        assert_eq!(s.event_chain_anchor(), 0x0053_bf72);
     }
 
     #[test]

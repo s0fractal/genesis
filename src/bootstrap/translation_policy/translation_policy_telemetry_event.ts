@@ -4,7 +4,7 @@
 // module makes that snapshot subscribable without forcing consumers to
 // poll the render loop global.
 
-import { fnv1a32 } from "../../network/cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import type {
     TranslationPolicyBootstrapTelemetrySnapshot,
 } from "./translation_policy_bootstrap_telemetry.ts";
@@ -126,7 +126,7 @@ export function mergeTranslationPolicyTelemetryEventOptions(
 export function translationPolicyTelemetryHash(
     snapshot: TranslationPolicyBootstrapTelemetrySnapshot,
 ): number {
-    return fnv1a32(encoder.encode(stableTelemetryProjection(snapshot)));
+    return sha256_u32(encoder.encode(stableTelemetryProjection(snapshot)));
 }
 
 function mergeOptions(

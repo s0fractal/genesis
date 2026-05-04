@@ -20,7 +20,7 @@
 // UART or BLE-mesh topologies, where the alternative is no
 // communication at all.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 use crate::spore_frame::{
     SporeFrame, FRAME_TYPE_HEARTBEAT, FRAME_TYPE_WARRANT_VOTE,
 };
@@ -39,7 +39,7 @@ pub fn mix_trail(existing: u32, spore_id: u32) -> u32 {
     let mut buf = [0u8; 8];
     buf[0..4].copy_from_slice(&existing.to_be_bytes());
     buf[4..8].copy_from_slice(&spore_id.to_be_bytes());
-    fnv1a_32(&buf)
+    sha256_u32(&buf)
 }
 
 /// Returns the TTL byte from a frame.
@@ -284,6 +284,6 @@ mod tests {
         // Frozen for the JS port.
         let h = mix_trail(0, 0x6B70_A8AB); // claude is the first hop
         eprintln!("rust trail = 0x{:08x}", h);
-        assert_eq!(h, 0xEB3D_D38B);
+        assert_eq!(h, 0x0c10_5977);
     }
 }

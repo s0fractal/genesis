@@ -27,7 +27,7 @@
 // out-of-order replay, not adversarial forgery (Era 1040's ZK
 // proofs cover the latter).
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 export const EVENT_SINK_SCHEMA = "OMEGA-1380/v1";
 
@@ -82,7 +82,7 @@ export function computeChainHash(
     u32Bytes(sunk_at_ms >>> 0, b);
     u32Bytes(sequence >>> 0, b);
     u32Bytes(prev_chain_hash >>> 0, b);
-    return fnv1a32(new Uint8Array(b));
+    return sha256_u32(new Uint8Array(b));
 }
 
 /** Append-only ring buffer with chain-anchored entries. */
@@ -188,7 +188,7 @@ export class ForensicEventSink {
             buf[i * 4 + 2] = (v >>> 8) & 0xFF;
             buf[i * 4 + 3] = v & 0xFF;
         }
-        return fnv1a32(buf);
+        return sha256_u32(buf);
     }
 
     /** Operator-friendly summary. */

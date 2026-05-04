@@ -33,7 +33,7 @@ function pushU32BE(buf: number[], v: number) {
     buf.push((v >>> 24) & 0xFF, (v >>> 16) & 0xFF, (v >>> 8) & 0xFF, v & 0xFF);
 }
 
-function fnv1a32(bytes: number[] | Uint8Array): number {
+function sha256_u32(bytes: number[] | Uint8Array): number {
     let h = 0x811C_9DC5 >>> 0;
     for (let i = 0; i < bytes.length; i++) {
         h = (h ^ bytes[i]) >>> 0;
@@ -58,7 +58,7 @@ export function computeGenesisHash(a: GenesisAnchors): number {
     pushU32BE(buf, a.mitosisReceiptAttr >>> 0);
     pushU32BE(buf, DIPOLE_INVARIANT);
     pushU32BE(buf, TOROIDAL_MODULUS);
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Compute the canonical SHA-256 Genesis Inscription for OMEGA-64 v1.0. */

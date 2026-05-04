@@ -32,7 +32,7 @@
 // cross-Era content address) is preserved verbatim — that's what
 // `eventChainAnchor` and `diffEventSinks` operate on.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     EVENT_SINK_SCHEMA,
     ForensicEvent,
@@ -53,7 +53,7 @@ export function eventHashSetHash(hashes: ReadonlyArray<number>): number {
         buf[i * 4 + 2] = (v >>> 8) & 0xFF;
         buf[i * 4 + 3] = v & 0xFF;
     }
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Manifest broadcast by the initiator. */

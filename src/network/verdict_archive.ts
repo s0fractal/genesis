@@ -15,7 +15,7 @@
 // verdicts produce byte-identical archive_hash, providing the same
 // chain-of-custody property as Era 1280's adjudication digest.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     QuorumAgreement,
     QuorumAgreementTracker,
@@ -86,7 +86,7 @@ export function computeArchiveHash(records: ReadonlyArray<ArchivedVerdict>): num
         buf[i * 4 + 2] = (v >>> 8) & 0xFF;
         buf[i * 4 + 3] = v & 0xFF;
     }
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 export interface ExportOptions {

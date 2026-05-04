@@ -18,7 +18,7 @@
 // disagrees). Above = "corroborated" (replay confirms the alarm
 // was real, not noise).
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     coverageStats,
     mergeMany,
@@ -98,7 +98,7 @@ function buildDigest(
     for (const id of relay_ids) writeU32BE(id >>> 0);
     writeU32BE(replayed_q16 >>> 0);
     writeU32BE(diff_q16 >>> 0);
-    return fnv1a32(buf.subarray(0, p));
+    return sha256_u32(buf.subarray(0, p));
 }
 
 /**

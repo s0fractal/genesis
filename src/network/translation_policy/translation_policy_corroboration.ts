@@ -6,7 +6,7 @@
 // operators can require double/triple+ independent witnesses before
 // the proposal is emitted.
 
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import { TranslationPolicyDriftEvent } from "./translation_policy_monitor.ts";
 
 export const TRANSLATION_POLICY_CORROBORATION_SCHEMA = "OMEGA-1690/v1";
@@ -69,7 +69,7 @@ export function policyDriftEquivalenceHash(
     pushU32(bytes, event.peer_policy_hash);
     pushU32(bytes, event.local_pair_count);
     pushU32(bytes, event.peer_pair_count);
-    return fnv1a32(new Uint8Array(bytes));
+    return sha256_u32(new Uint8Array(bytes));
 }
 
 export function policyDriftHashFromFields(fields: {
@@ -85,7 +85,7 @@ export function policyDriftHashFromFields(fields: {
     pushU32(bytes, fields.peer_policy_hash);
     pushU32(bytes, fields.local_pair_count);
     pushU32(bytes, fields.peer_pair_count);
-    return fnv1a32(new Uint8Array(bytes));
+    return sha256_u32(new Uint8Array(bytes));
 }
 
 export function buildTranslationPolicyCorroborationRaise(

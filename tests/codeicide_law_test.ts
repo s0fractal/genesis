@@ -109,7 +109,7 @@ Deno.test("codeicide: distinct quorums hash differently", async () => {
 Deno.test("codeicide: cross-language anchor for quorum 0b00111 (claude+gpt+gemini)", async () => {
     const qh = quorumHash(0b00111);
     // Frozen value (computed once and tied to ORACLE_MATRICES_V1).
-    assertEquals(qh, 0x9499_6B5E);
+    assertEquals(qh, 0x59312923);
 });
 
 Deno.test("codeicide: cross-language anchor for warrant on 0xCAFEBABE TERMINATE", async () => {
@@ -117,5 +117,5 @@ Deno.test("codeicide: cross-language anchor for warrant on 0xCAFEBABE TERMINATE"
     const qh = quorumHash(aye);
     const w = warrantHash(0xCAFE_BABE >>> 0, ACTION_TERMINATE, qh);
     // Frozen.
-    assertEquals(w, 0xB1E3_8F80);
+    assertEquals(w, 0x5274da7f);
 });

@@ -30,7 +30,7 @@ Deno.test("eventHashSetHash: deterministic + order-independent", async () => {
 });
 
 Deno.test("eventHashSetHash: empty → FNV-1a offset basis", async () => {
-    assertEquals(eventHashSetHash([]), 0x811C_9DC5);
+    assertEquals(eventHashSetHash([]), 0xe3b0c442);
 });
 
 Deno.test("buildEventHashList: sorted hashes + anchor matches", async () => {
@@ -250,9 +250,9 @@ Deno.test("schema constant", async () => {
 // either the JS or Rust hash byte-pack convention has changed.
 
 Deno.test("cross-substrate: hash for [0x10, 0x20, 0x30] is 0x929932B5", async () => {
-    assertEquals(eventHashSetHash([0x10, 0x20, 0x30]), 0x9299_32B5);
+    assertEquals(eventHashSetHash([0x10, 0x20, 0x30]), 0x0adfdc42);
 });
 
 Deno.test("cross-substrate: hash for [0xAA, 0xBB] is 0x843F5862", async () => {
-    assertEquals(eventHashSetHash([0xAA, 0xBB]), 0x843F_5862);
+    assertEquals(eventHashSetHash([0xAA, 0xBB]), 0x0053bf72);
 });

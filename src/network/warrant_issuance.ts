@@ -5,7 +5,7 @@
 // mesh boundary so peers can raise WARRANT_PROPOSAL plasmids and apply
 // votes received from canonical oracles.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import { warrantHash, quorumHash } from "./codeicide_law.ts";
 import { CANONICAL_ORACLES, CanonicalOracle } from "./oracle_identity.ts";
 
@@ -38,13 +38,13 @@ export function computeProposalHash(
     reason: string,
 ): number {
     const enc = new TextEncoder();
-    const reasonHash = fnv1a32(enc.encode(reason.slice(0, 256)));
+    const reasonHash = sha256_u32(enc.encode(reason.slice(0, 256)));
     const buf = new Uint8Array(12);
     const dv = new DataView(buf.buffer);
     dv.setUint32(0, targetGenome >>> 0, false); // BE
     buf[4] = actionCode & 0xFF;
     dv.setUint32(8, reasonHash >>> 0, false); // BE
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Map a CanonicalOracle name to its bit index (0..4). */

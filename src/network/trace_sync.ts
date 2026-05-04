@@ -22,7 +22,7 @@
 // distinct "observations of the same event", and forensics often
 // cares about which relay saw what when.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     FrameRecorder,
     RecordedFrame,
@@ -46,7 +46,7 @@ export function observationHash(rec: RecordedFrame): number {
     buf[32 + by_bytes.length + 1] = (t >>> 16) & 0xFF;
     buf[32 + by_bytes.length + 2] = (t >>> 8) & 0xFF;
     buf[32 + by_bytes.length + 3] = t & 0xFF;
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Result of a merge operation. */

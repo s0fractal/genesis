@@ -4,7 +4,7 @@
 // interpretation a deterministic content address so relays can compare
 // replay outcomes after event-sink sync.
 
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import type {
     TranslationPolicyBandTimelineSegment,
     TranslationPolicyErrorWindow,
@@ -35,7 +35,7 @@ export function translationPolicyForensicReplayDigest(
     const bandHash = hashBandTimeline(classification.band_timeline);
     const policyHash = hashPolicyIntervals(classification.policy_hash_intervals);
     const errorHash = hashErrorWindows(classification.error_windows);
-    const digest = fnv1a32(encoder.encode([
+    const digest = sha256_u32(encoder.encode([
         TRANSLATION_POLICY_FORENSIC_REPLAY_DIGEST_SCHEMA,
         num(bandHash),
         num(policyHash),
@@ -90,19 +90,19 @@ export function translationPolicyForensicReplayDigestProjection(
 export function hashBandTimeline(
     segments: ReadonlyArray<TranslationPolicyBandTimelineSegment>,
 ): number {
-    return fnv1a32(encoder.encode(canonicalBandTimeline(segments)));
+    return sha256_u32(encoder.encode(canonicalBandTimeline(segments)));
 }
 
 export function hashPolicyIntervals(
     intervals: ReadonlyArray<TranslationPolicyHashInterval>,
 ): number {
-    return fnv1a32(encoder.encode(canonicalPolicyIntervals(intervals)));
+    return sha256_u32(encoder.encode(canonicalPolicyIntervals(intervals)));
 }
 
 export function hashErrorWindows(
     windows: ReadonlyArray<TranslationPolicyErrorWindow>,
 ): number {
-    return fnv1a32(encoder.encode(canonicalErrorWindows(windows)));
+    return sha256_u32(encoder.encode(canonicalErrorWindows(windows)));
 }
 
 function canonicalBandTimeline(

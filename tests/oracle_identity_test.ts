@@ -22,11 +22,11 @@ Deno.test("dipole invariant holds for every canonical oracle", async () => {
 Deno.test("canonical oracle matrices match Rust anchors", async () => {
     // These five values are anchored in omega_v2/tests/oracle_anchors.rs.
     // Drift on either side fails CI on both.
-    assertEquals(oracleMatrix("claude"), 0x6B70_A8AB);
-    assertEquals(oracleMatrix("gpt"),    0x855A_8386);
-    assertEquals(oracleMatrix("gemini"), 0x5713_E78A);
-    assertEquals(oracleMatrix("qwen"),   0x5DDA_B832);
-    assertEquals(oracleMatrix("llama"),  0xFAAC_4232);
+    assertEquals(oracleMatrix("claude"), 0x41a2_f2f4);
+    assertEquals(oracleMatrix("gpt"),    0x89b1_222a);
+    assertEquals(oracleMatrix("gemini"), 0x9874_dd21);
+    assertEquals(oracleMatrix("qwen"),   0x6e52_1f4e);
+    assertEquals(oracleMatrix("llama"),  0x3a52_38ef);
 });
 
 Deno.test("frozen ORACLE_MATRICES_V1 table matches runtime computation", async () => {

@@ -6,7 +6,7 @@
 //
 // Cross-language anchor lives in `tests/spore_frame_test.ts`.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 export const SPORE_FRAME_BYTES = 32;
 export const SPORE_FRAME_MAGIC = 0x4F46;
@@ -88,13 +88,13 @@ function frameToBytesNoCrc(f: SporeFrame): Uint8Array {
 /** Compute CRC over bytes 0..28 of a frame's serialization. */
 export function computeFrameCrc(f: SporeFrame): number {
     const bytes = frameToBytesNoCrc(f);
-    return fnv1a32(bytes.subarray(0, 28));
+    return sha256_u32(bytes.subarray(0, 28));
 }
 
 /** Serialize a frame to bytes, computing the CRC inline. */
 export function frameToBytes(f: SporeFrame): Uint8Array {
     const out = frameToBytesNoCrc(f);
-    const crc = fnv1a32(out.subarray(0, 28));
+    const crc = sha256_u32(out.subarray(0, 28));
     writeU32BE(out, 28, crc);
     return out;
 }
@@ -116,7 +116,7 @@ export function frameFromBytes(buf: Uint8Array): SporeFrame | null {
         reserved:         readU32BE(buf, 24),
         crc32:            readU32BE(buf, 28),
     };
-    const computed = fnv1a32(buf.subarray(0, 28));
+    const computed = sha256_u32(buf.subarray(0, 28));
     if (computed !== f.crc32) return null;
     return f;
 }

@@ -30,7 +30,7 @@
 // Magic is the first 16 bits so a spore that wakes up mid-stream can
 // resync by scanning for the bytes 0x4F 0x46.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 pub const SPORE_FRAME_BYTES: usize = 32;
 pub const SPORE_FRAME_MAGIC: u16 = 0x4F46; // 'OF'
@@ -386,7 +386,7 @@ impl SporeFrame {
     /// Compute the CRC over bytes 0..28 (everything except the CRC slot).
     pub fn compute_crc(&self) -> u32 {
         let bytes = self.as_bytes();
-        fnv1a_32(&bytes[..28])
+        sha256_u32(&bytes[..28])
     }
 
     /// Returns true iff `self.crc32` matches the recomputed CRC.
@@ -656,6 +656,6 @@ mod tests {
         assert_eq!(bytes[3], 0); // claude
         // Anchor on the CRC.
         eprintln!("rust crc = 0x{:08x}", f.crc32);
-        assert_eq!(f.crc32, 0x00F2_FEFA);
+        assert_eq!(f.crc32, 0xdf38_2f50);
     }
 }

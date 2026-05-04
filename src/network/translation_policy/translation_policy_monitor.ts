@@ -15,7 +15,7 @@
 // detects disagreement deterministically before translated sync relies
 // on incompatible operator assumptions.
 
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import { ForensicEventSink } from "../forensic_event_sink.ts";
 import { SchemaTranslatorRegistry } from "../schema_translator.ts";
 
@@ -103,7 +103,7 @@ export function translationPolicyDigestFromPairs(
         pushString(bytes, p.source);
         pushString(bytes, p.target);
     }
-    return fnv1a32(new Uint8Array(bytes));
+    return sha256_u32(new Uint8Array(bytes));
 }
 
 /** Deterministic digest over a registry's canonical pair list. */
@@ -143,7 +143,7 @@ export function translationPolicyDriftEvent(
     pushU32(bytes, local.pair_count);
     pushU32(bytes, peer.pair_count);
     pushU32(bytes, observed_at_ms);
-    const event_hash = fnv1a32(new Uint8Array(bytes));
+    const event_hash = sha256_u32(new Uint8Array(bytes));
     return {
         schema: TRANSLATION_POLICY_SCHEMA,
         peer_id: peer.peer_id,

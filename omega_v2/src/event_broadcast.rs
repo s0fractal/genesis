@@ -34,7 +34,7 @@ use crate::forensic_event_sink::{
     ForensicEventSink,
 };
 use crate::spore_frame::{SporeFrame, SPORE_FRAME_BYTES};
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 /// Schema constant — keep in lockstep with JS `EVENT_WIRE_SCHEMA`.
 pub const BROADCAST_SCHEMA: &str = "OMEGA-1420/v1";
@@ -210,7 +210,7 @@ pub fn broadcast_tick(monotonic_counter: u32, relay_id: u32) -> u32 {
     buf[5] = (relay_id >> 16) as u8;
     buf[6] = (relay_id >> 8) as u8;
     buf[7] = relay_id as u8;
-    fnv1a_32(&buf)
+    sha256_u32(&buf)
 }
 
 #[cfg(test)]
@@ -252,7 +252,7 @@ mod tests {
         assert_eq!(f.frame_type, FRAME_TYPE_EVENT_HASH_LIST);
         assert_eq!(f.proposal_or_target, 0xCAFE_BABE);
         // Anchor matches Era 1400 locked value for [0x10, 0x20, 0x30].
-        assert_eq!(f.payload_a, 0x9299_32B5);
+        assert_eq!(f.payload_a, 0x0adf_dc42);
         assert_eq!(f.payload_b, 3);
         assert_eq!(f.tick, 12345);
     }
@@ -296,8 +296,8 @@ mod tests {
         let entries = [mk(0x10), mk(0x20), mk(0x30)];
         let mut out = [SporeFrame::empty(); 8];
         build_delta_chunk_frames(&entries, 0x42, 0, 0, 0, &mut out);
-        assert_eq!(out[0].tick, 0x9299_32B5);
-        assert_eq!(out[0].proposal_or_target, 0x9299_32B5); // header puts envelope_hash in proposal_or_target
+        assert_eq!(out[0].tick, 0x0adf_dc42);
+        assert_eq!(out[0].proposal_or_target, 0x0adf_dc42); // header puts envelope_hash in proposal_or_target
     }
 
     #[test]

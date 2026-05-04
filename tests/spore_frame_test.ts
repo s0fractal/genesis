@@ -73,7 +73,7 @@ Deno.test("spore frame: findSync handles partial magic", async () => {
 // `cross_lang_anchor_warrant_vote` test. CRC must match Rust exactly.
 Deno.test("spore frame: cross-language CRC anchor", async () => {
     const f = buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 100);
-    assertEquals(f.crc32, 0x00F2_FEFA);
+    assertEquals(f.crc32, 0xdf382f50);
     // First 4 bytes also fixed.
     const bytes = frameToBytes(f);
     assertEquals(bytes[0], 0x4F);

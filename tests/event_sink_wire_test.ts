@@ -192,15 +192,15 @@ Deno.test("cross-substrate: packKindTag known values match Rust pack_kind_tag", 
     assertEquals(packKindTag(""), 0);
 });
 
-Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] is 0x929932B5", async () => {
+Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] is 0x0ADFDC42", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(b, [0x10, 0x20, 0x30]);
     const delta = computeEventDelta(buildEventHashList(a, T0), b.list(), T0 + 100);
     const frames = chunkEventDelta(delta, SENDER);
-    // Header tick = envelope_hash = locked 0x929932B5.
-    assertEquals(frames[0].tick >>> 0, 0x9299_32B5);
-    assertEquals(frames[0].proposalOrTarget >>> 0, 0x9299_32B5);
+    // Header tick = envelope_hash = SHA-256 locked 0x0ADFDC42.
+    assertEquals(frames[0].tick >>> 0, 0x0adf_dc42);
+    assertEquals(frames[0].proposalOrTarget >>> 0, 0x0adf_dc42);
 });
 
 // --- Frame type registry ---

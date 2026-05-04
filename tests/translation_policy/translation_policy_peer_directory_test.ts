@@ -1,6 +1,6 @@
 // Era 1730: Translation policy peer directory integration tests.
 import { assertEquals } from "jsr:@std/assert";
-import { fnv1a32 } from "../../src/network/cross_model_debate.ts";
+import { sha256_u32 } from "../../src/sdk/phi_crypto.ts";
 import { ForensicEvent } from "../../src/network/forensic_event_sink.ts";
 import { TranslationPolicyMeshBridge } from "../../src/network/mesh_event_bridge.ts";
 import { LocalEventSource } from "../../src/network/quarantine_lifecycle_bridge.ts";
@@ -41,7 +41,7 @@ Deno.test("derivePeerId: numeric input is normalized to u32", async () => {
 });
 
 Deno.test("derivePeerId: string input hashes deterministically", async () => {
-    const expected = fnv1a32(new TextEncoder().encode("peer-alpha"));
+    const expected = sha256_u32(new TextEncoder().encode("peer-alpha"));
     assertEquals(deriveTranslationPolicyPeerId("peer-alpha"), expected);
     assertEquals(deriveTranslationPolicyPeerId(""), null);
 });

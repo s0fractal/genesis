@@ -26,15 +26,7 @@ const STANCE_CODE: Record<DebateArgument["stance"], number> = {
     abstain: 3,
 } as const;
 
-/** FNV-1a 32-bit (offset basis 2166136261, prime 16777619). */
-export function fnv1a32(bytes: Uint8Array): number {
-    let hash = 0x811C_9DC5;
-    for (let i = 0; i < bytes.length; i++) {
-        hash ^= bytes[i];
-        hash = Math.imul(hash, 0x0100_0193);
-    }
-    return hash >>> 0;
-}
+
 
 /** In-memory ledger of full reasoning text (the kernel only stores fingerprints). */
 export class CrossModelDebate {
@@ -49,7 +41,7 @@ export class CrossModelDebate {
     ): DebateArgument {
         const enc = new TextEncoder();
         const bytes = enc.encode(reasoning.slice(0, 256));
-        const reasoningHash = fnv1a32(bytes);
+        const reasoningHash = sha256_u32(bytes);
         const arg: DebateArgument = {
             oracle,
             proposalHash,
@@ -78,7 +70,7 @@ export class CrossModelDebate {
      */
     verifyReasoning(arg: DebateArgument, candidate: string): boolean {
         const enc = new TextEncoder();
-        return fnv1a32(enc.encode(candidate.slice(0, 256))) === arg.reasoningHash;
+        return sha256_u32(enc.encode(candidate.slice(0, 256))) === arg.reasoningHash;
     }
 
     /** Stance code matching omega_v2::cross_model_debate::DebateEntry.stance. */

@@ -23,7 +23,7 @@ import {
 } from "./peer_snapshot_monitor.ts";
 import { ACTION_RELOCATE } from "./codeicide_law.ts";
 import { computeProposalHash } from "./warrant_issuance.ts";
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 export interface InvestigationRecord {
     /** ID of the relay being investigated. */
@@ -206,5 +206,5 @@ export function shouldDropFrameFromOrigin(
  */
 export function relayIdFromName(name: string): number {
     const enc = new TextEncoder();
-    return fnv1a32(enc.encode(name));
+    return sha256_u32(enc.encode(name));
 }

@@ -543,7 +543,7 @@ export class Libp2pMesh {
     }
   }
 
-  /** FNV-1a 32-bit, identical to Rust senate::fnv1a_32 over a 64-byte zero-padded buffer. */
+  /** FNV-1a 32-bit, identical to Rust senate::sha256_u32_32 over a 64-byte zero-padded buffer. */
   public static senateHash(description: string): number {
     const buf = new Uint8Array(64);
     const enc = new TextEncoder();

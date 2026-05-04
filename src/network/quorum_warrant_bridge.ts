@@ -28,7 +28,7 @@
 // `WebRTCV2Mesh.senateHash`, so warrants emitted by this bridge
 // flow through the existing Era 1090 validation logic unchanged.
 
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import { TriggerOutcome } from "./quorum_investigation.ts";
 
 export const WARRANT_BRIDGE_SCHEMA = "OMEGA-1540/v1";

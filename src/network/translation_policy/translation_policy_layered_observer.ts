@@ -4,7 +4,7 @@
 // translation_policy_replay_digest... with a single, N-depth
 // recursive meta-observer.
 
-import { fnv1a32 } from "../cross_model_debate.ts";
+import { sha256_u32 } from "../../sdk/phi_crypto.ts";
 import {
   TranslationPolicyForensicReplayDigest,
 } from "./translation_policy_forensic_replay_digest.ts";
@@ -36,7 +36,7 @@ export function translationPolicyLayeredDigest(
 
   for (let i = 1; i <= depth; i++) {
     const payload = `${TRANSLATION_POLICY_LAYERED_OBSERVER_SCHEMA}|L${i}|${current_digest}`;
-    current_digest = fnv1a32(encoder.encode(payload));
+    current_digest = sha256_u32(encoder.encode(payload));
     history.push(current_digest);
   }
 

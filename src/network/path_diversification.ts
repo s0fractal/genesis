@@ -16,7 +16,7 @@
 // but every middle hop must be unique.
 
 import { ReputationScore } from "./reputation_routing.ts";
-import { fnv1a32 } from "./cross_model_debate.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
     FRAME_TYPE_HEARTBEAT,
     FRAME_TYPE_WARRANT_VOTE,
@@ -37,7 +37,7 @@ export function dedupKey(f: SporeFrame): number {
     const dv = new DataView(buf.buffer);
     dv.setUint32(2, f.proposalOrTarget >>> 0, false);
     dv.setUint32(6, f.tick >>> 0, false);
-    return fnv1a32(buf);
+    return sha256_u32(buf);
 }
 
 /** Returns true iff this frame deserves duplicate transmission. */

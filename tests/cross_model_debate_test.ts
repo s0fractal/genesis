@@ -1,8 +1,8 @@
 // Era 1070: Cross-model debate ledger tests.
 import { assertEquals, assert } from "jsr:@std/assert";
+import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 import {
     CrossModelDebate,
-    fnv1a32,
     isCanonicalOracle,
 } from "../src/network/cross_model_debate.ts";
 
@@ -20,7 +20,7 @@ Deno.test("debate: record and retrieve arguments by proposal", async () => {
 Deno.test("debate: reasoning hash is deterministic", async () => {
     const d = new CrossModelDebate();
     const arg = d.record("claude", 1, "aye", "exact reasoning", 0);
-    assertEquals(arg.reasoningHash, fnv1a32(new TextEncoder().encode("exact reasoning")));
+    assertEquals(arg.reasoningHash, sha256_u32(new TextEncoder().encode("exact reasoning")));
 });
 
 Deno.test("debate: verifyReasoning rejects tampered text", async () => {
