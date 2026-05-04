@@ -15,7 +15,7 @@ import {
     frameFromBytes,
     frameToBytes,
 } from "../src/network/spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 import { QuorumResult } from "../src/network/forensic_quorum.ts";
 
 const NOW = 100_000;
@@ -76,7 +76,7 @@ Deno.test("frameFromQuorum builds a valid frame from a QuorumResult", async () =
 });
 
 Deno.test("decodeQuorumFrame rejects non-quorum frame types", async () => {
-    const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
+    const hb = buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1);
     assertEquals(decodeQuorumFrame(hb), null);
 });
 
@@ -168,7 +168,7 @@ Deno.test("tracker: highConfidenceVerdicts filters correctly", async () => {
 
 Deno.test("tracker: rejects non-quorum frame types", async () => {
     const t = new QuorumAgreementTracker();
-    const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
+    const hb = buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1);
     assertThrows(() => t.observe(hb, 0xCC01, NOW));
 });
 

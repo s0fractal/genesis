@@ -63,7 +63,7 @@ export async function fetchAnchorBalance(address: string): Promise<BitcoinAnchor
  * Validates whether a given Bitcoin transaction contains an OP_RETURN output
  * matching the canonical OMEGA-64 Genesis Inscription.
  * @param txid The Bitcoin transaction ID
- * @param expectedHash Optional explicit hash number, defaults to GENESIS_HASH_V1_0 if omitted
+ * @param expectedHash Optional explicit hash number, defaults to GENESIS_HASH_LEGACY_V1_0 if omitted
  * @returns true if valid, false otherwise.
  */
 export async function verifyGenesisInscription(txid: string, expectedHash: number): Promise<boolean> {

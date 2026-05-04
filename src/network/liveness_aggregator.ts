@@ -19,7 +19,7 @@
 // Codeicide Law plus the warrant issuance flow handle authenticity at
 // higher layers.
 
-import { GENESIS_HASH_V1_0 } from "./genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "./genesis_inscription.ts";
 import {
     FRAME_TYPE_HEARTBEAT,
     FRAME_TYPE_WARRANT_VOTE,
@@ -117,7 +117,7 @@ export class LivenessAggregator {
     /** Re-classify a record without ingesting a new frame. */
     classify(rec: SporeRecord, now_ms: number): SporeHealth {
         // FORKED dominates — wrong anchor means non-conforming impl.
-        if (rec.heartbeat_count > 0 && rec.last_genesis !== GENESIS_HASH_V1_0) {
+        if (rec.heartbeat_count > 0 && rec.last_genesis !== GENESIS_HASH_LEGACY_V1_0) {
             return "forked";
         }
         // LOST: silent for too long.

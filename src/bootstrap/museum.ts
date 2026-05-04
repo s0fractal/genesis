@@ -8,7 +8,7 @@
 
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
-import { GENESIS_HASH_V1_0 } from "../network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../network/genesis_inscription.ts";
 
 const ENGINE = new OmegaV2Engine();
 let renderer: PhaseV2Renderer | null = null;
@@ -89,7 +89,7 @@ async function boot() {
         .catch(err => console.warn("Could not load wasm_hash", err));
 
     // HUD init
-    const genesisHex = GENESIS_HASH_V1_0.toString(16).toUpperCase().padStart(8, "0");
+    const genesisHex = GENESIS_HASH_LEGACY_V1_0.toString(16).toUpperCase().padStart(8, "0");
     document.getElementById("genesis-hash")!.textContent = `0x${genesisHex}`;
 
     // Interaction: mouse attractor injection
@@ -248,7 +248,7 @@ function exportWitness() {
 
     const witness = {
         schema: "OMEGA-MUSEUM-WITNESS/v2",
-        genesis: GENESIS_HASH_V1_0.toString(16).padStart(8, "0"),
+        genesis: GENESIS_HASH_LEGACY_V1_0.toString(16).padStart(8, "0"),
         timestamp: Date.now(),
         seed: currentSeed,
         topology: topology ? {

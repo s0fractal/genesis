@@ -24,7 +24,7 @@
 // the warrant is presented.
 
 use crate::codeicide_law::{quorum_hash, warrant_hash};
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 pub const WARRANT_LEDGER_CAPACITY: usize = 32;
 
@@ -89,14 +89,14 @@ impl WarrantProposal {
         reason: &[u8],
         raised_at: u32,
     ) -> Self {
-        // proposal_hash = FNV-1a(target_genome_BE || action || reason_hash_BE).
-        let reason_hash = fnv1a_32(reason);
+        // proposal_hash = SHA256-U32(target_genome_BE || action || reason_hash_BE).
+        let reason_hash = sha256_u32(reason);
         let mut buf = [0u8; 12];
         buf[0..4].copy_from_slice(&target_genome.to_be_bytes());
         buf[4] = action_code;
         buf[5..8].copy_from_slice(&[0u8; 3]);
         buf[8..12].copy_from_slice(&reason_hash.to_be_bytes());
-        let proposal_hash = fnv1a_32(&buf);
+        let proposal_hash = sha256_u32(&buf);
         Self {
             proposal_hash,
             target_genome,

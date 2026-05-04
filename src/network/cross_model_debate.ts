@@ -7,6 +7,7 @@
 // raw argument from any node that has it.
 
 import { CanonicalOracle, ORACLE_MATRICES_V1 } from "./oracle_identity.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 
 export interface DebateArgument {
     oracle: CanonicalOracle;
@@ -25,14 +26,9 @@ const STANCE_CODE: Record<DebateArgument["stance"], number> = {
     abstain: 3,
 } as const;
 
-/** FNV-1a 32-bit — mirror of omega_v2::senate::fnv1a_32. */
+/** SHA-256 32-bit truncated — alias for legacy fnv1a32 name to avoid breaking imports. */
 export function fnv1a32(bytes: Uint8Array): number {
-    let h = 0x811C_9DC5 >>> 0;
-    for (let i = 0; i < bytes.length; i++) {
-        h = (h ^ bytes[i]) >>> 0;
-        h = Math.imul(h, 0x0100_0193) >>> 0;
-    }
-    return h >>> 0;
+    return sha256_u32(bytes);
 }
 
 /** In-memory ledger of full reasoning text (the kernel only stores fingerprints). */

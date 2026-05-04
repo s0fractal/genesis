@@ -11,7 +11,7 @@ fn anchor_quorum_claude_gpt_gemini() {
     // 0b00111 = claude + gpt + gemini canonical AYEs.
     let q = quorum_hash(0b00111);
     eprintln!("rust quorum(0b00111) = 0x{:08x}", q);
-    assert_eq!(q, 0x9499_6B5E);
+    assert_eq!(q, 0x5931_2923);
 }
 
 #[test]
@@ -19,7 +19,7 @@ fn anchor_warrant_cafebabe_terminate() {
     let q = quorum_hash(0b00111);
     let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, q);
     eprintln!("rust warrant(CAFEBABE, TERM, q) = 0x{:08x}", w);
-    assert_eq!(w, 0xB1E3_8F80);
+    assert_eq!(w, 0x5274_DA7F);
 }
 
 #[test]

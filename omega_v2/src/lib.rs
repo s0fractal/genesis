@@ -13,6 +13,7 @@
 #![cfg_attr(any(target_arch = "wasm32", target_os = "none"), no_main)]
 
 pub mod constants;
+pub mod crypto;
 pub mod topology;
 pub mod math;
 pub mod agent;
@@ -864,7 +865,7 @@ pub unsafe extern "C" fn v2_senate_is_accepted(hash_ptr: *const u8) -> u32 {
 /// Returns 0x549A6307 unless the kernel has drifted from the canonical anchors.
 #[no_mangle]
 pub extern "C" fn v2_genesis_hash_v1() -> u32 {
-    crate::genesis_inscription::GENESIS_HASH_V1_0
+    crate::genesis_inscription::GENESIS_HASH_LEGACY_V1_0
 }
 
 /// Compute the Genesis Hash from the lattice's current invariant state.

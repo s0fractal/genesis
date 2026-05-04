@@ -15,7 +15,7 @@ import {
     frameFromBytes,
     frameToBytes,
 } from "../src/network/spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 import type { CompositeScore, HealthBand } from "../src/network/mesh_health.ts";
 
 const NOW = 100_000;
@@ -77,7 +77,7 @@ Deno.test("composite: u8 clamping on counts", async () => {
 });
 
 Deno.test("composite: compositeFromFrame rejects non-composite frames", async () => {
-    const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
+    const hb = buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1);
     assertEquals(compositeFromFrame(hb), null);
 });
 
@@ -106,7 +106,7 @@ Deno.test("monitor: divergent peer triggers meta-partition alarm", async () => {
 
 Deno.test("monitor: rejects non-composite frame types", async () => {
     const m = new CompositeHealthMonitor(() => localScore(0.78));
-    const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
+    const hb = buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1);
     assertThrows(() => m.observe(hb, NOW));
 });
 

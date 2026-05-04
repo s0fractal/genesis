@@ -6,7 +6,7 @@ import {
     ANCHORS_V1_0,
     computeGenesisHash,
     formatInscription,
-    GENESIS_HASH_V1_0,
+    GENESIS_HASH_LEGACY_V1_0,
     PROTOCOL_VERSION,
     verifyGenesisV1,
 } from "../src/network/genesis_inscription.ts";
@@ -20,8 +20,8 @@ Deno.test("genesis: v1.0 anchors match the cryptographic constants", async () =>
 });
 
 Deno.test("genesis: v1.0 hash matches the Rust source-of-truth", async () => {
-    assertEquals(computeGenesisHash(ANCHORS_V1_0), GENESIS_HASH_V1_0);
-    assertEquals(GENESIS_HASH_V1_0, 0x549A_6307);
+    assertEquals(computeGenesisHash(ANCHORS_V1_0), GENESIS_HASH_LEGACY_V1_0);
+    assertEquals(GENESIS_HASH_LEGACY_V1_0, 0x549A_6307);
 });
 
 Deno.test("genesis: verifyGenesisV1 succeeds in this environment", async () => {
@@ -31,11 +31,11 @@ Deno.test("genesis: verifyGenesisV1 succeeds in this environment", async () => {
 Deno.test("genesis: any anchor drift produces a different hash", async () => {
     const drifted = { ...ANCHORS_V1_0, firstProposalHash: 0xFAA7_FF6F };
     const h = computeGenesisHash(drifted);
-    assertEquals(h !== GENESIS_HASH_V1_0, true);
+    assertEquals(h !== GENESIS_HASH_LEGACY_V1_0, true);
 });
 
 Deno.test("genesis: OP_RETURN inscription format is canonical", async () => {
-    assertEquals(formatInscription(GENESIS_HASH_V1_0), "OMEGA1:549a6307");
+    assertEquals(formatInscription(GENESIS_HASH_LEGACY_V1_0), "OMEGA1:549a6307");
     assertEquals(formatInscription(0xDEADBEEF), "OMEGA1:deadbeef");
     assertEquals(formatInscription(0).length, 15);
 });

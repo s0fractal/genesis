@@ -17,7 +17,7 @@ import {
     buildSnapshotDigest,
     buildWarrantVote,
 } from "../src/network/spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 import { InvestigationRecord } from "../src/network/auto_investigation.ts";
 
 const NOW = 100_000;

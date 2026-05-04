@@ -7,7 +7,7 @@ import {
     buildHeartbeat,
     buildWarrantVote,
 } from "../src/network/spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 
 const NOW = 100_000;
 
@@ -143,7 +143,7 @@ Deno.test("convergence: invalid capacity throws", async () => {
 
 Deno.test("convergence: heartbeat-and-warrant tracked separately", async () => {
     const cd = new ConvergenceDetector();
-    cd.observe(buildHeartbeat(GENESIS_HASH_V1_0, 1), "spore-A", NOW);
+    cd.observe(buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), "spore-A", NOW);
     cd.observe(buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 1), "spore-A", NOW + 50);
     assertEquals(cd.snapshot().length, 2);
 });

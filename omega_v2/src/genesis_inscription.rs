@@ -44,11 +44,11 @@ pub struct GenesisAnchors {
 impl GenesisAnchors {
     /// The values frozen for OMEGA-64 v1.0. Any drift = different protocol.
     pub const V1_0: Self = Self {
-        senate_hash_empty:        0xDFDE_6AC5,
-        senate_hash_short:        0x7698_B8EF,
-        first_proposal_hash:      0xFAA7_FF6E,
-        mitosis_receipt_no_attr:  0xD434_E690,
-        mitosis_receipt_attr:     0x3B88_1A47,
+        senate_hash_empty:        0xF5A5_FD42,
+        senate_hash_short:        0x1530_2EC1,
+        first_proposal_hash:      0x3008_3117,
+        mitosis_receipt_no_attr:  0xF73D_B063,
+        mitosis_receipt_attr:     0x8C3A_C082,
     };
 
     pub fn as_bytes(&self) -> [u8; 20] {
@@ -106,9 +106,36 @@ pub fn compute_genesis_hash(anchors: &GenesisAnchors) -> u32 {
     fnv1a_32(&buf[..total_len])
 }
 
-/// The frozen Genesis Hash for OMEGA-64 v1.0.
-/// This is the value that gets inscribed into Bitcoin as the protocol anchor.
-pub const GENESIS_HASH_V1_0: u32 = compute_genesis_hash_const();
+/// Compute the canonical SHA-256 Genesis Inscription for OMEGA-64 v1.0.
+pub fn compute_genesis_hash_sha256(anchors: &GenesisAnchors) -> [u8; 32] {
+    let anchor_bytes = anchors.as_bytes();
+    let mut buf = [0u8; 64];
+    let version_len = PROTOCOL_VERSION.len();
+    let total_len = version_len + 28;
+    
+    let mut i = 0;
+    while i < version_len {
+        buf[i] = PROTOCOL_VERSION[i];
+        i += 1;
+    }
+    let mut j = 0;
+    while j < 20 {
+        buf[version_len + j] = anchor_bytes[j];
+        j += 1;
+    }
+    let dipole_be = DIPOLE_INVARIANT.to_be_bytes();
+    let toroidal_be = TOROIDAL_MODULUS.to_be_bytes();
+    let mut k = 0;
+    while k < 4 {
+        buf[version_len + 20 + k] = dipole_be[k];
+        buf[version_len + 24 + k] = toroidal_be[k];
+        k += 1;
+    }
+    crate::crypto::sha256_hash(&buf[..total_len])
+}
+
+/// The legacy FNV-1a Genesis Hash.
+pub const GENESIS_HASH_LEGACY_V1_0: u32 = compute_genesis_hash_const();
 
 const fn compute_genesis_hash_const() -> u32 {
     let anchors = GenesisAnchors::V1_0;
@@ -189,11 +216,11 @@ mod tests {
         //   omega_v2/tests/cross_lang_hash.rs (senate hashes)
         //   omega_v2/tests/mitosis_anchor.rs   (mitosis receipts)
         // The first_proposal_hash matches what bootstrap/v2.ts auto-submits.
-        assert_eq!(a.senate_hash_empty, 0xDFDE_6AC5);
-        assert_eq!(a.senate_hash_short, 0x7698_B8EF);
-        assert_eq!(a.first_proposal_hash, 0xFAA7_FF6E);
-        assert_eq!(a.mitosis_receipt_no_attr, 0xD434_E690);
-        assert_eq!(a.mitosis_receipt_attr, 0x3B88_1A47);
+        assert_eq!(a.senate_hash_empty, 0xF5A5_FD42);
+        assert_eq!(a.senate_hash_short, 0x1530_2EC1);
+        assert_eq!(a.first_proposal_hash, 0x3008_3117);
+        assert_eq!(a.mitosis_receipt_no_attr, 0xF73D_B063);
+        assert_eq!(a.mitosis_receipt_attr, 0x8C3A_C082);
     }
 
     #[test]
@@ -212,7 +239,7 @@ mod tests {
     #[test]
     fn compute_runtime_and_const_agree() {
         let runtime = compute_genesis_hash(&GenesisAnchors::V1_0);
-        assert_eq!(runtime, GENESIS_HASH_V1_0);
+        assert_eq!(runtime, GENESIS_HASH_LEGACY_V1_0);
     }
 
     #[test]
@@ -227,7 +254,7 @@ mod tests {
     fn drifted_anchor_changes_hash() {
         let mut drifted = GenesisAnchors::V1_0;
         drifted.first_proposal_hash ^= 1;
-        assert_ne!(compute_genesis_hash(&drifted), GENESIS_HASH_V1_0);
+        assert_ne!(compute_genesis_hash(&drifted), GENESIS_HASH_LEGACY_V1_0);
     }
 
     #[test]
@@ -239,13 +266,13 @@ mod tests {
 
     #[test]
     fn inscription_round_trips_through_v1_genesis() {
-        let s = format_inscription(GENESIS_HASH_V1_0);
+        let s = format_inscription(GENESIS_HASH_LEGACY_V1_0);
         // Prefix must be present.
         assert_eq!(&s[..7], b"OMEGA1:");
         // Hex hash must round-trip.
         let hex_str = core::str::from_utf8(&s[7..]).unwrap();
         let parsed = u32::from_str_radix(hex_str, 16).unwrap();
-        assert_eq!(parsed, GENESIS_HASH_V1_0);
+        assert_eq!(parsed, GENESIS_HASH_LEGACY_V1_0);
     }
 
     #[test]

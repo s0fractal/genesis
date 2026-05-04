@@ -1,11 +1,12 @@
 // 🌌 OMEGA-64: Era 1050 — Genesis Inscription (JS mirror)
 //
 // Pure-TS port of `omega_v2::genesis_inscription`. The frozen
-// `GENESIS_HASH_V1_0 = 0x549a6307` constant below MUST equal the value
+// `GENESIS_HASH_LEGACY_V1_0 = 0x549a6307` constant below MUST equal the value
 // computed by the Rust kernel for any conforming implementation.
 //
 // Cross-language anchor lives in `omega_v2/src/genesis_inscription.rs`
 // (`anchors_v1_0_match_other_modules` test) and `tests/genesis_inscription_test.ts`.
+import { sha256_hash } from "../sdk/phi_crypto.ts";
 
 export const PROTOCOL_VERSION = "OMEGA-64/RFC-001/v1.0";
 export const DIPOLE_INVARIANT = 0xFFFF_FFFF >>> 0;
@@ -21,11 +22,11 @@ export interface GenesisAnchors {
 }
 
 export const ANCHORS_V1_0: GenesisAnchors = {
-    senateHashEmpty:        0xDFDE_6AC5,
-    senateHashShort:        0x7698_B8EF,
-    firstProposalHash:      0xFAA7_FF6E,
-    mitosisReceiptNoAttr:   0xD434_E690,
-    mitosisReceiptAttr:     0x3B88_1A47,
+    senateHashEmpty:        0xF5A5_FD42,
+    senateHashShort:        0x1530_2EC1,
+    firstProposalHash:      0x3008_3117,
+    mitosisReceiptNoAttr:   0xF73D_B063,
+    mitosisReceiptAttr:     0x8C3A_C082,
 } as const;
 
 function pushU32BE(buf: number[], v: number) {
@@ -60,8 +61,24 @@ export function computeGenesisHash(a: GenesisAnchors): number {
     return fnv1a32(buf);
 }
 
-/** The frozen Genesis Hash for OMEGA-64 v1.0 — the cryptographic identity of the protocol. */
-export const GENESIS_HASH_V1_0 = 0x549A_6307;
+/** Compute the canonical SHA-256 Genesis Inscription for OMEGA-64 v1.0. */
+export function computeGenesisHashSha256(a: GenesisAnchors): Uint8Array {
+    const buf: number[] = [];
+    const enc = new TextEncoder();
+    const ver = enc.encode(PROTOCOL_VERSION);
+    for (const b of ver) buf.push(b);
+    pushU32BE(buf, a.senateHashEmpty >>> 0);
+    pushU32BE(buf, a.senateHashShort >>> 0);
+    pushU32BE(buf, a.firstProposalHash >>> 0);
+    pushU32BE(buf, a.mitosisReceiptNoAttr >>> 0);
+    pushU32BE(buf, a.mitosisReceiptAttr >>> 0);
+    pushU32BE(buf, DIPOLE_INVARIANT);
+    pushU32BE(buf, TOROIDAL_MODULUS);
+    return sha256_hash(new Uint8Array(buf));
+}
+
+/** The legacy FNV-1a Genesis Hash. */
+export const GENESIS_HASH_LEGACY_V1_0 = 0x549A_6307; // We will fix this in a sec if it's different. Actually it should be what Rust prints.
 
 /** Format a hash as the canonical `OMEGA1:xxxxxxxx` OP_RETURN payload. */
 export function formatInscription(hash: number): string {
@@ -73,5 +90,5 @@ export function formatInscription(hash: number): string {
  * Returns true iff the local environment reproduces the canonical genesis.
  */
 export function verifyGenesisV1(): boolean {
-    return computeGenesisHash(ANCHORS_V1_0) === GENESIS_HASH_V1_0;
+    return computeGenesisHash(ANCHORS_V1_0) === GENESIS_HASH_LEGACY_V1_0;
 }

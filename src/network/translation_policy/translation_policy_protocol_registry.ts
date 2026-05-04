@@ -331,195 +331,16 @@ const LAYERS: readonly TranslationPolicyProtocolLayer[] = [
     ],
   ),
   layer(
-    1870,
-    "policy-replay-digest-claim",
-    "passive-dispatch",
-    "translation_policy_replay_digest_claim.ts",
+    2040,
+    "policy-layered-observer",
+    "offline",
+    "translation_policy_layered_observer.ts",
     [1860],
-    ["claim", "mesh-claim"],
-    {
-      schema: "OMEGA-1870/v1",
-      event_name: "translationPolicyReplayDigestClaim",
-      semantic_type: "TRANSLATION_POLICY_REPLAY_DIGEST",
-      payload_body_field: "translationPolicyReplayDigestBody",
-      payload_target_field: "translationPolicyReplayDigestTarget",
-    },
-  ),
-  layer(
-    1880,
-    "policy-replay-digest-quorum",
-    "core",
-    "translation_policy_replay_digest_quorum.ts",
-    [1870],
-    [
-      "quorum",
-    ],
-  ),
-  layer(
-    1890,
-    "policy-replay-digest-live-wiring",
-    "live-wired",
-    "translation_policy_replay_digest_live_wiring.ts",
-    [1870, 1880],
-    [
-      "live-wiring",
-    ],
-  ),
-  layer(
-    1900,
-    "policy-replay-digest-hud",
-    "core",
-    "translation_policy_replay_digest_hud.ts",
-    [1880, 1890],
-    [
-      "hud",
-    ],
-  ),
-  layer(
-    1910,
-    "policy-replay-digest-forensic-event",
-    "forensic",
-    "translation_policy_replay_digest_forensic_event_adapter.ts",
-    [1880, 1890],
-    [
-      "forensic-event",
-    ],
-    { forensic_kind: "tpdq" },
-  ),
-  layer(
-    1920,
-    "policy-replay-digest-forensic-replay",
-    "offline",
-    "translation_policy_replay_digest_forensic_replay.ts",
-    [1910],
-    [
-      "replay",
-    ],
-  ),
-  layer(
-    1930,
-    "policy-replay-digest-forensic-replay-hud",
-    "offline",
-    "translation_policy_replay_digest_forensic_replay_hud.ts",
-    [1920],
-    [
-      "hud",
-    ],
-  ),
-  layer(
-    1940,
-    "policy-replay-digest-forensic-replay-digest",
-    "offline",
-    "translation_policy_replay_digest_forensic_replay_digest.ts",
-    [1920],
     [
       "digest",
-    ],
-  ),
-  layer(
-    1950,
-    "policy-replay-digest-digest-claim",
-    "passive-dispatch",
-    "translation_policy_replay_digest_digest_claim.ts",
-    [1940],
-    ["claim", "mesh-claim"],
-    {
-      schema: "OMEGA-1950/v1",
-      event_name: "translationPolicyReplayDigestDigestClaim",
-      semantic_type: "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST",
-      payload_body_field: "translationPolicyReplayDigestDigestBody",
-      payload_target_field: "translationPolicyReplayDigestDigestTarget",
-    },
-  ),
-  layer(
-    1960,
-    "policy-replay-digest-digest-quorum",
-    "core",
-    "translation_policy_replay_digest_digest_quorum.ts",
-    [1950],
-    [
-      "quorum",
-    ],
-  ),
-  layer(
-    1970,
-    "policy-replay-digest-digest-live-wiring",
-    "live-wired",
-    "translation_policy_replay_digest_digest_live_wiring.ts",
-    [1950, 1960],
-    [
-      "live-wiring",
-    ],
-  ),
-  layer(
-    1980,
-    "policy-replay-digest-digest-hud",
-    "core",
-    "translation_policy_replay_digest_digest_hud.ts",
-    [1960, 1970],
-    [
       "hud",
-    ],
-  ),
-  layer(
-    1990,
-    "policy-replay-digest-digest-forensic-event",
-    "forensic",
-    "translation_policy_replay_digest_digest_forensic_event_adapter.ts",
-    [1960, 1970],
-    [
       "forensic-event",
     ],
-    { forensic_kind: "tpdd" },
-  ),
-  layer(
-    2000,
-    "policy-replay-digest-digest-forensic-replay",
-    "offline",
-    "translation_policy_replay_digest_digest_forensic_replay.ts",
-    [1990],
-    [
-      "replay",
-    ],
-  ),
-  layer(
-    2010,
-    "policy-replay-digest-digest-forensic-replay-digest",
-    "offline",
-    "translation_policy_replay_digest_digest_forensic_replay_digest.ts",
-    [2000],
-    [
-      "digest",
-    ],
-  ),
-  layer(
-    2020,
-    "policy-replay-digest-digest-forensic-replay-hud",
-    "offline",
-    "translation_policy_replay_digest_digest_forensic_replay_hud.ts",
-    [2000, 2010],
-    [
-      "hud",
-    ],
-  ),
-  layer(
-    2030,
-    "policy-replay-digest-digest-forensic-replay-digest-claim",
-    "passive-dispatch",
-    "translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts",
-    [2010],
-    ["claim", "mesh-claim"],
-    {
-      schema: "OMEGA-2030/v1",
-      event_name:
-        "translationPolicyReplayDigestDigestForensicReplayDigestClaim",
-      semantic_type:
-        "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST",
-      payload_body_field:
-        "translationPolicyReplayDigestDigestForensicReplayDigestBody",
-      payload_target_field:
-        "translationPolicyReplayDigestDigestForensicReplayDigestTarget",
-    },
   ),
 ];
 
@@ -656,14 +477,14 @@ export function translationPolicySpineCompressionSummary(): string {
 function compressionEntry(
   layer: TranslationPolicyProtocolLayer,
 ): TranslationPolicySpinePolicyEntry {
-  if (layer.era >= 1910) {
+  if (layer.era === 2040) {
     return {
       era: layer.era,
       id: layer.id,
       role: "recursive-derived",
       extension_policy: "cap-recursion",
       reason:
-        "derived from replay-digest quorum telemetry; do not add another quorum/HUD/forensic cycle without explicit registry policy change",
+        "unified meta-observer for N-depth recursive digests; do not add hardcoded layers",
     };
   }
   if (layer.status === "passive-dispatch") {

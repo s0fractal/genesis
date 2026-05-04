@@ -12,7 +12,7 @@ import {
     buildHeartbeat,
     buildWarrantVote,
 } from "../src/network/spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 import { ConvergenceDetector } from "../src/network/convergence_detector.ts";
 
 const NOW = 100_000;
@@ -22,25 +22,25 @@ function fillRecorder(
     items: ReadonlyArray<{ tick: number; t_offset: number; by: string }>,
 ) {
     for (const it of items) {
-        r.record(buildHeartbeat(GENESIS_HASH_V1_0, it.tick), NOW + it.t_offset, it.by);
+        r.record(buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, it.tick), NOW + it.t_offset, it.by);
     }
 }
 
 Deno.test("hash: same observation produces same hash", async () => {
-    const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
-    const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
+    const a = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
+    const b = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
     assertEquals(observationHash(a), observationHash(b));
 });
 
 Deno.test("hash: different timestamp → different hash", async () => {
-    const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
-    const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW + 1, delivered_by: "X" };
+    const a = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
+    const b = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW + 1, delivered_by: "X" };
     assert(observationHash(a) !== observationHash(b));
 });
 
 Deno.test("hash: different deliverer → different hash", async () => {
-    const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
-    const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "Y" };
+    const a = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
+    const b = { frame: buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), received_at_ms: NOW, delivered_by: "Y" };
     assert(observationHash(a) !== observationHash(b));
 });
 

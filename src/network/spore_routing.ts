@@ -12,7 +12,7 @@ import {
     SporeFrame,
     computeFrameCrc,
 } from "./spore_frame.ts";
-import { GENESIS_HASH_V1_0 } from "./genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "./genesis_inscription.ts";
 
 export const DEFAULT_TTL = 4;
 const TTL_SHIFT = 24;
@@ -60,7 +60,7 @@ export interface RoutingDecision {
 export function decideForward(
     incoming: SporeFrame,
     ourSporeId: number,
-    ourGenesis: number = GENESIS_HASH_V1_0,
+    ourGenesis: number = GENESIS_HASH_LEGACY_V1_0,
 ): RoutingDecision {
     const out: SporeFrame = { ...incoming };
 

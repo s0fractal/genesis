@@ -32,10 +32,7 @@ import {
   TranslationPolicyCorroborationRaise,
   TranslationPolicyCorroborationTracker,
 } from "./translation_policy/translation_policy_corroboration.ts";
-import {
-  decodeTranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-  TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-} from "./translation_policy/translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
+
 
 export const MESH_BRIDGE_SCHEMA = "OMEGA-1510/v1";
 
@@ -265,69 +262,3 @@ export function translationPolicyCorroborationPlasmidFields(
   };
 }
 
-/** Caller-supplied emit function for Era 2030 tpdd replay digest claims. */
-export type TranslationPolicyReplayDigestDigestForensicReplayDigestPlasmidEmit =
-  (
-    target_peer_id: number,
-    body_json: string,
-  ) => boolean;
-
-/** Wire shim for Era 2030 claims over the Era 2040 passive mesh surface. */
-export class TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge {
-  public sent_count = 0;
-  public last_target?: number;
-  public last_body?: string;
-
-  constructor(
-    public readonly emit:
-      TranslationPolicyReplayDigestDigestForensicReplayDigestPlasmidEmit,
-  ) {}
-
-  sendClaim(
-    target_peer_id: number,
-    claim: TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-  ): boolean {
-    const body = JSON.stringify(claim);
-    const ok = this.emit(target_peer_id >>> 0, body);
-    if (ok) {
-      this.sent_count++;
-      this.last_target = target_peer_id >>> 0;
-      this.last_body = body;
-    }
-    return ok;
-  }
-
-  handleIncoming(
-    body_json: string,
-  ): TranslationPolicyReplayDigestDigestForensicReplayDigestClaim | null {
-    return decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      body_json,
-    );
-  }
-}
-
-/** Decode an Era 2030 tpdd replay digest claim carried by a mesh plasmid. */
-export function decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-  body_json: string,
-): TranslationPolicyReplayDigestDigestForensicReplayDigestClaim | null {
-  return decodeTranslationPolicyReplayDigestDigestForensicReplayDigestClaim(
-    body_json,
-  );
-}
-
-/** Build plasmid extension fields for the Era 2040 passive dispatch surface. */
-export function translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields(
-  target_peer_id: number,
-  claim: TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-): {
-  translationPolicyReplayDigestDigestForensicReplayDigestTarget: number;
-  translationPolicyReplayDigestDigestForensicReplayDigestBody: string;
-} {
-  return {
-    translationPolicyReplayDigestDigestForensicReplayDigestTarget:
-      target_peer_id >>> 0,
-    translationPolicyReplayDigestDigestForensicReplayDigestBody: JSON.stringify(
-      claim,
-    ),
-  };
-}

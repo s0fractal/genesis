@@ -4,7 +4,6 @@ import {
   decodeMeshPayload,
   decodeTranslationPolicyCorroborationMeshPayload,
   decodeTranslationPolicyMeshPayload,
-  decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload,
   eventSyncPlasmidFields,
   MESH_BRIDGE_SCHEMA,
   MeshBridgeTransport,
@@ -12,8 +11,6 @@ import {
   translationPolicyCorroborationPlasmidFields,
   TranslationPolicyMeshBridge,
   translationPolicyPlasmidFields,
-  TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge,
-  translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields,
 } from "../src/network/mesh_event_bridge.ts";
 import {
   ForensicEvent,
@@ -29,9 +26,7 @@ import {
   BridgeMessage,
   WebRTCEventBridge,
 } from "../src/network/webrtc_event_bridge.ts";
-import {
-  TranslationPolicyReplayDigestDigestForensicReplayDigestClaim,
-} from "../src/network/translation_policy/translation_policy_replay_digest_digest_forensic_replay_digest_claim.ts";
+
 
 const T0 = 1_000_000;
 
@@ -308,101 +303,7 @@ Deno.test("TranslationPolicyCorroborationMeshBridge: sends raise", async () => {
   );
 });
 
-function tpddReplayDigestClaim(
-  digest = 0xD1CE,
-): TranslationPolicyReplayDigestDigestForensicReplayDigestClaim {
-  return {
-    schema: "OMEGA-2030/v1",
-    digest_schema: "OMEGA-2010/v1",
-    peer_id: 0xAA,
-    witness_id: 0xCA,
-    digest,
-    band_timeline_hash: 0x10,
-    consensus_interval_hash: 0x20,
-    error_window_hash: 0x30,
-    classified_events: 2,
-    malformed_payloads: 0,
-    final_band: "drift",
-    final_consensus_digest: 0xBBBB,
-    claimed_at_ms: T0,
-  };
-}
 
-Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: parses Era 2030 claim", async () => {
-  const claim = tpddReplayDigestClaim();
-  const decoded =
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      JSON.stringify(claim),
-    );
-  assertEquals(decoded?.schema, "OMEGA-2030/v1");
-  assertEquals(decoded?.digest_schema, "OMEGA-2010/v1");
-  assertEquals(decoded?.digest, 0xD1CE);
-});
-
-Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: rejects malformed claim", async () => {
-  assertEquals(
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      "not json",
-    ),
-    null,
-  );
-  assertEquals(
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      JSON.stringify({ ...tpddReplayDigestClaim(), schema: "OMEGA-2040/v1" }),
-    ),
-    null,
-  );
-  assertEquals(
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      JSON.stringify({
-        ...tpddReplayDigestClaim(),
-        digest_schema: "OMEGA-1940/v1",
-      }),
-    ),
-    null,
-  );
-});
-
-Deno.test("translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields: produces target + body fields", async () => {
-  const claim = tpddReplayDigestClaim();
-  const fields =
-    translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields(
-      0xBB,
-      claim,
-    );
-  assertEquals(
-    fields.translationPolicyReplayDigestDigestForensicReplayDigestTarget,
-    0xBB,
-  );
-  assertEquals(
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      fields.translationPolicyReplayDigestDigestForensicReplayDigestBody,
-    )?.digest,
-    0xD1CE,
-  );
-});
-
-Deno.test("TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge: sends claim", async () => {
-  let captured_target = 0;
-  let captured_body = "";
-  const bridge =
-    new TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge(
-      (target, body) => {
-        captured_target = target;
-        captured_body = body;
-        return true;
-      },
-    );
-  assert(bridge.sendClaim(0xBB, tpddReplayDigestClaim()));
-  assertEquals(bridge.sent_count, 1);
-  assertEquals(captured_target, 0xBB);
-  assertEquals(
-    decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
-      captured_body,
-    )?.witness_id,
-    0xCA,
-  );
-});
 
 Deno.test("end-to-end: corroboration raise bridge feeds remote tracker", async () => {
   let bridgeB: TranslationPolicyCorroborationMeshBridge;

@@ -8,25 +8,20 @@
 // Cross-language anchor lives in `omega_v2/tests/oracle_anchors.rs` and
 // `tests/oracle_identity_test.ts`.
 
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
+
 export const ORACLE_SALT_V1 = "OMEGA-64/RFC-001/v1.0";
 
-/** FNV-1a 32-bit over `name + ':' + salt`. */
+/** SHA-256 32-bit truncated over `name + ':' + salt`. */
 export function oracleMatrix(name: string, salt: string = ORACLE_SALT_V1): number {
-    let h = 0x811C_9DC5 >>> 0;
     const enc = new TextEncoder();
     const nameBytes = enc.encode(name);
     const saltBytes = enc.encode(salt);
-    for (let i = 0; i < nameBytes.length; i++) {
-        h = (h ^ nameBytes[i]) >>> 0;
-        h = Math.imul(h, 0x0100_0193) >>> 0;
-    }
-    h = (h ^ 0x3A) >>> 0; // ':' separator (0x3A)
-    h = Math.imul(h, 0x0100_0193) >>> 0;
-    for (let i = 0; i < saltBytes.length; i++) {
-        h = (h ^ saltBytes[i]) >>> 0;
-        h = Math.imul(h, 0x0100_0193) >>> 0;
-    }
-    return h >>> 0;
+    const buf = new Uint8Array(nameBytes.length + 1 + saltBytes.length);
+    buf.set(nameBytes, 0);
+    buf[nameBytes.length] = 0x3A; // ':'
+    buf.set(saltBytes, nameBytes.length + 1);
+    return sha256_u32(buf);
 }
 
 /** Returns `(matrix, inverse)` for an oracle, satisfying the dipole invariant. */
@@ -41,9 +36,9 @@ export type CanonicalOracle = typeof CANONICAL_ORACLES[number];
 
 /** Frozen v1.0 oracle matrices (anchored against omega_v2/tests/oracle_anchors.rs). */
 export const ORACLE_MATRICES_V1: Record<CanonicalOracle, number> = {
-    claude: 0x6B70_A8AB,
-    gpt:    0x855A_8386,
-    gemini: 0x5713_E78A,
-    qwen:   0x5DDA_B832,
-    llama:  0xFAAC_4232,
+    claude: 0x41A2_F2F4,
+    gpt:    0x89B1_222A,
+    gemini: 0x9874_DD21,
+    qwen:   0x6E52_1F4E,
+    llama:  0x3A52_38EF,
 } as const;

@@ -7,7 +7,7 @@ import {
     rankNeighbors,
     scoreOne,
 } from "../src/network/reputation_routing.ts";
-import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";
 import {
     buildHeartbeat,
     buildWarrantVote,
@@ -22,14 +22,14 @@ const NOW = 100_000;
 Deno.test("rep: healthy beats unknown", async () => {
     const agg = freshAgg();
     // Healthy: 3 heartbeats with rising tick.
-    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200);
-    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 100);
-    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_V1_0, 3), NOW);
+    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 200);
+    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW - 100);
+    agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 3), NOW);
     // Unknown: only 1 sample.
     const unknownAgg = freshAgg();
-    unknownAgg.ingest("beta", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW);
+    unknownAgg.ingest("beta", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW);
     // (Use same agg for ranking)
-    agg.ingest("beta", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW);
+    agg.ingest("beta", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW);
     // Override beta's classifyAfter trick: drop into unknown by not
     // sending second heartbeat.
     const ranked = rankNeighbors(agg, NOW);
@@ -46,8 +46,8 @@ Deno.test("rep: forked spore is excluded entirely", async () => {
 
 Deno.test("rep: forked + healthy → only healthy is pickable", async () => {
     const agg = freshAgg();
-    agg.ingest("good", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
-    agg.ingest("good", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW);
+    agg.ingest("good", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 100);
+    agg.ingest("good", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW);
     agg.ingest("rogue", buildHeartbeat(0xDEADBEEF >>> 0, 1), NOW);
     const best = pickBest(agg, NOW);
     assert(best !== null);
@@ -58,7 +58,7 @@ Deno.test("rep: heartbeat density adds up to cap", async () => {
     const agg = freshAgg();
     // Send 60 heartbeats — but the cap is 50, so only 50 contribute.
     for (let t = 1; t <= 60; t++) {
-        agg.ingest("dense", buildHeartbeat(GENESIS_HASH_V1_0, t), NOW - (60 - t) * 10);
+        agg.ingest("dense", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, t), NOW - (60 - t) * 10);
     }
     const ranked = rankNeighbors(agg, NOW);
     const r = ranked[0];
@@ -68,8 +68,8 @@ Deno.test("rep: heartbeat density adds up to cap", async () => {
 
 Deno.test("rep: warrant throughput contributes to score", async () => {
     const agg = freshAgg();
-    agg.ingest("voter", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
-    agg.ingest("voter", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 50);
+    agg.ingest("voter", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 100);
+    agg.ingest("voter", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW - 50);
     for (let i = 0; i < 5; i++) {
         agg.ingest("voter", buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 100 + i), NOW - 25 + i);
     }
@@ -80,9 +80,9 @@ Deno.test("rep: warrant throughput contributes to score", async () => {
 
 Deno.test("rep: stalled gets stall penalty", async () => {
     const agg = freshAgg();
-    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 200);
-    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 100);
-    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW);
+    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 5), NOW - 200);
+    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 5), NOW - 100);
+    agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 5), NOW);
     const ranked = rankNeighbors(agg, NOW);
     const r = ranked[0];
     assertEquals(r.health, "stalled");
@@ -91,8 +91,8 @@ Deno.test("rep: stalled gets stall penalty", async () => {
 
 Deno.test("rep: lost spore loses score over silence duration", async () => {
     const agg = freshAgg();
-    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 70_000);
-    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 60_000);
+    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 70_000);
+    agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW - 60_000);
     const ranked = rankNeighbors(agg, NOW);
     const r = ranked[0];
     assertEquals(r.health, "lost");
@@ -104,8 +104,8 @@ Deno.test("rep: stable tie-break by spore_id ascending", async () => {
     const agg = freshAgg();
     // Two healthy spores with identical metrics.
     for (const id of ["zeta", "alpha"]) {
-        agg.ingest(id, buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
-        agg.ingest(id, buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW);
+        agg.ingest(id, buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 100);
+        agg.ingest(id, buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW);
     }
     const ranked = rankNeighbors(agg, NOW);
     assertEquals(ranked[0].spore_id, "alpha"); // lex order tie-break
@@ -115,8 +115,8 @@ Deno.test("rep: stable tie-break by spore_id ascending", async () => {
 Deno.test("rep: pickTopK respects k", async () => {
     const agg = freshAgg();
     for (const id of ["a", "b", "c", "d", "e"]) {
-        agg.ingest(id, buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
-        agg.ingest(id, buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW);
+        agg.ingest(id, buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 100);
+        agg.ingest(id, buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW);
     }
     assertEquals(pickTopK(agg, NOW, 3).length, 3);
     assertEquals(pickTopK(agg, NOW, 10).length, 5);
@@ -126,12 +126,12 @@ Deno.test("rep: deterministic across two relays observing the same history", asy
     // Same ingest sequence on two independent aggregators must produce
     // identical rankings.
     const events: Array<[string, ReturnType<typeof buildHeartbeat>, number]> = [
-        ["a", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200],
-        ["b", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200],
-        ["a", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 100],
-        ["a", buildHeartbeat(GENESIS_HASH_V1_0, 3), NOW],
-        ["b", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100],
-        ["b", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW],
+        ["a", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 200],
+        ["b", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 200],
+        ["a", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 2), NOW - 100],
+        ["a", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 3), NOW],
+        ["b", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW - 100],
+        ["b", buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 1), NOW],
     ];
     const a1 = freshAgg();
     const a2 = freshAgg();

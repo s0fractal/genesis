@@ -27,7 +27,7 @@
 //     mutation that targets a PROTECTED agent.
 
 use crate::agent::PhaseAgentMinimal;
-use crate::senate::fnv1a_32;
+use crate::crypto::sha256_u32;
 
 /// Energy threshold above which an agent is considered "thriving".
 /// Set high enough that a single tick of starvation does not strip
@@ -91,7 +91,7 @@ pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u3
     buf[5..8].copy_from_slice(&[0u8; 3]); // pad
     buf[8..12].copy_from_slice(&quorum_hash.to_be_bytes());
     buf[12..16].copy_from_slice(b"WRT0"); // domain separator
-    fnv1a_32(&buf)
+    sha256_u32(&buf)
 }
 
 /// Compute the canonical Senate quorum hash from five AYE-flag bits.
@@ -99,11 +99,11 @@ pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u3
 /// Each AYE oracle contributes its v1.0 anchored matrix; non-AYE → 0.
 pub fn quorum_hash(aye_bits: u8) -> u32 {
     // Canonical v1.0 oracle matrices (anchored in oracle_anchors.rs).
-    const CLAUDE: u32 = 0x6B70_A8AB;
-    const GPT:    u32 = 0x855A_8386;
-    const GEMINI: u32 = 0x5713_E78A;
-    const QWEN:   u32 = 0x5DDA_B832;
-    const LLAMA:  u32 = 0xFAAC_4232;
+    const CLAUDE: u32 = 0x41A2_F2F4;
+    const GPT:    u32 = 0x89B1_222A;
+    const GEMINI: u32 = 0x9874_DD21;
+    const QWEN:   u32 = 0x6E52_1F4E;
+    const LLAMA:  u32 = 0x3A52_38EF;
     let mut buf = [0u8; 20];
     let m_claude = if aye_bits & 0b00001 != 0 { CLAUDE } else { 0 };
     let m_gpt    = if aye_bits & 0b00010 != 0 { GPT    } else { 0 };
@@ -115,7 +115,7 @@ pub fn quorum_hash(aye_bits: u8) -> u32 {
     buf[8..12].copy_from_slice(&m_gemini.to_be_bytes());
     buf[12..16].copy_from_slice(&m_qwen.to_be_bytes());
     buf[16..20].copy_from_slice(&m_llama.to_be_bytes());
-    fnv1a_32(&buf)
+    sha256_u32(&buf)
 }
 
 /// Counts how many AYE bits are set. Senate threshold is 3.

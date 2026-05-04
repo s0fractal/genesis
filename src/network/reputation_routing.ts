@@ -25,7 +25,7 @@
 // history MUST produce the same ranking, so the routing layer above is
 // deterministic across nodes.
 
-import { GENESIS_HASH_V1_0 } from "./genesis_inscription.ts";
+import { GENESIS_HASH_LEGACY_V1_0 } from "./genesis_inscription.ts";
 import {
     LivenessAggregator,
     SporeHealth,
@@ -200,4 +200,4 @@ export function listExcludedForks(aggregator: LivenessAggregator): string[] {
 
 /** Re-export helpful constants for callers. */
 export const REPUTATION_DEFAULTS = DEFAULT_OPTS;
-export { GENESIS_HASH_V1_0 };
+export { GENESIS_HASH_LEGACY_V1_0 };

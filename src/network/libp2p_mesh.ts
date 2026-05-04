@@ -17,7 +17,7 @@ import {
 } from "./mitosis_proof.ts";
 import {
   formatInscription,
-  GENESIS_HASH_V1_0,
+  GENESIS_HASH_LEGACY_V1_0,
   verifyGenesisV1,
 } from "./genesis_inscription.ts";
 import {
@@ -1015,7 +1015,7 @@ export class Libp2pMesh {
       // becomes a closed cryptographic identity: every invariant of
       // the protocol collapses into a single 32-bit hash.
       const verified = verifyGenesisV1();
-      const inscription = formatInscription(GENESIS_HASH_V1_0);
+      const inscription = formatInscription(GENESIS_HASH_LEGACY_V1_0);
       this.genesisInscription = inscription;
       console.log(
         `📜 [ERA 1050] UNLOCKED: ${this.verifiedDipoleCount} verified mitosis proofs.`,
@@ -1027,7 +1027,7 @@ export class Libp2pMesh {
         new CustomEvent("era1050-unlocked", {
           detail: {
             verifiedCount: this.verifiedDipoleCount,
-            genesisHash: GENESIS_HASH_V1_0,
+            genesisHash: GENESIS_HASH_LEGACY_V1_0,
             inscription,
             verified,
           },
