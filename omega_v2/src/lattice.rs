@@ -351,10 +351,11 @@ impl PhaseLattice {
                     let drift = agent.base_freq + coupling + attractor_drift;
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
-                    // Resonance replenish: 1/64 chance if phase aligns to harmonic zero
+                    // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
                     if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                        agent.energy = (agent.energy as i32 + crate::constants::RESONANCE_ATP_BONUS)
-                            .min(crate::constants::MAX_ATP as i32) as u32;
+                        let dipole_bonus = burn * crate::constants::RESONANCE_PHASE_MODULUS;
+                        agent.energy = (agent.energy as u64 + dipole_bonus as u64)
+                            .min(crate::constants::MAX_ATP as u64) as u32;
                     }
                 }
 

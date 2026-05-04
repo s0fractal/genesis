@@ -418,9 +418,9 @@ fn compute_main(
     }
     metabolic_delta += energy_diffusion;
 
-    // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
+    // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
     if (new_phase % 64u == 0u) {
-        metabolic_delta += 128; 
+        metabolic_delta += i32(burn * 64u); 
     }
     
     let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;

@@ -28,8 +28,7 @@ pub const CHILD_ENERGY_SEED: u32 = MAX_ATP / 4; // 1024
 pub const PHASE_MASK_8BIT: u32 = 255;
 /// Resonance phase modulus: 1/4 of 8-bit period
 pub const RESONANCE_PHASE_MODULUS: u32 = 64;
-/// ATP replenishment on resonance alignment
-pub const RESONANCE_ATP_BONUS: i32 = (MAX_ATP / 32) as i32; // 128
+// ERA 0220: RESONANCE_ATP_BONUS deprecated in favor of exact Dipole Invariant calculations
 /// Landauer's Principle: Minimum energy to flip/erase a bit
 pub const LANDAUER_BIT_COST: u32 = MAX_ATP / 4096; // 1
 /// Energy cost divisor to maintain structural 1-bits away from equilibrium per tick

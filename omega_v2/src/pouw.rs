@@ -38,7 +38,8 @@ pub fn evaluate_poeuw_trace(
         // 2. Cosmic Resonance: 1/64 chance to replenish ATP if the agent aligns to harmonic phase zero
         // (A synthetic proxy for Kuramoto topological alignment)
         if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) {
-            new_energy += crate::constants::RESONANCE_ATP_BONUS;
+            let dipole_bonus = metabolic_burn * crate::constants::RESONANCE_PHASE_MODULUS;
+            new_energy += dipole_bonus as i32;
         }
 
         if new_energy <= 0 {
@@ -141,7 +142,7 @@ mod tests {
             3,           // stressor seed 3 → no opcodes in ticks 0..4
             5,
         );
-        // tick0: phase=0, resonance +128, burn -4 → cap 4096
+        // tick0: phase=0, resonance +256, burn -4 → cap 4096
         // tick1: phase=1, burn -4 → 3991 -> 4092
         // tick2: phase=2, burn -4 → 3982 -> 4088
         // tick3: phase=3, burn -4 → 3973 -> 4084
@@ -198,8 +199,8 @@ mod tests {
             0,           // no stressors
             100,
         );
-        // Burn = 1 per tick. Resonance = +128 per tick.
-        // Net = +127 per tick. Should cap at MAX_ATP = 4096.
+        // Burn = 1 per tick. Resonance = +64 per tick.
+        // Net = +63 per tick. Should cap at MAX_ATP = 4096.
         assert_eq!(energy, crate::constants::MAX_ATP, "Agent should cap at MAX_ATP with continuous resonance");
     }
 }

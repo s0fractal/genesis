@@ -69,7 +69,6 @@ const Q10_SCALE: i32 = 1024;
 const LANDAUER_BIT_COST: u32 = 1u;
 const STRUCTURAL_MAINTENANCE_DIVISOR: u32 = 8u;
 const RESONANCE_PHASE_MODULUS: u32 = 64u;
-const RESONANCE_ATP_BONUS: i32 = 128;
 const MAX_ATP: u32 = 4096u;
 const HEBBIAN_DEFAULT_WEIGHT: i32 = 1024;
 const HEBBIAN_MAX_WEIGHT: i32 = 4096;
@@ -241,9 +240,9 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let drift = agent.base_freq + coupling + attractor_drift;
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
-        // --- 5. Cosmic Resonance: ATP replenish at harmonic zero ---
+        // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         if (new_phase % RESONANCE_PHASE_MODULUS == 0u && new_energy > 0u) {
-            new_energy = new_energy + u32(RESONANCE_ATP_BONUS);
+            new_energy = new_energy + (burn * RESONANCE_PHASE_MODULUS);
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 
