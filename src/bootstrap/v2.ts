@@ -67,6 +67,21 @@ declare global {
             boolean | TranslationPolicyTelemetryEventOptionsInput;
     }
 }
+function captureTorusVisuals(canvas: HTMLCanvasElement): string | null {
+    try {
+        const offscreen = document.createElement("canvas");
+        offscreen.width = 512;
+        offscreen.height = 512;
+        const ctx = offscreen.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(canvas, 0, 0, 512, 512);
+            return offscreen.toDataURL("image/jpeg", 0.7);
+        }
+    } catch (e) {
+        console.warn("[V2] Failed to capture visual snapshot:", e);
+    }
+    return null;
+}
 
 export async function bootstrapV2() {
     console.log("🌌 [V2] Bootstrapping Zero-Copy Minimalist Engine...");
@@ -278,12 +293,14 @@ export async function bootstrapV2() {
                     if (oracleWorker) {
                         for (const [evalOracle, _] of visions) {
                             if (evalOracle !== oracle) {
+                                const imageUrl = captureTorusVisuals(canvas);
                                 oracleWorker.postMessage({ 
                                     type: 'SENATE_EVALUATE', 
                                     hash, 
                                     description: vision, 
                                     proposingOracle: oracle, 
-                                    evalOracle 
+                                    evalOracle,
+                                    imageUrl
                                 });
                             }
                         }

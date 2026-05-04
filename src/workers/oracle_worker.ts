@@ -68,7 +68,7 @@ function fastHash(str: string): string {
 }
 
 let engine: MLCEngine | null = null;
-const SELECTED_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+const SELECTED_MODEL = "Qwen2-VL-2B-Instruct-q4f16_1-MLC";
 
 let latestTelemetry: any = null;
 let isDreamLoopActive = false;
@@ -82,7 +82,7 @@ async function processSenateQueue() {
     
     while(senateEvaluationQueue.length > 0) {
         const data = senateEvaluationQueue.shift();
-        const { hash, description, proposingOracle, evalOracle } = data;
+        const { hash, description, proposingOracle, evalOracle, imageUrl } = data;
         
         console.log(`[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`);
         const prompt = `
@@ -104,8 +104,13 @@ STANCE: [AYE/NAY/ABSTAIN]
 `.trim();
         
         try {
+            const contentPayload: any[] = [{ type: "text", text: prompt }];
+            if (imageUrl) {
+                contentPayload.push({ type: "image_url", image_url: { url: imageUrl } });
+            }
+            
             const reply = await engine.chat.completions.create({
-                messages: [{ role: "user", content: prompt }],
+                messages: [{ role: "user", content: contentPayload as any }],
                 temperature: 0.7,
             });
             const response = reply.choices[0].message.content || "";
