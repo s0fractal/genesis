@@ -47,7 +47,7 @@ struct MitosisReceiptJson {
     #[serde(rename = "qPhase")]
     q_phase: u32,
     #[serde(rename = "receiptHash")]
-    receipt_hash: u32,
+    receipt_hash: String,
     #[serde(default)]
     tick: u32,
 }
@@ -97,7 +97,7 @@ fn self_test_receipt() -> MitosisReceiptJson {
         memory: [0xDEAD_BEEF, 1, 2],
     };
     let child = derive_mitosis_child(&parent, &AttractorArray::new(), 7);
-    let receipt_hash = child_receipt_hash(&child);
+    let receipt_hash = hex::encode(child_receipt_hash(&child));
     MitosisReceiptJson {
         parent: AgentJson::from_agent(&parent),
         child: AgentJson::from_agent(&child),
@@ -130,10 +130,10 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
     {
         return Err("local pre-flight: claimed child does not match derivation".into());
     }
-    let recomputed_hash = child_receipt_hash(&derived);
+    let recomputed_hash = hex::encode(child_receipt_hash(&derived));
     if recomputed_hash != receipt.receipt_hash {
         return Err(format!(
-            "local pre-flight: receipt hash mismatch (claimed=0x{:08x}, computed=0x{:08x})",
+            "local pre-flight: receipt hash mismatch (claimed=0x{}, computed=0x{})",
             receipt.receipt_hash, recomputed_hash
         ));
     }
@@ -196,7 +196,7 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
 
     Ok(ProofBundle {
         kind: "stark-mock".into(),
-        receipt_hash: format!("0x{:08x}", receipt.receipt_hash),
+        receipt_hash: format!("0x{}", receipt.receipt_hash),
         parent_genome: format!("0x{:08x}", parent.genome),
         verified: true,
         proof_bytes: Some(base64_encode(&proof_bytes)),

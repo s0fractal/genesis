@@ -31,11 +31,11 @@ interface MitosisReceiptJSON {
     child: AgentMinimal;
     attractors: AttractorEntry[];
     qPhase: number;
-    receiptHash: number;
+    receiptHash: string;
     tick: number;
 }
 
-function softProve(r: MitosisReceiptJSON): { verified: boolean; reason?: string } {
+async function softProve(r: MitosisReceiptJSON): Promise<{ verified: boolean; reason?: string }> {
     const derived = deriveMitosisChild(r.parent, r.attractors, r.qPhase);
     if (derived.phase !== r.child.phase) return { verified: false, reason: "phase mismatch" };
     if (derived.energy !== r.child.energy) return { verified: false, reason: "energy mismatch" };
@@ -45,7 +45,7 @@ function softProve(r: MitosisReceiptJSON): { verified: boolean; reason?: string 
     if (derived.memory[0] !== r.child.memory[0]) return { verified: false, reason: "memory[0] mismatch" };
     if (derived.memory[1] !== r.child.memory[1]) return { verified: false, reason: "memory[1] mismatch" };
     if (derived.memory[2] !== r.child.memory[2]) return { verified: false, reason: "memory[2] mismatch" };
-    if (childReceiptHash(derived) !== (r.receiptHash >>> 0)) return { verified: false, reason: "receipt hash mismatch" };
+    if (await childReceiptHash(derived) !== r.receiptHash) return { verified: false, reason: "receipt hash mismatch" };
     return { verified: true };
 }
 
@@ -67,7 +67,7 @@ async function readStdin(): Promise<string> {
     return new TextDecoder().decode(merged);
 }
 
-function selfTestReceipt(): MitosisReceiptJSON {
+async function selfTestReceipt(): Promise<MitosisReceiptJSON> {
     const parent: AgentMinimal = {
         phase: 64, energy: 3000, base_freq: 7, state_flags: 0,
         genome: 0xCAFE_BABE >>> 0,
@@ -79,7 +79,7 @@ function selfTestReceipt(): MitosisReceiptJSON {
         child,
         attractors: [],
         qPhase: 7,
-        receiptHash: childReceiptHash(child),
+        receiptHash: await childReceiptHash(child),
         tick: 0,
     };
 }
@@ -90,7 +90,7 @@ async function main() {
 
     let receipt: MitosisReceiptJSON;
     if (isSelfTest) {
-        receipt = selfTestReceipt();
+        receipt = await selfTestReceipt();
     } else {
         const raw = await readStdin();
         try {
@@ -101,15 +101,12 @@ async function main() {
         }
     }
 
-    const soft = softProve(receipt);
+    const soft = await softProve(receipt);
     if (!soft.verified) {
-        // The kernel produced a receipt that does NOT round-trip through the
-        // pure derivation. This is a critical determinism breach — refuse
-        // to proceed (do not generate a proof for a broken trace).
         console.error(`[zk_prove] SOFT PROOF FAILED: ${soft.reason}`);
         const out = {
             kind: "soft",
-            receiptHash: `0x${(receipt.receiptHash >>> 0).toString(16)}`,
+            receiptHash: `0x${receipt.receiptHash}`,
             parentGenome: `0x${(receipt.parent.genome >>> 0).toString(16)}`,
             verified: false,
             reason: soft.reason,
@@ -118,7 +115,6 @@ async function main() {
         Deno.exit(1);
     }
 
-    // Hand off to real SP1 Host.
     try {
         const cmd = new Deno.Command("cargo", {
             args: ["run", "--manifest-path", "omega_zk_host/Cargo.toml", "--release"],
@@ -145,14 +141,11 @@ async function main() {
         return;
     } catch (err) {
         console.error("[zk_prove] Failed to run omega_zk_host:", err);
-        // Fallback to soft proof if the host is unavailable or fails
     }
 
-    // Fallback: emit the soft-proof bundle. This matches the in-browser
-    // verification policy (`WebRTCV2Mesh.verifyMitosisProof`).
     const out = {
         kind: "soft",
-        receiptHash: `0x${(receipt.receiptHash >>> 0).toString(16)}`,
+        receiptHash: `0x${receipt.receiptHash}`,
         parentGenome: `0x${(receipt.parent.genome >>> 0).toString(16)}`,
         verified: true,
     };
