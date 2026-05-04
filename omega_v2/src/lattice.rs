@@ -279,18 +279,29 @@ impl PhaseLattice {
                     // Kuramoto coupling modulated by Hebbian weights
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
                     let k = kuramoto_k + (phenotype.interaction_radius as i32 * 4);
-                    // 6-neighbor Kuramoto coupling
-                    let mut total_coupling = 0i32;
+
+                    // Era 2060: Photonic Substrate Readiness (Light as Compute)
+                    // Discrete Fourier Transform (DFT) Mean-Field Approximation
+                    let mut sum_cos = 0i32;
+                    let mut sum_sin = 0i32;
+                    let default_weight = crate::constants::HEBBIAN_DEFAULT_WEIGHT as i32;
+
                     for &n_idx in &n_indices {
                         if n_idx < active {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
-                                let sin_n = crate::math::sin_q10(n.phase, agent.phase);
-                                // For simplicity, we use weight_left for all neighbors except we already updated left/right
-                                total_coupling += (sin_n * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i32) / q10_scale;
+                                sum_cos += crate::math::cos_q10(0, n.phase) * default_weight;
+                                sum_sin += crate::math::sin_q10(0, n.phase) * default_weight;
                             }
                         }
                     }
+
+                    // Agent's own phase components
+                    let agent_cos = crate::math::cos_q10(0, agent.phase);
+                    let agent_sin = crate::math::sin_q10(0, agent.phase);
+
+                    // Wave Interference: sin(Ψ - θ) = sin(Ψ)cos(θ) - cos(Ψ)sin(θ)
+                    let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / (q10_scale * q10_scale);
                     let coupling = (total_coupling * k) / (6 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype

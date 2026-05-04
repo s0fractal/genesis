@@ -164,17 +164,25 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // --- 2. 6-Neighbor Kuramoto Q10 coupling ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         
-        var total_coupling: i32 = 0i;
+        // Era 2060: Photonic Substrate Readiness (DFT Mean-Field Approximation)
+        var sum_cos: i32 = 0i;
+        var sum_sin: i32 = 0i;
+
         for (var i = 0u; i < 6u; i = i + 1u) {
             let n_idx = n_indices[i];
             if (n_idx < active_count) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
-                    let sin_n = sin_q10(n.phase, agent.phase);
-                    total_coupling += (sin_n * HEBBIAN_DEFAULT_WEIGHT) / Q10_SCALE;
+                    sum_cos += cos_q10(0u, n.phase) * HEBBIAN_DEFAULT_WEIGHT;
+                    sum_sin += sin_q10(0u, n.phase) * HEBBIAN_DEFAULT_WEIGHT;
                 }
             }
         }
+        
+        let agent_cos = cos_q10(0u, agent.phase);
+        let agent_sin = sin_q10(0u, agent.phase);
+        
+        let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / (Q10_SCALE * Q10_SCALE);
         let coupling = (total_coupling * k) / (6i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
