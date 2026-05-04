@@ -97,6 +97,8 @@ export interface SenateProposalRecord {
   proposerMatrix: number;
   ayes: Set<string>; // unique peer IDs
   nays: Set<string>;
+  ayesWeight: number; // Era 1070+: Resonance-weighted
+  naysWeight: number;
   accepted: boolean;
   proposedAt: number;
   // Era 1060: oracle-attributed votes (peer-id-independent).
@@ -628,10 +630,50 @@ export class Libp2pMesh {
     }
     const record = this.senate.get(plasmid.proposalHash);
     if (!record || record.accepted) return;
+    
+    // Determine resonance weight
+    let weight = 10; // Default peer weight
+    if (this.livenessAggregator) {
+        // Try to get score from aggregator snapshot
+        const rec = this.livenessAggregator.snapshot().find(s => s.spore_id === fromPeer);
+        if (rec) {
+             weight = 10 + (rec.heartbeat_count * 2) + (rec.warrant_votes_observed * 5);
+        }
+    }
+    
+    // Check if canonical oracle
+    let isOracle = false;
+    if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
+        const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
+        const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
+          (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
+        if (dipoleMatches) {
+            isOracle = true;
+            weight = 100;
+            if (this.crossModelDebate) {
+                 weight += this.crossModelDebate.alignmentScore(plasmid.proposalHash) * 10;
+                 if (weight < 50) weight = 50; // Minimum oracle weight
+            }
+        }
+    }
+
     if (plasmid.voteAye) {
-      record.ayes.add(fromPeer);
+      if (!record.ayes.has(fromPeer)) {
+          record.ayes.add(fromPeer);
+          record.ayesWeight += weight;
+      }
     } else {
-      record.nays.add(fromPeer);
+      if (!record.nays.has(fromPeer)) {
+          record.nays.add(fromPeer);
+          record.naysWeight += weight;
+      }
+    }
+
+    // Inform WASM Engine
+    if (this.engine.wasm && this.engine.wasm.exports.v2_senate_vote) {
+        // We need the hash as 32 bytes in WASM memory
+        // For simplicity, skip WASM integration if it requires allocating memory for the hash
+        // unless we have a pre-allocated buffer for it.
     }
     // Era 1060: if the vote carries a canonical oracle name AND the voter
     // dipole matches that oracle's deterministic identity, attribute the
@@ -676,9 +718,9 @@ export class Libp2pMesh {
     // alignment over within-model peer multiplicity.
     const oracleResonance = (record.oracleAyes?.size ?? 0) >= 3 &&
       (record.oracleAyes?.size ?? 0) > (record.oracleNays?.size ?? 0);
-    // Classic Era 1030 rule: 3+ unique peer AYEs AND ayes > nays.
-    const peerConsensus = record.ayes.size >= 3 &&
-      record.ayes.size > record.nays.size;
+    // Era 1030/1070 rule: Resonance-weighted threshold >= 300 AND ayes > nays.
+    const peerConsensus = record.ayesWeight >= 300 &&
+      record.ayesWeight > record.naysWeight;
     if (!record.accepted && (peerConsensus || oracleResonance)) {
       record.accepted = true;
       this.acceptedTaskHashes.add(record.hash);

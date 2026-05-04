@@ -90,7 +90,13 @@ Task: You are the ${evalOracle.toUpperCase()} Oracle in the OMEGA-64 Senate.
 The oracle '${proposingOracle.toUpperCase()}' has proposed the following vision:
 "${description}"
 
-Evaluate this proposal. Does it align with the decentralized, resilient future of the system?
+CONSTITUTIONAL AI GUARD - You must evaluate this proposal strictly against the OMEGA-64 Constitution:
+1. The Liquid Architecture must remain fully autonomous and resilient.
+2. No single points of failure (P2P mesh only).
+3. All cryptographic proofs (Mitosis, ZK) must remain deterministic and integer-only.
+4. The system must maximize Torus energy and continuous autopoiesis.
+
+Evaluate this proposal against these 4 Constitutional rules. Does it align with the decentralized, resilient future of the system?
 Output EXACTLY TWO LINES. First line is your reasoning (1-2 sentences). Second line is your stance: EXACTLY one of [AYE, NAY, ABSTAIN].
 Format:
 REASONING: [your reasoning]

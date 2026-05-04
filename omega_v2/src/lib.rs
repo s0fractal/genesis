@@ -819,13 +819,12 @@ pub unsafe extern "C" fn v2_senate_propose(
 ///
 /// Returns: 0 = not found / closed, 1 = vote applied, 2 = ACCEPTED on this vote.
 #[no_mangle]
-pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, aye_threshold: u32) -> u32 {
+pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, weight: u32, aye_threshold: u32) -> u32 {
     if hash_ptr.is_null() { return 0; }
     let mut hash = [0u8; 32];
     hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
     let mut s = SENATE_STATE.lock();
-    let threshold = if aye_threshold > u16::MAX as u32 { u16::MAX } else { aye_threshold as u16 };
-    s.vote(&hash, aye != 0, threshold)
+    s.vote(&hash, aye != 0, weight, aye_threshold)
 }
 
 /// Returns the AYE count for a proposal, or 0xFFFFFFFF if not found.

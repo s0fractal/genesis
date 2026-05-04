@@ -16,7 +16,7 @@ export interface WasmExports {
     v2_senate_state_ptr?: () => number;
     v2_senate_hash?: (descPtr: number, descLen: number, outPtr: number) => void;
     v2_senate_propose?: (descPtr: number, descLen: number, proposerMatrix: number) => number;
-    v2_senate_vote?: (hashPtr: number, aye: number, ayeThreshold: number) => number;
+    v2_senate_vote?: (hashPtr: number, aye: number, weight: number, ayeThreshold: number) => number;
     v2_senate_proposal_ayes?: (hashPtr: number) => number;
     v2_senate_is_accepted?: (hashPtr: number) => number;
     v2_senate_accepted_count?: () => number;

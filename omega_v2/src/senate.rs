@@ -53,9 +53,9 @@ pub struct Proposal {
     /// Matrix of the proposing attractor (must be a valid dipole).
     pub proposer_matrix: u32,
     /// AYE votes accumulated from unique voter matrices.
-    pub ayes: u16,
+    pub ayes: u32,
     /// NAY votes accumulated.
-    pub nays: u16,
+    pub nays: u32,
     /// Status: 0=open, 1=accepted, 2=rejected, 3=expired.
     pub status: u32,
     /// First 64 bytes of UTF-8 description (zero-padded).
@@ -173,7 +173,7 @@ impl SenateState {
     ///   1 if the vote was applied,
     ///   2 if the vote tipped the proposal into ACCEPTED state,
     ///   0 if the proposal was not found or already closed.
-    pub fn vote(&mut self, hash: &[u8; 32], aye: bool, aye_threshold: u16) -> u32 {
+    pub fn vote(&mut self, hash: &[u8; 32], aye: bool, weight: u32, aye_threshold: u32) -> u32 {
         let idx = self.find(hash);
         if idx == usize::MAX {
             return 0;
@@ -183,17 +183,17 @@ impl SenateState {
             return 0;
         }
         if aye {
-            p.ayes = p.ayes.saturating_add(1);
+            p.ayes = p.ayes.saturating_add(weight);
             if p.ayes >= aye_threshold {
                 p.status = 1;
                 self.accepted_count += 1;
                 return 2;
             }
         } else {
-            p.nays = p.nays.saturating_add(1);
-            // Hard reject: 2x more nays than ayes after at least 4 votes.
-            let total = p.ayes as u32 + p.nays as u32;
-            if total >= 4 && (p.nays as u32) >= 2 * (p.ayes as u32 + 1) {
+            p.nays = p.nays.saturating_add(weight);
+            // Hard reject: 2x more nays than ayes (by weight) after at least 400 weight total.
+            let total = p.ayes + p.nays;
+            if total >= 400 && p.nays >= 2 * (p.ayes + 100) {
                 p.status = 2;
             }
         }
@@ -267,13 +267,13 @@ mod tests {
         let p = Proposal::new(b"task 0089", 0xFEED_FACE);
         let h = p.hash;
         s.propose(p);
-        assert_eq!(s.vote(&h, true, 3), 1); // 1 aye
-        assert_eq!(s.vote(&h, true, 3), 1); // 2 ayes
-        assert_eq!(s.vote(&h, true, 3), 2); // tip — accepted
+        assert_eq!(s.vote(&h, true, 100, 300), 1); // 1 aye
+        assert_eq!(s.vote(&h, true, 100, 300), 1); // 2 ayes
+        assert_eq!(s.vote(&h, true, 100, 300), 2); // tip — accepted
         assert!(s.proposals[s.find(&h)].is_accepted());
         assert_eq!(s.accepted_count, 1);
         // Further votes are ignored.
-        assert_eq!(s.vote(&h, true, 3), 0);
+        assert_eq!(s.vote(&h, true, 100, 300), 0);
     }
 
     #[test]
@@ -283,11 +283,11 @@ mod tests {
         let h = p.hash;
         s.propose(p);
         // 1 aye, 4 nays — should reject.
-        assert_eq!(s.vote(&h, true, 3), 1);
-        s.vote(&h, false, 3);
-        s.vote(&h, false, 3);
-        s.vote(&h, false, 3);
-        s.vote(&h, false, 3);
+        assert_eq!(s.vote(&h, true, 100, 300), 1);
+        s.vote(&h, false, 100, 300);
+        s.vote(&h, false, 100, 300);
+        s.vote(&h, false, 100, 300);
+        s.vote(&h, false, 100, 300);
         let slot = s.find(&h);
         assert_eq!(s.proposals[slot].status, 2);
     }
@@ -315,6 +315,6 @@ mod tests {
     #[test]
     fn vote_on_unknown_hash_returns_zero() {
         let mut s = SenateState::new();
-        assert_eq!(s.vote(&[0xFF; 32], true, 3), 0);
+        assert_eq!(s.vote(&[0xFF; 32], true, 100, 300), 0);
     }
 }
