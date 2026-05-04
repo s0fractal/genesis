@@ -204,12 +204,30 @@ impl PhaseLattice {
                     // Era 0215: Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
 
-                    // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
+                    // Era 0216: Hebbian Learning (Active Memory)
+                    let mut weight_left = if agent.memory[1] == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { agent.memory[1] as i32 };
+                    let mut weight_right = if agent.memory[2] == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { agent.memory[2] as i32 };
+
+                    let cos_left = crate::math::cos_q10(left.phase, agent.phase);
+                    let cos_right = crate::math::cos_q10(right.phase, agent.phase);
+                    
+                    let neuroplasticity = (phenotype.radiance as i32) / 4;
+                    
+                    weight_left = (weight_left + (cos_left * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
+                    weight_right = (weight_right + (cos_right * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
+
+                    agent.memory[1] = weight_left as u32;
+                    agent.memory[2] = weight_right as u32;
+
+                    // Kuramoto coupling modulated by Hebbian weights
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
                     let k = kuramoto_k + (phenotype.interaction_radius as i32 * 4);
                     let sin_left = crate::math::sin_q10(left.phase, agent.phase);
                     let sin_right = crate::math::sin_q10(right.phase, agent.phase);
-                    let coupling = ((sin_left + sin_right) * k) / (2 * q10_scale);
+                    
+                    let coupling_left = (sin_left * weight_left) / q10_scale;
+                    let coupling_right = (sin_right * weight_right) / q10_scale;
+                    let coupling = ((coupling_left + coupling_right) * k) / (2 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.

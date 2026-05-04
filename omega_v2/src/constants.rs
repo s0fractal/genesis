@@ -40,13 +40,18 @@ pub const STRESSOR_MODULUS: u32 = 100;
 /// Homeostasis Q-scale shift (Q20 → Q10)
 pub const HOMEOSTASIS_Q_SHIFT: u32 = 10;
 
-// --- Kuramoto Coupling ---
+// --- Kuramoto Coupling & Hebbian Learning ---
 /// Base coupling strength in Q10 fixed-point (1.0 = 1024)
 pub const KURAMOTO_COUPLING_BASE: i32 = 1024;
 /// Energy decay per tick (metabolic burn)
 pub const ENERGY_DECAY_PER_TICK: u32 = 1;
 /// Phase drift divisor: base_freq >> Q_SHIFT applied per tick
 pub const PHASE_DRIFT_Q_SHIFT: u32 = 20;
+
+/// Default synaptic weight for Hebbian learning (1.0 in Q10)
+pub const HEBBIAN_DEFAULT_WEIGHT: i32 = 1024;
+/// Maximum synaptic weight for Hebbian learning (4.0 in Q10)
+pub const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 
 // --- Delta Snapshot Thresholds (HIGH-2 FIX: Q-derived from topology) ---
 /// Divisor for adaptive phase threshold: threshold = phase_mask / DIVISOR

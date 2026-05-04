@@ -63,12 +63,20 @@ const METABOLIC_BURN_DIVISOR: u32 = 4u;
 const RESONANCE_PHASE_MODULUS: u32 = 64u;
 const RESONANCE_ATP_BONUS: i32 = 150;
 const MAX_ATP: u32 = 4000u;
+const HEBBIAN_DEFAULT_WEIGHT: i32 = 1024;
+const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
 fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
     let index = (to_theta - from_theta) & 0xFFu;
     return sine_lut[index];
 }
+
+fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
+    let index = ((to_theta + 64u) - from_theta) & 0xFFu;
+    return sine_lut[index];
+}
+
 
 @compute @workgroup_size(64)
 fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -92,12 +100,33 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let p_efficiency = genome & 0xFFu;
         let p_radius = (genome >> 8u) & 0xFFu;
         let p_resilience = (genome >> 16u) & 0xFFu;
+        let p_radiance = (genome >> 24u) & 0xFFu;
 
-        // --- 2. Kuramoto Q10 coupling via LUT ---
+        // --- Era 0216: Hebbian Learning (Active Memory) ---
+        var weight_left: i32 = HEBBIAN_DEFAULT_WEIGHT;
+        if (agent.memory_y != 0u) { weight_left = i32(agent.memory_y); }
+        var weight_right: i32 = HEBBIAN_DEFAULT_WEIGHT;
+        if (agent.memory_z != 0u) { weight_right = i32(agent.memory_z); }
+
+        let cos_left = cos_q10(left.phase, agent.phase);
+        let cos_right = cos_q10(right.phase, agent.phase);
+        
+        let neuroplasticity = i32(p_radiance) / 4i;
+        
+        weight_left = clamp(weight_left + (cos_left * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
+        weight_right = clamp(weight_right + (cos_right * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
+
+        agent.memory_y = u32(weight_left);
+        agent.memory_z = u32(weight_right);
+
+        // --- 2. Kuramoto Q10 coupling via LUT modulated by Hebbian weights ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         let sin_left = sin_q10(left.phase, agent.phase);
         let sin_right = sin_q10(right.phase, agent.phase);
-        let coupling = ((sin_left + sin_right) * k) / (2i * Q10_SCALE);
+        
+        let coupling_left = (sin_left * weight_left) / Q10_SCALE;
+        let coupling_right = (sin_right * weight_right) / Q10_SCALE;
+        let coupling = ((coupling_left + coupling_right) * k) / (2i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);

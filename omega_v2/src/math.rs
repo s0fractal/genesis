@@ -111,6 +111,14 @@ pub fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
     SINE_LUT[index as usize]
 }
 
+/// Q10 cosine of phase difference: cos((to - from) * 2π / 256) * 1024
+#[inline(always)]
+pub fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
+    // cos(x) = sin(x + pi/2), and pi/2 is 256/4 = 64
+    let index = to_theta.wrapping_add(64).wrapping_sub(from_theta) & 0xFF;
+    SINE_LUT[index as usize]
+}
+
 /// O(1) CORDIC-inspired atan2 (0..255 full-circle) matching compute_v2.wgsl.
 /// This replaces the O(2^q_phase) brute-force scan with a fixed ~10 ops.
 pub fn atan2_fast(y: i32, x: i32) -> i32 {
