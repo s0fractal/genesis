@@ -48,11 +48,11 @@ function telemetry(
     };
 }
 
-Deno.test("replay digest HUD: nominal with agreed quorum and no errors", () => {
+Deno.test("replay digest HUD: nominal with agreed quorum and no errors", async () => {
     assertEquals(translationPolicyReplayDigestHudBand(snapshot(), telemetry()), "nominal");
 });
 
-Deno.test("replay digest HUD: watch for no claims, lone claim, or malformed", () => {
+Deno.test("replay digest HUD: watch for no claims, lone claim, or malformed", async () => {
     assertEquals(
         translationPolicyReplayDigestHudBand(
             snapshot({
@@ -79,7 +79,7 @@ Deno.test("replay digest HUD: watch for no claims, lone claim, or malformed", ()
     );
 });
 
-Deno.test("replay digest HUD: drift when dissenters exist", () => {
+Deno.test("replay digest HUD: drift when dissenters exist", async () => {
     assertEquals(
         translationPolicyReplayDigestHudBand(
             snapshot({ dissenter_peer_ids: [0xCC], distinct_digests: [1, 2] }),
@@ -89,7 +89,7 @@ Deno.test("replay digest HUD: drift when dissenters exist", () => {
     );
 });
 
-Deno.test("replay digest HUD: blocked when local emission fails", () => {
+Deno.test("replay digest HUD: blocked when local emission fails", async () => {
     assertEquals(
         translationPolicyReplayDigestHudBand(
             snapshot({ dissenter_peer_ids: [0xCC] }),
@@ -99,14 +99,14 @@ Deno.test("replay digest HUD: blocked when local emission fails", () => {
     );
 });
 
-Deno.test("replay digest HUD: glyphs are stable ascii", () => {
+Deno.test("replay digest HUD: glyphs are stable ascii", async () => {
     assertEquals(translationPolicyReplayDigestHudGlyph("nominal"), "OK");
     assertEquals(translationPolicyReplayDigestHudGlyph("watch"), "WA");
     assertEquals(translationPolicyReplayDigestHudGlyph("drift"), "DR");
     assertEquals(translationPolicyReplayDigestHudGlyph("blocked"), "BL");
 });
 
-Deno.test("replay digest HUD: compact fields include quorum digest dissent and IO", () => {
+Deno.test("replay digest HUD: compact fields include quorum digest dissent and IO", async () => {
     const snap = formatTranslationPolicyReplayDigestHud(
         snapshot({
             consensus_count: 2,
@@ -128,7 +128,7 @@ Deno.test("replay digest HUD: compact fields include quorum digest dissent and I
     assertEquals(snap.fields.io.value, "C4/1 L1/0/0");
 });
 
-Deno.test("replay digest HUD: empty digest renders placeholders", () => {
+Deno.test("replay digest HUD: empty digest renders placeholders", async () => {
     const snap = formatTranslationPolicyReplayDigestHud(
         snapshot({
             consensus_digest: null,
@@ -144,7 +144,7 @@ Deno.test("replay digest HUD: empty digest renders placeholders", () => {
     assertEquals(snap.fields.digest.value, "D-------- A0% X0");
 });
 
-Deno.test("replay digest HUD: helper fields preserve order", () => {
+Deno.test("replay digest HUD: helper fields preserve order", async () => {
     const fields = translationPolicyReplayDigestHudFields(snapshot(), telemetry());
     assertEquals(fields.map((f) => f.label), [
         "TPOL RDQ",
@@ -154,7 +154,7 @@ Deno.test("replay digest HUD: helper fields preserve order", () => {
     ]);
 });
 
-Deno.test("replay digest HUD: summary truncates deterministically", () => {
+Deno.test("replay digest HUD: summary truncates deterministically", async () => {
     const snap = formatTranslationPolicyReplayDigestHud(
         snapshot({ dissenter_peer_ids: [1, 2, 3, 4, 5, 6] }),
         telemetry(),
@@ -164,18 +164,18 @@ Deno.test("replay digest HUD: summary truncates deterministically", () => {
     assertEquals(snap.summary.endsWith("…"), true);
 });
 
-Deno.test("replay digest HUD: dissenter formatting sorts and caps", () => {
+Deno.test("replay digest HUD: dissenter formatting sorts and caps", async () => {
     assertEquals(formatReplayDigestDissenters([], 4), "none");
     assertEquals(formatReplayDigestDissenters([0x30, 0x10, 0x20], 4), "0010,0020,0030");
     assertEquals(formatReplayDigestDissenters([1, 2, 3, 4, 5], 3), "0001,0002,0003+2");
 });
 
-Deno.test("replay digest HUD: q16 percent conversion", () => {
+Deno.test("replay digest HUD: q16 percent conversion", async () => {
     assertEquals(q16ToPercent(0), 0);
     assertEquals(q16ToPercent(32768), 50);
     assertEquals(q16ToPercent(65536), 100);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_REPLAY_DIGEST_HUD_SCHEMA, "OMEGA-1900/v1");
 });

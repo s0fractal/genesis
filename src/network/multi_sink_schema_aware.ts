@@ -231,13 +231,13 @@ export class SchemaAwareMultiSinkInvestigator {
 
     /** Tick all sinks. Pass-through to the underlying multi-sink
      *  (schema policy applies on observe, not on tick). */
-    tickAll(now_ms: number) {
-        return this.multi.tickAll(now_ms);
+    async tickAll(now_ms: number) {
+        return await this.multi.tickAll(now_ms);
     }
 
     /** Tick a specific sink. */
-    tickOne(sink_id: string, now_ms: number): LoopTickResult | undefined {
-        return this.multi.tickOne(sink_id, now_ms);
+    async tickOne(sink_id: string, now_ms: number): Promise<LoopTickResult | undefined> {
+        return await this.multi.tickOne(sink_id, now_ms);
     }
 
     /** Globally exclude a peer across every sink — same semantics

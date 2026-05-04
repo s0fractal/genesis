@@ -46,7 +46,7 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
     assertEquals(sdkHash, rustHash >>> 0, "Typescript Golden Trace must match Rust exactly");
 });
 
-Deno.test("SDK: FNV-1a Hash parity", () => {
+Deno.test("SDK: FNV-1a Hash parity", async () => {
     // Known FNV-1a hashes for sanity check
     assertEquals(fnv1a("test"), 2949673445);
     assertEquals(fnv1a("GENESIS"), 3917818681);

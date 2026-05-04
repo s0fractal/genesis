@@ -54,7 +54,7 @@ function makeFactory(overrides: Partial<TranslationPolicyRuntimeFactoryOptions> 
     return { result, source, claimSends, raiseSends, warrants };
 }
 
-Deno.test("factory: assembles runtime graph with schema marker", () => {
+Deno.test("factory: assembles runtime graph with schema marker", async () => {
     const { result } = makeFactory();
     assertEquals(result.schema, TRANSLATION_POLICY_RUNTIME_FACTORY_SCHEMA);
     assertEquals(result.runtime.isActive(), false);
@@ -63,7 +63,7 @@ Deno.test("factory: assembles runtime graph with schema marker", () => {
     assertEquals(result.loop.corroborationGate?.min_confidence, "double");
 });
 
-Deno.test("factory: auto_start starts live wiring and peer directory", () => {
+Deno.test("factory: auto_start starts live wiring and peer directory", async () => {
     const { result } = makeFactory({ auto_start: true });
     const telemetry = result.runtime.telemetry(T0);
     assertEquals(result.runtime.isActive(), true);
@@ -71,16 +71,16 @@ Deno.test("factory: auto_start starts live wiring and peer directory", () => {
     assertEquals(telemetry.directory_active, true);
 });
 
-Deno.test("factory: mesh lifecycle feeds scheduler and tick broadcasts claim", () => {
+Deno.test("factory: mesh lifecycle feeds scheduler and tick broadcasts claim", async () => {
     const { result, source, claimSends } = makeFactory({ auto_start: true });
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     const tick = result.runtime.tick(T0);
     assertEquals(tick.broadcast.sent_count, 1);
     assertEquals(claimSends.map((x) => x.peer), [0xBB]);
     assertEquals(tick.telemetry.peer_count, 1);
 });
 
-Deno.test("factory: claim event observes drift and emits local corroboration raise", () => {
+Deno.test("factory: claim event observes drift and emits local corroboration raise", async () => {
     const { result, source, raiseSends, warrants } = makeFactory({ auto_start: true });
     const peerClaim = buildTranslationPolicyClaim(
         0xBB,
@@ -90,7 +90,7 @@ Deno.test("factory: claim event observes drift and emits local corroboration rai
     source.dispatch("translationPolicyClaim", {
         fromPeer: 0xBB,
         body: JSON.stringify(peerClaim),
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     const telemetry = result.runtime.telemetry(T0);
     assertEquals(telemetry.loop.corroboration_blocked, 1);
     assertEquals(telemetry.loop.proposals_emitted, 0);
@@ -98,7 +98,7 @@ Deno.test("factory: claim event observes drift and emits local corroboration rai
     assertEquals(warrants.length, 0);
 });
 
-Deno.test("factory: external corroboration plus changed claim reaches warrant emit", () => {
+Deno.test("factory: external corroboration plus changed claim reaches warrant emit", async () => {
     const { result, source, warrants } = makeFactory({ auto_start: true });
     const peerClaim = buildTranslationPolicyClaim(
         0xBB,
@@ -108,7 +108,7 @@ Deno.test("factory: external corroboration plus changed claim reaches warrant em
     source.dispatch("translationPolicyClaim", {
         fromPeer: 0xBB,
         body: JSON.stringify(peerClaim),
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     const changedClaim = {
         ...peerClaim,
         policy_hash: peerClaim.policy_hash ^ 0xFFFF,
@@ -124,17 +124,17 @@ Deno.test("factory: external corroboration plus changed claim reaches warrant em
     source.dispatch("translationPolicyCorroborationRaise", {
         fromPeer: 0xB2,
         body: JSON.stringify(raise),
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     source.dispatch("translationPolicyClaim", {
         fromPeer: 0xBB,
         body: JSON.stringify(changedClaim),
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(warrants.length, 1);
     assertEquals(warrants[0].semanticType, "PROPOSAL");
     assertEquals(warrants[0].target_peer_id, 0xBB);
 });
 
-Deno.test("factory: install global exposes runtime and optional HUD config", () => {
+Deno.test("factory: install global exposes runtime and optional HUD config", async () => {
     const { result } = makeFactory();
     const target: TranslationPolicyRuntimeGlobalTarget = {};
     const runtime = installTranslationPolicyRuntimeGlobal(result, target, {
@@ -149,7 +149,7 @@ Deno.test("factory: install global exposes runtime and optional HUD config", () 
     });
 });
 
-Deno.test("factory: invalid identifiers are rejected", () => {
+Deno.test("factory: invalid identifiers are rejected", async () => {
     let threw = false;
     try {
         makeFactory({ local_peer_id: Number.NaN });
@@ -159,6 +159,6 @@ Deno.test("factory: invalid identifiers are rejected", () => {
     assertEquals(threw, true);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_RUNTIME_FACTORY_SCHEMA, "OMEGA-1770/v1");
 });

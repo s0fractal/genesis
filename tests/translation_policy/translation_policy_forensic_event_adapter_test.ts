@@ -122,7 +122,7 @@ function detail(
     };
 }
 
-Deno.test("forensic adapter: disabled adapter is inert", () => {
+Deno.test("forensic adapter: disabled adapter is inert", async () => {
     const sink = new ForensicEventSink();
     const source = new LocalEventSource();
     const adapter = createTranslationPolicyForensicEventAdapter(sink, source, {
@@ -130,12 +130,12 @@ Deno.test("forensic adapter: disabled adapter is inert", () => {
         now_ms: () => T0,
     })!;
     adapter.start();
-    source.dispatch("translationPolicyTelemetry", detail(snapshot()));
+    source.dispatch("translationPolicyTelemetry", detail(snapshot())); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.isActive(), false);
     assertEquals(sink.size(), 0);
 });
 
-Deno.test("forensic adapter: start listens and stop unsubscribes", () => {
+Deno.test("forensic adapter: start listens and stop unsubscribes", async () => {
     const sink = new ForensicEventSink();
     const source = new LocalEventSource();
     const adapter = createTranslationPolicyForensicEventAdapter(sink, source, {
@@ -143,15 +143,15 @@ Deno.test("forensic adapter: start listens and stop unsubscribes", () => {
         now_ms: () => T0,
     })!;
     adapter.start();
-    source.dispatch("translationPolicyTelemetry", detail(snapshot()));
+    source.dispatch("translationPolicyTelemetry", detail(snapshot())); await new Promise(r => setTimeout(r, 0));
     assertEquals(sink.size(), 1);
     adapter.stop();
-    source.dispatch("translationPolicyTelemetry", detail(snapshot({ drift_peer_count: 1 })));
+    source.dispatch("translationPolicyTelemetry", detail(snapshot({ drift_peer_count: 1 }))); await new Promise(r => setTimeout(r, 0));
     assertEquals(sink.size(), 1);
     assertEquals(adapter.telemetry().active, false);
 });
 
-Deno.test("forensic adapter: appends compact event and preserves sink chain", () => {
+Deno.test("forensic adapter: appends compact event and preserves sink chain", async () => {
     const sink = new ForensicEventSink();
     const source = new LocalEventSource();
     const adapter = createTranslationPolicyForensicEventAdapter(sink, source, {
@@ -185,7 +185,7 @@ Deno.test("forensic adapter: appends compact event and preserves sink chain", ()
     assertEquals(sink.verifyChain(), null);
 });
 
-Deno.test("forensic adapter: unchanged forensic projection is skipped", () => {
+Deno.test("forensic adapter: unchanged forensic projection is skipped", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyForensicEventAdapter(
         sink,
@@ -199,7 +199,7 @@ Deno.test("forensic adapter: unchanged forensic projection is skipped", () => {
     assertEquals(adapter.telemetry().skipped_unchanged, 1);
 });
 
-Deno.test("forensic adapter: band and policy-hash changes append", () => {
+Deno.test("forensic adapter: band and policy-hash changes append", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyForensicEventAdapter(
         sink,
@@ -217,7 +217,7 @@ Deno.test("forensic adapter: band and policy-hash changes append", () => {
     ]);
 });
 
-Deno.test("forensic adapter: install and tick errors produce dedicated bands", () => {
+Deno.test("forensic adapter: install and tick errors produce dedicated bands", async () => {
     assertEquals(
         translationPolicyForensicBand(detail(snapshot({
             installed: false,
@@ -235,7 +235,7 @@ Deno.test("forensic adapter: install and tick errors produce dedicated bands", (
     );
 });
 
-Deno.test("forensic adapter: malformed telemetry detail is counted", () => {
+Deno.test("forensic adapter: malformed telemetry detail is counted", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyForensicEventAdapter(
         sink,
@@ -248,7 +248,7 @@ Deno.test("forensic adapter: malformed telemetry detail is counted", () => {
     assertEquals(adapter.telemetry().malformed_events, 1);
 });
 
-Deno.test("forensic adapter: custom event name and kind", () => {
+Deno.test("forensic adapter: custom event name and kind", async () => {
     const sink = new ForensicEventSink();
     const source = new LocalEventSource();
     const adapter = createTranslationPolicyForensicEventAdapter(sink, source, {
@@ -258,13 +258,13 @@ Deno.test("forensic adapter: custom event name and kind", () => {
         now_ms: () => T0,
     })!;
     adapter.start();
-    source.dispatch("translationPolicyTelemetry", detail(snapshot()));
-    source.dispatch("omegaTpolTelemetry", detail(snapshot()));
+    source.dispatch("translationPolicyTelemetry", detail(snapshot())); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("omegaTpolTelemetry", detail(snapshot())); await new Promise(r => setTimeout(r, 0));
     assertEquals(sink.size(), 1);
     assertEquals(sink.list()[0].kind, "tpfx");
 });
 
-Deno.test("forensic adapter: projection ignores source event hash churn", () => {
+Deno.test("forensic adapter: projection ignores source event hash churn", async () => {
     assertEquals(
         translationPolicyForensicProjection(
             translationPolicyForensicPayload(detail(snapshot(), 0x1111)),
@@ -275,6 +275,6 @@ Deno.test("forensic adapter: projection ignores source event hash churn", () => 
     );
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_FORENSIC_EVENT_ADAPTER_SCHEMA, "OMEGA-1830/v1");
 });

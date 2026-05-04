@@ -21,11 +21,11 @@ function rep(id: string, score: number, health: ReputationScore["health"] = "hea
     };
 }
 
-Deno.test("ttl: empty path → minTtl", () => {
+Deno.test("ttl: empty path → minTtl", async () => {
     assertEquals(adaptiveTtl([]), MIN_TTL);
 });
 
-Deno.test("ttl: reliabilityOf clamps to (0, 1]", () => {
+Deno.test("ttl: reliabilityOf clamps to (0, 1]", async () => {
     assertEquals(reliabilityOf(0), 0);
     assertEquals(reliabilityOf(-5), 0);
     assertEquals(reliabilityOf(250), 1);
@@ -33,7 +33,7 @@ Deno.test("ttl: reliabilityOf clamps to (0, 1]", () => {
     assert(reliabilityOf(125) > 0 && reliabilityOf(125) < 1);
 });
 
-Deno.test("ttl: path of healthy spores → low margin, low TTL", () => {
+Deno.test("ttl: path of healthy spores → low margin, low TTL", async () => {
     // Three high-reputation spores → reliability ≈ (250/250)^3 = 1.
     const path = [rep("a", 200), rep("b", 200), rep("c", 200)];
     const ttl = adaptiveTtl(path);
@@ -41,7 +41,7 @@ Deno.test("ttl: path of healthy spores → low margin, low TTL", () => {
     assert(ttl >= 4 && ttl <= 6, `expected 4..6, got ${ttl}`);
 });
 
-Deno.test("ttl: path through marginal spores → larger margin", () => {
+Deno.test("ttl: path through marginal spores → larger margin", async () => {
     // Each spore is half-strength; reliability = 0.5^3 = 0.125, log2(8)=3.
     const path = [rep("a", 125), rep("b", 125), rep("c", 125)];
     const ttl = adaptiveTtl(path);
@@ -49,31 +49,31 @@ Deno.test("ttl: path through marginal spores → larger margin", () => {
     assertEquals(ttl, 7);
 });
 
-Deno.test("ttl: any zero-score hop → MAX_TTL", () => {
+Deno.test("ttl: any zero-score hop → MAX_TTL", async () => {
     const path = [rep("good", 200), rep("forked", 0, "forked"), rep("good2", 200)];
     assertEquals(adaptiveTtl(path), MAX_TTL);
 });
 
-Deno.test("ttl: marginHops behaves correctly", () => {
+Deno.test("ttl: marginHops behaves correctly", async () => {
     assertEquals(marginHops(1), 0);
     assertEquals(marginHops(0.5), 1);
     assertEquals(marginHops(0.25), 2);
     assertEquals(marginHops(0.125), 3);
 });
 
-Deno.test("ttl: marginHops handles 0 and 1 boundaries", () => {
+Deno.test("ttl: marginHops handles 0 and 1 boundaries", async () => {
     assert(!Number.isFinite(marginHops(0)));
     assertEquals(marginHops(1), 0);
 });
 
-Deno.test("ttl: pathReliability multiplies hops", () => {
+Deno.test("ttl: pathReliability multiplies hops", async () => {
     const path = [rep("a", 200), rep("b", 200)];
     const expected = (200 / 250) * (200 / 250);
     const got = pathReliability(path);
     assert(Math.abs(got - expected) < 1e-9);
 });
 
-Deno.test("ttl: respects min/max bounds", () => {
+Deno.test("ttl: respects min/max bounds", async () => {
     // Force enormous safety hops — should clamp at maxTtl.
     const path = [rep("a", 200)];
     assertEquals(adaptiveTtl(path, { safetyHops: 100 }), MAX_TTL);
@@ -82,7 +82,7 @@ Deno.test("ttl: respects min/max bounds", () => {
     assertEquals(adaptiveTtl(empty, { minTtl: 5 }), 5);
 });
 
-Deno.test("ttl: report breakdown is consistent with adaptiveTtl", () => {
+Deno.test("ttl: report breakdown is consistent with adaptiveTtl", async () => {
     const path = [rep("a", 200), rep("b", 125)];
     const ttl = adaptiveTtl(path);
     const rep_ = adaptiveTtlReport(path);
@@ -91,14 +91,14 @@ Deno.test("ttl: report breakdown is consistent with adaptiveTtl", () => {
     assert(rep_.reliability > 0 && rep_.reliability < 1);
 });
 
-Deno.test("ttl: deterministic across calls", () => {
+Deno.test("ttl: deterministic across calls", async () => {
     const path = [rep("a", 175), rep("b", 100), rep("c", 60)];
     const t1 = adaptiveTtl(path);
     const t2 = adaptiveTtl(path);
     assertEquals(t1, t2);
 });
 
-Deno.test("ttl: longer healthy path → linearly larger TTL", () => {
+Deno.test("ttl: longer healthy path → linearly larger TTL", async () => {
     const t1 = adaptiveTtl([rep("a", 250)]);
     const t3 = adaptiveTtl([rep("a", 250), rep("b", 250), rep("c", 250)]);
     const t5 = adaptiveTtl([rep("a", 250), rep("b", 250), rep("c", 250), rep("d", 250), rep("e", 250)]);

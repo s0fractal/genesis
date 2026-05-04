@@ -38,13 +38,13 @@ function listFor(records: ArchivedVerdict[], now_ms = T0) {
     }, now_ms);
 }
 
-Deno.test("aggregator: empty has no peers, no digests", () => {
+Deno.test("aggregator: empty has no peers, no digests", async () => {
     const agg = new NetworkDigestAggregator();
     assertEquals(agg.peerCount(T0), 0);
     assertEquals(agg.networkDigests(T0), []);
 });
 
-Deno.test("aggregator: single peer's digests become network", () => {
+Deno.test("aggregator: single peer's digests become network", async () => {
     const agg = new NetworkDigestAggregator();
     const recs = archiveWith([0x10, 0x20, 0x30]);
     agg.observe(0xAAA1, listFor(recs), T0);
@@ -52,21 +52,21 @@ Deno.test("aggregator: single peer's digests become network", () => {
     assertEquals(agg.networkDigests(T0), [0x10, 0x20, 0x30]);
 });
 
-Deno.test("aggregator: union across peers, deduplicated + sorted", () => {
+Deno.test("aggregator: union across peers, deduplicated + sorted", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10, 0x30])), T0);
     agg.observe(0xAAA2, listFor(archiveWith([0x20, 0x30, 0x40])), T0 + 100);
     assertEquals(agg.networkDigests(T0 + 100), [0x10, 0x20, 0x30, 0x40]);
 });
 
-Deno.test("aggregator: re-observation overwrites prior peer record", () => {
+Deno.test("aggregator: re-observation overwrites prior peer record", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10])), T0);
     agg.observe(0xAAA1, listFor(archiveWith([0x20, 0x30])), T0 + 1000);
     assertEquals(agg.networkDigests(T0 + 1000), [0x20, 0x30]);
 });
 
-Deno.test("aggregator: TTL evicts stale observations", () => {
+Deno.test("aggregator: TTL evicts stale observations", async () => {
     const agg = new NetworkDigestAggregator(5_000);
     agg.observe(0xAAA1, listFor(archiveWith([0x10])), T0);
     agg.observe(0xAAA2, listFor(archiveWith([0x20])), T0 + 1000);
@@ -77,7 +77,7 @@ Deno.test("aggregator: TTL evicts stale observations", () => {
     assertEquals(agg.networkDigests(T0 + 6_000), [0x20]);
 });
 
-Deno.test("aggregator: forget removes specific peer", () => {
+Deno.test("aggregator: forget removes specific peer", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10])), T0);
     agg.observe(0xAAA2, listFor(archiveWith([0x20])), T0);
@@ -86,7 +86,7 @@ Deno.test("aggregator: forget removes specific peer", () => {
     assertEquals(agg.networkDigests(T0), [0x20]);
 });
 
-Deno.test("aggregator: networkDigestSetHash is order-independent", () => {
+Deno.test("aggregator: networkDigestSetHash is order-independent", async () => {
     const aggA = new NetworkDigestAggregator();
     const aggB = new NetworkDigestAggregator();
     // Different peer-observation order; same union.
@@ -101,7 +101,7 @@ Deno.test("aggregator: networkDigestSetHash is order-independent", () => {
     assertEquals(aggA.networkDigestSetHash(T0 + 100), digestSetHash([0x10, 0x20, 0x30]));
 });
 
-Deno.test("aggregator: convergenceSignal — local matches network → converged", () => {
+Deno.test("aggregator: convergenceSignal — local matches network → converged", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10, 0x20])), T0);
     const sig = agg.convergenceSignal([0x10, 0x20], T0);
@@ -109,7 +109,7 @@ Deno.test("aggregator: convergenceSignal — local matches network → converged
     assertEquals(sig.band, "converged");
 });
 
-Deno.test("aggregator: convergenceSignal — local empty vs network → stranded + alarm", () => {
+Deno.test("aggregator: convergenceSignal — local empty vs network → stranded + alarm", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10, 0x20, 0x30])), T0);
     const sig = agg.convergenceSignal([], T0);
@@ -118,7 +118,7 @@ Deno.test("aggregator: convergenceSignal — local empty vs network → stranded
     assertEquals(sig.alarm, true);
 });
 
-Deno.test("aggregator: freshObservations sorted by peer_id", () => {
+Deno.test("aggregator: freshObservations sorted by peer_id", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0x05, listFor(archiveWith([0x10])), T0);
     agg.observe(0x01, listFor(archiveWith([0x20])), T0);
@@ -127,7 +127,7 @@ Deno.test("aggregator: freshObservations sorted by peer_id", () => {
     assertEquals(fresh.map(o => o.peer_id), [0x01, 0x03, 0x05]);
 });
 
-Deno.test("aggregator: summary reports counts + age extremes", () => {
+Deno.test("aggregator: summary reports counts + age extremes", async () => {
     const agg = new NetworkDigestAggregator(60_000);
     agg.observe(0x01, listFor(archiveWith([0x10, 0x20])), T0);
     agg.observe(0x02, listFor(archiveWith([0x30])), T0 + 1000);
@@ -140,7 +140,7 @@ Deno.test("aggregator: summary reports counts + age extremes", () => {
     assertEquals(s.newest_observed_at_ms, T0 + 2000);
 });
 
-Deno.test("aggregator: summary handles empty state", () => {
+Deno.test("aggregator: summary handles empty state", async () => {
     const agg = new NetworkDigestAggregator();
     const s = agg.summary(T0);
     assertEquals(s.peer_count, 0);
@@ -149,12 +149,12 @@ Deno.test("aggregator: summary handles empty state", () => {
     assertEquals(s.newest_observed_at_ms, 0);
 });
 
-Deno.test("aggregator: invalid TTL throws", () => {
+Deno.test("aggregator: invalid TTL throws", async () => {
     assertThrows(() => new NetworkDigestAggregator(0));
     assertThrows(() => new NetworkDigestAggregator(-1));
 });
 
-Deno.test("aggregator: digests are stored sorted regardless of input order", () => {
+Deno.test("aggregator: digests are stored sorted regardless of input order", async () => {
     const agg = new NetworkDigestAggregator();
     // Construct an ArchiveDigestList with deliberately unsorted digests.
     const list = {
@@ -168,7 +168,7 @@ Deno.test("aggregator: digests are stored sorted regardless of input order", () 
     assertEquals(fresh[0].digests, [0x10, 0x20, 0x30]);
 });
 
-Deno.test("aggregator: networkDigests after multiple TTL evictions stabilizes", () => {
+Deno.test("aggregator: networkDigests after multiple TTL evictions stabilizes", async () => {
     const agg = new NetworkDigestAggregator(1000);
     agg.observe(0x01, listFor(archiveWith([0x10])), T0);
     agg.observe(0x02, listFor(archiveWith([0x20])), T0 + 500);
@@ -181,6 +181,6 @@ Deno.test("aggregator: networkDigests after multiple TTL evictions stabilizes", 
     assertEquals(agg.networkDigests(T0 + 2000), []);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(AGGREGATOR_SCHEMA, "OMEGA-1360/v1");
 });

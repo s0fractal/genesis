@@ -7,7 +7,7 @@
 import { AgentMinimal, AttractorEntry } from "./mitosis_proof.ts";
 
 export const MITOSIS_LOG_CAPACITY = 32;
-export const MITOSIS_RECEIPT_SIZE = 160;
+export const MITOSIS_RECEIPT_SIZE = 192;
 const MITOSIS_LOG_HEADER = 16;
 
 export interface MitosisReceipt {
@@ -15,7 +15,7 @@ export interface MitosisReceipt {
     child: AgentMinimal;
     attractors: AttractorEntry[];
     qPhase: number;
-    receiptHash: number;
+    receiptHash: string;
     tick: number;
 }
 
@@ -84,13 +84,19 @@ export function drainMitosisLog(
         if (slot < 0) slot += MITOSIS_LOG_CAPACITY;
         const off = MITOSIS_LOG_HEADER + slot * MITOSIS_RECEIPT_SIZE;
 
+        const hashBytes = new Uint8Array(logBytes.buffer, logBytes.byteOffset + off + 148, 32);
+        let hashHex = "";
+        for (let i = 0; i < 32; i++) {
+            hashHex += hashBytes[i].toString(16).padStart(2, "0");
+        }
+
         receipts.push({
             parent: readAgent(view, off + 0),
             child: readAgent(view, off + 32),
             attractors: readAttractors(view, off + 64),
             qPhase: view.getUint32(off + 144, true),
-            receiptHash: view.getUint32(off + 148, true),
-            tick: view.getUint32(off + 152, true),
+            receiptHash: hashHex,
+            tick: view.getUint32(off + 180, true),
         });
     }
 

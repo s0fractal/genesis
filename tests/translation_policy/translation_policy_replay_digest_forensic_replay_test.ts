@@ -49,7 +49,7 @@ function append(
     );
 }
 
-Deno.test("replay digest forensic replay: empty input has stable null summary", () => {
+Deno.test("replay digest forensic replay: empty input has stable null summary", async () => {
     const c = classifyTranslationPolicyReplayDigestForensicEvents([]);
     assertEquals(c.schema, TRANSLATION_POLICY_REPLAY_DIGEST_FORENSIC_REPLAY_SCHEMA);
     assertEquals(c.total_events, 0);
@@ -61,7 +61,7 @@ Deno.test("replay digest forensic replay: empty input has stable null summary", 
     assertEquals(c.error_windows, []);
 });
 
-Deno.test("replay digest forensic replay: ignores non-tpdq and counts malformed", () => {
+Deno.test("replay digest forensic replay: ignores non-tpdq and counts malformed", async () => {
     const sink = new ForensicEventSink();
     sink.append("tpol", 1, payload(), T0);
     sink.append("tpdq", 2, { schema: "wrong" }, T0 + 1);
@@ -73,7 +73,7 @@ Deno.test("replay digest forensic replay: ignores non-tpdq and counts malformed"
     assertEquals(c.classified_events, 1);
 });
 
-Deno.test("replay digest forensic replay: builds deterministic band timeline", () => {
+Deno.test("replay digest forensic replay: builds deterministic band timeline", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0 + 20, { band: "drift" });
     append(sink, T0, { band: "nominal" });
@@ -92,7 +92,7 @@ Deno.test("replay digest forensic replay: builds deterministic band timeline", (
     assertEquals(c.final_band, "blocked");
 });
 
-Deno.test("replay digest forensic replay: builds consensus digest intervals", () => {
+Deno.test("replay digest forensic replay: builds consensus digest intervals", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, { consensus_digest: 0xAAAA, consensus_count: 2 });
     append(sink, T0 + 1, { consensus_digest: 0xAAAA, consensus_count: 3 });
@@ -131,7 +131,7 @@ Deno.test("replay digest forensic replay: builds consensus digest intervals", ()
     assertEquals(c.final_consensus_digest, 0xBBBB);
 });
 
-Deno.test("replay digest forensic replay: reconstructs drift and failure windows", () => {
+Deno.test("replay digest forensic replay: reconstructs drift and failure windows", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0);
     append(sink, T0 + 10, { band: "drift", dissenter_count: 2 });
@@ -155,7 +155,7 @@ Deno.test("replay digest forensic replay: reconstructs drift and failure windows
     ]);
 });
 
-Deno.test("replay digest forensic replay: malformed windows are tracked", () => {
+Deno.test("replay digest forensic replay: malformed windows are tracked", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, { malformed_count: 3 });
     const c = classifyTranslationPolicyReplayDigestForensicSink(sink);
@@ -164,7 +164,7 @@ Deno.test("replay digest forensic replay: malformed windows are tracked", () => 
     ]);
 });
 
-Deno.test("replay digest forensic replay: custom kind classifies alternate stream", () => {
+Deno.test("replay digest forensic replay: custom kind classifies alternate stream", async () => {
     const sink = new ForensicEventSink();
     sink.append("tpdq", 1, payload({ band: "nominal" }), T0);
     sink.append("rdq", 2, payload({ band: "drift", dissenter_count: 1 }), T0 + 1);
@@ -174,7 +174,7 @@ Deno.test("replay digest forensic replay: custom kind classifies alternate strea
     assertEquals(c.final_band, "drift");
 });
 
-Deno.test("replay digest forensic replay: parser rejects malformed shapes", () => {
+Deno.test("replay digest forensic replay: parser rejects malformed shapes", async () => {
     assertEquals(parseTranslationPolicyReplayDigestForensicPayload(payload()), payload());
     assertEquals(
         parseTranslationPolicyReplayDigestForensicPayload({ ...payload(), band: "weird" }),
@@ -189,7 +189,7 @@ Deno.test("replay digest forensic replay: parser rejects malformed shapes", () =
     );
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_FORENSIC_REPLAY_SCHEMA,
         "OMEGA-1920/v1",

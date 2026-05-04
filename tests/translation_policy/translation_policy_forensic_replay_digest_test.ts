@@ -87,7 +87,7 @@ function classification(
     };
 }
 
-Deno.test("replay digest: empty classification has stable digest shape", () => {
+Deno.test("replay digest: empty classification has stable digest shape", async () => {
     const digest = translationPolicyForensicReplayDigest(classification({
         total_events: 0,
         classified_events: 0,
@@ -103,13 +103,13 @@ Deno.test("replay digest: empty classification has stable digest shape", () => {
     assertEquals(digest.final_policy_hash, 0);
 });
 
-Deno.test("replay digest: deterministic across repeated calls", () => {
+Deno.test("replay digest: deterministic across repeated calls", async () => {
     const a = translationPolicyForensicReplayDigest(classification());
     const b = translationPolicyForensicReplayDigest(classification());
     assertEquals(a, b);
 });
 
-Deno.test("replay digest: ignores non-interpretive bookkeeping counts", () => {
+Deno.test("replay digest: ignores non-interpretive bookkeeping counts", async () => {
     const a = classification({ total_events: 3, ignored_events: 0 });
     const b = classification({ total_events: 100, ignored_events: 97 });
     assertEquals(
@@ -118,7 +118,7 @@ Deno.test("replay digest: ignores non-interpretive bookkeeping counts", () => {
     );
 });
 
-Deno.test("replay digest: changes when band timeline changes", () => {
+Deno.test("replay digest: changes when band timeline changes", async () => {
     const a = classification();
     const b = classification({
         band_timeline: [
@@ -133,7 +133,7 @@ Deno.test("replay digest: changes when band timeline changes", () => {
     );
 });
 
-Deno.test("replay digest: changes when policy interval changes", () => {
+Deno.test("replay digest: changes when policy interval changes", async () => {
     const a = classification();
     const b = classification({
         policy_hash_intervals: [
@@ -148,7 +148,7 @@ Deno.test("replay digest: changes when policy interval changes", () => {
     );
 });
 
-Deno.test("replay digest: changes when error windows change", () => {
+Deno.test("replay digest: changes when error windows change", async () => {
     const a = classification();
     const b = classification({
         error_windows: [{ ...a.error_windows[0], message: "3" }],
@@ -159,7 +159,7 @@ Deno.test("replay digest: changes when error windows change", () => {
     );
 });
 
-Deno.test("replay digest: component hashes are independently stable", () => {
+Deno.test("replay digest: component hashes are independently stable", async () => {
     const c = classification();
     const d = translationPolicyForensicReplayDigest(c);
     assertEquals(d.band_timeline_hash, hashBandTimeline(c.band_timeline));
@@ -167,19 +167,19 @@ Deno.test("replay digest: component hashes are independently stable", () => {
     assertEquals(d.error_window_hash, hashErrorWindows(c.error_windows));
 });
 
-Deno.test("replay digest: projection is canonical and contains sections", () => {
+Deno.test("replay digest: projection is canonical and contains sections", async () => {
     const p = translationPolicyForensicReplayDigestProjection(classification());
     assertEquals(p.includes("bands\n"), true);
     assertEquals(p.includes("\npolicies\n"), true);
     assertEquals(p.includes("\nerrors\n"), true);
 });
 
-Deno.test("replay digest: same helper proves matching relay interpretations", () => {
+Deno.test("replay digest: same helper proves matching relay interpretations", async () => {
     const a = classification({ total_events: 10, ignored_events: 7 });
     const b = classification({ total_events: 3, ignored_events: 0 });
     assertEquals(sameTranslationPolicyForensicReplayDigest(a, b), true);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_FORENSIC_REPLAY_DIGEST_SCHEMA, "OMEGA-1860/v1");
 });

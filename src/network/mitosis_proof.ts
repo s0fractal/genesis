@@ -103,8 +103,8 @@ export function deriveMitosisChild(
     };
 }
 
-/** Mirror of omega_v2::mitosis_proof::child_receipt_hash (FNV-1a 32-bit over LE 32-byte agent). */
-export function childReceiptHash(child: AgentMinimal): number {
+/** Mirror of omega_v2::mitosis_proof::child_receipt_hash (SHA-256 over LE 32-byte agent). */
+export async function childReceiptHash(child: AgentMinimal): Promise<string> {
     const buf = new Uint8Array(32);
     const dv = new DataView(buf.buffer);
     dv.setUint32(0, child.phase >>> 0, true);
@@ -115,10 +115,11 @@ export function childReceiptHash(child: AgentMinimal): number {
     dv.setUint32(20, child.memory[0] >>> 0, true);
     dv.setUint32(24, child.memory[1] >>> 0, true);
     dv.setUint32(28, child.memory[2] >>> 0, true);
-    let h = 0x811C_9DC5 >>> 0;
-    for (let i = 0; i < 32; i++) {
-        h = (h ^ buf[i]) >>> 0;
-        h = Math.imul(h, 0x0100_0193) >>> 0;
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buf);
+    const hashArray = new Uint8Array(hashBuffer);
+    let hex = "";
+    for (let i = 0; i < hashArray.length; i++) {
+        hex += hashArray[i].toString(16).padStart(2, "0");
     }
-    return h >>> 0;
+    return hex;
 }

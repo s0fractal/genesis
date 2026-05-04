@@ -128,7 +128,7 @@ export class TranslationPolicyLiveWiringAdapter {
         return { ...this.stats };
     }
 
-    handleClaimEvent(detail: unknown): TranslationPolicyLoopResult | null {
+    async handleClaimEvent(detail: unknown): Promise<TranslationPolicyLoopResult | null> {
         this.stats.claims_received++;
         const parsed = this.extractDetail(detail);
         if (!parsed || typeof parsed.body !== "string") {
@@ -136,7 +136,7 @@ export class TranslationPolicyLiveWiringAdapter {
             return null;
         }
         const now = this.opts.now_ms();
-        const result = this.loop.ingestPolicyBody(parsed.body, now);
+        const result = await this.loop.ingestPolicyBody(parsed.body, now);
         if (result.observation) {
             this.stats.claims_observed++;
             this.emitLocalRaises(parsed, result, now);

@@ -53,7 +53,7 @@ function classification(
     };
 }
 
-Deno.test("replay digest digest forensic replay digest claim: builds compact claim from digest", () => {
+Deno.test("replay digest digest forensic replay digest claim: builds compact claim from digest", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -74,7 +74,7 @@ Deno.test("replay digest digest forensic replay digest claim: builds compact cla
     assertEquals(claim.final_band, "drift");
 });
 
-Deno.test("replay digest digest forensic replay digest claim: JSON decode round-trips", () => {
+Deno.test("replay digest digest forensic replay digest claim: JSON decode round-trips", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -90,7 +90,7 @@ Deno.test("replay digest digest forensic replay digest claim: JSON decode round-
     assertEquals(decoded, claim);
 });
 
-Deno.test("replay digest digest forensic replay digest claim: decoder rejects malformed shapes", () => {
+Deno.test("replay digest digest forensic replay digest claim: decoder rejects malformed shapes", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -136,7 +136,7 @@ Deno.test("replay digest digest forensic replay digest claim: decoder rejects ma
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim: plasmid fields carry target and body", () => {
+Deno.test("replay digest digest forensic replay digest claim: plasmid fields carry target and body", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -163,7 +163,7 @@ Deno.test("replay digest digest forensic replay digest claim: plasmid fields car
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim bridge: sends and tracks counters", () => {
+Deno.test("replay digest digest forensic replay digest claim bridge: sends and tracks counters", async () => {
     let captured_target = 0;
     let captured_body = "";
     const bridge =
@@ -191,7 +191,7 @@ Deno.test("replay digest digest forensic replay digest claim bridge: sends and t
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim bridge: emit failure does not count", () => {
+Deno.test("replay digest digest forensic replay digest claim bridge: emit failure does not count", async () => {
     const bridge =
         new TranslationPolicyReplayDigestDigestForensicReplayDigestClaimBridge(
             0xAA,
@@ -206,7 +206,7 @@ Deno.test("replay digest digest forensic replay digest claim bridge: emit failur
     assertEquals(bridge.last_body, undefined);
 });
 
-Deno.test("replay digest digest forensic replay digest claim bridge: handleIncoming decodes remote claim", () => {
+Deno.test("replay digest digest forensic replay digest claim bridge: handleIncoming decodes remote claim", async () => {
     const bridge =
         new TranslationPolicyReplayDigestDigestForensicReplayDigestClaimBridge(
             0xAA,
@@ -225,7 +225,7 @@ Deno.test("replay digest digest forensic replay digest claim bridge: handleIncom
     assertEquals(bridge.handleIncoming(JSON.stringify(claim))?.peer_id, 0xBB);
 });
 
-Deno.test("replay digest digest forensic replay digest claim: matches local digest exactly", () => {
+Deno.test("replay digest digest forensic replay digest claim: matches local digest exactly", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -251,7 +251,7 @@ Deno.test("replay digest digest forensic replay digest claim: matches local dige
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim: equality ignores peer, witness, and wall clock", () => {
+Deno.test("replay digest digest forensic replay digest claim: equality ignores peer, witness, and wall clock", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -273,7 +273,7 @@ Deno.test("replay digest digest forensic replay digest claim: equality ignores p
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim: equality detects interpretation drift", () => {
+Deno.test("replay digest digest forensic replay digest claim: equality detects interpretation drift", async () => {
     const a = buildTranslationPolicyReplayDigestDigestForensicReplayDigestClaim(
         0xAA,
         0xCA,
@@ -297,7 +297,7 @@ Deno.test("replay digest digest forensic replay digest claim: equality detects i
     );
 });
 
-Deno.test("replay digest digest forensic replay digest claim: invalid claim time is normalized on build", () => {
+Deno.test("replay digest digest forensic replay digest claim: invalid claim time is normalized on build", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -310,7 +310,7 @@ Deno.test("replay digest digest forensic replay digest claim: invalid claim time
     assertEquals(claim.claimed_at_ms, 0);
 });
 
-Deno.test("replay digest digest forensic replay digest claim: schema constant", () => {
+Deno.test("replay digest digest forensic replay digest claim: schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST_CLAIM_SCHEMA,
         "OMEGA-2030/v1",

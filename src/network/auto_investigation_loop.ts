@@ -95,7 +95,7 @@ export class AutoInvestigationLoop {
 
     /** One tick of the full chain. Returns a structured outcome
      *  for observability/HUD wiring. */
-    tick(now_ms: number): LoopTickResult {
+    async tick(now_ms: number): Promise<LoopTickResult> {
         const snap = this.tracker.snapshot(now_ms);
         const outcome = this.trigger.evaluate(snap, now_ms);
         if (outcome.fire_now.length === 0 || snap.consensus_anchor === null) {
@@ -108,7 +108,7 @@ export class AutoInvestigationLoop {
                 deduped_peer_ids: [],
             };
         }
-        const issued = this.warrants.issue(outcome, snap.consensus_anchor, now_ms);
+        const issued = await this.warrants.issue(outcome, snap.consensus_anchor, now_ms);
         let emitted = 0;
         let failed = 0;
         for (const proposal of issued.payloads) {

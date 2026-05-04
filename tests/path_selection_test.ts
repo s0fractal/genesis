@@ -19,7 +19,7 @@ function rep(id: string, score: number, health: ReputationScore["health"] = "hea
     };
 }
 
-Deno.test("path: short healthy path beats long marginal path of equal reliability", () => {
+Deno.test("path: short healthy path beats long marginal path of equal reliability", async () => {
     const short: PathCandidate = {
         label: "short",
         hops: [rep("a", 250), rep("b", 250)],
@@ -33,7 +33,7 @@ Deno.test("path: short healthy path beats long marginal path of equal reliabilit
     assert(ranked[0].efficiency > ranked[1].efficiency);
 });
 
-Deno.test("path: forked hop excludes the candidate", () => {
+Deno.test("path: forked hop excludes the candidate", async () => {
     const tainted: PathCandidate = {
         label: "tainted",
         hops: [rep("good", 200), rep("rogue", 0, "forked"), rep("good2", 200)],
@@ -49,7 +49,7 @@ Deno.test("path: forked hop excludes the candidate", () => {
     assertEquals(ranked[1].efficiency, 0);
 });
 
-Deno.test("path: pickBestPath returns null when all are ineligible", () => {
+Deno.test("path: pickBestPath returns null when all are ineligible", async () => {
     const tainted: PathCandidate = {
         label: "fork",
         hops: [rep("a", 200), rep("rogue", 0, "forked")],
@@ -57,11 +57,11 @@ Deno.test("path: pickBestPath returns null when all are ineligible", () => {
     assertEquals(pickBestPath([tainted]), null);
 });
 
-Deno.test("path: pickBestPath returns null on empty candidate list", () => {
+Deno.test("path: pickBestPath returns null on empty candidate list", async () => {
     assertEquals(pickBestPath([]), null);
 });
 
-Deno.test("path: efficiency = (reliability * 1000) / ttl", () => {
+Deno.test("path: efficiency = (reliability * 1000) / ttl", async () => {
     // Single healthy hop: reliability ≈ 200/250 = 0.8.
     // adaptiveTtl: path_length=1 + margin (small) + safety=1 = ~3.
     // efficiency ≈ 800/3 ≈ 266.
@@ -72,7 +72,7 @@ Deno.test("path: efficiency = (reliability * 1000) / ttl", () => {
     assert(Math.abs(r.efficiency - expected) < 1e-9);
 });
 
-Deno.test("path: tie on efficiency → shorter path wins", () => {
+Deno.test("path: tie on efficiency → shorter path wins", async () => {
     // Construct two paths with identical efficiency by careful score choices.
     // Both paths: 2 hops at score 250 each → reliability=1, TTL=path+0+1=3.
     // efficiency = 1000/3 = 333.33...
@@ -94,7 +94,7 @@ Deno.test("path: tie on efficiency → shorter path wins", () => {
     assertEquals(ranked[0].label, "a");
 });
 
-Deno.test("path: stable across calls (determinism)", () => {
+Deno.test("path: stable across calls (determinism)", async () => {
     const candidates: PathCandidate[] = [
         { label: "p1", hops: [rep("a", 200), rep("b", 150)] },
         { label: "p2", hops: [rep("c", 250), rep("d", 100)] },
@@ -109,7 +109,7 @@ Deno.test("path: stable across calls (determinism)", () => {
     }
 });
 
-Deno.test("path: high-reliability path with short length wins overall", () => {
+Deno.test("path: high-reliability path with short length wins overall", async () => {
     const candidates: PathCandidate[] = [
         { label: "fast",     hops: [rep("a", 250), rep("b", 250)] },             // r≈1, TTL≈3
         { label: "marginal", hops: [rep("c", 100), rep("d", 100)] },             // r=0.16, TTL≈4-5
@@ -120,7 +120,7 @@ Deno.test("path: high-reliability path with short length wins overall", () => {
     assertEquals(best!.label, "fast");
 });
 
-Deno.test("path: empty hops list → ttl=minTtl=1, efficiency=0 (edge case)", () => {
+Deno.test("path: empty hops list → ttl=minTtl=1, efficiency=0 (edge case)", async () => {
     const r = evaluatePath([]);
     assertEquals(r.hops.length, 0);
     // Empty hops → reliability=1, but length=0, eligibility=true (vacuous all),
@@ -131,7 +131,7 @@ Deno.test("path: empty hops list → ttl=minTtl=1, efficiency=0 (edge case)", ()
     assertEquals(r.efficiency, 1000);
 });
 
-Deno.test("path: ranking includes both eligible and ineligible candidates", () => {
+Deno.test("path: ranking includes both eligible and ineligible candidates", async () => {
     const ok: PathCandidate = { label: "ok", hops: [rep("a", 200)] };
     const bad: PathCandidate = { label: "bad", hops: [rep("b", 0, "forked")] };
     const ranked = rankPaths([bad, ok]);
@@ -140,7 +140,7 @@ Deno.test("path: ranking includes both eligible and ineligible candidates", () =
     assertEquals(ranked[1].label, "bad");
 });
 
-Deno.test("path: rankPath copies hops by reference (no mutation)", () => {
+Deno.test("path: rankPath copies hops by reference (no mutation)", async () => {
     const hops = [rep("a", 200), rep("b", 200)];
     const before = JSON.stringify(hops.map(h => h.score));
     rankPath({ label: "x", hops });

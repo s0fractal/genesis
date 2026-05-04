@@ -68,7 +68,7 @@ function classification(
     };
 }
 
-Deno.test("replay HUD: empty classification formats stable fields", () => {
+Deno.test("replay HUD: empty classification formats stable fields", async () => {
     const snap = formatTranslationPolicyForensicReplayHud(classification({
         total_events: 0,
         classified_events: 0,
@@ -87,7 +87,7 @@ Deno.test("replay HUD: empty classification formats stable fields", () => {
     assertEquals(snap.fields.drift.value, "0ms M0");
 });
 
-Deno.test("replay HUD: compact fields include final band, policy intervals, drift, malformed", () => {
+Deno.test("replay HUD: compact fields include final band, policy intervals, drift, malformed", async () => {
     const snap = formatTranslationPolicyForensicReplayHud(classification({
         final_band: "drift",
         malformed_payloads: 2,
@@ -117,7 +117,7 @@ Deno.test("replay HUD: compact fields include final band, policy intervals, drif
     assertEquals(snap.summary.includes("P1234abcd I2"), true);
 });
 
-Deno.test("replay HUD: first active error window is surfaced", () => {
+Deno.test("replay HUD: first active error window is surfaced", async () => {
     const snap = formatTranslationPolicyForensicReplayHud(classification({
         final_band: "blocked",
         error_windows: [
@@ -147,7 +147,7 @@ Deno.test("replay HUD: first active error window is surfaced", () => {
     assertEquals(snap.fields.error.value, "proposal-failed:2");
 });
 
-Deno.test("replay HUD: drift duration uses last replay time for open drift segment", () => {
+Deno.test("replay HUD: drift duration uses last replay time for open drift segment", async () => {
     const c = classification({
         last_event_ms: T0 + 10_000,
         band_timeline: [
@@ -165,7 +165,7 @@ Deno.test("replay HUD: drift duration uses last replay time for open drift segme
     assertEquals(formatTranslationPolicyForensicReplayHud(c).fields.drift.value, "6s M0");
 });
 
-Deno.test("replay HUD: malformed count combines parser and payload malformed windows", () => {
+Deno.test("replay HUD: malformed count combines parser and payload malformed windows", async () => {
     const c = classification({
         malformed_payloads: 2,
         error_windows: [
@@ -184,7 +184,7 @@ Deno.test("replay HUD: malformed count combines parser and payload malformed win
     assertEquals(translationPolicyReplayMalformedCount(c), 5);
 });
 
-Deno.test("replay HUD: helper fields preserve order", () => {
+Deno.test("replay HUD: helper fields preserve order", async () => {
     const fields = translationPolicyForensicReplayHudFields(classification());
     assertEquals(fields.map((f) => f.label), [
         "TPOL REPLAY",
@@ -194,7 +194,7 @@ Deno.test("replay HUD: helper fields preserve order", () => {
     ]);
 });
 
-Deno.test("replay HUD: summary truncates deterministically", () => {
+Deno.test("replay HUD: summary truncates deterministically", async () => {
     const snap = formatTranslationPolicyForensicReplayHud(
         classification({ final_band: "install-error" }),
         { max_summary_len: 18 },
@@ -203,7 +203,7 @@ Deno.test("replay HUD: summary truncates deterministically", () => {
     assertEquals(snap.summary.endsWith("…"), true);
 });
 
-Deno.test("replay HUD: glyphs cover all replay bands", () => {
+Deno.test("replay HUD: glyphs cover all replay bands", async () => {
     assertEquals(forensicReplayGlyph("nominal"), "OK");
     assertEquals(forensicReplayGlyph("watch"), "WA");
     assertEquals(forensicReplayGlyph("drift"), "DR");
@@ -214,10 +214,10 @@ Deno.test("replay HUD: glyphs cover all replay bands", () => {
     assertEquals(forensicReplayGlyph("empty"), "--");
 });
 
-Deno.test("replay HUD: firstActiveErrorWindow returns null when all closed", () => {
+Deno.test("replay HUD: firstActiveErrorWindow returns null when all closed", async () => {
     assertEquals(firstActiveErrorWindow(classification()), null);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_FORENSIC_REPLAY_HUD_SCHEMA, "OMEGA-1850/v1");
 });

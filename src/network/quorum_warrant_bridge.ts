@@ -39,7 +39,7 @@ export const WARRANT_BRIDGE_SCHEMA = "OMEGA-1540/v1";
  *  enqueuing. */
 export interface WarrantProposalPayload {
     semanticType: "PROPOSAL";
-    proposalHash: number;
+    proposalHash: string;
     proposalDescription: string;
     /** The peer this warrant is targeting (informational; the
      *  receiver re-derives via senateHash check). */
@@ -48,16 +48,20 @@ export interface WarrantProposalPayload {
     issued_at_ms: number;
 }
 
-/** Compute the senate-compatible 64-byte-padded FNV-1a hash. Same
- *  algorithm as `WebRTCV2Mesh.senateHash`; reproduced here to
- *  avoid a dependency cycle with the live mesh. */
-export function senateHash(description: string): number {
+/** Compute the senate-compatible 64-byte-padded SHA-256 hash. */
+export async function senateHash(description: string): Promise<string> {
     const enc = new TextEncoder();
     const raw = enc.encode(description);
     const buf = new Uint8Array(64);
     const n = Math.min(raw.length, 64);
     for (let i = 0; i < n; i++) buf[i] = raw[i];
-    return fnv1a32(buf) >>> 0;
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buf);
+    const hashArray = new Uint8Array(hashBuffer);
+    let hex = "";
+    for (let i = 0; i < hashArray.length; i++) {
+        hex += hashArray[i].toString(16).padStart(2, "0");
+    }
+    return hex;
 }
 
 /** Build a deterministic, ≤64-char description for an
@@ -110,11 +114,11 @@ export class QuorumWarrantBridge {
      *  `consensus_anchor` is the consensus value at the time of
      *  the trigger, used to make each warrant's description
      *  uniquely identifiable. */
-    issue(
+    async issue(
         outcome: TriggerOutcome,
         consensus_anchor: number,
         now_ms: number,
-    ): BridgeIssueResult {
+    ): Promise<BridgeIssueResult> {
         const payloads: WarrantProposalPayload[] = [];
         const deduped: number[] = [];
         for (const peer_id of outcome.fire_now) {
@@ -124,7 +128,7 @@ export class QuorumWarrantBridge {
                 continue;
             }
             const description = buildWarrantDescription(peer_id, consensus_anchor);
-            const proposalHash = senateHash(description);
+            const proposalHash = await senateHash(description);
             payloads.push({
                 semanticType: "PROPOSAL",
                 proposalHash,

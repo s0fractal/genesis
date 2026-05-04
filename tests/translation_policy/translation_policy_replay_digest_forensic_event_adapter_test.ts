@@ -48,7 +48,7 @@ function telemetry(
     };
 }
 
-Deno.test("replay digest forensic adapter: disabled adapter is inert", () => {
+Deno.test("replay digest forensic adapter: disabled adapter is inert", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(sink, {
         enabled: false,
@@ -61,7 +61,7 @@ Deno.test("replay digest forensic adapter: disabled adapter is inert", () => {
     assertEquals(sink.size(), 0);
 });
 
-Deno.test("replay digest forensic adapter: start and stop toggle active", () => {
+Deno.test("replay digest forensic adapter: start and stop toggle active", async () => {
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(
         new ForensicEventSink(),
         { enabled: true, now_ms: () => T0 },
@@ -72,7 +72,7 @@ Deno.test("replay digest forensic adapter: start and stop toggle active", () => 
     assertEquals(adapter.isActive(), false);
 });
 
-Deno.test("replay digest forensic adapter: appends compact tpdq event", () => {
+Deno.test("replay digest forensic adapter: appends compact tpdq event", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(sink, {
         enabled: true,
@@ -100,7 +100,7 @@ Deno.test("replay digest forensic adapter: appends compact tpdq event", () => {
     assertEquals(sink.verifyChain(), null);
 });
 
-Deno.test("replay digest forensic adapter: unchanged projection is skipped", () => {
+Deno.test("replay digest forensic adapter: unchanged projection is skipped", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(sink, {
         enabled: true,
@@ -113,7 +113,7 @@ Deno.test("replay digest forensic adapter: unchanged projection is skipped", () 
     assertEquals(adapter.telemetry().skipped_unchanged, 1);
 });
 
-Deno.test("replay digest forensic adapter: changed consensus appends", () => {
+Deno.test("replay digest forensic adapter: changed consensus appends", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(sink, {
         enabled: true,
@@ -127,7 +127,7 @@ Deno.test("replay digest forensic adapter: changed consensus appends", () => {
     assertEquals(sink.size(), 2);
 });
 
-Deno.test("replay digest forensic adapter: drift and blocked bands are captured", () => {
+Deno.test("replay digest forensic adapter: drift and blocked bands are captured", async () => {
     const driftPayload = translationPolicyReplayDigestForensicPayload(
         snapshot({
             consensus_count: 2,
@@ -149,7 +149,7 @@ Deno.test("replay digest forensic adapter: drift and blocked bands are captured"
     assertEquals(blockedPayload.local_claims_failed, 1);
 });
 
-Deno.test("replay digest forensic adapter: projection ignores emitted time", () => {
+Deno.test("replay digest forensic adapter: projection ignores emitted time", async () => {
     const a = translationPolicyReplayDigestForensicPayload(snapshot(), telemetry(), T0);
     const b = translationPolicyReplayDigestForensicPayload(snapshot(), telemetry(), T0 + 1);
     assertEquals(
@@ -158,7 +158,7 @@ Deno.test("replay digest forensic adapter: projection ignores emitted time", () 
     );
 });
 
-Deno.test("replay digest forensic adapter: malformed and local counters affect projection", () => {
+Deno.test("replay digest forensic adapter: malformed and local counters affect projection", async () => {
     const base = translationPolicyReplayDigestForensicPayload(snapshot(), telemetry(), T0);
     const changed = translationPolicyReplayDigestForensicPayload(
         snapshot(),
@@ -172,7 +172,7 @@ Deno.test("replay digest forensic adapter: malformed and local counters affect p
     );
 });
 
-Deno.test("replay digest forensic adapter: custom kind", () => {
+Deno.test("replay digest forensic adapter: custom kind", async () => {
     const sink = new ForensicEventSink();
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(sink, {
         enabled: true,
@@ -183,7 +183,7 @@ Deno.test("replay digest forensic adapter: custom kind", () => {
     assertEquals(sink.list()[0].kind, "rdq");
 });
 
-Deno.test("replay digest forensic adapter: telemetry tracks last hash", () => {
+Deno.test("replay digest forensic adapter: telemetry tracks last hash", async () => {
     const adapter = createTranslationPolicyReplayDigestForensicEventAdapter(
         new ForensicEventSink(),
         { enabled: true, now_ms: () => T0 },
@@ -193,7 +193,7 @@ Deno.test("replay digest forensic adapter: telemetry tracks last hash", () => {
     assertEquals(adapter.telemetry().last_event_hash, result.event_hash);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_FORENSIC_EVENT_ADAPTER_SCHEMA,
         "OMEGA-1910/v1",

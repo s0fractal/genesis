@@ -19,7 +19,7 @@ use crate::attractor::AttractorArray;
 pub const MITOSIS_LOG_CAPACITY: usize = 32;
 
 /// A single mitosis receipt — everything needed to verify the birth.
-/// 32 + 32 + 80 + 4 + 4 + 4 = 156 bytes; padded to 160 for 16-byte alignment.
+/// 32 + 32 + 80 + 4 + 32 + 4 + 8 = 192 bytes (16-byte aligned).
 #[derive(Clone, Copy, Debug)]
 #[repr(C, align(16))]
 pub struct MitosisReceipt {
@@ -31,12 +31,12 @@ pub struct MitosisReceipt {
     pub attractors: AttractorArray,
     /// Topology q_phase at the moment of mitosis.
     pub q_phase: u32,
-    /// FNV-1a 32-bit hash of the child (`mitosis_proof::child_receipt_hash`).
-    pub receipt_hash: u32,
+    /// SHA-256 32-byte hash of the child (`mitosis_proof::child_receipt_hash`).
+    pub receipt_hash: [u8; 32],
     /// Absolute tick at which the mitosis occurred.
     pub tick: u32,
     /// Reserved for alignment / future fields.
-    pub _pad: u32,
+    pub _pad: [u32; 2],
 }
 
 impl MitosisReceipt {
@@ -52,9 +52,9 @@ impl MitosisReceipt {
             },
             attractors: AttractorArray::new(),
             q_phase: 0,
-            receipt_hash: 0,
+            receipt_hash: [0; 32],
             tick: 0,
-            _pad: 0,
+            _pad: [0; 2],
         }
     }
 }
@@ -125,7 +125,9 @@ mod tests {
         r.parent.genome = genome;
         r.child.genome = genome ^ 0xFF;
         r.q_phase = 7;
-        r.receipt_hash = genome.wrapping_mul(31);
+        let mut h = [0u8; 32];
+        h[0] = genome as u8;
+        r.receipt_hash = h;
         r
     }
 

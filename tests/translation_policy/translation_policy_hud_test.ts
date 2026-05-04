@@ -66,15 +66,15 @@ function telemetry(
     };
 }
 
-Deno.test("band: nominal when peers exist and no drift/malformed/failures", () => {
+Deno.test("band: nominal when peers exist and no drift/malformed/failures", async () => {
     assertEquals(translationPolicyHudBand(telemetry()), "nominal");
 });
 
-Deno.test("band: watch when no peers", () => {
+Deno.test("band: watch when no peers", async () => {
     assertEquals(translationPolicyHudBand(telemetry({ peer_count: 0 })), "watch");
 });
 
-Deno.test("band: watch when malformed input observed", () => {
+Deno.test("band: watch when malformed input observed", async () => {
     assertEquals(translationPolicyHudBand(telemetry({
         live: { claims_malformed: 1 } as any,
     })), "watch");
@@ -83,7 +83,7 @@ Deno.test("band: watch when malformed input observed", () => {
     })), "watch");
 });
 
-Deno.test("band: drift when policy drift or corroboration block exists", () => {
+Deno.test("band: drift when policy drift or corroboration block exists", async () => {
     assertEquals(translationPolicyHudBand(telemetry({
         loop: { drift_peer_count: 1 } as any,
     })), "drift");
@@ -92,7 +92,7 @@ Deno.test("band: drift when policy drift or corroboration block exists", () => {
     })), "drift");
 });
 
-Deno.test("band: blocked when warrant or local raise emit fails", () => {
+Deno.test("band: blocked when warrant or local raise emit fails", async () => {
     assertEquals(translationPolicyHudBand(telemetry({
         loop: { proposals_failed: 1 } as any,
     })), "blocked");
@@ -101,14 +101,14 @@ Deno.test("band: blocked when warrant or local raise emit fails", () => {
     })), "blocked");
 });
 
-Deno.test("glyphs are stable", () => {
+Deno.test("glyphs are stable", async () => {
     assertEquals(translationPolicyHudGlyph("nominal"), "🟢");
     assertEquals(translationPolicyHudGlyph("watch"), "🟡");
     assertEquals(translationPolicyHudGlyph("drift"), "🟠");
     assertEquals(translationPolicyHudGlyph("blocked"), "🔴");
 });
 
-Deno.test("format: compact fields include policy hash, peers, warrants", () => {
+Deno.test("format: compact fields include policy hash, peers, warrants", async () => {
     const snap = formatTranslationPolicyHud(telemetry());
     assertEquals(snap.schema, TRANSLATION_POLICY_HUD_SCHEMA);
     assertEquals(snap.fields.policy, { label: "TPOL", value: "P1234abcd D0" });
@@ -117,17 +117,17 @@ Deno.test("format: compact fields include policy hash, peers, warrants", () => {
     assertEquals(snap.summary.includes("TPOL NOMINAL"), true);
 });
 
-Deno.test("format: summary truncates deterministically", () => {
+Deno.test("format: summary truncates deterministically", async () => {
     const snap = formatTranslationPolicyHud(telemetry(), { max_summary_len: 24 });
     assertEquals(snap.summary.length, 24);
     assertEquals(snap.summary.endsWith("…"), true);
 });
 
-Deno.test("fields helper returns three HUD-ready fields", () => {
+Deno.test("fields helper returns three HUD-ready fields", async () => {
     const fields = translationPolicyHudFields(telemetry());
     assertEquals(fields.map((f) => f.label), ["TPOL", "TPOL PEERS", "TPOL WARRANT"]);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_HUD_SCHEMA, "OMEGA-1750/v1");
 });

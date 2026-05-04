@@ -78,7 +78,7 @@ export class TranslationPolicyInvestigationLoop {
         public readonly corroborationGate?: TranslationPolicyCorroborationGate,
     ) {}
 
-    ingestPolicyBody(body_json: string, now_ms: number): TranslationPolicyLoopResult {
+    async ingestPolicyBody(body_json: string, now_ms: number): Promise<TranslationPolicyLoopResult> {
         const claim = decodeTranslationPolicyMeshPayload(body_json);
         if (!claim) {
             this.telemetry.malformed_claims++;
@@ -87,15 +87,15 @@ export class TranslationPolicyInvestigationLoop {
         return this.observeClaim(claim, now_ms);
     }
 
-    observeClaim(
+    async observeClaim(
         claim: TranslationPolicyClaim,
         now_ms: number,
-    ): TranslationPolicyLoopResult {
+    ): Promise<TranslationPolicyLoopResult> {
         const observation = this.monitor.observeClaim(claim, now_ms);
         this.telemetry.claims_observed++;
         const newDrift = this.collectNewDriftEvents();
         const gated = this.applyCorroborationGate(newDrift, now_ms);
-        const warrantResult = this.warrantBridge.issue(gated.allowed, now_ms);
+        const warrantResult = await this.warrantBridge.issue(gated.allowed, now_ms);
         let emitted = 0;
         let failed = 0;
         for (const proposal of warrantResult.payloads) {

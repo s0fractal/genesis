@@ -78,7 +78,7 @@ function runtimeResult(now_ms: number): TranslationPolicyRuntimeTickResult {
     };
 }
 
-Deno.test("tick hook: disabled by default", () => {
+Deno.test("tick hook: disabled by default", async () => {
     let calls = 0;
     const hook = new TranslationPolicyRuntimeTickHook({
         tick: () => {
@@ -93,7 +93,7 @@ Deno.test("tick hook: disabled by default", () => {
     assertEquals(calls, 0);
 });
 
-Deno.test("tick hook: enabled invokes runtime with max peers", () => {
+Deno.test("tick hook: enabled invokes runtime with max peers", async () => {
     const calls: Array<{ now: number; max?: number }> = [];
     const hook = new TranslationPolicyRuntimeTickHook(
         {
@@ -114,7 +114,7 @@ Deno.test("tick hook: enabled invokes runtime with max peers", () => {
     assertEquals(calls, [{ now: 1000, max: 2 }]);
 });
 
-Deno.test("tick hook: interval throttles runtime ticks", () => {
+Deno.test("tick hook: interval throttles runtime ticks", async () => {
     let calls = 0;
     const hook = new TranslationPolicyRuntimeTickHook(
         {
@@ -135,7 +135,7 @@ Deno.test("tick hook: interval throttles runtime ticks", () => {
     assertEquals(calls, 2);
 });
 
-Deno.test("tick hook: runtime errors are contained", () => {
+Deno.test("tick hook: runtime errors are contained", async () => {
     const hook = new TranslationPolicyRuntimeTickHook(
         { tick: () => { throw new Error("boom"); } },
         { ...DEFAULT_TRANSLATION_POLICY_RUNTIME_TICK_HOOK_OPTS, enabled: true },
@@ -146,11 +146,11 @@ Deno.test("tick hook: runtime errors are contained", () => {
     assertEquals(result.error, "boom");
 });
 
-Deno.test("factory: null source remains inert", () => {
+Deno.test("factory: null source remains inert", async () => {
     assertEquals(createTranslationPolicyRuntimeTickHook(null), null);
 });
 
-Deno.test("options: partial merge preserves defaults", () => {
+Deno.test("options: partial merge preserves defaults", async () => {
     const opts = mergeTranslationPolicyRuntimeTickHookOptions({
         enabled: true,
         max_peers_per_tick: 1,
@@ -160,6 +160,6 @@ Deno.test("options: partial merge preserves defaults", () => {
     assertEquals(opts.max_peers_per_tick, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_RUNTIME_TICK_HOOK_SCHEMA, "OMEGA-1800/v1");
 });

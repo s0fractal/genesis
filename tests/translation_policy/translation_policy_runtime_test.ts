@@ -67,7 +67,7 @@ function makeRuntime() {
     return { runtime, source, sentClaims, emittedWarrants, scheduler };
 }
 
-Deno.test("runtime: start/stop controls live wiring and directory", () => {
+Deno.test("runtime: start/stop controls live wiring and directory", async () => {
     const { runtime } = makeRuntime();
     assertEquals(runtime.isActive(), false);
     runtime.start();
@@ -82,10 +82,10 @@ Deno.test("runtime: start/stop controls live wiring and directory", () => {
     assertEquals(runtime.telemetry(T0).directory_active, false);
 });
 
-Deno.test("runtime: lifecycle event populates scheduler and tick broadcasts", () => {
+Deno.test("runtime: lifecycle event populates scheduler and tick broadcasts", async () => {
     const { runtime, source, sentClaims } = makeRuntime();
     runtime.start();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     const result = runtime.tick(T0);
     assertEquals(result.schema, TRANSLATION_POLICY_RUNTIME_SCHEMA);
     assertEquals(result.broadcast.sent_count, 1);
@@ -93,10 +93,10 @@ Deno.test("runtime: lifecycle event populates scheduler and tick broadcasts", ()
     assertEquals(result.telemetry.peer_count, 1);
 });
 
-Deno.test("runtime: activity event is enough to discover peer", () => {
+Deno.test("runtime: activity event is enough to discover peer", async () => {
     const { runtime, source, sentClaims } = makeRuntime();
     runtime.start();
-    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" });
+    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" }); await new Promise(r => setTimeout(r, 0));
     const tele = runtime.telemetry(T0);
     assertEquals(tele.directory.activity_peers_seen, 1);
     assertEquals(tele.live.claims_malformed, 1);
@@ -105,39 +105,39 @@ Deno.test("runtime: activity event is enough to discover peer", () => {
     assertEquals(sentClaims.map((x) => x.peer), [0xCC]);
 });
 
-Deno.test("runtime: max_peers delegates to scheduler tick", () => {
+Deno.test("runtime: max_peers delegates to scheduler tick", async () => {
     const { runtime, source, sentClaims } = makeRuntime();
     runtime.start();
-    source.dispatch("meshPeerJoined", { peer_id: 0x10 });
-    source.dispatch("meshPeerJoined", { peer_id: 0x20 });
+    source.dispatch("meshPeerJoined", { peer_id: 0x10 }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("meshPeerJoined", { peer_id: 0x20 }); await new Promise(r => setTimeout(r, 0));
     const result = runtime.tick(T0, 1);
     assertEquals(result.broadcast.sent_count, 1);
     assertEquals(sentClaims.map((x) => x.peer), [0x10]);
     assertEquals(result.broadcast.decisions.map((x) => x.action), ["sent", "cooldown"]);
 });
 
-Deno.test("runtime: stop unsubscribes both adapters", () => {
+Deno.test("runtime: stop unsubscribes both adapters", async () => {
     const { runtime, source, scheduler } = makeRuntime();
     runtime.start();
     runtime.stop();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
-    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" }); await new Promise(r => setTimeout(r, 0));
     const tele = runtime.telemetry(T0);
     assertEquals(scheduler.peerCount(), 0);
     assertEquals(tele.directory.joined_received, 0);
     assertEquals(tele.live.claims_received, 0);
 });
 
-Deno.test("runtime: telemetry includes loop summary", () => {
+Deno.test("runtime: telemetry includes loop summary", async () => {
     const { runtime, source } = makeRuntime();
     runtime.start();
-    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" });
+    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "not json" }); await new Promise(r => setTimeout(r, 0));
     const tele = runtime.telemetry(T0);
     assertEquals(tele.schema, TRANSLATION_POLICY_RUNTIME_SCHEMA);
     assertEquals(tele.loop.malformed_claims, 1);
     assertEquals(tele.due_peer_count, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_RUNTIME_SCHEMA, "OMEGA-1740/v1");
 });

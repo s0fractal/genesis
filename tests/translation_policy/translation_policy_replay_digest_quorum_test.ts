@@ -63,7 +63,7 @@ function claim(peer_id: number, final_band: "nominal" | "blocked" = "blocked") {
     );
 }
 
-Deno.test("replay digest quorum: empty snapshot is stable", () => {
+Deno.test("replay digest quorum: empty snapshot is stable", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     const s = t.snapshot(T0);
     assertEquals(s.schema, TRANSLATION_POLICY_REPLAY_DIGEST_QUORUM_SCHEMA);
@@ -73,7 +73,7 @@ Deno.test("replay digest quorum: empty snapshot is stable", () => {
     assertEquals(s.consensus_claim, null);
 });
 
-Deno.test("replay digest quorum: single claim is lone", () => {
+Deno.test("replay digest quorum: single claim is lone", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     const c = claim(0xAA);
     t.observe(c, T0);
@@ -84,7 +84,7 @@ Deno.test("replay digest quorum: single claim is lone", () => {
     assertEquals(s.agreement_q16, 65536);
 });
 
-Deno.test("replay digest quorum: two matching claims are double", () => {
+Deno.test("replay digest quorum: two matching claims are double", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe(claim(0xAA), T0);
     t.observe(claim(0xBB), T0);
@@ -94,7 +94,7 @@ Deno.test("replay digest quorum: two matching claims are double", () => {
     assertEquals(s.dissenter_peer_ids, []);
 });
 
-Deno.test("replay digest quorum: three matching claims are high by default", () => {
+Deno.test("replay digest quorum: three matching claims are high by default", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe(claim(0xAA), T0);
     t.observe(claim(0xBB), T0);
@@ -102,7 +102,7 @@ Deno.test("replay digest quorum: three matching claims are high by default", () 
     assertEquals(t.snapshot(T0).band, "high");
 });
 
-Deno.test("replay digest quorum: dissenters are listed for different digest", () => {
+Deno.test("replay digest quorum: dissenters are listed for different digest", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     const a = claim(0xAA, "blocked");
     t.observe(a, T0);
@@ -114,7 +114,7 @@ Deno.test("replay digest quorum: dissenters are listed for different digest", ()
     assertEquals(s.distinct_digests.length, 2);
 });
 
-Deno.test("replay digest quorum: agreement_q16 reflects consensus fraction", () => {
+Deno.test("replay digest quorum: agreement_q16 reflects consensus fraction", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe(claim(0xAA, "blocked"), T0);
     t.observe(claim(0xBB, "blocked"), T0);
@@ -123,14 +123,14 @@ Deno.test("replay digest quorum: agreement_q16 reflects consensus fraction", () 
     assertEquals(t.snapshot(T0).agreement_q16, 32768);
 });
 
-Deno.test("replay digest quorum: tie breaks by lower digest", () => {
+Deno.test("replay digest quorum: tie breaks by lower digest", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe({ ...claim(0xAA), digest: 0x900 }, T0);
     t.observe({ ...claim(0xBB), digest: 0x100 }, T0);
     assertEquals(t.snapshot(T0).consensus_digest, 0x100);
 });
 
-Deno.test("replay digest quorum: re-observe overwrites peer claim", () => {
+Deno.test("replay digest quorum: re-observe overwrites peer claim", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe(claim(0xAA, "blocked"), T0);
     const changed = claim(0xAA, "nominal");
@@ -140,7 +140,7 @@ Deno.test("replay digest quorum: re-observe overwrites peer claim", () => {
     assertEquals(s.consensus_digest, changed.digest);
 });
 
-Deno.test("replay digest quorum: TTL evicts stale claims", () => {
+Deno.test("replay digest quorum: TTL evicts stale claims", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker({
         ...DEFAULT_REPLAY_DIGEST_QUORUM_OPTS,
         ttl_ms: 5_000,
@@ -151,7 +151,7 @@ Deno.test("replay digest quorum: TTL evicts stale claims", () => {
     assertEquals(t.peerCount(T0 + 6_000), 1);
 });
 
-Deno.test("replay digest quorum: forget and clear manage state", () => {
+Deno.test("replay digest quorum: forget and clear manage state", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     t.observe(claim(0xAA), T0);
     t.observe(claim(0xBB), T0);
@@ -161,7 +161,7 @@ Deno.test("replay digest quorum: forget and clear manage state", () => {
     assertEquals(t.peerCount(T0), 0);
 });
 
-Deno.test("replay digest quorum: claimsForDigest returns peer-sorted claims", () => {
+Deno.test("replay digest quorum: claimsForDigest returns peer-sorted claims", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker();
     const a = claim(0xCC, "blocked");
     const b = claim(0xAA, "blocked");
@@ -171,7 +171,7 @@ Deno.test("replay digest quorum: claimsForDigest returns peer-sorted claims", ()
     assertEquals(t.claimsForDigest(a.digest, T0).map((c) => c.peer_id), [0xAA, 0xCC]);
 });
 
-Deno.test("replay digest quorum: tunable high threshold preserves triple+ band", () => {
+Deno.test("replay digest quorum: tunable high threshold preserves triple+ band", async () => {
     const t = new TranslationPolicyReplayDigestQuorumTracker({
         ttl_ms: 60_000,
         high_threshold: 5,
@@ -182,7 +182,7 @@ Deno.test("replay digest quorum: tunable high threshold preserves triple+ band",
     assertEquals(t.snapshot(T0).band, "high");
 });
 
-Deno.test("replay digest quorum: band helpers are ordered", () => {
+Deno.test("replay digest quorum: band helpers are ordered", async () => {
     assertEquals(classifyReplayDigestQuorumBand(0, 3), "none");
     assertEquals(classifyReplayDigestQuorumBand(1, 3), "lone");
     assertEquals(classifyReplayDigestQuorumBand(2, 3), "double");
@@ -192,7 +192,7 @@ Deno.test("replay digest quorum: band helpers are ordered", () => {
     assertEquals(replayDigestQuorumBandAtLeast("double", "triple+"), false);
 });
 
-Deno.test("replay digest quorum: glyphs are stable ascii", () => {
+Deno.test("replay digest quorum: glyphs are stable ascii", async () => {
     assertEquals(replayDigestQuorumGlyph("high"), "G");
     assertEquals(replayDigestQuorumGlyph("triple+"), "G");
     assertEquals(replayDigestQuorumGlyph("double"), "Y");
@@ -200,7 +200,7 @@ Deno.test("replay digest quorum: glyphs are stable ascii", () => {
     assertEquals(replayDigestQuorumGlyph("none"), "-");
 });
 
-Deno.test("replay digest quorum: invalid opts throw", () => {
+Deno.test("replay digest quorum: invalid opts throw", async () => {
     assertThrows(() =>
         new TranslationPolicyReplayDigestQuorumTracker({
             ttl_ms: 0,
@@ -215,6 +215,6 @@ Deno.test("replay digest quorum: invalid opts throw", () => {
     );
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_REPLAY_DIGEST_QUORUM_SCHEMA, "OMEGA-1880/v1");
 });

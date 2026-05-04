@@ -51,13 +51,13 @@ function makePair(): {
     return { a, b, sinkA, sinkB, txA, txB };
 }
 
-Deno.test("bridge: PEER_HELLO marks peer known on receipt", () => {
+Deno.test("bridge: PEER_HELLO marks peer known on receipt", async () => {
     const { a, b } = makePair();
     a.helloPeer(0xBB);
     assert(b.isPeerKnown(0xAA));
 });
 
-Deno.test("bridge: rejects schema mismatch on HELLO", () => {
+Deno.test("bridge: rejects schema mismatch on HELLO", async () => {
     const sink = new ForensicEventSink();
     const tx = new PairedTransport();
     const bridge = new WebRTCEventBridge(0xAA, sink, tx);
@@ -70,7 +70,7 @@ Deno.test("bridge: rejects schema mismatch on HELLO", () => {
     assert(!bridge.isPeerKnown(0xBB));
 });
 
-Deno.test("bridge: HASH_LIST receive triggers automatic DELTA back", () => {
+Deno.test("bridge: HASH_LIST receive triggers automatic DELTA back", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -90,7 +90,7 @@ Deno.test("bridge: HASH_LIST receive triggers automatic DELTA back", () => {
     );
 });
 
-Deno.test("bridge: identical sinks → HASH_LIST exchange ships nothing", () => {
+Deno.test("bridge: identical sinks → HASH_LIST exchange ships nothing", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -104,7 +104,7 @@ Deno.test("bridge: identical sinks → HASH_LIST exchange ships nothing", () => 
     assertEquals(a.telemetry().deltas_sent, 0);
 });
 
-Deno.test("bridge: sendDelta manually ships entries to peer", () => {
+Deno.test("bridge: sendDelta manually ships entries to peer", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -115,7 +115,7 @@ Deno.test("bridge: sendDelta manually ships entries to peer", () => {
     assertEquals(sinkB.list()[0].event_hash, 0x42);
 });
 
-Deno.test("bridge: rejects DELTA from unknown schema", () => {
+Deno.test("bridge: rejects DELTA from unknown schema", async () => {
     const { b } = makePair();
     const bad: BridgeMessage = {
         kind: "DELTA",
@@ -133,7 +133,7 @@ Deno.test("bridge: rejects DELTA from unknown schema", () => {
     assertEquals(b.telemetry().schema_mismatches, 1);
 });
 
-Deno.test("bridge: collision in incoming DELTA increments counter", () => {
+Deno.test("bridge: collision in incoming DELTA increments counter", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -146,7 +146,7 @@ Deno.test("bridge: collision in incoming DELTA increments counter", () => {
     assertEquals(sinkB.list()[0].kind, "vrdt");
 });
 
-Deno.test("bridge: bidirectional convergence after two HASH_LIST rounds", () => {
+Deno.test("bridge: bidirectional convergence after two HASH_LIST rounds", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -174,7 +174,7 @@ Deno.test("bridge: bidirectional convergence after two HASH_LIST rounds", () => 
     assertEquals(a.anchor(), b.anchor());
 });
 
-Deno.test("bridge: gates broadcastHashList on peer-known", () => {
+Deno.test("bridge: gates broadcastHashList on peer-known", async () => {
     const sink = new ForensicEventSink();
     const tx = new PairedTransport();
     const bridge = new WebRTCEventBridge(0xAA, sink, tx);
@@ -184,7 +184,7 @@ Deno.test("bridge: gates broadcastHashList on peer-known", () => {
     assertEquals(tx.sent_log.length, 0);
 });
 
-Deno.test("bridge: HASH_LIST without prior HELLO still marks peer known", () => {
+Deno.test("bridge: HASH_LIST without prior HELLO still marks peer known", async () => {
     const sink = new ForensicEventSink();
     const tx = new PairedTransport();
     const bridge = new WebRTCEventBridge(0xAA, sink, tx);
@@ -205,7 +205,7 @@ Deno.test("bridge: HASH_LIST without prior HELLO still marks peer known", () => 
     assertEquals(bridge.telemetry().schema_mismatches, 1);
 });
 
-Deno.test("bridge: telemetry counters increment correctly", () => {
+Deno.test("bridge: telemetry counters increment correctly", async () => {
     const { a, b, sinkA, sinkB } = makePair();
     a.helloPeer(0xBB);
     b.helloPeer(0xAA);
@@ -219,7 +219,7 @@ Deno.test("bridge: telemetry counters increment correctly", () => {
     assertEquals(stats.deltas_applied, 1);
 });
 
-Deno.test("bridge: sendDelta gated on peer-known", () => {
+Deno.test("bridge: sendDelta gated on peer-known", async () => {
     const sink = new ForensicEventSink();
     const tx = new PairedTransport();
     const bridge = new WebRTCEventBridge(0xAA, sink, tx);
@@ -229,7 +229,7 @@ Deno.test("bridge: sendDelta gated on peer-known", () => {
     assertEquals(tx.sent_log.length, 0);
 });
 
-Deno.test("bridge: anchor matches sink eventChainAnchor", () => {
+Deno.test("bridge: anchor matches sink eventChainAnchor", async () => {
     const sink = new ForensicEventSink();
     const tx = new PairedTransport();
     const bridge = new WebRTCEventBridge(0xAA, sink, tx);
@@ -238,6 +238,6 @@ Deno.test("bridge: anchor matches sink eventChainAnchor", () => {
     assertEquals(bridge.anchor(), sink.eventChainAnchor());
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(BRIDGE_SCHEMA, "OMEGA-1500/v1");
 });

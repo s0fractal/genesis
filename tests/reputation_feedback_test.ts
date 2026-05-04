@@ -39,14 +39,14 @@ function invRec(
     };
 }
 
-Deno.test("feedback: lone alarm produces NO penalty (below trigger floor)", () => {
+Deno.test("feedback: lone alarm produces NO penalty (below trigger floor)", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(invRec(0xAA, 0x100), 0xCC01, NOW);
     const rec = t.get(0xAA);
     assertEquals(computeSoftPenalty(rec), 0);
 });
 
-Deno.test("feedback: double corroboration triggers penalty", () => {
+Deno.test("feedback: double corroboration triggers penalty", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(invRec(0xAA, 0x100, 0), 0xCC01, NOW);
     t.recordRaise(invRec(0xAA, 0x100, 0), 0xCC02, NOW);
@@ -56,7 +56,7 @@ Deno.test("feedback: double corroboration triggers penalty", () => {
     assertEquals(computeSoftPenalty(rec), 25);
 });
 
-Deno.test("feedback: triple corroboration penalty grows", () => {
+Deno.test("feedback: triple corroboration penalty grows", async () => {
     const t = new InvestigationConvergenceTracker();
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
         t.recordRaise(invRec(0xAA, 0x100, 0), src, NOW);
@@ -66,7 +66,7 @@ Deno.test("feedback: triple corroboration penalty grows", () => {
     assertEquals(computeSoftPenalty(rec), 50);
 });
 
-Deno.test("feedback: max_penalty caps total", () => {
+Deno.test("feedback: max_penalty caps total", async () => {
     const t = new InvestigationConvergenceTracker();
     for (let i = 0; i < 20; i++) {
         t.recordRaise(invRec(0xAA, 0x100, 65_536), (0xCC00 + i) >>> 0, NOW);
@@ -76,7 +76,7 @@ Deno.test("feedback: max_penalty caps total", () => {
     assertEquals(computeSoftPenalty(rec), SUSPICION_DEFAULTS.max_penalty);
 });
 
-Deno.test("feedback: diff_penalty contributes to score", () => {
+Deno.test("feedback: diff_penalty contributes to score", async () => {
     const t = new InvestigationConvergenceTracker();
     // 2 corroborators (above floor) AND large diff.
     t.recordRaise(invRec(0xAA, 0x100, 5120), 0xCC01, NOW);
@@ -88,7 +88,7 @@ Deno.test("feedback: diff_penalty contributes to score", () => {
     assertEquals(computeSoftPenalty(rec), 50);
 });
 
-Deno.test("feedback: diff_penalty respects its own cap", () => {
+Deno.test("feedback: diff_penalty respects its own cap", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(invRec(0xAA, 0x100, 65_536), 0xCC01, NOW);
     t.recordRaise(invRec(0xAA, 0x100, 65_536), 0xCC02, NOW);
@@ -97,11 +97,11 @@ Deno.test("feedback: diff_penalty respects its own cap", () => {
     assertEquals(computeSoftPenalty(rec), 50);
 });
 
-Deno.test("feedback: undefined record → 0", () => {
+Deno.test("feedback: undefined record → 0", async () => {
     assertEquals(computeSoftPenalty(undefined), 0);
 });
 
-Deno.test("feedback: applySuspicionPenalties reduces affected scores", () => {
+Deno.test("feedback: applySuspicionPenalties reduces affected scores", async () => {
     const t = new InvestigationConvergenceTracker();
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
         t.recordRaise(invRec(0xAA, 0x100, 0), src, NOW);
@@ -117,7 +117,7 @@ Deno.test("feedback: applySuspicionPenalties reduces affected scores", () => {
     assertEquals(result[1].breakdown.suspicion_penalty, undefined);
 });
 
-Deno.test("feedback: applySuspicionPenalties never produces negative scores", () => {
+Deno.test("feedback: applySuspicionPenalties never produces negative scores", async () => {
     const t = new InvestigationConvergenceTracker();
     for (let i = 0; i < 20; i++) {
         t.recordRaise(invRec(0xAA, 0x100, 65_536), (0xCC00 + i) >>> 0, NOW);
@@ -129,7 +129,7 @@ Deno.test("feedback: applySuspicionPenalties never produces negative scores", ()
     assertEquals(result[0].score, 0);
 });
 
-Deno.test("feedback: reRankWithSuspicion swaps order when suspect drops", () => {
+Deno.test("feedback: reRankWithSuspicion swaps order when suspect drops", async () => {
     const t = new InvestigationConvergenceTracker();
     for (const src of [0xCC01, 0xCC02, 0xCC03, 0xCC04]) {
         t.recordRaise(invRec(0xAA, 0x100, 0), src, NOW);
@@ -145,7 +145,7 @@ Deno.test("feedback: reRankWithSuspicion swaps order when suspect drops", () => 
     assertEquals(ranked[1].spore_id, "alpha");
 });
 
-Deno.test("feedback: deterministic across two trackers with same history", () => {
+Deno.test("feedback: deterministic across two trackers with same history", async () => {
     const events = [
         { src: 0xCC01, target: 0x100, diff: 5_000 },
         { src: 0xCC02, target: 0x100, diff: 7_000 },
@@ -163,7 +163,7 @@ Deno.test("feedback: deterministic across two trackers with same history", () =>
     assertEquals(r1[0].score, r2[0].score);
 });
 
-Deno.test("feedback: highest-corroboration record wins when multiple target same relay", () => {
+Deno.test("feedback: highest-corroboration record wins when multiple target same relay", async () => {
     const t = new InvestigationConvergenceTracker();
     // Two distinct proposals targeting same relay.
     t.recordRaise(invRec(0xAA, 0x100, 0), 0xCC01, NOW); // 1 corroborator
@@ -176,7 +176,7 @@ Deno.test("feedback: highest-corroboration record wins when multiple target same
     assertEquals(result[0].score, 150);
 });
 
-Deno.test("feedback: target_resolver returning undefined skips penalty", () => {
+Deno.test("feedback: target_resolver returning undefined skips penalty", async () => {
     const t = new InvestigationConvergenceTracker();
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
         t.recordRaise(invRec(0xAA, 0x100, 0), src, NOW);
@@ -186,7 +186,7 @@ Deno.test("feedback: target_resolver returning undefined skips penalty", () => {
     assertEquals(result[0].score, 200); // no penalty applied
 });
 
-Deno.test("feedback: empty tracker leaves scores untouched", () => {
+Deno.test("feedback: empty tracker leaves scores untouched", async () => {
     const t = new InvestigationConvergenceTracker();
     const scores = [repScore("alpha", 200), repScore("beta", 150)];
     const result = applySuspicionPenalties(scores, t, () => 0x100);
@@ -194,7 +194,7 @@ Deno.test("feedback: empty tracker leaves scores untouched", () => {
     assertEquals(result[1].score, 150);
 });
 
-Deno.test("feedback: original scores array is not mutated", () => {
+Deno.test("feedback: original scores array is not mutated", async () => {
     const t = new InvestigationConvergenceTracker();
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
         t.recordRaise(invRec(0xAA, 0x100, 0), src, NOW);

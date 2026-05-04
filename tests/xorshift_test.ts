@@ -6,7 +6,7 @@
 import { assertEquals, assert } from "https://deno.land/std@0.220.0/assert/mod.ts";
 import { Xorshift64TS, createSeededRng } from "../src/math/xorshift.ts";
 
-Deno.test("xorshift64 deterministic with same seed", () => {
+Deno.test("xorshift64 deterministic with same seed", async () => {
     const rng1 = new Xorshift64TS(12345n);
     const rng2 = new Xorshift64TS(12345n);
 
@@ -15,7 +15,7 @@ Deno.test("xorshift64 deterministic with same seed", () => {
     }
 });
 
-Deno.test("xorshift64 different seeds produce different sequences", () => {
+Deno.test("xorshift64 different seeds produce different sequences", async () => {
     const rng1 = new Xorshift64TS(1n);
     const rng2 = new Xorshift64TS(2n);
 
@@ -26,7 +26,7 @@ Deno.test("xorshift64 different seeds produce different sequences", () => {
     assert(collisions < 5, `Too many collisions (${collisions}) for different seeds`);
 });
 
-Deno.test("xorshift64 nextRange bounds", () => {
+Deno.test("xorshift64 nextRange bounds", async () => {
     const rng = new Xorshift64TS(42n);
     for (let i = 0; i < 1000; i++) {
         const val = rng.nextRange(100);
@@ -34,20 +34,20 @@ Deno.test("xorshift64 nextRange bounds", () => {
     }
 });
 
-Deno.test("xorshift64 nextHex length", () => {
+Deno.test("xorshift64 nextHex length", async () => {
     const rng = new Xorshift64TS(42n);
     assertEquals(rng.nextHex(4).length, 8, "4 bytes = 8 hex chars");
     assertEquals(rng.nextHex(8).length, 16, "8 bytes = 16 hex chars");
     assertEquals(rng.nextHex(1).length, 2, "1 byte = 2 hex chars");
 });
 
-Deno.test("xorshift64 nextHex determinism", () => {
+Deno.test("xorshift64 nextHex determinism", async () => {
     const rng1 = new Xorshift64TS(999n);
     const rng2 = new Xorshift64TS(999n);
     assertEquals(rng1.nextHex(8), rng2.nextHex(8));
 });
 
-Deno.test("createSeededRng with string seed", () => {
+Deno.test("createSeededRng with string seed", async () => {
     const rng1 = createSeededRng("omega-64-genesis");
     const rng2 = createSeededRng("omega-64-genesis");
     for (let i = 0; i < 50; i++) {
@@ -55,7 +55,7 @@ Deno.test("createSeededRng with string seed", () => {
     }
 });
 
-Deno.test("xorshift64 full period no early repeat", () => {
+Deno.test("xorshift64 full period no early repeat", async () => {
     const rng = new Xorshift64TS(7n);
     const first = rng.next();
     let steps = 1;

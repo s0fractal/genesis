@@ -754,15 +754,21 @@ pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
     SENATE_STATE.as_mut_ptr() as *const u8
 }
 
-/// Compute the FNV-1a 32-bit hash of a 64-byte description payload.
+/// Compute the SHA-256 32-byte hash of a 64-byte description payload.
 /// `desc_ptr` must point to at least `desc_len` valid bytes (max 64 read).
+/// `out_ptr` must point to a 32-byte allocated buffer.
 ///
 /// # Safety
 /// Caller must ensure desc_ptr is valid for `desc_len` bytes (or null if 0).
+/// Caller must ensure out_ptr is valid for 32 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32) -> u32 {
+pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32, out_ptr: *mut u8) {
+    if out_ptr.is_null() { return; }
+    let out = unsafe { core::slice::from_raw_parts_mut(out_ptr, 32) };
     if desc_ptr.is_null() || desc_len == 0 {
-        return fnv1a_32(&[]);
+        let h = crate::senate::sha256_hash(&[]);
+        out.copy_from_slice(&h);
+        return;
     }
     let len = if desc_len > 64 { 64 } else { desc_len } as usize;
     let bytes = unsafe { core::slice::from_raw_parts(desc_ptr, len) };
@@ -774,7 +780,8 @@ pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32) -> u
         buf[i] = bytes[i];
         i += 1;
     }
-    fnv1a_32(&buf)
+    let h = crate::senate::sha256_hash(&buf);
+    out.copy_from_slice(&h);
 }
 
 /// Submit a proposal. `desc_ptr` is read up to 64 bytes (zero-padded).
@@ -812,32 +819,35 @@ pub unsafe extern "C" fn v2_senate_propose(
 ///
 /// Returns: 0 = not found / closed, 1 = vote applied, 2 = ACCEPTED on this vote.
 #[no_mangle]
-pub extern "C" fn v2_senate_vote(hash: u32, aye: u32, aye_threshold: u32) -> u32 {
-    unsafe {
-        let mut s = SENATE_STATE.lock();
-        let threshold = if aye_threshold > u16::MAX as u32 { u16::MAX } else { aye_threshold as u16 };
-        s.vote(hash, aye != 0, threshold)
-    }
+pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, aye_threshold: u32) -> u32 {
+    if hash_ptr.is_null() { return 0; }
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
+    let mut s = SENATE_STATE.lock();
+    let threshold = if aye_threshold > u16::MAX as u32 { u16::MAX } else { aye_threshold as u16 };
+    s.vote(&hash, aye != 0, threshold)
 }
 
 /// Returns the AYE count for a proposal, or 0xFFFFFFFF if not found.
 #[no_mangle]
-pub extern "C" fn v2_senate_proposal_ayes(hash: u32) -> u32 {
-    unsafe {
-        let mut s = SENATE_STATE.lock();
-        let idx = s.find(hash);
-        if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes as u32 }
-    }
+pub unsafe extern "C" fn v2_senate_proposal_ayes(hash_ptr: *const u8) -> u32 {
+    if hash_ptr.is_null() { return 0xFFFF_FFFF; }
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
+    let s = SENATE_STATE.lock();
+    let idx = s.find(&hash);
+    if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes as u32 }
 }
 
 /// Returns 1 if the proposal at `hash` has been accepted, 0 otherwise / not found.
 #[no_mangle]
-pub extern "C" fn v2_senate_is_accepted(hash: u32) -> u32 {
-    unsafe {
-        let mut s = SENATE_STATE.lock();
-        let idx = s.find(hash);
-        if idx == usize::MAX { 0 } else if s.proposals[idx].is_accepted() { 1 } else { 0 }
-    }
+pub unsafe extern "C" fn v2_senate_is_accepted(hash_ptr: *const u8) -> u32 {
+    if hash_ptr.is_null() { return 0; }
+    let mut hash = [0u8; 32];
+    hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
+    let s = SENATE_STATE.lock();
+    let idx = s.find(&hash);
+    if idx == usize::MAX { 0 } else if s.proposals[idx].is_accepted() { 1 } else { 0 }
 }
 
 // ------------------------------------------------------------------------------

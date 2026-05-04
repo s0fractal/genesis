@@ -395,7 +395,7 @@ impl PhaseLattice {
                             q_phase: self.topology.q_phase,
                             receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
                             tick: self.signals.absolute_tick,
-                            _pad: 0,
+                            _pad: [0; 2],
                         };
                         let mut log = crate::MITOSIS_LOG.lock();
                         log.push(receipt);

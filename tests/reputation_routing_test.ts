@@ -19,7 +19,7 @@ function freshAgg(): LivenessAggregator {
 
 const NOW = 100_000;
 
-Deno.test("rep: healthy beats unknown", () => {
+Deno.test("rep: healthy beats unknown", async () => {
     const agg = freshAgg();
     // Healthy: 3 heartbeats with rising tick.
     agg.ingest("alpha", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 200);
@@ -37,14 +37,14 @@ Deno.test("rep: healthy beats unknown", () => {
     assert(ranked[0].score > ranked[1].score);
 });
 
-Deno.test("rep: forked spore is excluded entirely", () => {
+Deno.test("rep: forked spore is excluded entirely", async () => {
     const agg = freshAgg();
     agg.ingest("rogue", buildHeartbeat(0xDEADBEEF >>> 0, 1), NOW);
     const top = pickTopK(agg, NOW, 5);
     assertEquals(top.length, 0);
 });
 
-Deno.test("rep: forked + healthy → only healthy is pickable", () => {
+Deno.test("rep: forked + healthy → only healthy is pickable", async () => {
     const agg = freshAgg();
     agg.ingest("good", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
     agg.ingest("good", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW);
@@ -54,7 +54,7 @@ Deno.test("rep: forked + healthy → only healthy is pickable", () => {
     assertEquals(best!.spore_id, "good");
 });
 
-Deno.test("rep: heartbeat density adds up to cap", () => {
+Deno.test("rep: heartbeat density adds up to cap", async () => {
     const agg = freshAgg();
     // Send 60 heartbeats — but the cap is 50, so only 50 contribute.
     for (let t = 1; t <= 60; t++) {
@@ -66,7 +66,7 @@ Deno.test("rep: heartbeat density adds up to cap", () => {
     assertEquals(r.breakdown.heartbeat_density, 100);
 });
 
-Deno.test("rep: warrant throughput contributes to score", () => {
+Deno.test("rep: warrant throughput contributes to score", async () => {
     const agg = freshAgg();
     agg.ingest("voter", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
     agg.ingest("voter", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 50);
@@ -78,7 +78,7 @@ Deno.test("rep: warrant throughput contributes to score", () => {
     assertEquals(r.breakdown.warrant_throughput, 25);
 });
 
-Deno.test("rep: stalled gets stall penalty", () => {
+Deno.test("rep: stalled gets stall penalty", async () => {
     const agg = freshAgg();
     agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 200);
     agg.ingest("stuck", buildHeartbeat(GENESIS_HASH_V1_0, 5), NOW - 100);
@@ -89,7 +89,7 @@ Deno.test("rep: stalled gets stall penalty", () => {
     assertEquals(r.breakdown.stall_penalty, -30);
 });
 
-Deno.test("rep: lost spore loses score over silence duration", () => {
+Deno.test("rep: lost spore loses score over silence duration", async () => {
     const agg = freshAgg();
     agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 70_000);
     agg.ingest("ghost", buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW - 60_000);
@@ -100,7 +100,7 @@ Deno.test("rep: lost spore loses score over silence duration", () => {
     assertEquals(r.breakdown.silence_penalty, -60);
 });
 
-Deno.test("rep: stable tie-break by spore_id ascending", () => {
+Deno.test("rep: stable tie-break by spore_id ascending", async () => {
     const agg = freshAgg();
     // Two healthy spores with identical metrics.
     for (const id of ["zeta", "alpha"]) {
@@ -112,7 +112,7 @@ Deno.test("rep: stable tie-break by spore_id ascending", () => {
     assertEquals(ranked[1].spore_id, "zeta");
 });
 
-Deno.test("rep: pickTopK respects k", () => {
+Deno.test("rep: pickTopK respects k", async () => {
     const agg = freshAgg();
     for (const id of ["a", "b", "c", "d", "e"]) {
         agg.ingest(id, buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW - 100);
@@ -122,7 +122,7 @@ Deno.test("rep: pickTopK respects k", () => {
     assertEquals(pickTopK(agg, NOW, 10).length, 5);
 });
 
-Deno.test("rep: deterministic across two relays observing the same history", () => {
+Deno.test("rep: deterministic across two relays observing the same history", async () => {
     // Same ingest sequence on two independent aggregators must produce
     // identical rankings.
     const events: Array<[string, ReturnType<typeof buildHeartbeat>, number]> = [
@@ -148,7 +148,7 @@ Deno.test("rep: deterministic across two relays observing the same history", () 
     }
 });
 
-Deno.test("rep: pickBest returns null when no eligible neighbors", () => {
+Deno.test("rep: pickBest returns null when no eligible neighbors", async () => {
     const agg = freshAgg();
     agg.ingest("rogue", buildHeartbeat(0xDEAD_BEEF >>> 0, 1), NOW);
     assertEquals(pickBest(agg, NOW), null);

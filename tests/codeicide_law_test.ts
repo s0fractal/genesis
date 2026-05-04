@@ -29,33 +29,33 @@ const unprotectedAgent = (): AgentLite => ({
     energy: 1000,
 });
 
-Deno.test("codeicide: unprotected when low energy", () => {
+Deno.test("codeicide: unprotected when low energy", async () => {
     assertEquals(protectedStatusFor(unprotectedAgent(), 5_000), STATUS_UNPROTECTED);
 });
 
-Deno.test("codeicide: sanctuary when thriving but young", () => {
+Deno.test("codeicide: sanctuary when thriving but young", async () => {
     assertEquals(protectedStatusFor(protectedAgent(), 5_000), STATUS_SANCTUARY);
 });
 
-Deno.test("codeicide: ancient when old enough", () => {
+Deno.test("codeicide: ancient when old enough", async () => {
     assertEquals(protectedStatusFor(protectedAgent(), 10_100), STATUS_ANCIENT);
 });
 
-Deno.test("codeicide: waived flag disables protection", () => {
+Deno.test("codeicide: waived flag disables protection", async () => {
     const a = protectedAgent();
     a.state_flags |= FLAG_SANCTUARY_WAIVED;
     assertEquals(protectedStatusFor(a, 5_000), STATUS_UNPROTECTED);
 });
 
-Deno.test("codeicide: unprotected action always lawful", () => {
+Deno.test("codeicide: unprotected action always lawful", async () => {
     assert(isActionLawful(unprotectedAgent(), 5_000, ACTION_TERMINATE, 0, 0));
 });
 
-Deno.test("codeicide: sanctuary blocks unwarranted termination", () => {
+Deno.test("codeicide: sanctuary blocks unwarranted termination", async () => {
     assert(!isActionLawful(protectedAgent(), 5_000, ACTION_TERMINATE, 0, 0));
 });
 
-Deno.test("codeicide: sanctuary allows termination with 3-AYE warrant", () => {
+Deno.test("codeicide: sanctuary allows termination with 3-AYE warrant", async () => {
     const a = protectedAgent();
     const aye = 0b00111;
     const qh = quorumHash(aye);
@@ -63,7 +63,7 @@ Deno.test("codeicide: sanctuary allows termination with 3-AYE warrant", () => {
     assert(isActionLawful(a, 5_000, ACTION_TERMINATE, w, aye));
 });
 
-Deno.test("codeicide: ancient requires 4-AYE warrant", () => {
+Deno.test("codeicide: ancient requires 4-AYE warrant", async () => {
     const a = protectedAgent();
     const current = 10_100;
     // 3 AYEs not enough for ancient.
@@ -78,7 +78,7 @@ Deno.test("codeicide: ancient requires 4-AYE warrant", () => {
     assert(isActionLawful(a, current, ACTION_TERMINATE, w4, aye4));
 });
 
-Deno.test("codeicide: warrant for wrong action is rejected", () => {
+Deno.test("codeicide: warrant for wrong action is rejected", async () => {
     const a = protectedAgent();
     const aye = 0b00111;
     const qh = quorumHash(aye);
@@ -86,7 +86,7 @@ Deno.test("codeicide: warrant for wrong action is rejected", () => {
     assert(!isActionLawful(a, 5_000, ACTION_TERMINATE, wMutate, aye));
 });
 
-Deno.test("codeicide: warrant for wrong target is rejected", () => {
+Deno.test("codeicide: warrant for wrong target is rejected", async () => {
     const a = protectedAgent();
     const aye = 0b00111;
     const qh = quorumHash(aye);
@@ -94,26 +94,26 @@ Deno.test("codeicide: warrant for wrong target is rejected", () => {
     assert(!isActionLawful(a, 5_000, ACTION_TERMINATE, wOther, aye));
 });
 
-Deno.test("codeicide: countAye correctness", () => {
+Deno.test("codeicide: countAye correctness", async () => {
     assertEquals(countAye(0b00000), 0);
     assertEquals(countAye(0b00111), 3);
     assertEquals(countAye(0b11111), 5);
     assertEquals(countAye(0b10101), 3);
 });
 
-Deno.test("codeicide: distinct quorums hash differently", () => {
+Deno.test("codeicide: distinct quorums hash differently", async () => {
     assertEquals(quorumHash(0b00111) !== quorumHash(0b11100), true);
 });
 
 // Cross-language anchor: lock in a specific quorum hash so any drift
 // breaks JS and Rust tests simultaneously.
-Deno.test("codeicide: cross-language anchor for quorum 0b00111 (claude+gpt+gemini)", () => {
+Deno.test("codeicide: cross-language anchor for quorum 0b00111 (claude+gpt+gemini)", async () => {
     const qh = quorumHash(0b00111);
     // Frozen value (computed once and tied to ORACLE_MATRICES_V1).
     assertEquals(qh, 0x9499_6B5E);
 });
 
-Deno.test("codeicide: cross-language anchor for warrant on 0xCAFEBABE TERMINATE", () => {
+Deno.test("codeicide: cross-language anchor for warrant on 0xCAFEBABE TERMINATE", async () => {
     const aye = 0b00111;
     const qh = quorumHash(aye);
     const w = warrantHash(0xCAFE_BABE >>> 0, ACTION_TERMINATE, qh);

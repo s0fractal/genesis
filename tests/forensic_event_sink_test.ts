@@ -13,14 +13,14 @@ import { computeConvergenceHealth } from "../src/network/convergence_health.ts";
 
 const T0 = 1_000_000;
 
-Deno.test("sink: empty has size 0 + zero anchor", () => {
+Deno.test("sink: empty has size 0 + zero anchor", async () => {
     const s = new ForensicEventSink();
     assertEquals(s.size(), 0);
     assertEquals(s.eventChainAnchor(), 0x811C_9DC5); // FNV-1a empty
     assertEquals(s.verifyChain(), null);
 });
 
-Deno.test("sink: append assigns monotonic sequence numbers", () => {
+Deno.test("sink: append assigns monotonic sequence numbers", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     s.append("test", 0xBB, {}, T0 + 1);
@@ -29,7 +29,7 @@ Deno.test("sink: append assigns monotonic sequence numbers", () => {
     assertEquals(list.map(e => e.sequence), [0, 1, 2]);
 });
 
-Deno.test("sink: chain links each entry to its predecessor", () => {
+Deno.test("sink: chain links each entry to its predecessor", async () => {
     const s = new ForensicEventSink();
     const a = s.append("test", 0xAA, {}, T0);
     const b = s.append("test", 0xBB, {}, T0 + 1);
@@ -39,7 +39,7 @@ Deno.test("sink: chain links each entry to its predecessor", () => {
     assertEquals(c.prev_chain_hash, b.chain_hash);
 });
 
-Deno.test("sink: chain_hash is deterministic for identical inputs", () => {
+Deno.test("sink: chain_hash is deterministic for identical inputs", async () => {
     const s1 = new ForensicEventSink();
     const s2 = new ForensicEventSink();
     const a1 = s1.append("alarm", 0xDEADBEEF, {}, T0);
@@ -47,14 +47,14 @@ Deno.test("sink: chain_hash is deterministic for identical inputs", () => {
     assertEquals(a1.chain_hash, a2.chain_hash);
 });
 
-Deno.test("sink: chain_hash differs across distinct events", () => {
+Deno.test("sink: chain_hash differs across distinct events", async () => {
     const s = new ForensicEventSink();
     const a = s.append("test", 0xAA, {}, T0);
     const b = s.append("test", 0xBB, {}, T0);
     assert(a.chain_hash !== b.chain_hash);
 });
 
-Deno.test("sink: verifyChain returns null on intact log", () => {
+Deno.test("sink: verifyChain returns null on intact log", async () => {
     const s = new ForensicEventSink();
     for (let i = 0; i < 10; i++) {
         s.append("test", 0xA0 + i, {}, T0 + i);
@@ -62,7 +62,7 @@ Deno.test("sink: verifyChain returns null on intact log", () => {
     assertEquals(s.verifyChain(), null);
 });
 
-Deno.test("sink: verifyChain detects tampered chain_hash", () => {
+Deno.test("sink: verifyChain detects tampered chain_hash", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     s.append("test", 0xBB, {}, T0 + 1);
@@ -73,7 +73,7 @@ Deno.test("sink: verifyChain detects tampered chain_hash", () => {
     assertEquals(s.verifyChain(), 1);
 });
 
-Deno.test("sink: verifyChain detects tampered prev_chain_hash", () => {
+Deno.test("sink: verifyChain detects tampered prev_chain_hash", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     s.append("test", 0xBB, {}, T0 + 1);
@@ -82,7 +82,7 @@ Deno.test("sink: verifyChain detects tampered prev_chain_hash", () => {
     assertEquals(s.verifyChain(), 1);
 });
 
-Deno.test("sink: capacity enforces FIFO eviction", () => {
+Deno.test("sink: capacity enforces FIFO eviction", async () => {
     const s = new ForensicEventSink(3);
     s.append("test", 0x01, {}, T0);
     s.append("test", 0x02, {}, T0 + 1);
@@ -92,7 +92,7 @@ Deno.test("sink: capacity enforces FIFO eviction", () => {
     assertEquals(s.list().map(e => e.event_hash), [0x02, 0x03, 0x04]);
 });
 
-Deno.test("sink: sequence numbers persist across eviction", () => {
+Deno.test("sink: sequence numbers persist across eviction", async () => {
     const s = new ForensicEventSink(2);
     s.append("test", 0x01, {}, T0);
     s.append("test", 0x02, {}, T0 + 1);
@@ -101,7 +101,7 @@ Deno.test("sink: sequence numbers persist across eviction", () => {
     assertEquals(s.list().map(e => e.sequence), [2, 3]);
 });
 
-Deno.test("sink: chain remains valid for surviving prefix after eviction", () => {
+Deno.test("sink: chain remains valid for surviving prefix after eviction", async () => {
     const s = new ForensicEventSink(3);
     for (let i = 0; i < 7; i++) {
         s.append("test", 0xA0 + i, {}, T0 + i);
@@ -111,20 +111,20 @@ Deno.test("sink: chain remains valid for surviving prefix after eviction", () =>
     assertEquals(s.verifyChain(), null);
 });
 
-Deno.test("sink: tail returns most recent N entries", () => {
+Deno.test("sink: tail returns most recent N entries", async () => {
     const s = new ForensicEventSink();
     for (let i = 0; i < 5; i++) s.append("test", 0xA0 + i, {}, T0 + i);
     const tail = s.tail(3);
     assertEquals(tail.map(e => e.event_hash), [0xA2, 0xA3, 0xA4]);
 });
 
-Deno.test("sink: tail with n=0 returns empty", () => {
+Deno.test("sink: tail with n=0 returns empty", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     assertEquals(s.tail(0), []);
 });
 
-Deno.test("sink: byKind filters live entries", () => {
+Deno.test("sink: byKind filters live entries", async () => {
     const s = new ForensicEventSink();
     s.append("alarm", 0x01, {}, T0);
     s.append("verdict", 0x02, {}, T0 + 1);
@@ -134,7 +134,7 @@ Deno.test("sink: byKind filters live entries", () => {
     assertEquals(s.byKind("missing"), []);
 });
 
-Deno.test("sink: findByEventHash returns matching entry", () => {
+Deno.test("sink: findByEventHash returns matching entry", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xDEAD, {}, T0);
     s.append("test", 0xBEEF, {}, T0 + 1);
@@ -143,13 +143,13 @@ Deno.test("sink: findByEventHash returns matching entry", () => {
     assertEquals(found!.event_hash, 0xBEEF);
 });
 
-Deno.test("sink: findByEventHash returns null when missing", () => {
+Deno.test("sink: findByEventHash returns null when missing", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     assertEquals(s.findByEventHash(0xBB), null);
 });
 
-Deno.test("sink: eventChainAnchor is order-independent across sinks", () => {
+Deno.test("sink: eventChainAnchor is order-independent across sinks", async () => {
     const s1 = new ForensicEventSink();
     const s2 = new ForensicEventSink();
     s1.append("test", 0x01, {}, T0);
@@ -159,7 +159,7 @@ Deno.test("sink: eventChainAnchor is order-independent across sinks", () => {
     assertEquals(s1.eventChainAnchor(), s2.eventChainAnchor());
 });
 
-Deno.test("sink: summary includes per-kind counts", () => {
+Deno.test("sink: summary includes per-kind counts", async () => {
     const s = new ForensicEventSink(100);
     s.append("alarm", 0x01, {}, T0);
     s.append("alarm", 0x02, {}, T0 + 1);
@@ -171,7 +171,7 @@ Deno.test("sink: summary includes per-kind counts", () => {
     assertEquals(sum.kinds, { alarm: 2, verdict: 1 });
 });
 
-Deno.test("sink: clear resets state including sequence counter", () => {
+Deno.test("sink: clear resets state including sequence counter", async () => {
     const s = new ForensicEventSink();
     s.append("test", 0xAA, {}, T0);
     s.append("test", 0xBB, {}, T0 + 1);
@@ -182,19 +182,19 @@ Deno.test("sink: clear resets state including sequence counter", () => {
     assertEquals(fresh.prev_chain_hash, 0);
 });
 
-Deno.test("sink: invalid capacity throws", () => {
+Deno.test("sink: invalid capacity throws", async () => {
     assertThrows(() => new ForensicEventSink(0));
     assertThrows(() => new ForensicEventSink(-5));
 });
 
-Deno.test("computeChainHash: matches sink's internal computation", () => {
+Deno.test("computeChainHash: matches sink's internal computation", async () => {
     const s = new ForensicEventSink();
     const e = s.append("alarm", 0xDEADBEEF, {}, T0);
     const recomputed = computeChainHash("alarm", 0xDEADBEEF, T0, 0, 0);
     assertEquals(e.chain_hash, recomputed);
 });
 
-Deno.test("diffEventSinks: identifies disjoint and shared event hashes", () => {
+Deno.test("diffEventSinks: identifies disjoint and shared event hashes", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     a.append("test", 0x01, {}, T0);
@@ -209,7 +209,7 @@ Deno.test("diffEventSinks: identifies disjoint and shared event hashes", () => {
     assertEquals(diff.shared, [0x02, 0x03]);
 });
 
-Deno.test("end-to-end: convergence alarm flows into sink with chain integrity", () => {
+Deno.test("end-to-end: convergence alarm flows into sink with chain integrity", async () => {
     const s = new ForensicEventSink();
     const sig = computeConvergenceHealth([0x10], [0x10, 0x20, 0x30, 0x40, 0x50]);
     const alarm = convergenceAlarmEvent(sig, [
@@ -224,6 +224,6 @@ Deno.test("end-to-end: convergence alarm flows into sink with chain integrity", 
     assertEquals((found!.payload as any).band, "stranded");
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(EVENT_SINK_SCHEMA, "OMEGA-1380/v1");
 });

@@ -24,11 +24,11 @@ function registry(pairs: Array<[string, string]>): SchemaTranslatorRegistry {
     return r;
 }
 
-Deno.test("digest: empty policy is FNV offset basis", () => {
+Deno.test("digest: empty policy is FNV offset basis", async () => {
     assertEquals(translationPolicyDigest(registry([])), fnv1a32(new Uint8Array()));
 });
 
-Deno.test("digest: order-independent over canonical pairs", () => {
+Deno.test("digest: order-independent over canonical pairs", async () => {
     const a = translationPolicyDigestFromPairs([
         { source: "metrics:v1", target: "metrics:v2" },
         { source: "alarms:v1", target: "alarms:v2" },
@@ -40,7 +40,7 @@ Deno.test("digest: order-independent over canonical pairs", () => {
     assertEquals(a, b);
 });
 
-Deno.test("claim: includes sorted pairs and stable hash", () => {
+Deno.test("claim: includes sorted pairs and stable hash", async () => {
     const r = registry([
         ["metrics:v1.0", "metrics:v2.0"],
         ["alarms:v1.0", "alarms:v2.0"],
@@ -56,7 +56,7 @@ Deno.test("claim: includes sorted pairs and stable hash", () => {
     assertEquals(claim.policy_hash, translationPolicyDigest(r));
 });
 
-Deno.test("drift event: deterministic for same inputs", () => {
+Deno.test("drift event: deterministic for same inputs", async () => {
     const local = buildTranslationPolicyClaim(1, registry([["alarms:v1.0", "alarms:v2.0"]]), T0);
     const peer = buildTranslationPolicyClaim(2, registry([]), T0);
     assertEquals(
@@ -65,7 +65,7 @@ Deno.test("drift event: deterministic for same inputs", () => {
     );
 });
 
-Deno.test("monitor: matching policy produces no alarm", () => {
+Deno.test("monitor: matching policy produces no alarm", async () => {
     const r = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const monitor = new TranslationPolicyMonitor(1, r);
     const peer = buildTranslationPolicyClaim(2, r, T0);
@@ -75,7 +75,7 @@ Deno.test("monitor: matching policy produces no alarm", () => {
     assertEquals(monitor.recentAlarms().length, 0);
 });
 
-Deno.test("monitor: mismatched policy raises alarm and sinks forensic event", () => {
+Deno.test("monitor: mismatched policy raises alarm and sinks forensic event", async () => {
     const local = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const peerRegistry = registry([["alarms:v2.0", "alarms:v1.0"]]);
     const sink = new ForensicEventSink(8);
@@ -96,7 +96,7 @@ Deno.test("monitor: mismatched policy raises alarm and sinks forensic event", ()
     assertEquals(sink.tail(1)[0].kind, "translation-policy-drift");
 });
 
-Deno.test("monitor: repeated same mismatch is deduped", () => {
+Deno.test("monitor: repeated same mismatch is deduped", async () => {
     const local = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const peerRegistry = registry([]);
     const monitor = new TranslationPolicyMonitor(1, local);
@@ -106,7 +106,7 @@ Deno.test("monitor: repeated same mismatch is deduped", () => {
     assertEquals(monitor.recentAlarms().length, 1);
 });
 
-Deno.test("monitor: new peer hash for same peer raises a new alarm", () => {
+Deno.test("monitor: new peer hash for same peer raises a new alarm", async () => {
     const local = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const monitor = new TranslationPolicyMonitor(1, local);
     monitor.observeClaim(buildTranslationPolicyClaim(2, registry([]), T0), T0);
@@ -121,14 +121,14 @@ Deno.test("monitor: new peer hash for same peer raises a new alarm", () => {
     assertEquals(monitor.recentAlarms().length, 2);
 });
 
-Deno.test("monitor: TTL evicts stale observations", () => {
+Deno.test("monitor: TTL evicts stale observations", async () => {
     const monitor = new TranslationPolicyMonitor(1, registry([]), { ttl_ms: 10 });
     monitor.observeClaim(buildTranslationPolicyClaim(2, registry([]), T0), T0);
     assertEquals(monitor.snapshot(T0 + 9).length, 1);
     assertEquals(monitor.snapshot(T0 + 11).length, 0);
 });
 
-Deno.test("monitor: capacity evicts oldest peer", () => {
+Deno.test("monitor: capacity evicts oldest peer", async () => {
     const monitor = new TranslationPolicyMonitor(1, registry([]), { capacity: 2 });
     monitor.observeClaim(buildTranslationPolicyClaim(2, registry([]), T0), T0);
     monitor.observeClaim(buildTranslationPolicyClaim(3, registry([]), T0), T0);
@@ -136,13 +136,13 @@ Deno.test("monitor: capacity evicts oldest peer", () => {
     assertEquals(monitor.snapshot(T0).map((x) => x.peer_id), [3, 4]);
 });
 
-Deno.test("monitor: malformed schema rejected", () => {
+Deno.test("monitor: malformed schema rejected", async () => {
     const monitor = new TranslationPolicyMonitor(1, registry([]));
     const claim = buildTranslationPolicyClaim(2, registry([]), T0);
     assertThrows(() => monitor.observeClaim({ ...claim, schema: "bad" }, T0));
 });
 
-Deno.test("monitor: summary reports local policy and drift count", () => {
+Deno.test("monitor: summary reports local policy and drift count", async () => {
     const local = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const monitor = new TranslationPolicyMonitor(1, local);
     monitor.observeClaim(buildTranslationPolicyClaim(2, registry([]), T0), T0);
@@ -154,6 +154,6 @@ Deno.test("monitor: summary reports local policy and drift count", () => {
     assertEquals(s.alarm_count, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_SCHEMA, "OMEGA-1650/v1");
 });

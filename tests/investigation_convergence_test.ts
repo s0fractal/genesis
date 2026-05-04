@@ -23,14 +23,14 @@ function rec(
     };
 }
 
-Deno.test("convergence: single raise → lone confidence", () => {
+Deno.test("convergence: single raise → lone confidence", async () => {
     const t = new InvestigationConvergenceTracker();
     const out = t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW);
     assertEquals(out.corroboration_count, 1);
     assertEquals(out.confidence, "lone");
 });
 
-Deno.test("convergence: two distinct raisers → double confidence", () => {
+Deno.test("convergence: two distinct raisers → double confidence", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW);
     const out = t.recordRaise(rec(0xAAAA, 0x1111), 0xCC02, NOW + 100);
@@ -38,7 +38,7 @@ Deno.test("convergence: two distinct raisers → double confidence", () => {
     assertEquals(out.confidence, "double");
 });
 
-Deno.test("convergence: three distinct raisers → high confidence", () => {
+Deno.test("convergence: three distinct raisers → high confidence", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW);
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC02, NOW + 100);
@@ -47,7 +47,7 @@ Deno.test("convergence: three distinct raisers → high confidence", () => {
     assertEquals(out.confidence, "high");
 });
 
-Deno.test("convergence: same source raising twice doesn't double-count", () => {
+Deno.test("convergence: same source raising twice doesn't double-count", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW);
     const out = t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW + 100);
@@ -55,7 +55,7 @@ Deno.test("convergence: same source raising twice doesn't double-count", () => {
     assertEquals(out.raised_by, [0xCC01]);
 });
 
-Deno.test("convergence: high-confidence callback fires once on transition", () => {
+Deno.test("convergence: high-confidence callback fires once on transition", async () => {
     let fired = 0;
     const t = new InvestigationConvergenceTracker({
         on_high_confidence: () => { fired++; },
@@ -70,7 +70,7 @@ Deno.test("convergence: high-confidence callback fires once on transition", () =
     assertEquals(fired, 1);
 });
 
-Deno.test("convergence: max_diff_q16 tracks the strongest alarm", () => {
+Deno.test("convergence: max_diff_q16 tracks the strongest alarm", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111, 5_000), 0xCC01, NOW);
     t.recordRaise(rec(0xAAAA, 0x1111, 12_000), 0xCC02, NOW + 100);
@@ -79,7 +79,7 @@ Deno.test("convergence: max_diff_q16 tracks the strongest alarm", () => {
     assertEquals(out.max_diff_q16, 12_000);
 });
 
-Deno.test("convergence: list orders by corroboration desc, then first_observed asc", () => {
+Deno.test("convergence: list orders by corroboration desc, then first_observed asc", async () => {
     const t = new InvestigationConvergenceTracker();
     // Proposal 1 — lone.
     t.recordRaise(rec(0x1, 0xA), 0xCC01, NOW);
@@ -96,7 +96,7 @@ Deno.test("convergence: list orders by corroboration desc, then first_observed a
     assertEquals(list[2].proposal_hash, 0x1); // lone
 });
 
-Deno.test("convergence: highConfidenceRecords filters correctly", () => {
+Deno.test("convergence: highConfidenceRecords filters correctly", async () => {
     const t = new InvestigationConvergenceTracker();
     // Reach high.
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
@@ -110,7 +110,7 @@ Deno.test("convergence: highConfidenceRecords filters correctly", () => {
     assertEquals(high[0].proposal_hash, 0xAAAA);
 });
 
-Deno.test("convergence: consensusSuspectTargets returns sorted unique targets", () => {
+Deno.test("convergence: consensusSuspectTargets returns sorted unique targets", async () => {
     const t = new InvestigationConvergenceTracker();
     // Two distinct high-confidence proposals against different targets.
     for (const src of [0xCC01, 0xCC02, 0xCC03]) {
@@ -121,7 +121,7 @@ Deno.test("convergence: consensusSuspectTargets returns sorted unique targets", 
     assertEquals(t.consensusSuspectTargets(), [0x100, 0x200, 0x300]);
 });
 
-Deno.test("convergence: capacity bound evicts oldest proposal", () => {
+Deno.test("convergence: capacity bound evicts oldest proposal", async () => {
     const t = new InvestigationConvergenceTracker({ capacity: 2 });
     t.recordRaise(rec(0x1, 0xA), 0xCC01, NOW);
     t.recordRaise(rec(0x2, 0xB), 0xCC01, NOW + 10);
@@ -132,7 +132,7 @@ Deno.test("convergence: capacity bound evicts oldest proposal", () => {
     assert(t.get(0x3) !== undefined);
 });
 
-Deno.test("convergence: clear empties the tracker", () => {
+Deno.test("convergence: clear empties the tracker", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, NOW);
     t.clear();
@@ -140,12 +140,12 @@ Deno.test("convergence: clear empties the tracker", () => {
     assertEquals(t.list(), []);
 });
 
-Deno.test("convergence: invalid options throw", () => {
+Deno.test("convergence: invalid options throw", async () => {
     assertThrows(() => new InvestigationConvergenceTracker({ capacity: 0 }));
     assertThrows(() => new InvestigationConvergenceTracker({ high_confidence_threshold: 1 }));
 });
 
-Deno.test("convergence: raised_by is sorted ascending", () => {
+Deno.test("convergence: raised_by is sorted ascending", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0x300, NOW);
     t.recordRaise(rec(0xAAAA, 0x1111), 0x100, NOW + 10);
@@ -154,7 +154,7 @@ Deno.test("convergence: raised_by is sorted ascending", () => {
     assertEquals(out.raised_by, [0x100, 0x200, 0x300]);
 });
 
-Deno.test("convergence: first_observed/last_observed timestamps tracked", () => {
+Deno.test("convergence: first_observed/last_observed timestamps tracked", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC01, 1000);
     t.recordRaise(rec(0xAAAA, 0x1111), 0xCC02, 5000);
@@ -164,7 +164,7 @@ Deno.test("convergence: first_observed/last_observed timestamps tracked", () => 
     assertEquals(out.last_observed_at_ms, 9000);
 });
 
-Deno.test("convergence: distinct proposals stay isolated", () => {
+Deno.test("convergence: distinct proposals stay isolated", async () => {
     const t = new InvestigationConvergenceTracker();
     t.recordRaise(rec(0xAAAA, 0x1), 0xCC01, NOW);
     t.recordRaise(rec(0xBBBB, 0x2), 0xCC01, NOW);

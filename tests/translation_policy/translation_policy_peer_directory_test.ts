@@ -35,18 +35,18 @@ function makeScheduler(): TranslationPolicyBroadcastScheduler {
     });
 }
 
-Deno.test("derivePeerId: numeric input is normalized to u32", () => {
+Deno.test("derivePeerId: numeric input is normalized to u32", async () => {
     assertEquals(deriveTranslationPolicyPeerId(-1), 0xFFFF_FFFF);
     assertEquals(deriveTranslationPolicyPeerId(0x1_0000_0001), 1);
 });
 
-Deno.test("derivePeerId: string input hashes deterministically", () => {
+Deno.test("derivePeerId: string input hashes deterministically", async () => {
     const expected = fnv1a32(new TextEncoder().encode("peer-alpha"));
     assertEquals(deriveTranslationPolicyPeerId("peer-alpha"), expected);
     assertEquals(deriveTranslationPolicyPeerId(""), null);
 });
 
-Deno.test("directory: starts and stops", () => {
+Deno.test("directory: starts and stops", async () => {
     const source = new LocalEventSource();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(makeScheduler(), source);
     assertEquals(adapter.isActive(), false);
@@ -58,60 +58,60 @@ Deno.test("directory: starts and stops", () => {
     assertEquals(adapter.isActive(), false);
 });
 
-Deno.test("directory: join event adds numeric peer", () => {
+Deno.test("directory: join event adds numeric peer", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.snapshot().map((x) => x.peer_id), [0xBB]);
     assertEquals(adapter.telemetry().peers_added, 1);
 });
 
-Deno.test("directory: join event hashes string peerId", () => {
+Deno.test("directory: join event hashes string peerId", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("meshPeerJoined", { peerId: "peer-bravo" });
+    source.dispatch("meshPeerJoined", { peerId: "peer-bravo" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.snapshot()[0].peer_id, deriveTranslationPolicyPeerId("peer-bravo"));
 });
 
-Deno.test("directory: left event removes peer", () => {
+Deno.test("directory: left event removes peer", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
-    source.dispatch("meshPeerLeft", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("meshPeerLeft", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.peerCount(), 0);
     assertEquals(adapter.telemetry().peers_removed, 1);
 });
 
-Deno.test("directory: duplicate left event is harmless", () => {
+Deno.test("directory: duplicate left event is harmless", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
-    source.dispatch("meshPeerLeft", { peer_id: 0xBB });
-    source.dispatch("meshPeerLeft", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("meshPeerLeft", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("meshPeerLeft", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.peerCount(), 0);
     assertEquals(adapter.telemetry().left_received, 2);
     assertEquals(adapter.telemetry().peers_removed, 1);
 });
 
-Deno.test("directory: translation policy claim activity adds sender", () => {
+Deno.test("directory: translation policy claim activity adds sender", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "{}" });
+    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC, body: "{}" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.snapshot().map((x) => x.peer_id), [0xCC]);
     assertEquals(adapter.telemetry().activity_peers_seen, 1);
 });
 
-Deno.test("directory: corroboration activity hashes string sender", () => {
+Deno.test("directory: corroboration activity hashes string sender", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
@@ -119,36 +119,36 @@ Deno.test("directory: corroboration activity hashes string sender", () => {
     source.dispatch("translationPolicyCorroborationRaise", {
         fromPeer: "peer-charlie",
         body: "{}",
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.snapshot()[0].peer_id, deriveTranslationPolicyPeerId("peer-charlie"));
 });
 
-Deno.test("directory: malformed lifecycle/activity events are counted", () => {
+Deno.test("directory: malformed lifecycle/activity events are counted", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
-    source.dispatch("meshPeerJoined", {});
-    source.dispatch("meshPeerLeft", null);
-    source.dispatch("translationPolicyClaim", { body: "{}" });
+    source.dispatch("meshPeerJoined", {}); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("meshPeerLeft", null); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("translationPolicyClaim", { body: "{}" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().malformed_events, 3);
     assertEquals(scheduler.peerCount(), 0);
 });
 
-Deno.test("directory: stop unsubscribes all listeners", () => {
+Deno.test("directory: stop unsubscribes all listeners", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source);
     adapter.start();
     adapter.stop();
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
-    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("translationPolicyClaim", { fromPeer: 0xCC }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().joined_received, 0);
     assertEquals(adapter.telemetry().activity_received, 0);
     assertEquals(scheduler.peerCount(), 0);
 });
 
-Deno.test("directory: configurable event names and peer derivation", () => {
+Deno.test("directory: configurable event names and peer derivation", async () => {
     const source = new LocalEventSource();
     const scheduler = makeScheduler();
     const adapter = new TranslationPolicyPeerDirectoryAdapter(scheduler, source, {
@@ -158,11 +158,11 @@ Deno.test("directory: configurable event names and peer derivation", () => {
         derive_peer_id: (raw) => typeof raw === "string" ? raw.length : null,
     });
     adapter.start();
-    source.dispatch("join", { peerId: "abcd" });
-    source.dispatch("active", { fromPeer: "xy" });
+    source.dispatch("join", { peerId: "abcd" }); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("active", { fromPeer: "xy" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(scheduler.snapshot().map((x) => x.peer_id), [2, 4]);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_PEER_DIRECTORY_SCHEMA, "OMEGA-1730/v1");
 });

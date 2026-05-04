@@ -22,18 +22,18 @@ function fillSink(sink: ForensicEventSink, hashes: ReadonlyArray<number>, t0: nu
     }
 }
 
-Deno.test("eventHashSetHash: deterministic + order-independent", () => {
+Deno.test("eventHashSetHash: deterministic + order-independent", async () => {
     assertEquals(
         eventHashSetHash([0x10, 0x20, 0x30]),
         eventHashSetHash([0x30, 0x10, 0x20]),
     );
 });
 
-Deno.test("eventHashSetHash: empty → FNV-1a offset basis", () => {
+Deno.test("eventHashSetHash: empty → FNV-1a offset basis", async () => {
     assertEquals(eventHashSetHash([]), 0x811C_9DC5);
 });
 
-Deno.test("buildEventHashList: sorted hashes + anchor matches", () => {
+Deno.test("buildEventHashList: sorted hashes + anchor matches", async () => {
     const sink = new ForensicEventSink();
     fillSink(sink, [0x30, 0x10, 0x20]);
     const list = buildEventHashList(sink, T0 + 100);
@@ -41,7 +41,7 @@ Deno.test("buildEventHashList: sorted hashes + anchor matches", () => {
     assertEquals(list.hash_set_anchor, eventHashSetHash([0x10, 0x20, 0x30]));
 });
 
-Deno.test("computeEventDelta: identifies entries initiator lacks", () => {
+Deno.test("computeEventDelta: identifies entries initiator lacks", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -51,7 +51,7 @@ Deno.test("computeEventDelta: identifies entries initiator lacks", () => {
     assertEquals(delta.missing_entries.map(e => e.event_hash), [0x30, 0x40]);
 });
 
-Deno.test("computeEventDelta: identifies hashes peer lacks", () => {
+Deno.test("computeEventDelta: identifies hashes peer lacks", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20, 0x30]);
@@ -62,7 +62,7 @@ Deno.test("computeEventDelta: identifies hashes peer lacks", () => {
     assertEquals(delta.peer_missing_hashes, [0x20, 0x30]);
 });
 
-Deno.test("computeEventDelta: identical sinks → empty delta", () => {
+Deno.test("computeEventDelta: identical sinks → empty delta", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -73,7 +73,7 @@ Deno.test("computeEventDelta: identical sinks → empty delta", () => {
     assertEquals(delta.peer_missing_hashes.length, 0);
 });
 
-Deno.test("applyEventDelta: imports missing entries + reports counts", () => {
+Deno.test("applyEventDelta: imports missing entries + reports counts", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -93,7 +93,7 @@ Deno.test("applyEventDelta: imports missing entries + reports counts", () => {
     );
 });
 
-Deno.test("applyEventDelta: imported chain still verifies", () => {
+Deno.test("applyEventDelta: imported chain still verifies", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -104,7 +104,7 @@ Deno.test("applyEventDelta: imported chain still verifies", () => {
     assertEquals(a.verifyChain(), null);
 });
 
-Deno.test("applyEventDelta: idempotent on duplicate entries", () => {
+Deno.test("applyEventDelta: idempotent on duplicate entries", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -121,7 +121,7 @@ Deno.test("applyEventDelta: idempotent on duplicate entries", () => {
     assertEquals(a.size(), 2);
 });
 
-Deno.test("applyEventDelta: rejects bad delta schema", () => {
+Deno.test("applyEventDelta: rejects bad delta schema", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -133,7 +133,7 @@ Deno.test("applyEventDelta: rejects bad delta schema", () => {
     assertEquals(outcome.ok, false);
 });
 
-Deno.test("applyEventDelta: rejects delta_hash drift", () => {
+Deno.test("applyEventDelta: rejects delta_hash drift", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -146,7 +146,7 @@ Deno.test("applyEventDelta: rejects delta_hash drift", () => {
     if (!outcome.ok) assert(outcome.reason.includes("drift"));
 });
 
-Deno.test("applyEventDelta: rejects entry with bad sink schema", () => {
+Deno.test("applyEventDelta: rejects entry with bad sink schema", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -158,7 +158,7 @@ Deno.test("applyEventDelta: rejects entry with bad sink schema", () => {
     assertEquals(outcome.ok, false);
 });
 
-Deno.test("applyEventDelta: rejects collision (same hash, different kind)", () => {
+Deno.test("applyEventDelta: rejects collision (same hash, different kind)", async () => {
     const a = new ForensicEventSink();
     a.append("alarm", 0x42, { kind: "original" }, T0);
     // Forge a delta with same event_hash but different kind.
@@ -185,7 +185,7 @@ Deno.test("applyEventDelta: rejects collision (same hash, different kind)", () =
     if (!outcome.ok) assert(outcome.reason.includes("collision"));
 });
 
-Deno.test("eventSyncRound: bidirectional convergence", () => {
+Deno.test("eventSyncRound: bidirectional convergence", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -199,7 +199,7 @@ Deno.test("eventSyncRound: bidirectional convergence", () => {
     assertEquals(result.b_added_from_a, 1);
 });
 
-Deno.test("eventSyncRound: identical sinks → no additions", () => {
+Deno.test("eventSyncRound: identical sinks → no additions", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20, 0x30]);
@@ -209,7 +209,7 @@ Deno.test("eventSyncRound: identical sinks → no additions", () => {
     assertEquals(result.b_added_from_a, 0);
 });
 
-Deno.test("eventSyncRound: disjoint sinks → both fully merge", () => {
+Deno.test("eventSyncRound: disjoint sinks → both fully merge", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -221,7 +221,7 @@ Deno.test("eventSyncRound: disjoint sinks → both fully merge", () => {
     assertEquals(result.converged_anchor, eventHashSetHash([0x10, 0x20, 0x30, 0x40]));
 });
 
-Deno.test("eventSyncRound: anchors equal post-convergence", () => {
+Deno.test("eventSyncRound: anchors equal post-convergence", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -230,7 +230,7 @@ Deno.test("eventSyncRound: anchors equal post-convergence", () => {
     assertEquals(a.eventChainAnchor(), b.eventChainAnchor());
 });
 
-Deno.test("eventSyncRound: chain integrity preserved on both sides", () => {
+Deno.test("eventSyncRound: chain integrity preserved on both sides", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
@@ -240,7 +240,7 @@ Deno.test("eventSyncRound: chain integrity preserved on both sides", () => {
     assertEquals(b.verifyChain(), null);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(SYNC_SCHEMA_VERSION, "OMEGA-1390/v1");
 });
 
@@ -249,10 +249,10 @@ Deno.test("schema constant", () => {
 // `cross_substrate_anchor_locked_*` tests. Any drift here means
 // either the JS or Rust hash byte-pack convention has changed.
 
-Deno.test("cross-substrate: hash for [0x10, 0x20, 0x30] is 0x929932B5", () => {
+Deno.test("cross-substrate: hash for [0x10, 0x20, 0x30] is 0x929932B5", async () => {
     assertEquals(eventHashSetHash([0x10, 0x20, 0x30]), 0x9299_32B5);
 });
 
-Deno.test("cross-substrate: hash for [0xAA, 0xBB] is 0x843F5862", () => {
+Deno.test("cross-substrate: hash for [0xAA, 0xBB] is 0x843F5862", async () => {
     assertEquals(eventHashSetHash([0xAA, 0xBB]), 0x843F_5862);
 });

@@ -45,7 +45,7 @@ function policyRegistry(
   return r;
 }
 
-Deno.test("MeshBridgeTransport: forwards messages to emit callback", () => {
+Deno.test("MeshBridgeTransport: forwards messages to emit callback", async () => {
   let captured_target: number | null = null;
   let captured_body: string | null = null;
   const emit = (peer: number, body: string) => {
@@ -67,7 +67,7 @@ Deno.test("MeshBridgeTransport: forwards messages to emit callback", () => {
   assertEquals(decoded?.kind, "PEER_HELLO");
 });
 
-Deno.test("MeshBridgeTransport: emit-failure propagates", () => {
+Deno.test("MeshBridgeTransport: emit-failure propagates", async () => {
   const tx = new MeshBridgeTransport(() => false);
   const ok = tx.send(0xBB, {
     kind: "PEER_HELLO",
@@ -78,7 +78,7 @@ Deno.test("MeshBridgeTransport: emit-failure propagates", () => {
   assertEquals(tx.sent_count, 0);
 });
 
-Deno.test("decodeMeshPayload: parses HELLO/HASH_LIST/DELTA shapes", () => {
+Deno.test("decodeMeshPayload: parses HELLO/HASH_LIST/DELTA shapes", async () => {
   const hello = JSON.stringify({
     kind: "PEER_HELLO",
     schema: "OMEGA-1500/v1",
@@ -111,22 +111,22 @@ Deno.test("decodeMeshPayload: parses HELLO/HASH_LIST/DELTA shapes", () => {
   assertEquals(decodeMeshPayload(delta)?.kind, "DELTA");
 });
 
-Deno.test("decodeMeshPayload: rejects unknown kind", () => {
+Deno.test("decodeMeshPayload: rejects unknown kind", async () => {
   const bad = JSON.stringify({ kind: "FUTURE", from: 0 });
   assertEquals(decodeMeshPayload(bad), null);
 });
 
-Deno.test("decodeMeshPayload: rejects malformed JSON", () => {
+Deno.test("decodeMeshPayload: rejects malformed JSON", async () => {
   assertEquals(decodeMeshPayload("not json"), null);
   assertEquals(decodeMeshPayload(""), null);
   assertEquals(decodeMeshPayload("[]"), null);
 });
 
-Deno.test("decodeMeshPayload: rejects object without kind", () => {
+Deno.test("decodeMeshPayload: rejects object without kind", async () => {
   assertEquals(decodeMeshPayload(JSON.stringify({ from: 0xAA })), null);
 });
 
-Deno.test("eventSyncPlasmidFields: produces target + body fields", () => {
+Deno.test("eventSyncPlasmidFields: produces target + body fields", async () => {
   const fields = eventSyncPlasmidFields(0xBB, {
     kind: "PEER_HELLO",
     schema: "OMEGA-1500/v1",
@@ -138,7 +138,7 @@ Deno.test("eventSyncPlasmidFields: produces target + body fields", () => {
   assertEquals(decoded.peer_id, 0xAA);
 });
 
-Deno.test("decodeTranslationPolicyMeshPayload: parses policy claim", () => {
+Deno.test("decodeTranslationPolicyMeshPayload: parses policy claim", async () => {
   const monitor = new TranslationPolicyMonitor(
     0xAA,
     policyRegistry([
@@ -152,7 +152,7 @@ Deno.test("decodeTranslationPolicyMeshPayload: parses policy claim", () => {
   assertEquals(decoded?.pair_count, 1);
 });
 
-Deno.test("decodeTranslationPolicyMeshPayload: rejects malformed payloads", () => {
+Deno.test("decodeTranslationPolicyMeshPayload: rejects malformed payloads", async () => {
   assertEquals(decodeTranslationPolicyMeshPayload("not json"), null);
   assertEquals(
     decodeTranslationPolicyMeshPayload(
@@ -173,7 +173,7 @@ Deno.test("decodeTranslationPolicyMeshPayload: rejects malformed payloads", () =
   );
 });
 
-Deno.test("translationPolicyPlasmidFields: produces target + body fields", () => {
+Deno.test("translationPolicyPlasmidFields: produces target + body fields", async () => {
   const monitor = new TranslationPolicyMonitor(0xAA, policyRegistry([]));
   const claim = monitor.localClaim(T0);
   const fields = translationPolicyPlasmidFields(0xBB, claim);
@@ -184,7 +184,7 @@ Deno.test("translationPolicyPlasmidFields: produces target + body fields", () =>
   assertEquals(decoded?.peer_id, 0xAA);
 });
 
-Deno.test("TranslationPolicyMeshBridge: sends local claim", () => {
+Deno.test("TranslationPolicyMeshBridge: sends local claim", async () => {
   let captured_target = 0;
   let captured_body = "";
   const monitor = new TranslationPolicyMonitor(
@@ -207,7 +207,7 @@ Deno.test("TranslationPolicyMeshBridge: sends local claim", () => {
   );
 });
 
-Deno.test("TranslationPolicyMeshBridge: emit failure propagates", () => {
+Deno.test("TranslationPolicyMeshBridge: emit failure propagates", async () => {
   const bridge = new TranslationPolicyMeshBridge(
     new TranslationPolicyMonitor(0xAA, policyRegistry([])),
     () => false,
@@ -216,7 +216,7 @@ Deno.test("TranslationPolicyMeshBridge: emit failure propagates", () => {
   assertEquals(bridge.sent_count, 0);
 });
 
-Deno.test("decodeTranslationPolicyCorroborationMeshPayload: parses raise", () => {
+Deno.test("decodeTranslationPolicyCorroborationMeshPayload: parses raise", async () => {
   const local = new TranslationPolicyMonitor(
     0xAA,
     policyRegistry([
@@ -237,7 +237,7 @@ Deno.test("decodeTranslationPolicyCorroborationMeshPayload: parses raise", () =>
   assertEquals(decoded?.drift_hash, raise.drift_hash);
 });
 
-Deno.test("decodeTranslationPolicyCorroborationMeshPayload: rejects malformed", () => {
+Deno.test("decodeTranslationPolicyCorroborationMeshPayload: rejects malformed", async () => {
   assertEquals(
     decodeTranslationPolicyCorroborationMeshPayload("not json"),
     null,
@@ -251,7 +251,7 @@ Deno.test("decodeTranslationPolicyCorroborationMeshPayload: rejects malformed", 
   );
 });
 
-Deno.test("translationPolicyCorroborationPlasmidFields: produces target + body fields", () => {
+Deno.test("translationPolicyCorroborationPlasmidFields: produces target + body fields", async () => {
   const local = new TranslationPolicyMonitor(
     0xAA,
     policyRegistry([
@@ -275,7 +275,7 @@ Deno.test("translationPolicyCorroborationPlasmidFields: produces target + body f
   );
 });
 
-Deno.test("TranslationPolicyCorroborationMeshBridge: sends raise", () => {
+Deno.test("TranslationPolicyCorroborationMeshBridge: sends raise", async () => {
   let captured_target = 0;
   let captured_body = "";
   const bridge = new TranslationPolicyCorroborationMeshBridge(
@@ -328,7 +328,7 @@ function tpddReplayDigestClaim(
   };
 }
 
-Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: parses Era 2030 claim", () => {
+Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: parses Era 2030 claim", async () => {
   const claim = tpddReplayDigestClaim();
   const decoded =
     decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
@@ -339,7 +339,7 @@ Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayl
   assertEquals(decoded?.digest, 0xD1CE);
 });
 
-Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: rejects malformed claim", () => {
+Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload: rejects malformed claim", async () => {
   assertEquals(
     decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayload(
       "not json",
@@ -363,7 +363,7 @@ Deno.test("decodeTranslationPolicyReplayDigestDigestForensicReplayDigestMeshPayl
   );
 });
 
-Deno.test("translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields: produces target + body fields", () => {
+Deno.test("translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields: produces target + body fields", async () => {
   const claim = tpddReplayDigestClaim();
   const fields =
     translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields(
@@ -382,7 +382,7 @@ Deno.test("translationPolicyReplayDigestDigestForensicReplayDigestPlasmidFields:
   );
 });
 
-Deno.test("TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge: sends claim", () => {
+Deno.test("TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge: sends claim", async () => {
   let captured_target = 0;
   let captured_body = "";
   const bridge =
@@ -404,7 +404,7 @@ Deno.test("TranslationPolicyReplayDigestDigestForensicReplayDigestMeshBridge: se
   );
 });
 
-Deno.test("end-to-end: corroboration raise bridge feeds remote tracker", () => {
+Deno.test("end-to-end: corroboration raise bridge feeds remote tracker", async () => {
   let bridgeB: TranslationPolicyCorroborationMeshBridge;
   const trackerA = new TranslationPolicyCorroborationTracker();
   const trackerB = new TranslationPolicyCorroborationTracker();
@@ -435,7 +435,7 @@ Deno.test("end-to-end: corroboration raise bridge feeds remote tracker", () => {
   assertEquals(trackerB.list()[0].witnessed_by, [0xCA]);
 });
 
-Deno.test("end-to-end: policy claim bridge feeds remote monitor", () => {
+Deno.test("end-to-end: policy claim bridge feeds remote monitor", async () => {
   let bridgeB: TranslationPolicyMeshBridge;
   const monitorA = new TranslationPolicyMonitor(
     0xAA,
@@ -455,7 +455,7 @@ Deno.test("end-to-end: policy claim bridge feeds remote monitor", () => {
   assertEquals(monitorB.recentAlarms().length, 1);
 });
 
-Deno.test("end-to-end: two bridges connected by MeshBridgeTransport", () => {
+Deno.test("end-to-end: two bridges connected by MeshBridgeTransport", async () => {
   // Simulate the mesh: emit on A's transport calls B's
   // bridge.handleIncoming, and vice versa.
   let bridgeB: WebRTCEventBridge;
@@ -492,6 +492,6 @@ Deno.test("end-to-end: two bridges connected by MeshBridgeTransport", () => {
   assertEquals(bridgeA.anchor(), bridgeB.anchor());
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
   assertEquals(MESH_BRIDGE_SCHEMA, "OMEGA-1510/v1");
 });

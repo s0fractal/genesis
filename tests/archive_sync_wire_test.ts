@@ -43,7 +43,7 @@ function deltaFor(a_records: ArchivedVerdict[], b_records: ArchivedVerdict[]) {
     return computeDelta(a_list, b_records, NOW + 1);
 }
 
-Deno.test("chunkDelta: emits header + one frame per record", () => {
+Deno.test("chunkDelta: emits header + one frame per record", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -55,7 +55,7 @@ Deno.test("chunkDelta: emits header + one frame per record", () => {
     assertEquals(frames[0].reserved & 0xFFFF, 2); // total = 2
 });
 
-Deno.test("chunkDelta: empty delta produces header-only envelope", () => {
+Deno.test("chunkDelta: empty delta produces header-only envelope", async () => {
     const a = archiveWith([0x10, 0x20]);
     const delta = deltaFor(a, a);
     const frames = chunkDelta(delta, SENDER);
@@ -63,7 +63,7 @@ Deno.test("chunkDelta: empty delta produces header-only envelope", () => {
     assertEquals(frames[0].reserved & 0xFFFF, 0);
 });
 
-Deno.test("chunkDelta: deterministic across calls", () => {
+Deno.test("chunkDelta: deterministic across calls", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -77,7 +77,7 @@ Deno.test("chunkDelta: deterministic across calls", () => {
     }
 });
 
-Deno.test("chunkDelta: every frame's CRC validates after byte round-trip", () => {
+Deno.test("chunkDelta: every frame's CRC validates after byte round-trip", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -91,7 +91,7 @@ Deno.test("chunkDelta: every frame's CRC validates after byte round-trip", () =>
     }
 });
 
-Deno.test("reassembleDelta: roundtrip preserves digest set + delta_hash", () => {
+Deno.test("reassembleDelta: roundtrip preserves digest set + delta_hash", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -105,7 +105,7 @@ Deno.test("reassembleDelta: roundtrip preserves digest set + delta_hash", () => 
     );
 });
 
-Deno.test("reassembleDelta: empty envelope reassembles to empty delta", () => {
+Deno.test("reassembleDelta: empty envelope reassembles to empty delta", async () => {
     const a = archiveWith([0x10, 0x20]);
     const delta = deltaFor(a, a);
     const frames = chunkDelta(delta, SENDER);
@@ -115,7 +115,7 @@ Deno.test("reassembleDelta: empty envelope reassembles to empty delta", () => {
     assertEquals(result.delta!.delta_hash, delta.delta_hash);
 });
 
-Deno.test("reassembleDelta: out-of-order frames reassemble correctly", () => {
+Deno.test("reassembleDelta: out-of-order frames reassemble correctly", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -130,7 +130,7 @@ Deno.test("reassembleDelta: out-of-order frames reassemble correctly", () => {
     );
 });
 
-Deno.test("reassembleDelta: detects missing record chunk", () => {
+Deno.test("reassembleDelta: detects missing record chunk", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -142,7 +142,7 @@ Deno.test("reassembleDelta: detects missing record chunk", () => {
     assertEquals(result.missing_sequences, [2]);
 });
 
-Deno.test("reassembleDelta: detects missing header", () => {
+Deno.test("reassembleDelta: detects missing header", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -154,7 +154,7 @@ Deno.test("reassembleDelta: detects missing header", () => {
     assertEquals(result.missing_sequences, [0]);
 });
 
-Deno.test("reassembleDelta: idempotent on duplicate frames", () => {
+Deno.test("reassembleDelta: idempotent on duplicate frames", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -166,7 +166,7 @@ Deno.test("reassembleDelta: idempotent on duplicate frames", () => {
     assertEquals(result.delta!.missing_records.length, 2);
 });
 
-Deno.test("reassembleDelta: rejects conflicting payload at same sequence", () => {
+Deno.test("reassembleDelta: rejects conflicting payload at same sequence", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -178,7 +178,7 @@ Deno.test("reassembleDelta: rejects conflicting payload at same sequence", () =>
     assert(result.error!.includes("conflicting payload"));
 });
 
-Deno.test("reassembleDelta: filters foreign envelopes when expected_envelope_hash supplied", () => {
+Deno.test("reassembleDelta: filters foreign envelopes when expected_envelope_hash supplied", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const c = archiveWith([0x10, 0x40, 0x50]);
@@ -193,7 +193,7 @@ Deno.test("reassembleDelta: filters foreign envelopes when expected_envelope_has
     );
 });
 
-Deno.test("reassembleDelta: rejects cross-envelope mixing without expected_envelope_hash", () => {
+Deno.test("reassembleDelta: rejects cross-envelope mixing without expected_envelope_hash", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const c = archiveWith([0x10, 0x40, 0x50]);
@@ -206,7 +206,7 @@ Deno.test("reassembleDelta: rejects cross-envelope mixing without expected_envel
     assert(result.error!.includes("cross-envelope"));
 });
 
-Deno.test("reassembleDelta: ignores non-delta-chunk frames", () => {
+Deno.test("reassembleDelta: ignores non-delta-chunk frames", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -218,13 +218,13 @@ Deno.test("reassembleDelta: ignores non-delta-chunk frames", () => {
     assertEquals(result.delta!.missing_records.length, 2);
 });
 
-Deno.test("reassembleDelta: empty input → ok=false with informative error", () => {
+Deno.test("reassembleDelta: empty input → ok=false with informative error", async () => {
     const result = reassembleDelta([]);
     assertEquals(result.ok, false);
     assert(result.error!.includes("no delta-chunk frames"));
 });
 
-Deno.test("reassembled delta passes Era 1310 applyDelta integrity check", () => {
+Deno.test("reassembled delta passes Era 1310 applyDelta integrity check", async () => {
     const a = archiveWith([0x10, 0x20]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -243,7 +243,7 @@ Deno.test("reassembled delta passes Era 1310 applyDelta integrity check", () => 
     );
 });
 
-Deno.test("reassembleDelta: detects multi-chunk gap", () => {
+Deno.test("reassembleDelta: detects multi-chunk gap", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40, 0x50]);
     const delta = deltaFor(a, b);
@@ -258,7 +258,7 @@ Deno.test("reassembleDelta: detects multi-chunk gap", () => {
     assertEquals(result.missing_sequences, [2, 4]);
 });
 
-Deno.test("reassembled record retains digest, verdict, q16 fidelity", () => {
+Deno.test("reassembled record retains digest, verdict, q16 fidelity", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20]);
     const delta = deltaFor(a, b);
@@ -275,7 +275,7 @@ Deno.test("reassembled record retains digest, verdict, q16 fidelity", () => {
     assertEquals(reassembled.overlap_pct, original.overlap_pct);
 });
 
-Deno.test("schema constants", () => {
+Deno.test("schema constants", async () => {
     assertEquals(DELTA_CHUNK_SCHEMA, "OMEGA-1320/v1");
     assertEquals(SYNC_SCHEMA_VERSION, "OMEGA-1310/v1");
 });

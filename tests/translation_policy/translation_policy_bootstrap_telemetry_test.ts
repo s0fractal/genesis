@@ -26,7 +26,7 @@ function registry(): SchemaTranslatorRegistry {
     return r;
 }
 
-Deno.test("snapshot: disabled install has stable null telemetry", () => {
+Deno.test("snapshot: disabled install has stable null telemetry", async () => {
     const install = installTranslationPolicyBootstrap(
         new FakeMesh(),
         { enabled: false },
@@ -41,7 +41,7 @@ Deno.test("snapshot: disabled install has stable null telemetry", () => {
     assertEquals(snap.emit, null);
 });
 
-Deno.test("snapshot: installed runtime includes runtime and emit telemetry before tick", () => {
+Deno.test("snapshot: installed runtime includes runtime and emit telemetry before tick", async () => {
     const source = new LocalEventSource();
     const install = installTranslationPolicyBootstrap(
         new FakeMesh(),
@@ -69,7 +69,7 @@ Deno.test("snapshot: installed runtime includes runtime and emit telemetry befor
     });
 });
 
-Deno.test("snapshot: tick result contributes broadcast counters", () => {
+Deno.test("snapshot: tick result contributes broadcast counters", async () => {
     const source = new LocalEventSource();
     const mesh = new FakeMesh();
     const install = installTranslationPolicyBootstrap(
@@ -84,7 +84,7 @@ Deno.test("snapshot: tick result contributes broadcast counters", () => {
         },
         {},
     );
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     const runtimeResult = install.factory!.runtime.tick(T0, 4);
     const snap = translationPolicyBootstrapTelemetrySnapshot(
         install,
@@ -104,7 +104,7 @@ Deno.test("snapshot: tick result contributes broadcast counters", () => {
     assertEquals(mesh.plasmids.length, 1);
 });
 
-Deno.test("snapshot: tick runtime error is surfaced without runtime result", () => {
+Deno.test("snapshot: tick runtime error is surfaced without runtime result", async () => {
     const install = installTranslationPolicyBootstrap(
         new FakeMesh(),
         {
@@ -133,6 +133,6 @@ Deno.test("snapshot: tick runtime error is surfaced without runtime result", () 
     assertEquals(snap.runtime?.active, true);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_BOOTSTRAP_TELEMETRY_SCHEMA, "OMEGA-1810/v1");
 });

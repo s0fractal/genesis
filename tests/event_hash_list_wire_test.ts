@@ -14,7 +14,7 @@ import {
     frameToBytes,
 } from "../src/network/spore_frame.ts";
 
-Deno.test("buildHashRequestFrame: round-trips through bytes", () => {
+Deno.test("buildHashRequestFrame: round-trips through bytes", async () => {
     const f = buildHashRequestFrame(0xCAFE_BABE, 42);
     const decoded = frameFromBytes(frameToBytes(f));
     assert(decoded !== null);
@@ -23,7 +23,7 @@ Deno.test("buildHashRequestFrame: round-trips through bytes", () => {
     assertEquals(decoded!.tick >>> 0, 42);
 });
 
-Deno.test("chunkHashListResponse: 1 chunk for ≤4 hashes", () => {
+Deno.test("chunkHashListResponse: 1 chunk for ≤4 hashes", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30], 99);
     assertEquals(frames.length, 1);
     assertEquals((frames[0].reserved >>> 24) & 0xFF, 1); // seq
@@ -35,7 +35,7 @@ Deno.test("chunkHashListResponse: 1 chunk for ≤4 hashes", () => {
     assertEquals(frames[0].payloadC, 0); // unused slot zeroed
 });
 
-Deno.test("chunkHashListResponse: spans multiple chunks for >4 hashes", () => {
+Deno.test("chunkHashListResponse: spans multiple chunks for >4 hashes", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30, 0x40, 0x50, 0x60], 7);
     assertEquals(frames.length, 2);
     assertEquals((frames[0].reserved >>> 16) & 0xFF, 2); // total
@@ -43,24 +43,24 @@ Deno.test("chunkHashListResponse: spans multiple chunks for >4 hashes", () => {
     assertEquals((frames[1].reserved >>> 8) & 0xFF, 2);  // valid (only 2 hashes in second chunk)
 });
 
-Deno.test("chunkHashListResponse: empty list still produces one chunk", () => {
+Deno.test("chunkHashListResponse: empty list still produces one chunk", async () => {
     const frames = chunkHashListResponse([], 1);
     assertEquals(frames.length, 1);
     assertEquals((frames[0].reserved >>> 8) & 0xFF, 0); // valid = 0
 });
 
-Deno.test("chunkHashListResponse: deterministic ordering (sorts input)", () => {
+Deno.test("chunkHashListResponse: deterministic ordering (sorts input)", async () => {
     const a = chunkHashListResponse([0x30, 0x10, 0x20], 0);
     const b = chunkHashListResponse([0x10, 0x20, 0x30], 0);
     assertEquals(a[0].crc32, b[0].crc32);
 });
 
-Deno.test("chunkHashListResponse: rejects oversized lists", () => {
+Deno.test("chunkHashListResponse: rejects oversized lists", async () => {
     const tooMany = new Array(1024).fill(0).map((_, i) => i + 1);
     assertThrows(() => chunkHashListResponse(tooMany, 0));
 });
 
-Deno.test("chunkHashListResponse: each frame's CRC validates", () => {
+Deno.test("chunkHashListResponse: each frame's CRC validates", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30, 0x40, 0x50], 1);
     for (const f of frames) {
         const decoded = frameFromBytes(frameToBytes(f));
@@ -69,7 +69,7 @@ Deno.test("chunkHashListResponse: each frame's CRC validates", () => {
     }
 });
 
-Deno.test("reassembleHashListResponse: roundtrip over all frames", () => {
+Deno.test("reassembleHashListResponse: roundtrip over all frames", async () => {
     const original = [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70];
     const frames = chunkHashListResponse(original, 99);
     const result = reassembleHashListResponse(frames);
@@ -77,14 +77,14 @@ Deno.test("reassembleHashListResponse: roundtrip over all frames", () => {
     assertEquals(result.hashes, original);
 });
 
-Deno.test("reassembleHashListResponse: empty roundtrip", () => {
+Deno.test("reassembleHashListResponse: empty roundtrip", async () => {
     const frames = chunkHashListResponse([], 1);
     const result = reassembleHashListResponse(frames);
     assert(result.ok);
     assertEquals(result.hashes, []);
 });
 
-Deno.test("reassembleHashListResponse: out-of-order chunks reassemble", () => {
+Deno.test("reassembleHashListResponse: out-of-order chunks reassemble", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70], 1);
     const reversed = [...frames].reverse();
     const result = reassembleHashListResponse(reversed);
@@ -92,7 +92,7 @@ Deno.test("reassembleHashListResponse: out-of-order chunks reassemble", () => {
     assertEquals(result.hashes, [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70]);
 });
 
-Deno.test("reassembleHashListResponse: missing chunk detected", () => {
+Deno.test("reassembleHashListResponse: missing chunk detected", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90], 1);
     // Drop the second chunk.
     const dropped = frames.filter((f, i) => i !== 1);
@@ -101,7 +101,7 @@ Deno.test("reassembleHashListResponse: missing chunk detected", () => {
     assertEquals(result.missing_chunks, [2]);
 });
 
-Deno.test("reassembleHashListResponse: idempotent on duplicates", () => {
+Deno.test("reassembleHashListResponse: idempotent on duplicates", async () => {
     const frames = chunkHashListResponse([0x10, 0x20, 0x30], 1);
     const doubled = [...frames, ...frames];
     const result = reassembleHashListResponse(doubled);
@@ -109,7 +109,7 @@ Deno.test("reassembleHashListResponse: idempotent on duplicates", () => {
     assertEquals(result.hashes, [0x10, 0x20, 0x30]);
 });
 
-Deno.test("reassembleHashListResponse: rejects conflicting chunk at same seq", () => {
+Deno.test("reassembleHashListResponse: rejects conflicting chunk at same seq", async () => {
     const frames = chunkHashListResponse([0x10, 0x20], 1);
     const tampered = { ...frames[0], proposalOrTarget: 0xDEAD };
     const result = reassembleHashListResponse([...frames, tampered]);
@@ -117,7 +117,7 @@ Deno.test("reassembleHashListResponse: rejects conflicting chunk at same seq", (
     assert(result.error!.includes("conflicting"));
 });
 
-Deno.test("reassembleHashListResponse: expected_request_id filters foreign chunks", () => {
+Deno.test("reassembleHashListResponse: expected_request_id filters foreign chunks", async () => {
     const a = chunkHashListResponse([0x10, 0x20], 100);
     const b = chunkHashListResponse([0xAA, 0xBB], 200);
     const result = reassembleHashListResponse([...a, ...b], 100);
@@ -125,7 +125,7 @@ Deno.test("reassembleHashListResponse: expected_request_id filters foreign chunk
     assertEquals(result.hashes, [0x10, 0x20]);
 });
 
-Deno.test("reassembleHashListResponse: cross-request rejected without filter", () => {
+Deno.test("reassembleHashListResponse: cross-request rejected without filter", async () => {
     const a = chunkHashListResponse([0x10], 100);
     const b = chunkHashListResponse([0xAA], 200);
     const result = reassembleHashListResponse([...a, ...b]);
@@ -135,7 +135,7 @@ Deno.test("reassembleHashListResponse: cross-request rejected without filter", (
 
 // --- Set-difference helper ---
 
-Deno.test("computeMissingFromPeer: returns entries the peer lacks", () => {
+Deno.test("computeMissingFromPeer: returns entries the peer lacks", async () => {
     const local = [
         { event_hash: 0x10 },
         { event_hash: 0x20 },
@@ -146,7 +146,7 @@ Deno.test("computeMissingFromPeer: returns entries the peer lacks", () => {
     assertEquals(missing.map((e) => e.event_hash), [0x20, 0x30]);
 });
 
-Deno.test("computeMissingFromPeer: peer superset → empty result", () => {
+Deno.test("computeMissingFromPeer: peer superset → empty result", async () => {
     const local = [{ event_hash: 0x10 }];
     const peer = [0x10, 0x20, 0x30];
     assertEquals(computeMissingFromPeer(local, peer).length, 0);
@@ -154,11 +154,11 @@ Deno.test("computeMissingFromPeer: peer superset → empty result", () => {
 
 // --- Frame type registry ---
 
-Deno.test("frame types: HASH_REQUEST=11, HASH_RESPONSE=12", () => {
+Deno.test("frame types: HASH_REQUEST=11, HASH_RESPONSE=12", async () => {
     assertEquals(FRAME_TYPE_EVENT_HASH_REQUEST, 11);
     assertEquals(FRAME_TYPE_EVENT_HASH_RESPONSE, 12);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(HASH_LIST_WIRE_SCHEMA, "OMEGA-1470/v1");
 });

@@ -29,20 +29,20 @@ function fillSink(s: ForensicEventSink, hashes: ReadonlyArray<number>, kind = "t
 
 // --- Kind tag pack/unpack ---
 
-Deno.test("packKindTag: 4-char strings round-trip", () => {
+Deno.test("packKindTag: 4-char strings round-trip", async () => {
     for (const s of ["alarm", "vrdt", "test", "ab", "x", ""]) {
         const truncated = s.slice(0, 4);
         assertEquals(unpackKindTag(packKindTag(s)), truncated);
     }
 });
 
-Deno.test("packKindTag: produces deterministic u32", () => {
+Deno.test("packKindTag: produces deterministic u32", async () => {
     assertEquals(packKindTag("test"), 0x74657374); // 't','e','s','t'
 });
 
 // --- Chunking ---
 
-Deno.test("chunkEventDelta: emits header + one frame per entry", () => {
+Deno.test("chunkEventDelta: emits header + one frame per entry", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -56,7 +56,7 @@ Deno.test("chunkEventDelta: emits header + one frame per entry", () => {
     }
 });
 
-Deno.test("chunkEventDelta: empty delta produces header-only envelope", () => {
+Deno.test("chunkEventDelta: empty delta produces header-only envelope", async () => {
     const a = new ForensicEventSink();
     fillSink(a, [0x10, 0x20]);
     const list = buildEventHashList(a, T0);
@@ -65,7 +65,7 @@ Deno.test("chunkEventDelta: empty delta produces header-only envelope", () => {
     assertEquals(frames.length, 1);
 });
 
-Deno.test("chunkEventDelta: each frame's CRC validates after byte round-trip", () => {
+Deno.test("chunkEventDelta: each frame's CRC validates after byte round-trip", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -82,7 +82,7 @@ Deno.test("chunkEventDelta: each frame's CRC validates after byte round-trip", (
 
 // --- Reassembly ---
 
-Deno.test("reassembleEventDelta: roundtrip preserves event_hash set + delta_hash", () => {
+Deno.test("reassembleEventDelta: roundtrip preserves event_hash set + delta_hash", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -98,7 +98,7 @@ Deno.test("reassembleEventDelta: roundtrip preserves event_hash set + delta_hash
     assertEquals(result.delta!.delta_hash, delta.delta_hash);
 });
 
-Deno.test("reassembleEventDelta: out-of-order arrival reassembles correctly", () => {
+Deno.test("reassembleEventDelta: out-of-order arrival reassembles correctly", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -111,7 +111,7 @@ Deno.test("reassembleEventDelta: out-of-order arrival reassembles correctly", ()
     assertEquals(result.delta!.missing_entries.length, 3);
 });
 
-Deno.test("reassembleEventDelta: detects missing chunk", () => {
+Deno.test("reassembleEventDelta: detects missing chunk", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -124,7 +124,7 @@ Deno.test("reassembleEventDelta: detects missing chunk", () => {
     assertEquals(result.missing_sequences, [2]);
 });
 
-Deno.test("reassembleEventDelta: idempotent on duplicates", () => {
+Deno.test("reassembleEventDelta: idempotent on duplicates", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -136,7 +136,7 @@ Deno.test("reassembleEventDelta: idempotent on duplicates", () => {
     assert(result.ok, result.error);
 });
 
-Deno.test("reassembleEventDelta: rejects conflicting payload at same sequence", () => {
+Deno.test("reassembleEventDelta: rejects conflicting payload at same sequence", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -149,7 +149,7 @@ Deno.test("reassembleEventDelta: rejects conflicting payload at same sequence", 
     assert(result.error!.includes("conflicting"));
 });
 
-Deno.test("reassembleEventDelta: cross-envelope filter with expected_envelope_hash", () => {
+Deno.test("reassembleEventDelta: cross-envelope filter with expected_envelope_hash", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     const c = new ForensicEventSink();
@@ -166,7 +166,7 @@ Deno.test("reassembleEventDelta: cross-envelope filter with expected_envelope_ha
 
 // --- End-to-end Era 1390 + 1410 ---
 
-Deno.test("end-to-end: chunked event delta passes Era 1390 applyEventDelta", () => {
+Deno.test("end-to-end: chunked event delta passes Era 1390 applyEventDelta", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(a, [0x10]);
@@ -185,14 +185,14 @@ Deno.test("end-to-end: chunked event delta passes Era 1390 applyEventDelta", () 
 // These bytes mirror the Rust `event_broadcast::tests::*` outputs.
 // Drift on either side breaks both suites.
 
-Deno.test("cross-substrate: packKindTag known values match Rust pack_kind_tag", () => {
+Deno.test("cross-substrate: packKindTag known values match Rust pack_kind_tag", async () => {
     assertEquals(packKindTag("test"), 0x74657374);
     assertEquals(packKindTag("alarm"), 0x616C6172); // truncates to "alar"
     assertEquals(packKindTag("x"), 0x78000000);
     assertEquals(packKindTag(""), 0);
 });
 
-Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] is 0x929932B5", () => {
+Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] is 0x929932B5", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     fillSink(b, [0x10, 0x20, 0x30]);
@@ -205,11 +205,11 @@ Deno.test("cross-substrate: chunkEventDelta envelope_hash for [0x10,0x20,0x30] i
 
 // --- Frame type registry ---
 
-Deno.test("frame types: EVENT_HASH_LIST=9, EVENT_DELTA_CHUNK=10", () => {
+Deno.test("frame types: EVENT_HASH_LIST=9, EVENT_DELTA_CHUNK=10", async () => {
     assertEquals(FRAME_TYPE_EVENT_HASH_LIST, 9);
     assertEquals(FRAME_TYPE_EVENT_DELTA_CHUNK, 10);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(EVENT_WIRE_SCHEMA, "OMEGA-1410/v1");
 });

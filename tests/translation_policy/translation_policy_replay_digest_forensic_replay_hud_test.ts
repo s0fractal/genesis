@@ -71,7 +71,7 @@ function classification(
     };
 }
 
-Deno.test("replay digest replay HUD: empty classification formats stable fields", () => {
+Deno.test("replay digest replay HUD: empty classification formats stable fields", async () => {
     const snap = formatTranslationPolicyReplayDigestForensicReplayHud(
         classification({
             total_events: 0,
@@ -95,7 +95,7 @@ Deno.test("replay digest replay HUD: empty classification formats stable fields"
     assertEquals(snap.fields.drift.value, "0ms M0 F0");
 });
 
-Deno.test("replay digest replay HUD: compact fields include final band, digest intervals, drift and failures", () => {
+Deno.test("replay digest replay HUD: compact fields include final band, digest intervals, drift and failures", async () => {
     const snap = formatTranslationPolicyReplayDigestForensicReplayHud(
         classification({
             final_band: "drift",
@@ -154,7 +154,7 @@ Deno.test("replay digest replay HUD: compact fields include final band, digest i
     assertEquals(snap.summary.includes("D1234abcd I2"), true);
 });
 
-Deno.test("replay digest replay HUD: first active error window is surfaced", () => {
+Deno.test("replay digest replay HUD: first active error window is surfaced", async () => {
     const snap = formatTranslationPolicyReplayDigestForensicReplayHud(
         classification({
             final_band: "blocked",
@@ -186,7 +186,7 @@ Deno.test("replay digest replay HUD: first active error window is surfaced", () 
     assertEquals(snap.fields.error.value, "local-claim-failed:2");
 });
 
-Deno.test("replay digest replay HUD: drift duration uses last replay time for open drift segment", () => {
+Deno.test("replay digest replay HUD: drift duration uses last replay time for open drift segment", async () => {
     const c = classification({
         last_event_ms: T0 + 10_000,
         band_timeline: [
@@ -207,7 +207,7 @@ Deno.test("replay digest replay HUD: drift duration uses last replay time for op
     );
 });
 
-Deno.test("replay digest replay HUD: malformed count combines parser and payload malformed windows", () => {
+Deno.test("replay digest replay HUD: malformed count combines parser and payload malformed windows", async () => {
     const c = classification({
         malformed_payloads: 2,
         error_windows: [
@@ -226,7 +226,7 @@ Deno.test("replay digest replay HUD: malformed count combines parser and payload
     assertEquals(translationPolicyReplayDigestReplayMalformedCount(c), 5);
 });
 
-Deno.test("replay digest replay HUD: local failure count uses local-claim-failed windows", () => {
+Deno.test("replay digest replay HUD: local failure count uses local-claim-failed windows", async () => {
     const c = classification({
         error_windows: [
             {
@@ -254,7 +254,7 @@ Deno.test("replay digest replay HUD: local failure count uses local-claim-failed
     assertEquals(translationPolicyReplayDigestReplayLocalFailureCount(c), 5);
 });
 
-Deno.test("replay digest replay HUD: helper fields preserve order", () => {
+Deno.test("replay digest replay HUD: helper fields preserve order", async () => {
     const fields = translationPolicyReplayDigestForensicReplayHudFields(
         classification(),
     );
@@ -266,7 +266,7 @@ Deno.test("replay digest replay HUD: helper fields preserve order", () => {
     ]);
 });
 
-Deno.test("replay digest replay HUD: summary truncates deterministically", () => {
+Deno.test("replay digest replay HUD: summary truncates deterministically", async () => {
     const snap = formatTranslationPolicyReplayDigestForensicReplayHud(
         classification({ final_band: "blocked" }),
         { max_summary_len: 18 },
@@ -275,7 +275,7 @@ Deno.test("replay digest replay HUD: summary truncates deterministically", () =>
     assertEquals(snap.summary.endsWith("…"), true);
 });
 
-Deno.test("replay digest replay HUD: glyphs cover replay digest bands", () => {
+Deno.test("replay digest replay HUD: glyphs cover replay digest bands", async () => {
     assertEquals(replayDigestForensicReplayGlyph("nominal"), "OK");
     assertEquals(replayDigestForensicReplayGlyph("watch"), "WA");
     assertEquals(replayDigestForensicReplayGlyph("drift"), "DR");
@@ -283,11 +283,11 @@ Deno.test("replay digest replay HUD: glyphs cover replay digest bands", () => {
     assertEquals(replayDigestForensicReplayGlyph("empty"), "--");
 });
 
-Deno.test("replay digest replay HUD: firstActiveReplayDigestErrorWindow returns null when all closed", () => {
+Deno.test("replay digest replay HUD: firstActiveReplayDigestErrorWindow returns null when all closed", async () => {
     assertEquals(firstActiveReplayDigestErrorWindow(classification()), null);
 });
 
-Deno.test("replay digest replay HUD: schema constant", () => {
+Deno.test("replay digest replay HUD: schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_FORENSIC_REPLAY_HUD_SCHEMA,
         "OMEGA-1930/v1",

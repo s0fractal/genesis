@@ -40,5 +40,5 @@ fn proposal_carries_hash_correctly() {
     let p = Proposal::new(desc, 0xCAFE_BABE);
     let mut buf = [0u8; 64];
     buf[..desc.len()].copy_from_slice(desc);
-    assert_eq!(p.hash, fnv1a_32(&buf));
+    assert_eq!(p.hash, omega_v2::senate::sha256_hash(&buf));
 }

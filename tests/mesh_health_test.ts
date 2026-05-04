@@ -32,14 +32,14 @@ function detectorWith(double: number, total: number): ConvergenceDetector {
     return cd;
 }
 
-Deno.test("health: empty detector → watch (0.5 base floor)", () => {
+Deno.test("health: empty detector → watch (0.5 base floor)", async () => {
     const cd = new ConvergenceDetector();
     const c = computeRelayHealth({ detector: cd });
     assertEquals(c.band, "watch");
     assertEquals(c.score, 0.5);
 });
 
-Deno.test("health: 60% redundancy → healthy band", () => {
+Deno.test("health: 60% redundancy → healthy band", async () => {
     const cd = detectorWith(60, 100);
     const c = computeRelayHealth({ detector: cd });
     // redundancy 0.6 × 0.55 = 0.33; below 0.75 threshold.
@@ -48,7 +48,7 @@ Deno.test("health: 60% redundancy → healthy band", () => {
     assertEquals(c.band, "degraded");
 });
 
-Deno.test("health: full redundancy + no penalties → healthy", () => {
+Deno.test("health: full redundancy + no penalties → healthy", async () => {
     const cd = detectorWith(100, 100);
     const c = computeRelayHealth({ detector: cd });
     // redundancy 1.0 × 0.55 = 0.55. Watch band.
@@ -56,7 +56,7 @@ Deno.test("health: full redundancy + no penalties → healthy", () => {
     assert(c.score >= 0.5);
 });
 
-Deno.test("health: zero redundancy + zero penalties + active data → critical", () => {
+Deno.test("health: zero redundancy + zero penalties + active data → critical", async () => {
     const cd = detectorWith(0, 100); // 100 single-witness, 0 double
     const c = computeRelayHealth({ detector: cd });
     // redundancy 0 × 0.55 = 0. No data floor (total > 0). No penalties.
@@ -64,7 +64,7 @@ Deno.test("health: zero redundancy + zero penalties + active data → critical",
     assertEquals(c.band, "critical");
 });
 
-Deno.test("health: contributions are itemized correctly", () => {
+Deno.test("health: contributions are itemized correctly", async () => {
     const cd = detectorWith(50, 100);
     const c = computeRelayHealth({ detector: cd });
     // 0.5 × 0.55 = 0.275.
@@ -74,7 +74,7 @@ Deno.test("health: contributions are itemized correctly", () => {
     assertEquals(c.contributions.quarantines, 0);
 });
 
-Deno.test("health: partition alarms reduce score", () => {
+Deno.test("health: partition alarms reduce score", async () => {
     const cd = detectorWith(60, 100);
     const monitor = new PeerSnapshotMonitor(cd);
     // Trigger 3 alarms by feeding wildly different digests.
@@ -87,7 +87,7 @@ Deno.test("health: partition alarms reduce score", () => {
     assert(Math.abs(c.contributions.partition_alarms - (-0.15)) < 1e-9);
 });
 
-Deno.test("health: partition penalty caps at max", () => {
+Deno.test("health: partition penalty caps at max", async () => {
     const cd = detectorWith(60, 100);
     const monitor = new PeerSnapshotMonitor(cd);
     // 20 alarms — uncapped would be -1.0; capped at -0.30.
@@ -99,7 +99,7 @@ Deno.test("health: partition penalty caps at max", () => {
     assert(c.contributions.partition_alarms >= -0.30);
 });
 
-Deno.test("health: consensus suspects reduce score", () => {
+Deno.test("health: consensus suspects reduce score", async () => {
     const cd = detectorWith(80, 100);
     const conv = new InvestigationConvergenceTracker();
     const rec: InvestigationRecord = {
@@ -114,7 +114,7 @@ Deno.test("health: consensus suspects reduce score", () => {
     assert(Math.abs(c.contributions.consensus_suspects - (-0.10)) < 1e-9);
 });
 
-Deno.test("health: quarantines reduce score", () => {
+Deno.test("health: quarantines reduce score", async () => {
     const cd = detectorWith(80, 100);
     const inv = new AutoInvestigator({ cooldown_ms: 0 });
     for (const target of [0x100, 0x200]) {
@@ -128,7 +128,7 @@ Deno.test("health: quarantines reduce score", () => {
     assert(Math.abs(c.contributions.quarantines - (-0.30)) < 1e-9);
 });
 
-Deno.test("health: full chain (all four signals) integrates", () => {
+Deno.test("health: full chain (all four signals) integrates", async () => {
     const cd = detectorWith(80, 100);
     const monitor = new PeerSnapshotMonitor(cd);
     monitor.observe(buildSnapshotDigest(0x100, 100, 0, 0, NOW), NOW);
@@ -158,14 +158,14 @@ Deno.test("health: full chain (all four signals) integrates", () => {
     assertEquals(c.band, "critical");
 });
 
-Deno.test("health: clamp prevents score above 1", () => {
+Deno.test("health: clamp prevents score above 1", async () => {
     const cd = detectorWith(100, 100);
     // No penalties. redundancy 1.0 × 0.55 = 0.55, clamp irrelevant here.
     const c = computeRelayHealth({ detector: cd });
     assert(c.score <= 1);
 });
 
-Deno.test("health: clamp prevents score below 0", () => {
+Deno.test("health: clamp prevents score below 0", async () => {
     const cd = detectorWith(0, 100);
     const monitor = new PeerSnapshotMonitor(cd);
     for (let i = 0; i < 50; i++) {
@@ -176,14 +176,14 @@ Deno.test("health: clamp prevents score below 0", () => {
     assert(c.score >= 0);
 });
 
-Deno.test("health: deterministic across calls (same inputs → same score)", () => {
+Deno.test("health: deterministic across calls (same inputs → same score)", async () => {
     const cd = detectorWith(60, 100);
     const c1 = computeRelayHealth({ detector: cd });
     const c2 = computeRelayHealth({ detector: cd });
     assertEquals(c1.score, c2.score);
 });
 
-Deno.test("mesh: average of per-relay scores", () => {
+Deno.test("mesh: average of per-relay scores", async () => {
     const perRelay = new Map<number, CompositeScore>();
     perRelay.set(0x1, computeRelayHealth({ detector: detectorWith(80, 100) }));
     perRelay.set(0x2, computeRelayHealth({ detector: detectorWith(40, 100) }));
@@ -193,13 +193,13 @@ Deno.test("mesh: average of per-relay scores", () => {
     assert(Math.abs(mesh.score - expected) < 1e-9);
 });
 
-Deno.test("mesh: empty perRelay → watch baseline 0.5", () => {
+Deno.test("mesh: empty perRelay → watch baseline 0.5", async () => {
     const mesh = computeMeshHealth(new Map());
     assertEquals(mesh.score, 0.5);
     assertEquals(mesh.band, "watch");
 });
 
-Deno.test("scoreToQ16 / q16ToScore round-trip with negligible loss", () => {
+Deno.test("scoreToQ16 / q16ToScore round-trip with negligible loss", async () => {
     for (const v of [0, 0.25, 0.5, 0.75, 1]) {
         const q = scoreToQ16(v);
         const r = q16ToScore(q);
@@ -207,12 +207,12 @@ Deno.test("scoreToQ16 / q16ToScore round-trip with negligible loss", () => {
     }
 });
 
-Deno.test("scoreToQ16 clamps inputs", () => {
+Deno.test("scoreToQ16 clamps inputs", async () => {
     assertEquals(scoreToQ16(-0.5), 0);
     assertEquals(scoreToQ16(2), 65536);
 });
 
-Deno.test("bandGlyph returns distinct glyphs", () => {
+Deno.test("bandGlyph returns distinct glyphs", async () => {
     const glyphs = new Set<string>([
         bandGlyph("healthy"),
         bandGlyph("watch"),
@@ -222,7 +222,7 @@ Deno.test("bandGlyph returns distinct glyphs", () => {
     assertEquals(glyphs.size, 4);
 });
 
-Deno.test("health: detector with mixed witness classes contributes correctly", () => {
+Deno.test("health: detector with mixed witness classes contributes correctly", async () => {
     const cd = new ConvergenceDetector();
     // 5 single, 5 double, 0 triple → redundancy = 5/10 = 0.5.
     for (let i = 0; i < 5; i++) {

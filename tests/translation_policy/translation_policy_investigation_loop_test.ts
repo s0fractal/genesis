@@ -30,7 +30,7 @@ function localMonitor(): TranslationPolicyMonitor {
     ]));
 }
 
-Deno.test("loop: matching policy observes without proposal", () => {
+Deno.test("loop: matching policy observes without proposal", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const monitor = localMonitor();
     const peer = new TranslationPolicyMonitor(0xBB, registry([
@@ -43,13 +43,13 @@ Deno.test("loop: matching policy observes without proposal", () => {
             return true;
         },
     );
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.observation?.drift_detected, false);
     assertEquals(result.warrant_result.payloads.length, 0);
     assertEquals(emitted.length, 0);
 });
 
-Deno.test("loop: drift policy builds and emits proposal", () => {
+Deno.test("loop: drift policy builds and emits proposal", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
@@ -59,7 +59,7 @@ Deno.test("loop: drift policy builds and emits proposal", () => {
         },
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.observation?.drift_detected, true);
     assertEquals(result.new_drift_events.length, 1);
     assertEquals(result.warrant_result.payloads.length, 1);
@@ -69,7 +69,7 @@ Deno.test("loop: drift policy builds and emits proposal", () => {
     assertEquals(emitted[0].target_peer_id, 0xBB);
 });
 
-Deno.test("loop: duplicate drift claim does not re-emit", () => {
+Deno.test("loop: duplicate drift claim does not re-emit", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
@@ -80,14 +80,14 @@ Deno.test("loop: duplicate drift claim does not re-emit", () => {
         new TranslationPolicyWarrantBridge({ dedup_window_ms: 60_000 }),
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    loop.observeClaim(peer.localClaim(T0), T0);
-    const second = loop.observeClaim(peer.localClaim(T0), T0 + 100);
+    await loop.observeClaim(peer.localClaim(T0), T0);
+    const second = await loop.observeClaim(peer.localClaim(T0), T0 + 100);
     assertEquals(second.new_drift_events.length, 0);
     assertEquals(second.warrant_result.payloads.length, 0);
     assertEquals(emitted.length, 1);
 });
 
-Deno.test("loop: changed peer policy emits a new proposal", () => {
+Deno.test("loop: changed peer policy emits a new proposal", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
@@ -100,24 +100,24 @@ Deno.test("loop: changed peer policy emits a new proposal", () => {
     const peerB = new TranslationPolicyMonitor(0xBB, registry([
         ["metrics:v1.0", "metrics:v2.0"],
     ]));
-    loop.observeClaim(peerA.localClaim(T0), T0);
-    loop.observeClaim(peerB.localClaim(T0 + 1), T0 + 1);
+    await loop.observeClaim(peerA.localClaim(T0), T0);
+    await loop.observeClaim(peerB.localClaim(T0 + 1), T0 + 1);
     assertEquals(emitted.length, 2);
 });
 
-Deno.test("loop: emit failure is counted", () => {
+Deno.test("loop: emit failure is counted", async () => {
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
         () => false,
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.proposals_emitted, 0);
     assertEquals(result.proposals_failed, 1);
     assertEquals(loop.summary(T0).proposals_failed, 1);
 });
 
-Deno.test("loop: ingestPolicyBody decodes mesh payload", () => {
+Deno.test("loop: ingestPolicyBody decodes mesh payload", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
@@ -128,22 +128,22 @@ Deno.test("loop: ingestPolicyBody decodes mesh payload", () => {
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
     const fields = translationPolicyPlasmidFields(0xAA, peer.localClaim(T0));
-    const result = loop.ingestPolicyBody(fields.translationPolicyBody, T0);
+    const result = await loop.ingestPolicyBody(fields.translationPolicyBody, T0);
     assertEquals(result.new_drift_events.length, 1);
     assertEquals(emitted.length, 1);
 });
 
-Deno.test("loop: malformed body increments malformed counter", () => {
+Deno.test("loop: malformed body increments malformed counter", async () => {
     const loop = new TranslationPolicyInvestigationLoop(localMonitor(), () => true);
-    const result = loop.ingestPolicyBody("not json", T0);
+    const result = await loop.ingestPolicyBody("not json", T0);
     assertEquals(result.observation, null);
     assertEquals(loop.summary(T0).malformed_claims, 1);
 });
 
-Deno.test("loop: summary combines monitor + proposal telemetry", () => {
+Deno.test("loop: summary combines monitor + proposal telemetry", async () => {
     const loop = new TranslationPolicyInvestigationLoop(localMonitor(), () => true);
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    loop.observeClaim(peer.localClaim(T0), T0);
+    await loop.observeClaim(peer.localClaim(T0), T0);
     const summary = loop.summary(T0);
     assertEquals(summary.claims_observed, 1);
     assertEquals(summary.drift_events_seen, 1);
@@ -154,22 +154,22 @@ Deno.test("loop: summary combines monitor + proposal telemetry", () => {
     assertEquals(summary.monitor_alarm_count, 1);
 });
 
-Deno.test("loop: clearSeenDrift allows bridge dedup to report duplicate", () => {
+Deno.test("loop: clearSeenDrift allows bridge dedup to report duplicate", async () => {
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
         () => true,
         new TranslationPolicyWarrantBridge({ dedup_window_ms: 60_000 }),
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    loop.observeClaim(peer.localClaim(T0), T0);
+    await loop.observeClaim(peer.localClaim(T0), T0);
     loop.clearSeenDrift();
-    const second = loop.observeClaim(peer.localClaim(T0), T0 + 100);
+    const second = await loop.observeClaim(peer.localClaim(T0), T0 + 100);
     assertEquals(second.new_drift_events.length, 1);
     assertEquals(second.warrant_result.payloads.length, 0);
     assertEquals(second.warrant_result.deduped_peer_ids, [0xBB]);
 });
 
-Deno.test("loop: corroboration gate blocks below required band", () => {
+Deno.test("loop: corroboration gate blocks below required band", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const tracker = new TranslationPolicyCorroborationTracker();
     const loop = new TranslationPolicyInvestigationLoop(
@@ -182,14 +182,14 @@ Deno.test("loop: corroboration gate blocks below required band", () => {
         { tracker, witness_id: 0xA1, min_confidence: "double" },
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.corroborated_records[0].confidence, "lone");
     assertEquals(result.warrant_result.payloads.length, 0);
     assertEquals(emitted.length, 0);
     assertEquals(loop.summary(T0).corroboration_blocked, 1);
 });
 
-Deno.test("loop: corroboration gate emits after external witness reaches band", () => {
+Deno.test("loop: corroboration gate emits after external witness reaches band", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const tracker = new TranslationPolicyCorroborationTracker();
     const local = localMonitor();
@@ -209,14 +209,14 @@ Deno.test("loop: corroboration gate emits after external witness reaches band", 
         new TranslationPolicyWarrantBridge(),
         { tracker, witness_id: 0xA1, min_confidence: "double" },
     );
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.corroborated_records[0].confidence, "double");
     assertEquals(result.warrant_result.payloads.length, 1);
     assertEquals(emitted.length, 1);
     assertEquals(loop.summary(T0).corroborated_drift_count, 1);
 });
 
-Deno.test("loop: no corroboration gate preserves single-observer emission", () => {
+Deno.test("loop: no corroboration gate preserves single-observer emission", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const loop = new TranslationPolicyInvestigationLoop(
         localMonitor(),
@@ -226,12 +226,12 @@ Deno.test("loop: no corroboration gate preserves single-observer emission", () =
         },
     );
     const peer = new TranslationPolicyMonitor(0xBB, registry([]));
-    const result = loop.observeClaim(peer.localClaim(T0), T0);
+    const result = await loop.observeClaim(peer.localClaim(T0), T0);
     assertEquals(result.corroborated_records, []);
     assertEquals(result.warrant_result.payloads.length, 1);
     assertEquals(emitted.length, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_INVESTIGATION_SCHEMA, "OMEGA-1680/v1");
 });

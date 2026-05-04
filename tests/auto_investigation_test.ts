@@ -27,7 +27,7 @@ function alarm(
     };
 }
 
-Deno.test("investigator: raises proposal from alarm", () => {
+Deno.test("investigator: raises proposal from alarm", async () => {
     const inv = new AutoInvestigator();
     const rec = inv.raiseFromAlarm(alarm(0xAAAA));
     assert(rec !== null);
@@ -36,7 +36,7 @@ Deno.test("investigator: raises proposal from alarm", () => {
     assert(rec!.proposal_hash !== 0);
 });
 
-Deno.test("investigator: proposal hash is deterministic for same alarm", () => {
+Deno.test("investigator: proposal hash is deterministic for same alarm", async () => {
     const inv = new AutoInvestigator();
     const a = alarm(0xCAFE_BABE >>> 0);
     const rec = inv.raiseFromAlarm(a);
@@ -46,7 +46,7 @@ Deno.test("investigator: proposal hash is deterministic for same alarm", () => {
     assertEquals(rec!.proposal_hash, expected);
 });
 
-Deno.test("investigator: cooldown blocks duplicate raise", () => {
+Deno.test("investigator: cooldown blocks duplicate raise", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 60_000 });
     const a = alarm(0xAAAA, 10_000, NOW);
     const r1 = inv.raiseFromAlarm(a);
@@ -56,14 +56,14 @@ Deno.test("investigator: cooldown blocks duplicate raise", () => {
     assertEquals(inv.raiseFromAlarm(a2), null);
 });
 
-Deno.test("investigator: cooldown elapses → second raise allowed", () => {
+Deno.test("investigator: cooldown elapses → second raise allowed", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 60_000 });
     inv.raiseFromAlarm(alarm(0xAAAA, 10_000, NOW));
     const r2 = inv.raiseFromAlarm(alarm(0xAAAA, 12_000, NOW + 70_000));
     assert(r2 !== null);
 });
 
-Deno.test("investigator: different targets don't share cooldown", () => {
+Deno.test("investigator: different targets don't share cooldown", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 60_000 });
     const r1 = inv.raiseFromAlarm(alarm(0xAAAA, 10_000, NOW));
     const r2 = inv.raiseFromAlarm(alarm(0xBBBB, 10_000, NOW + 1_000));
@@ -71,7 +71,7 @@ Deno.test("investigator: different targets don't share cooldown", () => {
     assert(r1!.proposal_hash !== r2!.proposal_hash);
 });
 
-Deno.test("investigator: markWarranted quarantines the target", () => {
+Deno.test("investigator: markWarranted quarantines the target", async () => {
     const inv = new AutoInvestigator();
     const rec = inv.raiseFromAlarm(alarm(0xAAAA))!;
     assertEquals(inv.isQuarantined(0xAAAA), false);
@@ -80,7 +80,7 @@ Deno.test("investigator: markWarranted quarantines the target", () => {
     assertEquals(rec.status, "warranted");
 });
 
-Deno.test("investigator: markCleared removes quarantine", () => {
+Deno.test("investigator: markCleared removes quarantine", async () => {
     const inv = new AutoInvestigator();
     const rec = inv.raiseFromAlarm(alarm(0xAAAA))!;
     inv.markWarranted(rec.proposal_hash);
@@ -89,7 +89,7 @@ Deno.test("investigator: markCleared removes quarantine", () => {
     assertEquals(rec.status, "cleared");
 });
 
-Deno.test("investigator: callbacks fire", () => {
+Deno.test("investigator: callbacks fire", async () => {
     let raised = 0, warranted = 0;
     const inv = new AutoInvestigator({
         on_proposal_raised: () => { raised++; },
@@ -101,7 +101,7 @@ Deno.test("investigator: callbacks fire", () => {
     assertEquals(warranted, 1);
 });
 
-Deno.test("investigator: sweepStale auto-clears old open investigations", () => {
+Deno.test("investigator: sweepStale auto-clears old open investigations", async () => {
     const inv = new AutoInvestigator({ open_window_ms: 5 * 60_000 });
     inv.raiseFromAlarm(alarm(0xAAAA, 10_000, NOW));
     // 6 minutes later — past open window.
@@ -110,7 +110,7 @@ Deno.test("investigator: sweepStale auto-clears old open investigations", () => 
     assertEquals(inv.listByStatus("cleared").length, 1);
 });
 
-Deno.test("investigator: sweepStale doesn't touch warranted records", () => {
+Deno.test("investigator: sweepStale doesn't touch warranted records", async () => {
     const inv = new AutoInvestigator({ open_window_ms: 5 * 60_000 });
     const rec = inv.raiseFromAlarm(alarm(0xAAAA, 10_000, NOW))!;
     inv.markWarranted(rec.proposal_hash);
@@ -119,7 +119,7 @@ Deno.test("investigator: sweepStale doesn't touch warranted records", () => {
     assertEquals(inv.isQuarantined(0xAAAA), true);
 });
 
-Deno.test("investigator: shouldDropFrameFromOrigin honors quarantine", () => {
+Deno.test("investigator: shouldDropFrameFromOrigin honors quarantine", async () => {
     const inv = new AutoInvestigator();
     assertEquals(shouldDropFrameFromOrigin(inv, 0xAAAA), false);
     const rec = inv.raiseFromAlarm(alarm(0xAAAA))!;
@@ -129,7 +129,7 @@ Deno.test("investigator: shouldDropFrameFromOrigin honors quarantine", () => {
     assertEquals(shouldDropFrameFromOrigin(inv, 0xBBBB), false);
 });
 
-Deno.test("investigator: list sorts newest-first", () => {
+Deno.test("investigator: list sorts newest-first", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 0 });
     inv.raiseFromAlarm(alarm(0x1, 10_000, NOW));
     inv.raiseFromAlarm(alarm(0x2, 10_000, NOW + 100));
@@ -139,7 +139,7 @@ Deno.test("investigator: list sorts newest-first", () => {
     assertEquals(list[2].target_relay_id, 0x1);
 });
 
-Deno.test("investigator: listByStatus filters correctly", () => {
+Deno.test("investigator: listByStatus filters correctly", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 0 });
     const r1 = inv.raiseFromAlarm(alarm(0x1, 10_000, NOW))!;
     const r2 = inv.raiseFromAlarm(alarm(0x2, 10_000, NOW + 100))!;
@@ -151,7 +151,7 @@ Deno.test("investigator: listByStatus filters correctly", () => {
     assertEquals(inv.listByStatus("open").length, 1);
 });
 
-Deno.test("investigator: quarantinedRelays returns sorted IDs", () => {
+Deno.test("investigator: quarantinedRelays returns sorted IDs", async () => {
     const inv = new AutoInvestigator({ cooldown_ms: 0 });
     for (const id of [0x300, 0x100, 0x200]) {
         const rec = inv.raiseFromAlarm(alarm(id, 10_000, NOW))!;
@@ -160,7 +160,7 @@ Deno.test("investigator: quarantinedRelays returns sorted IDs", () => {
     assertEquals(inv.quarantinedRelays(), [0x100, 0x200, 0x300]);
 });
 
-Deno.test("investigator: clear empties everything", () => {
+Deno.test("investigator: clear empties everything", async () => {
     const inv = new AutoInvestigator();
     const rec = inv.raiseFromAlarm(alarm(0xAAAA))!;
     inv.markWarranted(rec.proposal_hash);
@@ -169,18 +169,18 @@ Deno.test("investigator: clear empties everything", () => {
     assertEquals(inv.quarantinedRelays(), []);
 });
 
-Deno.test("investigator: relayIdFromName is deterministic", () => {
+Deno.test("investigator: relayIdFromName is deterministic", async () => {
     assertEquals(relayIdFromName("relay-1"), relayIdFromName("relay-1"));
     assert(relayIdFromName("relay-1") !== relayIdFromName("relay-2"));
 });
 
-Deno.test("investigator: buildInvestigationReason is reproducible", () => {
+Deno.test("investigator: buildInvestigationReason is reproducible", async () => {
     const a1 = alarm(0xCAFE >>> 0, 12345, NOW);
     const a2 = alarm(0xCAFE >>> 0, 12345, NOW); // identical
     assertEquals(buildInvestigationReason(a1), buildInvestigationReason(a2));
 });
 
-Deno.test("investigator: marking unknown hash is a no-op", () => {
+Deno.test("investigator: marking unknown hash is a no-op", async () => {
     const inv = new AutoInvestigator();
     inv.markWarranted(0xDEAD_BEEF);
     inv.markCleared(0xDEAD_BEEF);

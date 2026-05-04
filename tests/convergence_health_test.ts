@@ -15,7 +15,7 @@ import { ConvergenceDetector } from "../src/network/convergence_detector.ts";
 
 // --- Pure signal computation ---
 
-Deno.test("convergence health: full overlap → converged + no alarm", () => {
+Deno.test("convergence health: full overlap → converged + no alarm", async () => {
     const sig = computeConvergenceHealth([0x10, 0x20], [0x10, 0x20]);
     assertEquals(sig.score, 1);
     assertEquals(sig.band, "converged");
@@ -24,7 +24,7 @@ Deno.test("convergence health: full overlap → converged + no alarm", () => {
     assertEquals(sig.network_size, 2);
 });
 
-Deno.test("convergence health: no overlap → stranded + alarm", () => {
+Deno.test("convergence health: no overlap → stranded + alarm", async () => {
     const sig = computeConvergenceHealth([0x10, 0x20], [0x30, 0x40]);
     assertEquals(sig.score, 0);
     assertEquals(sig.band, "stranded");
@@ -32,7 +32,7 @@ Deno.test("convergence health: no overlap → stranded + alarm", () => {
     assertEquals(sig.intersection_size, 0);
 });
 
-Deno.test("convergence health: half overlap → diverged + alarm", () => {
+Deno.test("convergence health: half overlap → diverged + alarm", async () => {
     // local has 1 of 2 network digests = 0.5.
     const sig = computeConvergenceHealth([0x10], [0x10, 0x20]);
     assertEquals(sig.score, 0.5);
@@ -42,7 +42,7 @@ Deno.test("convergence health: half overlap → diverged + alarm", () => {
     assertEquals(sig.alarm, false);
 });
 
-Deno.test("convergence health: empty network → fully converged", () => {
+Deno.test("convergence health: empty network → fully converged", async () => {
     const sig = computeConvergenceHealth([0x10], []);
     assertEquals(sig.score, 1);
     assertEquals(sig.band, "converged");
@@ -50,7 +50,7 @@ Deno.test("convergence health: empty network → fully converged", () => {
     assertEquals(sig.network_size, 0);
 });
 
-Deno.test("convergence health: thresholds tunable via opts", () => {
+Deno.test("convergence health: thresholds tunable via opts", async () => {
     // With converged_threshold=0.95, half overlap is "diverged".
     const opts = { ...DEFAULT_CONVERGENCE_OPTS, converged_threshold: 0.95, lagging_threshold: 0.70 };
     const sig = computeConvergenceHealth([0x10], [0x10, 0x20, 0x30, 0x40], opts);
@@ -59,7 +59,7 @@ Deno.test("convergence health: thresholds tunable via opts", () => {
     assertEquals(sig.band, "diverged");
 });
 
-Deno.test("convergence health: rate_q16 matches Era 1340 fleetConvergenceRate", () => {
+Deno.test("convergence health: rate_q16 matches Era 1340 fleetConvergenceRate", async () => {
     const sig = computeConvergenceHealth([0x10, 0x20], [0x10, 0x20, 0x30, 0x40]);
     // half overlap → 32768.
     assertEquals(sig.rate_q16, 32768);
@@ -67,14 +67,14 @@ Deno.test("convergence health: rate_q16 matches Era 1340 fleetConvergenceRate", 
 
 // --- Contribution computation ---
 
-Deno.test("contribution: fully-converged relay gets capped bonus", () => {
+Deno.test("contribution: fully-converged relay gets capped bonus", async () => {
     const sig = computeConvergenceHealth([0x10, 0x20], [0x10, 0x20]);
     const c = convergenceContribution(sig, 0.20);
     // score=1, reference=0.85, raw = 0.15 * 0.20 = 0.03; bonus cap = 0.20 * 0.10 = 0.02.
     assert(Math.abs(c - 0.02) < 1e-9);
 });
 
-Deno.test("contribution: stranded relay produces full negative weight", () => {
+Deno.test("contribution: stranded relay produces full negative weight", async () => {
     const sig = computeConvergenceHealth([], [0x10, 0x20]);
     const c = convergenceContribution(sig, 0.20);
     // score=0, reference=0.85, raw = -0.85 * 0.20 = -0.17; floor = -0.20.
@@ -82,14 +82,14 @@ Deno.test("contribution: stranded relay produces full negative weight", () => {
     assert(Math.abs(c - -0.17) < 1e-9);
 });
 
-Deno.test("contribution: extreme low-weight relay clamps at -weight floor", () => {
+Deno.test("contribution: extreme low-weight relay clamps at -weight floor", async () => {
     const sig = computeConvergenceHealth([], [0x10]);
     const c = convergenceContribution(sig, 1.0);
     // score=0, reference=0.85, raw = -0.85; floor = -1.0; raw > floor.
     assert(Math.abs(c - -0.85) < 1e-9);
 });
 
-Deno.test("contribution: at converged_threshold contributes ~0", () => {
+Deno.test("contribution: at converged_threshold contributes ~0", async () => {
     // Manually craft a signal at exactly the threshold.
     const sig = {
         rate_q16: Math.round(0.85 * 65536),
@@ -105,13 +105,13 @@ Deno.test("contribution: at converged_threshold contributes ~0", () => {
 
 // --- Mesh health integration ---
 
-Deno.test("mesh health: convergence_signal absent → no convergence contribution", () => {
+Deno.test("mesh health: convergence_signal absent → no convergence contribution", async () => {
     const det = new ConvergenceDetector();
     const score = computeRelayHealth({ detector: det });
     assertEquals(score.contributions.convergence, undefined);
 });
 
-Deno.test("mesh health: stranded convergence drags composite down", () => {
+Deno.test("mesh health: stranded convergence drags composite down", async () => {
     const det = new ConvergenceDetector();
     const baseline = computeRelayHealth({ detector: det });
     const stranded_sig = computeConvergenceHealth([], [0x10, 0x20, 0x30, 0x40]);
@@ -120,7 +120,7 @@ Deno.test("mesh health: stranded convergence drags composite down", () => {
     assertEquals(withConv.contributions.convergence! < 0, true);
 });
 
-Deno.test("mesh health: converged signal applies small bonus", () => {
+Deno.test("mesh health: converged signal applies small bonus", async () => {
     const det = new ConvergenceDetector();
     const baseline = computeRelayHealth({ detector: det });
     const converged_sig = computeConvergenceHealth([0x10, 0x20], [0x10, 0x20]);
@@ -129,19 +129,19 @@ Deno.test("mesh health: converged signal applies small bonus", () => {
     assertEquals(withConv.contributions.convergence! > 0, true);
 });
 
-Deno.test("mesh health: HEALTH_DEFAULTS includes weight_convergence", () => {
+Deno.test("mesh health: HEALTH_DEFAULTS includes weight_convergence", async () => {
     assertEquals(HEALTH_DEFAULTS.weight_convergence, 0.20);
 });
 
 // --- Glyph + schema ---
 
-Deno.test("convergence glyph: each band → distinct emoji", () => {
+Deno.test("convergence glyph: each band → distinct emoji", async () => {
     assertEquals(convergenceGlyph("converged"), "🟢");
     assertEquals(convergenceGlyph("lagging"), "🟡");
     assertEquals(convergenceGlyph("diverged"), "🟠");
     assertEquals(convergenceGlyph("stranded"), "🔴");
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(CONVERGENCE_HEALTH_SCHEMA, "OMEGA-1350/v1");
 });

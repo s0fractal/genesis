@@ -68,7 +68,7 @@ function claim(peer_id: number, final_band: "nominal" | "blocked" = "blocked") {
     );
 }
 
-Deno.test("replay digest live wiring: starts and stops", () => {
+Deno.test("replay digest live wiring: starts and stops", async () => {
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
         new LocalEventSource(),
@@ -82,7 +82,7 @@ Deno.test("replay digest live wiring: starts and stops", () => {
     assertEquals(adapter.isActive(), false);
 });
 
-Deno.test("replay digest live wiring: claim event feeds quorum", () => {
+Deno.test("replay digest live wiring: claim event feeds quorum", async () => {
     const source = new LocalEventSource();
     const tracker = new TranslationPolicyReplayDigestQuorumTracker();
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
@@ -96,13 +96,13 @@ Deno.test("replay digest live wiring: claim event feeds quorum", () => {
         body: fields.translationPolicyReplayDigestBody,
         targetPeer: 0xAA,
         fromPeer: 0xBB,
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().claims_received, 1);
     assertEquals(adapter.telemetry().claims_observed, 1);
     assertEquals(tracker.snapshot(T0).consensus_count, 1);
 });
 
-Deno.test("replay digest live wiring: malformed events are counted", () => {
+Deno.test("replay digest live wiring: malformed events are counted", async () => {
     const source = new LocalEventSource();
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
@@ -110,13 +110,13 @@ Deno.test("replay digest live wiring: malformed events are counted", () => {
         { claim_event_name: "translationPolicyReplayDigestClaim", now_ms: () => T0 },
     );
     adapter.start();
-    source.dispatch("translationPolicyReplayDigestClaim", {});
-    source.dispatch("translationPolicyReplayDigestClaim", { body: "not json" });
+    source.dispatch("translationPolicyReplayDigestClaim", {}); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("translationPolicyReplayDigestClaim", { body: "not json" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().claims_received, 2);
     assertEquals(adapter.telemetry().claims_malformed, 2);
 });
 
-Deno.test("replay digest live wiring: stop unsubscribes", () => {
+Deno.test("replay digest live wiring: stop unsubscribes", async () => {
     const source = new LocalEventSource();
     const tracker = new TranslationPolicyReplayDigestQuorumTracker();
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
@@ -128,12 +128,12 @@ Deno.test("replay digest live wiring: stop unsubscribes", () => {
     adapter.stop();
     source.dispatch("translationPolicyReplayDigestClaim", {
         body: JSON.stringify(claim(0xBB)),
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().claims_received, 0);
     assertEquals(tracker.peerCount(T0), 0);
 });
 
-Deno.test("replay digest live wiring: custom event name", () => {
+Deno.test("replay digest live wiring: custom event name", async () => {
     const source = new LocalEventSource();
     const tracker = new TranslationPolicyReplayDigestQuorumTracker();
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
@@ -142,11 +142,11 @@ Deno.test("replay digest live wiring: custom event name", () => {
         { claim_event_name: "customReplayDigest", now_ms: () => T0 },
     );
     adapter.start();
-    source.dispatch("customReplayDigest", { body: JSON.stringify(claim(0xBB)) });
+    source.dispatch("customReplayDigest", { body: JSON.stringify(claim(0xBB)) }); await new Promise(r => setTimeout(r, 0));
     assertEquals(tracker.peerCount(T0), 1);
 });
 
-Deno.test("replay digest live wiring: emitLocalClaim sends provider digest", () => {
+Deno.test("replay digest live wiring: emitLocalClaim sends provider digest", async () => {
     const sent: Array<{ target: number; body: string }> = [];
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
@@ -172,7 +172,7 @@ Deno.test("replay digest live wiring: emitLocalClaim sends provider digest", () 
     assertEquals(adapter.telemetry().local_claims_emitted, 1);
 });
 
-Deno.test("replay digest live wiring: emitLocalClaim can use explicit digest", () => {
+Deno.test("replay digest live wiring: emitLocalClaim can use explicit digest", async () => {
     const sent: string[] = [];
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
@@ -193,7 +193,7 @@ Deno.test("replay digest live wiring: emitLocalClaim can use explicit digest", (
     assertEquals(decodeTranslationPolicyReplayDigestClaim(sent[0])?.digest, d.digest);
 });
 
-Deno.test("replay digest live wiring: emitLocalClaim failure is counted", () => {
+Deno.test("replay digest live wiring: emitLocalClaim failure is counted", async () => {
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
         new LocalEventSource(),
@@ -211,7 +211,7 @@ Deno.test("replay digest live wiring: emitLocalClaim failure is counted", () => 
     assertEquals(adapter.telemetry().local_claims_failed, 1);
 });
 
-Deno.test("replay digest live wiring: emitLocalClaim skip paths are counted", () => {
+Deno.test("replay digest live wiring: emitLocalClaim skip paths are counted", async () => {
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         new TranslationPolicyReplayDigestQuorumTracker(),
         new LocalEventSource(),
@@ -226,7 +226,7 @@ Deno.test("replay digest live wiring: emitLocalClaim skip paths are counted", ()
     assertEquals(adapter.telemetry().local_claims_skipped, 1);
 });
 
-Deno.test("replay digest live wiring: snapshot proxies tracker", () => {
+Deno.test("replay digest live wiring: snapshot proxies tracker", async () => {
     const tracker = new TranslationPolicyReplayDigestQuorumTracker();
     const adapter = new TranslationPolicyReplayDigestLiveWiringAdapter(
         tracker,
@@ -238,7 +238,7 @@ Deno.test("replay digest live wiring: snapshot proxies tracker", () => {
     assertEquals(adapter.snapshot().band, "double");
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_LIVE_WIRING_SCHEMA,
         "OMEGA-1890/v1",

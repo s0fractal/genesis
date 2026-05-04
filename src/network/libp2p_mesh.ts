@@ -51,7 +51,7 @@ export interface PlasmidPayload {
   recursionDepth: number;
   maxRecursion: number;
   // Era 1030: Senate payload extensions
-  proposalHash?: number; // FNV-1a hash of description (PROPOSAL + VOTE)
+  proposalHash?: string; // FNV-1a hash of description (PROPOSAL + VOTE)
   proposalDescription?: string; // Up to 64 chars, truncated server-side (PROPOSAL only)
   voteAye?: boolean; // VOTE plasmids only
   // Era 1040: ZK-Notarized Mutations (mitosis proof)
@@ -59,7 +59,7 @@ export interface PlasmidPayload {
   claimedChild?: AgentMinimal; // Claimed child to verify (DIPOLE only)
   attractors?: AttractorEntry[]; // Snapshot of attractor field (DIPOLE only)
   qPhase?: number; // Topology q_phase at time of mitosis (DIPOLE only)
-  receiptHash?: number; // Pre-computed FNV-1a child hash (DIPOLE only)
+  receiptHash?: string; // Pre-computed FNV-1a child hash (DIPOLE only)
   // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
   oracleName?: CanonicalOracle; // The oracle casting this vote (claude/gpt/...)
   oracleReasoning?: string; // Optional human-readable reasoning trace (≤256 chars)
@@ -92,7 +92,7 @@ export interface PlasmidPayload {
 }
 
 export interface SenateProposalRecord {
-  hash: number;
+  hash: string;
   description: string;
   proposerMatrix: number;
   ayes: Set<string>; // unique peer IDs
@@ -152,7 +152,7 @@ export class Libp2pMesh {
 
   // Era 1030: Autopoietic Senate
   public era1030Unlocked: boolean = false;
-  public senate: Map<number, SenateProposalRecord> = new Map();
+  public senate: Map<string, SenateProposalRecord> = new Map();
   private acceptedTaskHashes: Set<number> = new Set();
 
   // Era 1040: ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
@@ -569,12 +569,12 @@ export class Libp2pMesh {
     ) {
       return;
     }
-    const expected = Libp2pMesh.senateHash(plasmid.proposalDescription);
-    if (expected !== (plasmid.proposalHash >>> 0)) {
+    const expected = this.getSenateHash(plasmid.proposalDescription);
+    if (expected !== plasmid.proposalHash) {
       console.warn(
         `[V2-MESH] PROPOSAL hash mismatch (expected=${
-          expected.toString(16)
-        }, got=${plasmid.proposalHash.toString(16)}); rejecting.`,
+          expected
+        }, got=${plasmid.proposalHash}); rejecting.`,
       );
       return;
     }
@@ -607,7 +607,7 @@ export class Libp2pMesh {
     }
     console.log(
       `🏛️ [SENATE] PROPOSAL received: 0x${
-        plasmid.proposalHash.toString(16)
+        plasmid.proposalHash
       } "${plasmid.proposalDescription}"`,
     );
     globalThis.dispatchEvent(
@@ -660,7 +660,7 @@ export class Libp2pMesh {
         console.log(
           `🧠 [ORACLE-VOTE] ${plasmid.oracleName} ${
             plasmid.voteAye ? "AYE" : "NAY"
-          } on 0x${plasmid.proposalHash.toString(16)}`,
+          } on 0x${plasmid.proposalHash}`,
         );
       } else {
         console.warn(

@@ -9,7 +9,7 @@
 // system writes a new tasks/ entry referencing the accepted proposal.
 //
 // Determinism contract:
-// - All hashing uses FNV-1a 32-bit (no SipHash, no random).
+// - All hashing uses SHA-256 (no random).
 // - Description payloads are exactly 64 bytes (zero-padded UTF-8 trunc).
 // - Senate state is a static repr(C) struct exposed via FFI like the
 //   AttractorArray (Era 1010).
@@ -18,8 +18,20 @@
 pub const SENATE_CAPACITY: usize = 8;
 pub const PROPOSAL_DESCRIPTION_BYTES: usize = 64;
 
+use sha2::{Sha256, Digest};
+
+/// Deterministic SHA-256 hashing for proposals and invariants.
+pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let result = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result);
+    out
+}
+
 /// FNV-1a 32-bit (offset basis 2166136261, prime 16777619).
-/// Deterministic across CPUs, GPUs, and ZK-VMs.
+/// Retained for Spore frames and legacy hardware routing invariants.
 pub const fn fnv1a_32(bytes: &[u8]) -> u32 {
     let mut hash: u32 = 0x811C_9DC5;
     let mut i = 0;
@@ -36,8 +48,8 @@ pub const fn fnv1a_32(bytes: &[u8]) -> u32 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub struct Proposal {
-    /// FNV-1a hash of `description` (deterministic identifier).
-    pub hash: u32,
+    /// SHA-256 hash of `description` (deterministic identifier).
+    pub hash: [u8; 32],
     /// Matrix of the proposing attractor (must be a valid dipole).
     pub proposer_matrix: u32,
     /// AYE votes accumulated from unique voter matrices.
@@ -53,7 +65,7 @@ pub struct Proposal {
 impl Proposal {
     pub const fn empty() -> Self {
         Self {
-            hash: 0,
+            hash: [0; 32],
             proposer_matrix: 0,
             ayes: 0,
             nays: 0,
@@ -75,7 +87,7 @@ impl Proposal {
             i += 1;
         }
         Self {
-            hash: fnv1a_32(&desc),
+            hash: sha256_hash(&desc),
             proposer_matrix,
             ayes: 0,
             nays: 0,
@@ -114,10 +126,10 @@ impl SenateState {
     }
 
     /// Lookup proposal by hash. Returns slot index or usize::MAX.
-    pub fn find(&self, hash: u32) -> usize {
+    pub fn find(&self, hash: &[u8; 32]) -> usize {
         let mut i = 0;
         while i < SENATE_CAPACITY {
-            if self.proposals[i].hash == hash && self.proposals[i].hash != 0 {
+            if &self.proposals[i].hash == hash && self.proposals[i].hash != [0; 32] {
                 return i;
             }
             i += 1;
@@ -130,13 +142,13 @@ impl SenateState {
     /// hash or no eviction candidate).
     pub fn propose(&mut self, proposal: Proposal) -> usize {
         // Reject duplicates.
-        if self.find(proposal.hash) != usize::MAX {
+        if self.find(&proposal.hash) != usize::MAX {
             return usize::MAX;
         }
         // Find empty slot first.
         let mut i = 0;
         while i < SENATE_CAPACITY {
-            if self.proposals[i].hash == 0 {
+            if self.proposals[i].hash == [0; 32] {
                 self.proposals[i] = proposal;
                 self.proposal_count += 1;
                 return i;
@@ -161,7 +173,7 @@ impl SenateState {
     ///   1 if the vote was applied,
     ///   2 if the vote tipped the proposal into ACCEPTED state,
     ///   0 if the proposal was not found or already closed.
-    pub fn vote(&mut self, hash: u32, aye: bool, aye_threshold: u16) -> u32 {
+    pub fn vote(&mut self, hash: &[u8; 32], aye: bool, aye_threshold: u16) -> u32 {
         let idx = self.find(hash);
         if idx == usize::MAX {
             return 0;
@@ -192,6 +204,13 @@ impl SenateState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_empty_vector() {
+        let h = sha256_hash(b"");
+        assert_eq!(h[0], 0xe3);
+        assert_eq!(h[31], 0x55);
+    }
 
     #[test]
     fn fnv1a_known_vector() {
@@ -229,7 +248,7 @@ mod tests {
         let idx = s.propose(p);
         assert!(idx < SENATE_CAPACITY);
         assert_eq!(s.proposal_count, 1);
-        assert_eq!(s.find(h), idx);
+        assert_eq!(s.find(&h), idx);
     }
 
     #[test]
@@ -248,13 +267,13 @@ mod tests {
         let p = Proposal::new(b"task 0089", 0xFEED_FACE);
         let h = p.hash;
         s.propose(p);
-        assert_eq!(s.vote(h, true, 3), 1); // 1 aye
-        assert_eq!(s.vote(h, true, 3), 1); // 2 ayes
-        assert_eq!(s.vote(h, true, 3), 2); // tip — accepted
-        assert!(s.proposals[s.find(h)].is_accepted());
+        assert_eq!(s.vote(&h, true, 3), 1); // 1 aye
+        assert_eq!(s.vote(&h, true, 3), 1); // 2 ayes
+        assert_eq!(s.vote(&h, true, 3), 2); // tip — accepted
+        assert!(s.proposals[s.find(&h)].is_accepted());
         assert_eq!(s.accepted_count, 1);
         // Further votes are ignored.
-        assert_eq!(s.vote(h, true, 3), 0);
+        assert_eq!(s.vote(&h, true, 3), 0);
     }
 
     #[test]
@@ -264,12 +283,12 @@ mod tests {
         let h = p.hash;
         s.propose(p);
         // 1 aye, 4 nays — should reject.
-        assert_eq!(s.vote(h, true, 3), 1);
-        s.vote(h, false, 3);
-        s.vote(h, false, 3);
-        s.vote(h, false, 3);
-        s.vote(h, false, 3);
-        let slot = s.find(h);
+        assert_eq!(s.vote(&h, true, 3), 1);
+        s.vote(&h, false, 3);
+        s.vote(&h, false, 3);
+        s.vote(&h, false, 3);
+        s.vote(&h, false, 3);
+        let slot = s.find(&h);
         assert_eq!(s.proposals[slot].status, 2);
     }
 
@@ -296,6 +315,6 @@ mod tests {
     #[test]
     fn vote_on_unknown_hash_returns_zero() {
         let mut s = SenateState::new();
-        assert_eq!(s.vote(0xABCD, true, 3), 0);
+        assert_eq!(s.vote(&[0xFF; 32], true, 3), 0);
     }
 }

@@ -26,14 +26,14 @@ function selfWith(rate_double: number, total: number): ConvergenceDetector {
     return cd;
 }
 
-Deno.test("monitor: rejects non-digest frame", () => {
+Deno.test("monitor: rejects non-digest frame", async () => {
     const cd = new ConvergenceDetector();
     const m = new PeerSnapshotMonitor(cd);
     const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
     assertThrows(() => m.observe(hb, NOW));
 });
 
-Deno.test("monitor: agreeing peer is NOT partition-suspected", () => {
+Deno.test("monitor: agreeing peer is NOT partition-suspected", async () => {
     // Self has 60/100 double-witness. Peer reports the same.
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
@@ -43,7 +43,7 @@ Deno.test("monitor: agreeing peer is NOT partition-suspected", () => {
     assertEquals(rec.partition_suspected, false);
 });
 
-Deno.test("monitor: divergent peer IS partition-suspected", () => {
+Deno.test("monitor: divergent peer IS partition-suspected", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     // Peer reports 0/100 → 0 Q16; self is 39322.
@@ -53,7 +53,7 @@ Deno.test("monitor: divergent peer IS partition-suspected", () => {
     assert(rec.diff_q16 >= 6553);
 });
 
-Deno.test("monitor: alarm fires once per partition observation", () => {
+Deno.test("monitor: alarm fires once per partition observation", async () => {
     let alarms_fired = 0;
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd, { on_alarm: () => { alarms_fired++; } });
@@ -62,7 +62,7 @@ Deno.test("monitor: alarm fires once per partition observation", () => {
     assertEquals(m.alarms.length, 1);
 });
 
-Deno.test("monitor: empty self detector does not flag partition", () => {
+Deno.test("monitor: empty self detector does not flag partition", async () => {
     const cd = new ConvergenceDetector();
     const m = new PeerSnapshotMonitor(cd);
     const digest = buildSnapshotDigest(0xAAAA, 100, 80, 52429, NOW);
@@ -72,7 +72,7 @@ Deno.test("monitor: empty self detector does not flag partition", () => {
     assertEquals(m.alarms.length, 0);
 });
 
-Deno.test("monitor: empty peer digest does not flag partition", () => {
+Deno.test("monitor: empty peer digest does not flag partition", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     // Peer reports nothing — total=0.
@@ -81,7 +81,7 @@ Deno.test("monitor: empty peer digest does not flag partition", () => {
     assertEquals(rec.partition_suspected, false);
 });
 
-Deno.test("monitor: snapshot lists all observed peers", () => {
+Deno.test("monitor: snapshot lists all observed peers", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     m.observe(buildSnapshotDigest(0x1111, 100, 60, 39322, NOW), NOW);
@@ -90,7 +90,7 @@ Deno.test("monitor: snapshot lists all observed peers", () => {
     assertEquals(m.snapshot().length, 3);
 });
 
-Deno.test("monitor: suspectedPartitions returns only flagged peers", () => {
+Deno.test("monitor: suspectedPartitions returns only flagged peers", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     m.observe(buildSnapshotDigest(0xAAAA, 100, 60, 39322, NOW), NOW);     // healthy
@@ -100,7 +100,7 @@ Deno.test("monitor: suspectedPartitions returns only flagged peers", () => {
     assertEquals(sus[0].relay_id, 0xBBBB);
 });
 
-Deno.test("monitor: capacity bound evicts oldest peer", () => {
+Deno.test("monitor: capacity bound evicts oldest peer", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd, { capacity: 2 });
     m.observe(buildSnapshotDigest(1, 100, 60, 39322, NOW), NOW);
@@ -110,7 +110,7 @@ Deno.test("monitor: capacity bound evicts oldest peer", () => {
     assertEquals(ids, [2, 3]);
 });
 
-Deno.test("monitor: re-observing same peer updates record without growing", () => {
+Deno.test("monitor: re-observing same peer updates record without growing", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     m.observe(buildSnapshotDigest(0xAAAA, 100, 60, 39322, NOW), NOW);
@@ -120,7 +120,7 @@ Deno.test("monitor: re-observing same peer updates record without growing", () =
     assertEquals(rec.digest.totalIntents, 200);
 });
 
-Deno.test("monitor: snapshotFromDigest reconstructs total/double/single", () => {
+Deno.test("monitor: snapshotFromDigest reconstructs total/double/single", async () => {
     const digest = buildSnapshotDigest(0xAA, 100, 60, 39322, NOW);
     const reconstructed = snapshotFromDigest(digest);
     assertEquals(reconstructed.totalIntents, 100);
@@ -129,7 +129,7 @@ Deno.test("monitor: snapshotFromDigest reconstructs total/double/single", () => 
     assertEquals(reconstructed.triplePlus, 0);     // not transported in digest
 });
 
-Deno.test("monitor: clear empties peers and alarms", () => {
+Deno.test("monitor: clear empties peers and alarms", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     m.observe(buildSnapshotDigest(0xAA, 100, 0, 0, NOW), NOW);
@@ -139,16 +139,16 @@ Deno.test("monitor: clear empties peers and alarms", () => {
     assertEquals(m.alarms.length, 0);
 });
 
-Deno.test("monitor: invalid capacity throws", () => {
+Deno.test("monitor: invalid capacity throws", async () => {
     const cd = new ConvergenceDetector();
     assertThrows(() => new PeerSnapshotMonitor(cd, { capacity: 0 }));
 });
 
-Deno.test("monitor: digest frameType constant matches Rust", () => {
+Deno.test("monitor: digest frameType constant matches Rust", async () => {
     assertEquals(FRAME_TYPE_SNAPSHOT_DIGEST, 5);
 });
 
-Deno.test("monitor: alarm carries diff_percent for human display", () => {
+Deno.test("monitor: alarm carries diff_percent for human display", async () => {
     const cd = selfWith(60, 100);
     const m = new PeerSnapshotMonitor(cd);
     m.observe(buildSnapshotDigest(0xBBBB, 100, 0, 0, NOW), NOW);

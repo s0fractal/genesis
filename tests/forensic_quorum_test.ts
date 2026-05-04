@@ -32,7 +32,7 @@ const fingerprintQ16 = (q16: number): AlarmFingerprint => ({
     source_relay_id: 0xCC01,
 });
 
-Deno.test("quorum: corroborated when replay matches alarm exactly", () => {
+Deno.test("quorum: corroborated when replay matches alarm exactly", async () => {
     // Alarm fired at 50% redundancy = 32768 q16.
     // Build 3 recorders each with 4 intents, 2 of which are double-witness.
     const items = [
@@ -51,7 +51,7 @@ Deno.test("quorum: corroborated when replay matches alarm exactly", () => {
     assertEquals(res.replayed_q16, 32768);
 });
 
-Deno.test("quorum: uncorroborated when replay diverges past tolerance", () => {
+Deno.test("quorum: uncorroborated when replay diverges past tolerance", async () => {
     // Alarm claims 80% but recorders show 50%.
     const items = [
         { target: 1, t: 0, by: "X", double_by: "Y" },
@@ -69,7 +69,7 @@ Deno.test("quorum: uncorroborated when replay diverges past tolerance", () => {
     assert(res.diff_q16 > 6553);
 });
 
-Deno.test("quorum: insufficient relays when below min_relays", () => {
+Deno.test("quorum: insufficient relays when below min_relays", async () => {
     const items = [{ target: 1, t: 0, by: "X" }];
     const relays = new Map<number, FrameRecorder>();
     relays.set(0xCC01, recorderWith(items));
@@ -79,7 +79,7 @@ Deno.test("quorum: insufficient relays when below min_relays", () => {
     assertEquals(res.relay_count, 2);
 });
 
-Deno.test("quorum: empty-window when no frames in the requested window", () => {
+Deno.test("quorum: empty-window when no frames in the requested window", async () => {
     const relays = new Map<number, FrameRecorder>();
     relays.set(0xCC01, recorderWith([{ target: 1, t: 0, by: "X" }]));
     relays.set(0xCC02, recorderWith([{ target: 2, t: 0, by: "Y" }]));
@@ -95,7 +95,7 @@ Deno.test("quorum: empty-window when no frames in the requested window", () => {
     assertEquals(res.verdict, "empty-window");
 });
 
-Deno.test("quorum: tolerance is configurable", () => {
+Deno.test("quorum: tolerance is configurable", async () => {
     // Same setup as the corroborated case but with a too-tight tolerance.
     const items = [
         { target: 1, t: 0, by: "X", double_by: "Y" },
@@ -112,7 +112,7 @@ Deno.test("quorum: tolerance is configurable", () => {
     assertEquals(res.verdict, "uncorroborated");
 });
 
-Deno.test("quorum: digest is deterministic across calls", () => {
+Deno.test("quorum: digest is deterministic across calls", async () => {
     const items = [{ target: 1, t: 0, by: "X" }];
     const relays = new Map<number, FrameRecorder>();
     relays.set(0xCC01, recorderWith(items));
@@ -123,7 +123,7 @@ Deno.test("quorum: digest is deterministic across calls", () => {
     assertEquals(r1.digest, r2.digest);
 });
 
-Deno.test("quorum: digest changes with different alarm observed_q16", () => {
+Deno.test("quorum: digest changes with different alarm observed_q16", async () => {
     const items = [{ target: 1, t: 0, by: "X" }];
     const relays = new Map<number, FrameRecorder>();
     relays.set(0xCC01, recorderWith(items));
@@ -134,7 +134,7 @@ Deno.test("quorum: digest changes with different alarm observed_q16", () => {
     assert(r1.digest !== r2.digest);
 });
 
-Deno.test("quorum: merged frame count counts unique observations", () => {
+Deno.test("quorum: merged frame count counts unique observations", async () => {
     const items_a = [{ target: 1, t: 0, by: "X" }, { target: 2, t: 100, by: "X" }];
     const items_b = [{ target: 1, t: 0, by: "X" }, { target: 3, t: 200, by: "Y" }];
     const items_c = [{ target: 4, t: 300, by: "Z" }];
@@ -148,7 +148,7 @@ Deno.test("quorum: merged frame count counts unique observations", () => {
     assertEquals(res.merged_frame_count, 4);
 });
 
-Deno.test("quorum: overlap_ratio reflects shared observations", () => {
+Deno.test("quorum: overlap_ratio reflects shared observations", async () => {
     const items_shared = [{ target: 1, t: 0, by: "X" }, { target: 2, t: 100, by: "X" }];
     const items_extra_a = [{ target: 3, t: 200, by: "X" }];
     const items_extra_b = [{ target: 4, t: 300, by: "X" }];
@@ -163,7 +163,7 @@ Deno.test("quorum: overlap_ratio reflects shared observations", () => {
     assert(res.overlap_ratio > 0);
 });
 
-Deno.test("formatVerdict: contains glyph + key numbers", () => {
+Deno.test("formatVerdict: contains glyph + key numbers", async () => {
     const items = [
         { target: 1, t: 0, by: "X", double_by: "Y" },
         { target: 2, t: 100, by: "X" },
@@ -179,7 +179,7 @@ Deno.test("formatVerdict: contains glyph + key numbers", () => {
     assert(line.includes("digest=0x"));
 });
 
-Deno.test("formatVerdict: insufficient case shows 🔍 glyph", () => {
+Deno.test("formatVerdict: insufficient case shows 🔍 glyph", async () => {
     const relays = new Map<number, FrameRecorder>();
     relays.set(0xCC01, recorderWith([{ target: 1, t: 0, by: "X" }]));
     const res = adjudicateQuorum(fingerprintQ16(0), relays);
@@ -188,7 +188,7 @@ Deno.test("formatVerdict: insufficient case shows 🔍 glyph", () => {
     assert(line.includes("insufficient"));
 });
 
-Deno.test("formatVerdict: empty-window case shows ∅ glyph", () => {
+Deno.test("formatVerdict: empty-window case shows ∅ glyph", async () => {
     const relays = new Map<number, FrameRecorder>();
     for (const id of [1, 2, 3]) {
         relays.set(id, recorderWith([{ target: id, t: 0, by: "X" }]));
@@ -204,7 +204,7 @@ Deno.test("formatVerdict: empty-window case shows ∅ glyph", () => {
     assert(line.includes("∅"));
 });
 
-Deno.test("quorum: 100% redundancy alarm corroborated by all-double recorders", () => {
+Deno.test("quorum: 100% redundancy alarm corroborated by all-double recorders", async () => {
     const items = [
         { target: 1, t: 0, by: "X", double_by: "Y" },
         { target: 2, t: 100, by: "X", double_by: "Y" },
@@ -219,7 +219,7 @@ Deno.test("quorum: 100% redundancy alarm corroborated by all-double recorders", 
     assertEquals(res.replayed_q16, 65536);
 });
 
-Deno.test("quorum: zero-redundancy alarm corroborated by all-single recorders", () => {
+Deno.test("quorum: zero-redundancy alarm corroborated by all-single recorders", async () => {
     const items = [
         { target: 1, t: 0, by: "X" },
         { target: 2, t: 100, by: "X" },
@@ -233,7 +233,7 @@ Deno.test("quorum: zero-redundancy alarm corroborated by all-single recorders", 
     assertEquals(res.replayed_q16, 0);
 });
 
-Deno.test("quorum: 4+ relays accepted (more than min)", () => {
+Deno.test("quorum: 4+ relays accepted (more than min)", async () => {
     const items = [
         { target: 1, t: 0, by: "X", double_by: "Y" },
         { target: 2, t: 100, by: "X" },
@@ -247,7 +247,7 @@ Deno.test("quorum: 4+ relays accepted (more than min)", () => {
     assertEquals(res.relay_count, 5);
 });
 
-Deno.test("quorum: window filtering only includes in-bounds frames", () => {
+Deno.test("quorum: window filtering only includes in-bounds frames", async () => {
     // Recorder spans broad time range; alarm window is narrow.
     const items = [
         { target: 1, t: 0, by: "X" },           // outside (before window)
@@ -269,7 +269,7 @@ Deno.test("quorum: window filtering only includes in-bounds frames", () => {
     assert(res.merged_frame_count >= 2);
 });
 
-Deno.test("quorum: relay_count uses sorted relay IDs deterministically", () => {
+Deno.test("quorum: relay_count uses sorted relay IDs deterministically", async () => {
     const items = [{ target: 1, t: 0, by: "X" }];
     const relays1 = new Map<number, FrameRecorder>();
     relays1.set(0x300, recorderWith(items));

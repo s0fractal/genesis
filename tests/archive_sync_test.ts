@@ -29,24 +29,24 @@ function archiveWith(digests: ReadonlyArray<number>): ArchivedVerdict[] {
     return exportArchive(t, { now_ms: NOW }).records;
 }
 
-Deno.test("digestSetHash: deterministic across calls", () => {
+Deno.test("digestSetHash: deterministic across calls", async () => {
     const h1 = digestSetHash([0x10, 0x20, 0x30]);
     const h2 = digestSetHash([0x10, 0x20, 0x30]);
     assertEquals(h1, h2);
 });
 
-Deno.test("digestSetHash: order-independent", () => {
+Deno.test("digestSetHash: order-independent", async () => {
     assertEquals(
         digestSetHash([0x30, 0x10, 0x20]),
         digestSetHash([0x10, 0x20, 0x30]),
     );
 });
 
-Deno.test("digestSetHash: empty input → FNV-1a offset basis", () => {
+Deno.test("digestSetHash: empty input → FNV-1a offset basis", async () => {
     assertEquals(digestSetHash([]), 0x811C_9DC5);
 });
 
-Deno.test("buildDigestList: sorted digests + correct hash", () => {
+Deno.test("buildDigestList: sorted digests + correct hash", async () => {
     const records = archiveWith([0x30, 0x10, 0x20]);
     const list = buildDigestList(
         { schema: ARCHIVE_SCHEMA_VERSION, archive_hash: 0, archive_hash_hex: "",
@@ -58,7 +58,7 @@ Deno.test("buildDigestList: sorted digests + correct hash", () => {
     assertEquals(list.digest_set_hash, digestSetHash([0x10, 0x20, 0x30]));
 });
 
-Deno.test("computeDelta: peer records initiator is missing → returned", () => {
+Deno.test("computeDelta: peer records initiator is missing → returned", async () => {
     const a = archiveWith([0x10, 0x20]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const a_list = buildDigestList({
@@ -72,7 +72,7 @@ Deno.test("computeDelta: peer records initiator is missing → returned", () => 
     assertEquals(delta.missing_records.map(r => r.digest), [0x30, 0x40]);
 });
 
-Deno.test("computeDelta: identifies what peer is missing too", () => {
+Deno.test("computeDelta: identifies what peer is missing too", async () => {
     const a = archiveWith([0x10, 0x20, 0x30]);
     const b = archiveWith([0x10, 0x40]);
     const a_list = buildDigestList({
@@ -87,7 +87,7 @@ Deno.test("computeDelta: identifies what peer is missing too", () => {
     assertEquals(delta.peer_missing_digests, [0x20, 0x30]);
 });
 
-Deno.test("computeDelta: identical archives → empty delta", () => {
+Deno.test("computeDelta: identical archives → empty delta", async () => {
     const a = archiveWith([0x10, 0x20, 0x30]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -100,7 +100,7 @@ Deno.test("computeDelta: identical archives → empty delta", () => {
     assertEquals(delta.peer_missing_digests.length, 0);
 });
 
-Deno.test("computeDelta: delta_hash is deterministic", () => {
+Deno.test("computeDelta: delta_hash is deterministic", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const a_list = buildDigestList({
@@ -114,7 +114,7 @@ Deno.test("computeDelta: delta_hash is deterministic", () => {
     assertEquals(d1.delta_hash, d2.delta_hash);
 });
 
-Deno.test("applyDelta: adds missing records to local set", () => {
+Deno.test("applyDelta: adds missing records to local set", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const a_list = buildDigestList({
@@ -133,7 +133,7 @@ Deno.test("applyDelta: adds missing records to local set", () => {
     assertEquals(result.merged.map(r => r.digest).sort((x, y) => x - y), [0x10, 0x20, 0x30]);
 });
 
-Deno.test("applyDelta: empty delta is a no-op", () => {
+Deno.test("applyDelta: empty delta is a no-op", async () => {
     const a = archiveWith([0x10, 0x20]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -148,7 +148,7 @@ Deno.test("applyDelta: empty delta is a no-op", () => {
     assertEquals(result.merged.length, 2);
 });
 
-Deno.test("applyDelta: rejects bad schema", () => {
+Deno.test("applyDelta: rejects bad schema", async () => {
     const a = archiveWith([0x10]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -162,7 +162,7 @@ Deno.test("applyDelta: rejects bad schema", () => {
     assertEquals(result.outcome.ok, false);
 });
 
-Deno.test("applyDelta: rejects delta_hash drift (tampering)", () => {
+Deno.test("applyDelta: rejects delta_hash drift (tampering)", async () => {
     const a = archiveWith([0x10]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -177,7 +177,7 @@ Deno.test("applyDelta: rejects delta_hash drift (tampering)", () => {
     if (!result.outcome.ok) assert(result.outcome.reason.includes("drift"));
 });
 
-Deno.test("applyDelta: idempotent on duplicate digests", () => {
+Deno.test("applyDelta: idempotent on duplicate digests", async () => {
     const a = archiveWith([0x10, 0x20]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -194,7 +194,7 @@ Deno.test("applyDelta: idempotent on duplicate digests", () => {
     assertEquals(result.merged.length, 2);
 });
 
-Deno.test("applyDelta: rejects collision (same digest, different content)", () => {
+Deno.test("applyDelta: rejects collision (same digest, different content)", async () => {
     const a = archiveWith([0x10]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -214,7 +214,7 @@ Deno.test("applyDelta: rejects collision (same digest, different content)", () =
     if (!result.outcome.ok) assert(result.outcome.reason.includes("collision"));
 });
 
-Deno.test("applyDelta: rejects record with bad archive schema", () => {
+Deno.test("applyDelta: rejects record with bad archive schema", async () => {
     const a = archiveWith([0x10]);
     const a_list = buildDigestList({
         schema: ARCHIVE_SCHEMA_VERSION,
@@ -229,7 +229,7 @@ Deno.test("applyDelta: rejects record with bad archive schema", () => {
     assertEquals(result.outcome.ok, false);
 });
 
-Deno.test("syncRound: bidirectional convergence", () => {
+Deno.test("syncRound: bidirectional convergence", async () => {
     const a = archiveWith([0x10, 0x20]);
     const b = archiveWith([0x20, 0x30]);
     const result = syncRound(a, b, NOW);
@@ -242,14 +242,14 @@ Deno.test("syncRound: bidirectional convergence", () => {
     assertEquals(result.b_added_from_a, 1);
 });
 
-Deno.test("syncRound: identical inputs → no additions", () => {
+Deno.test("syncRound: identical inputs → no additions", async () => {
     const records = archiveWith([0x10, 0x20]);
     const result = syncRound(records, records, NOW);
     assertEquals(result.a_added_from_b, 0);
     assertEquals(result.b_added_from_a, 0);
 });
 
-Deno.test("syncRound: disjoint inputs → both sides fully merge", () => {
+Deno.test("syncRound: disjoint inputs → both sides fully merge", async () => {
     const a = archiveWith([0x10, 0x20]);
     const b = archiveWith([0x30, 0x40]);
     const result = syncRound(a, b, NOW);
@@ -258,7 +258,7 @@ Deno.test("syncRound: disjoint inputs → both sides fully merge", () => {
     assertEquals(result.converged_records.length, 4);
 });
 
-Deno.test("syncRound: converged_digest_set_hash matches archive_hash math", () => {
+Deno.test("syncRound: converged_digest_set_hash matches archive_hash math", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const result = syncRound(a, b, NOW);
@@ -266,6 +266,6 @@ Deno.test("syncRound: converged_digest_set_hash matches archive_hash math", () =
     assertEquals(result.converged_digest_set_hash, expected);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(SYNC_SCHEMA_VERSION, "OMEGA-1310/v1");
 });

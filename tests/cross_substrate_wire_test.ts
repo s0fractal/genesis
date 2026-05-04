@@ -30,7 +30,7 @@ const LOCKED_ENVELOPE_BYTES = new Uint8Array([
 
 const LOCKED_ENVELOPE_HASH = 0x9299_32B5 >>> 0;
 
-Deno.test("cross-substrate: JS emit produces the locked byte sequence", () => {
+Deno.test("cross-substrate: JS emit produces the locked byte sequence", async () => {
     const a = new ForensicEventSink();
     const b = new ForensicEventSink();
     b.append("alrm", 0x10, null, 100);
@@ -47,7 +47,7 @@ Deno.test("cross-substrate: JS emit produces the locked byte sequence", () => {
     assertEquals(bytes, LOCKED_ENVELOPE_BYTES);
 });
 
-Deno.test("cross-substrate: locked bytes reassemble through JS path", () => {
+Deno.test("cross-substrate: locked bytes reassemble through JS path", async () => {
     const frames = [];
     for (let i = 0; i < LOCKED_ENVELOPE_BYTES.length; i += 32) {
         const f = frameFromBytes(LOCKED_ENVELOPE_BYTES.subarray(i, i + 32));
@@ -60,7 +60,7 @@ Deno.test("cross-substrate: locked bytes reassemble through JS path", () => {
     assertEquals(result.delta!.missing_entries.length, 3);
 });
 
-Deno.test("cross-substrate: applied locked envelope yields locked anchor", () => {
+Deno.test("cross-substrate: applied locked envelope yields locked anchor", async () => {
     const frames = [];
     for (let i = 0; i < LOCKED_ENVELOPE_BYTES.length; i += 32) {
         frames.push(frameFromBytes(LOCKED_ENVELOPE_BYTES.subarray(i, i + 32))!);
@@ -74,7 +74,7 @@ Deno.test("cross-substrate: applied locked envelope yields locked anchor", () =>
     assertEquals(sink.size(), 3);
 });
 
-Deno.test("cross-substrate: tampered byte breaks parse on JS side too", () => {
+Deno.test("cross-substrate: tampered byte breaks parse on JS side too", async () => {
     const tampered = new Uint8Array(LOCKED_ENVELOPE_BYTES);
     tampered[40] ^= 0x55; // matches Rust test
     // The frame containing this byte fails CRC; frameFromBytes returns null.
@@ -82,7 +82,7 @@ Deno.test("cross-substrate: tampered byte breaks parse on JS side too", () => {
     assertEquals(f, null);
 });
 
-Deno.test("cross-substrate: locked envelope size + hash constants match Rust", () => {
+Deno.test("cross-substrate: locked envelope size + hash constants match Rust", async () => {
     assertEquals(LOCKED_ENVELOPE_BYTES.length, 128); // 4 frames × 32 bytes
     assertEquals(LOCKED_ENVELOPE_HASH, 0x9299_32B5);
 });

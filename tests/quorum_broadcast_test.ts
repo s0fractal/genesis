@@ -32,13 +32,13 @@ function quorumResult(digest: number, verdict: QuorumResult["verdict"] = "corrob
     };
 }
 
-Deno.test("verdictToCode/codeToVerdict round-trip all 4 values", () => {
+Deno.test("verdictToCode/codeToVerdict round-trip all 4 values", async () => {
     for (const v of ["corroborated", "uncorroborated", "insufficient-relays", "empty-window"] as const) {
         assertEquals(codeToVerdict(verdictToCode(v)), v);
     }
 });
 
-Deno.test("codeToVerdict masks to low 2 bits (only 4 verdicts)", () => {
+Deno.test("codeToVerdict masks to low 2 bits (only 4 verdicts)", async () => {
     // 99 & 0x03 = 3 → "empty-window"
     assertEquals(codeToVerdict(99), "empty-window");
     // 0xFF & 0x03 = 3 → "empty-window"
@@ -47,7 +47,7 @@ Deno.test("codeToVerdict masks to low 2 bits (only 4 verdicts)", () => {
     assertEquals(codeToVerdict(4), "corroborated");
 });
 
-Deno.test("frame round-trips bit-for-bit through CRC", () => {
+Deno.test("frame round-trips bit-for-bit through CRC", async () => {
     const f = buildQuorumVerdict(0xDEAD_BEEF, 0xCC01, 0, 4, 75, 32768, 100, NOW & 0xFFFF_FFFF);
     const bytes = frameToBytes(f);
     const parsed = frameFromBytes(bytes);
@@ -64,7 +64,7 @@ Deno.test("frame round-trips bit-for-bit through CRC", () => {
     assertEquals(decoded!.diff_q16, 100);
 });
 
-Deno.test("frameFromQuorum builds a valid frame from a QuorumResult", () => {
+Deno.test("frameFromQuorum builds a valid frame from a QuorumResult", async () => {
     const res = quorumResult(0x1234);
     const frame = frameFromQuorum(res, 0xCC01, NOW);
     frame.crc32 = computeFrameCrc(frame);
@@ -75,12 +75,12 @@ Deno.test("frameFromQuorum builds a valid frame from a QuorumResult", () => {
     assertEquals(decoded!.relay_count, 3);
 });
 
-Deno.test("decodeQuorumFrame rejects non-quorum frame types", () => {
+Deno.test("decodeQuorumFrame rejects non-quorum frame types", async () => {
     const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
     assertEquals(decodeQuorumFrame(hb), null);
 });
 
-Deno.test("u8/u16 clamping prevents overflow", () => {
+Deno.test("u8/u16 clamping prevents overflow", async () => {
     const f = buildQuorumVerdict(0xAA, 0xBB, 999, 999, 999, 0xFFFFFFFF, 0xFFFFFFFF, 0);
     const decoded = decodeQuorumFrame(f)!;
     assertEquals(decoded.relay_count, 255);
@@ -89,7 +89,7 @@ Deno.test("u8/u16 clamping prevents overflow", () => {
     assertEquals(decoded.diff_q16, 0xFFFF);
 });
 
-Deno.test("tracker: first observation is lone confidence", () => {
+Deno.test("tracker: first observation is lone confidence", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     const rec = t.observe(f, 0xCC01, NOW);
@@ -97,7 +97,7 @@ Deno.test("tracker: first observation is lone confidence", () => {
     assertEquals(rec.adjudicators.length, 1);
 });
 
-Deno.test("tracker: two distinct broadcasters → double confidence", () => {
+Deno.test("tracker: two distinct broadcasters → double confidence", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     t.observe(f, 0xCC01, NOW);
@@ -106,7 +106,7 @@ Deno.test("tracker: two distinct broadcasters → double confidence", () => {
     assertEquals(rec.adjudicators.length, 2);
 });
 
-Deno.test("tracker: three distinct broadcasters → triple+ (high confidence)", () => {
+Deno.test("tracker: three distinct broadcasters → triple+ (high confidence)", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     t.observe(f, 0xCC01, NOW);
@@ -116,7 +116,7 @@ Deno.test("tracker: three distinct broadcasters → triple+ (high confidence)", 
     assertEquals(rec.adjudicators.length, 3);
 });
 
-Deno.test("tracker: same broadcaster twice doesn't double-count", () => {
+Deno.test("tracker: same broadcaster twice doesn't double-count", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     t.observe(f, 0xCC01, NOW);
@@ -125,7 +125,7 @@ Deno.test("tracker: same broadcaster twice doesn't double-count", () => {
     assertEquals(rec.confidence, "lone");
 });
 
-Deno.test("tracker: distinct digests tracked separately", () => {
+Deno.test("tracker: distinct digests tracked separately", async () => {
     const t = new QuorumAgreementTracker();
     const f1 = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     const f2 = buildQuorumVerdict(0xBB, 0xCC01, 1, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
@@ -134,7 +134,7 @@ Deno.test("tracker: distinct digests tracked separately", () => {
     assertEquals(t.size(), 2);
 });
 
-Deno.test("tracker: list orders by adjudicators desc, first_seen asc", () => {
+Deno.test("tracker: list orders by adjudicators desc, first_seen asc", async () => {
     const t = new QuorumAgreementTracker();
     // Digest 1: 1 adjudicator
     const f1 = buildQuorumVerdict(0x01, 0xCC01, 0, 3, 50, 0, 0, 0);
@@ -154,7 +154,7 @@ Deno.test("tracker: list orders by adjudicators desc, first_seen asc", () => {
     assertEquals(list[2].digest, 0x01); // lone
 });
 
-Deno.test("tracker: highConfidenceVerdicts filters correctly", () => {
+Deno.test("tracker: highConfidenceVerdicts filters correctly", async () => {
     const t = new QuorumAgreementTracker();
     const f1 = buildQuorumVerdict(0x01, 0xCC01, 0, 3, 50, 0, 0, 0);
     for (const id of [0xCC01, 0xCC02, 0xCC03]) t.observe(f1, id, NOW);
@@ -166,13 +166,13 @@ Deno.test("tracker: highConfidenceVerdicts filters correctly", () => {
     assertEquals(high[0].digest, 0x01);
 });
 
-Deno.test("tracker: rejects non-quorum frame types", () => {
+Deno.test("tracker: rejects non-quorum frame types", async () => {
     const t = new QuorumAgreementTracker();
     const hb = buildHeartbeat(GENESIS_HASH_V1_0, 1);
     assertThrows(() => t.observe(hb, 0xCC01, NOW));
 });
 
-Deno.test("tracker: capacity bound evicts oldest digest", () => {
+Deno.test("tracker: capacity bound evicts oldest digest", async () => {
     const t = new QuorumAgreementTracker({ capacity: 2 });
     for (const d of [0x01, 0x02, 0x03]) {
         const f = buildQuorumVerdict(d, 0xCC01, 0, 3, 50, 0, 0, 0);
@@ -184,7 +184,7 @@ Deno.test("tracker: capacity bound evicts oldest digest", () => {
     assert(t.get(0x03) !== undefined);
 });
 
-Deno.test("tracker: adjudicators is sorted ascending", () => {
+Deno.test("tracker: adjudicators is sorted ascending", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 0, 0, 0);
     for (const id of [0x300, 0x100, 0x200]) t.observe(f, id, NOW);
@@ -192,7 +192,7 @@ Deno.test("tracker: adjudicators is sorted ascending", () => {
     assertEquals(rec.adjudicators, [0x100, 0x200, 0x300]);
 });
 
-Deno.test("tracker: configurable high_confidence_threshold", () => {
+Deno.test("tracker: configurable high_confidence_threshold", async () => {
     const t = new QuorumAgreementTracker({ high_confidence_threshold: 5 });
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 0, 0, 0);
     for (let i = 0; i < 4; i++) t.observe(f, 0xCC00 + i, NOW);
@@ -201,12 +201,12 @@ Deno.test("tracker: configurable high_confidence_threshold", () => {
     assertEquals(t.get(0xAA)!.confidence, "triple+"); // 5 hits threshold
 });
 
-Deno.test("tracker: invalid options throw", () => {
+Deno.test("tracker: invalid options throw", async () => {
     assertThrows(() => new QuorumAgreementTracker({ capacity: 0 }));
     assertThrows(() => new QuorumAgreementTracker({ high_confidence_threshold: 1 }));
 });
 
-Deno.test("tracker: clear empties everything", () => {
+Deno.test("tracker: clear empties everything", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 0, 0, 0);
     t.observe(f, 0xCC01, NOW);
@@ -214,7 +214,7 @@ Deno.test("tracker: clear empties everything", () => {
     assertEquals(t.size(), 0);
 });
 
-Deno.test("tracker: timestamps tracked across observations", () => {
+Deno.test("tracker: timestamps tracked across observations", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0xAA, 0xCC01, 0, 3, 50, 0, 0, 0);
     t.observe(f, 0xCC01, 1000);
@@ -224,7 +224,7 @@ Deno.test("tracker: timestamps tracked across observations", () => {
     assertEquals(rec.last_seen_at_ms, 5000);
 });
 
-Deno.test("frameFromQuorum: overlap_ratio rounded to integer percent", () => {
+Deno.test("frameFromQuorum: overlap_ratio rounded to integer percent", async () => {
     const res = quorumResult(0xAA);
     res.overlap_ratio = 0.667; // ≈66.7% → 67 rounded
     const frame = frameFromQuorum(res, 0xCC01, NOW);
@@ -232,6 +232,6 @@ Deno.test("frameFromQuorum: overlap_ratio rounded to integer percent", () => {
     assertEquals(decoded.overlap_pct, 67);
 });
 
-Deno.test("FRAME_TYPE_QUORUM_VERDICT constant matches Rust", () => {
+Deno.test("FRAME_TYPE_QUORUM_VERDICT constant matches Rust", async () => {
     assertEquals(FRAME_TYPE_QUORUM_VERDICT, 7);
 });

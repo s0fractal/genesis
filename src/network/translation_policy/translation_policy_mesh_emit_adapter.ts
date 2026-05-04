@@ -177,7 +177,7 @@ export function translationPolicyWarrantPlasmid(
 ): PlasmidPayload {
     return {
         ...baseTranslationPolicyPlasmid("PROPOSAL", mergeOptions(opts)),
-        proposalHash: proposal.proposalHash >>> 0,
+        proposalHash: proposal.proposalHash,
         proposalDescription: proposal.proposalDescription.slice(0, 64),
         parentHash: proposal.target_peer_id >>> 0,
     };

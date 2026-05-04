@@ -58,7 +58,7 @@ function append(
     );
 }
 
-Deno.test("forensic replay: empty input has stable null summary", () => {
+Deno.test("forensic replay: empty input has stable null summary", async () => {
     const classified = classifyTranslationPolicyForensicEvents([]);
     assertEquals(classified.schema, TRANSLATION_POLICY_FORENSIC_REPLAY_SCHEMA);
     assertEquals(classified.total_events, 0);
@@ -70,7 +70,7 @@ Deno.test("forensic replay: empty input has stable null summary", () => {
     assertEquals(classified.error_windows, []);
 });
 
-Deno.test("forensic replay: ignores non-tpol and counts malformed payloads", () => {
+Deno.test("forensic replay: ignores non-tpol and counts malformed payloads", async () => {
     const sink = new ForensicEventSink();
     sink.append("alrm", 0x01, payload(), T0);
     sink.append("tpol", 0x02, { schema: "wrong" }, T0 + 1);
@@ -82,7 +82,7 @@ Deno.test("forensic replay: ignores non-tpol and counts malformed payloads", () 
     assertEquals(classified.classified_events, 1);
 });
 
-Deno.test("forensic replay: builds deterministic band timeline", () => {
+Deno.test("forensic replay: builds deterministic band timeline", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0 + 20, "drift");
     append(sink, T0 + 0, "nominal");
@@ -101,7 +101,7 @@ Deno.test("forensic replay: builds deterministic band timeline", () => {
     assertEquals(classified.final_band, "blocked");
 });
 
-Deno.test("forensic replay: builds policy hash intervals", () => {
+Deno.test("forensic replay: builds policy hash intervals", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, "nominal", { local_policy_hash: 0xAAAA, local_pair_count: 1 });
     append(sink, T0 + 1, "nominal", { local_policy_hash: 0xAAAA, local_pair_count: 1 });
@@ -119,7 +119,7 @@ Deno.test("forensic replay: builds policy hash intervals", () => {
     assertEquals(classified.final_policy_hash, 0xBBBB);
 });
 
-Deno.test("forensic replay: reconstructs closed and open error windows", () => {
+Deno.test("forensic replay: reconstructs closed and open error windows", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, "nominal");
     append(sink, T0 + 10, "tick-error", { tick_error: "boom" });
@@ -138,7 +138,7 @@ Deno.test("forensic replay: reconstructs closed and open error windows", () => {
     ]);
 });
 
-Deno.test("forensic replay: separates error windows when message changes", () => {
+Deno.test("forensic replay: separates error windows when message changes", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, "tick-error", { tick_error: "a" });
     append(sink, T0 + 1, "tick-error", { tick_error: "b" });
@@ -153,7 +153,7 @@ Deno.test("forensic replay: separates error windows when message changes", () =>
     ]);
 });
 
-Deno.test("forensic replay: multiple simultaneous error kinds are tracked", () => {
+Deno.test("forensic replay: multiple simultaneous error kinds are tracked", async () => {
     const sink = new ForensicEventSink();
     append(sink, T0, "install-error", {
         install_error: "bad config",
@@ -166,7 +166,7 @@ Deno.test("forensic replay: multiple simultaneous error kinds are tracked", () =
     ]);
 });
 
-Deno.test("forensic replay: custom kind option classifies alternate stream", () => {
+Deno.test("forensic replay: custom kind option classifies alternate stream", async () => {
     const sink = new ForensicEventSink();
     sink.append("tpol", 0x01, payload({ band: "nominal" }), T0);
     sink.append("tpfx", 0x02, payload({ band: "drift" }), T0 + 1);
@@ -176,7 +176,7 @@ Deno.test("forensic replay: custom kind option classifies alternate stream", () 
     assertEquals(classified.final_band, "drift");
 });
 
-Deno.test("forensic replay: payload parser rejects malformed shapes", () => {
+Deno.test("forensic replay: payload parser rejects malformed shapes", async () => {
     assertEquals(parseTranslationPolicyForensicPayload(payload()), payload());
     assertEquals(parseTranslationPolicyForensicPayload({ ...payload(), band: "weird" }), null);
     assertEquals(
@@ -185,6 +185,6 @@ Deno.test("forensic replay: payload parser rejects malformed shapes", () => {
     );
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_FORENSIC_REPLAY_SCHEMA, "OMEGA-1840/v1");
 });

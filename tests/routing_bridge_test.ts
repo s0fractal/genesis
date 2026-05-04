@@ -1,7 +1,7 @@
 import { assertEquals } from "jsr:@std/assert";
 import { PhaseRouter } from "../src/network/routing_bridge.ts";
 
-Deno.test("PhaseRouter encode/decode roundtrip", () => {
+Deno.test("PhaseRouter encode/decode roundtrip", async () => {
     const addr = PhaseRouter.encode(0xAB, 0xCD, 0xEF, 0x12);
     const decoded = PhaseRouter.decode(addr);
     assertEquals(decoded.consensus, 0xAB);
@@ -10,7 +10,7 @@ Deno.test("PhaseRouter encode/decode roundtrip", () => {
     assertEquals(decoded.micro, 0x12);
 });
 
-Deno.test("PhaseRouter greedyNextHop prefers closer neighbour", () => {
+Deno.test("PhaseRouter greedyNextHop prefers closer neighbour", async () => {
     // Self at (0,0,0,0), target at (100,0,0,0)
     const self = PhaseRouter.encode(0, 0, 0, 0);
     const target = PhaseRouter.encode(100, 0, 0, 0);
@@ -23,7 +23,7 @@ Deno.test("PhaseRouter greedyNextHop prefers closer neighbour", () => {
     assertEquals(best, n1);
 });
 
-Deno.test("PhaseRouter greedyNextHop returns self when no neighbour is closer", () => {
+Deno.test("PhaseRouter greedyNextHop returns self when no neighbour is closer", async () => {
     const self = PhaseRouter.encode(50, 0, 0, 0);
     const target = PhaseRouter.encode(50, 0, 0, 0); // target == self
     const n0 = PhaseRouter.encode(0, 0, 0, 0);
@@ -34,7 +34,7 @@ Deno.test("PhaseRouter greedyNextHop returns self when no neighbour is closer", 
     assertEquals(best, self);
 });
 
-Deno.test("PhaseRouter greedyNextHop empty neighbours returns self", () => {
+Deno.test("PhaseRouter greedyNextHop empty neighbours returns self", async () => {
     const self = PhaseRouter.encode(0, 0, 0, 0);
     const target = PhaseRouter.encode(100, 0, 0, 0);
 
@@ -43,7 +43,7 @@ Deno.test("PhaseRouter greedyNextHop empty neighbours returns self", () => {
     assertEquals(best, self);
 });
 
-Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", () => {
+Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", async () => {
     const router = new PhaseRouter(null);
     const a = PhaseRouter.encode(10, 0, 0, 0);
     const b = PhaseRouter.encode(20, 0, 0, 0);
@@ -52,7 +52,7 @@ Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", ()
     assertEquals(dist, 80);
 });
 
-Deno.test("PhaseRouter toroidal distance wraps consensus at 256", () => {
+Deno.test("PhaseRouter toroidal distance wraps consensus at 256", async () => {
     const a = PhaseRouter.encode(0, 0, 0, 0);
     const b = PhaseRouter.encode(224, 0, 0, 0);
     const linear = PhaseRouter.hyperbolicDistanceStatic(a, b);
@@ -61,7 +61,7 @@ Deno.test("PhaseRouter toroidal distance wraps consensus at 256", () => {
     assertEquals(toroidal, 32 * 8);
 });
 
-Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", () => {
+Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", async () => {
     const a = PhaseRouter.encode(0, 0, 0, 0);
     const b = PhaseRouter.encode(10, 0, 0, 0);
     assertEquals(
@@ -70,7 +70,7 @@ Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", ()
     );
 });
 
-Deno.test("PhaseRouter validateDipole without WASM uses JS fallback", () => {
+Deno.test("PhaseRouter validateDipole without WASM uses JS fallback", async () => {
     const router = new PhaseRouter(null);
     assertEquals(router.validateDipole(0xDEADBEEF, ~0xDEADBEEF), true);
     assertEquals(router.validateDipole(0xDEADBEEF, 0xCAFEBABE), false);

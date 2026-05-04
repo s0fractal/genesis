@@ -37,34 +37,34 @@ const upgradeTranslator: SchemaTranslator = (event, source, target) => {
 
 // --- Registration ---
 
-Deno.test("register: basic pair", () => {
+Deno.test("register: basic pair", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
     assertEquals(r.size(), 1);
 });
 
-Deno.test("register: malformed source throws", () => {
+Deno.test("register: malformed source throws", async () => {
     const r = new SchemaTranslatorRegistry();
     assertThrows(() => r.register("garbage", "alarms:v2.0", passthroughTranslator));
 });
 
-Deno.test("register: malformed target throws", () => {
+Deno.test("register: malformed target throws", async () => {
     const r = new SchemaTranslatorRegistry();
     assertThrows(() => r.register("alarms:v1.0", "garbage", passthroughTranslator));
 });
 
-Deno.test("register: identical compatible pair throws", () => {
+Deno.test("register: identical compatible pair throws", async () => {
     const r = new SchemaTranslatorRegistry();
     assertThrows(() => r.register("alarms:v1.0", "alarms:v1.5", passthroughTranslator));
 });
 
-Deno.test("register: duplicate pair throws", () => {
+Deno.test("register: duplicate pair throws", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
     assertThrows(() => r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator));
 });
 
-Deno.test("unregister: removes specific pair", () => {
+Deno.test("unregister: removes specific pair", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
     r.register("alarms:v1.0", "alarms:v3.0", passthroughTranslator);
@@ -76,26 +76,26 @@ Deno.test("unregister: removes specific pair", () => {
 
 // --- Lookup ---
 
-Deno.test("lookup: returns registered translator", () => {
+Deno.test("lookup: returns registered translator", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", upgradeTranslator);
     const fn = r.lookup(ALARMS_V1, ALARMS_V2);
     assert(fn !== null);
 });
 
-Deno.test("lookup: returns null when missing", () => {
+Deno.test("lookup: returns null when missing", async () => {
     const r = new SchemaTranslatorRegistry();
     assertEquals(r.lookup(ALARMS_V1, ALARMS_V2), null);
 });
 
-Deno.test("lookup: minor versions of same major share key", () => {
+Deno.test("lookup: minor versions of same major share key", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", upgradeTranslator);
     // Looking up ALARMS_V1_5 → ALARMS_V2 should find the same translator.
     assert(r.lookup(ALARMS_V1_5, ALARMS_V2) !== null);
 });
 
-Deno.test("canTranslate: predicate", () => {
+Deno.test("canTranslate: predicate", async () => {
     const r = new SchemaTranslatorRegistry();
     assertEquals(r.canTranslate(ALARMS_V1, ALARMS_V2), false);
     r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
@@ -104,14 +104,14 @@ Deno.test("canTranslate: predicate", () => {
 
 // --- Translate ---
 
-Deno.test("translate: identity for compatible pair", () => {
+Deno.test("translate: identity for compatible pair", async () => {
     const r = new SchemaTranslatorRegistry();
     const e = mkEvent("alrm", 0x42);
     const out = r.translate(e, ALARMS_V1, ALARMS_V1_5);
     assertEquals(out, e);
 });
 
-Deno.test("translate: applies registered translator", () => {
+Deno.test("translate: applies registered translator", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", upgradeTranslator);
     const e = mkEvent("alrm", 0x42, { foo: "bar" });
@@ -123,13 +123,13 @@ Deno.test("translate: applies registered translator", () => {
     assertEquals(payload.original, { foo: "bar" });
 });
 
-Deno.test("translate: returns null when no translator registered", () => {
+Deno.test("translate: returns null when no translator registered", async () => {
     const r = new SchemaTranslatorRegistry();
     const e = mkEvent("alrm", 0x42);
     assertEquals(r.translate(e, ALARMS_V1, ALARMS_V2), null);
 });
 
-Deno.test("translate: forwards translator's null (drop) signal", () => {
+Deno.test("translate: forwards translator's null (drop) signal", async () => {
     const r = new SchemaTranslatorRegistry();
     const dropAll: SchemaTranslator = () => null;
     r.register("alarms:v1.0", "alarms:v2.0", dropAll);
@@ -139,7 +139,7 @@ Deno.test("translate: forwards translator's null (drop) signal", () => {
 
 // --- Listing ---
 
-Deno.test("listPairs: sorted by source then target", () => {
+Deno.test("listPairs: sorted by source then target", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v3.0", passthroughTranslator);
     r.register("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
@@ -154,7 +154,7 @@ Deno.test("listPairs: sorted by source then target", () => {
 
 // --- translateBatch ---
 
-Deno.test("translateBatch: identity on compatible pair", () => {
+Deno.test("translateBatch: identity on compatible pair", async () => {
     const r = new SchemaTranslatorRegistry();
     const events = [mkEvent("a", 0x10), mkEvent("a", 0x20)];
     const out = translateBatch(events, ALARMS_V1, ALARMS_V1_5, r);
@@ -163,7 +163,7 @@ Deno.test("translateBatch: identity on compatible pair", () => {
     assertEquals(out!.dropped, 0);
 });
 
-Deno.test("translateBatch: applies registered translator", () => {
+Deno.test("translateBatch: applies registered translator", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "alarms:v2.0", upgradeTranslator);
     const events = [mkEvent("a", 0x10), mkEvent("a", 0x20)];
@@ -173,19 +173,19 @@ Deno.test("translateBatch: applies registered translator", () => {
     assertEquals(out!.dropped, 0);
 });
 
-Deno.test("translateBatch: returns null when no translator", () => {
+Deno.test("translateBatch: returns null when no translator", async () => {
     const r = new SchemaTranslatorRegistry();
     const events = [mkEvent("a", 0x10)];
     assertEquals(translateBatch(events, ALARMS_V1, ALARMS_V2, r), null);
 });
 
-Deno.test("translateBatch: cross-domain (different name) refused without translator", () => {
+Deno.test("translateBatch: cross-domain (different name) refused without translator", async () => {
     const r = new SchemaTranslatorRegistry();
     const events = [mkEvent("a", 0x10)];
     assertEquals(translateBatch(events, ALARMS_V1, METRICS_V1, r), null);
 });
 
-Deno.test("translateBatch: cross-domain WITH translator allowed", () => {
+Deno.test("translateBatch: cross-domain WITH translator allowed", async () => {
     const r = new SchemaTranslatorRegistry();
     r.register("alarms:v1.0", "metrics:v1.0", upgradeTranslator);
     const events = [mkEvent("a", 0x10), mkEvent("a", 0x20)];
@@ -194,7 +194,7 @@ Deno.test("translateBatch: cross-domain WITH translator allowed", () => {
     assertEquals(out!.translated.length, 2);
 });
 
-Deno.test("translateBatch: counts dropped events", () => {
+Deno.test("translateBatch: counts dropped events", async () => {
     const r = new SchemaTranslatorRegistry();
     let counter = 0;
     const halfDrop: SchemaTranslator = (event) => {
@@ -209,6 +209,6 @@ Deno.test("translateBatch: counts dropped events", () => {
     assertEquals(out!.dropped, 2);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATOR_SCHEMA, "OMEGA-1620/v1");
 });

@@ -17,7 +17,7 @@ import { ConvergenceDetector } from "../src/network/convergence_detector.ts";
 
 const NOW = 100_000;
 
-Deno.test("recorder: records frames in order", () => {
+Deno.test("recorder: records frames in order", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "spore-A");
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW + 100, "spore-B");
@@ -26,7 +26,7 @@ Deno.test("recorder: records frames in order", () => {
     assertEquals(r.snapshot()[1].delivered_by, "spore-B");
 });
 
-Deno.test("recorder: capacity bound evicts oldest (FIFO)", () => {
+Deno.test("recorder: capacity bound evicts oldest (FIFO)", async () => {
     const r = new FrameRecorder({ capacity: 2 });
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW + 10, "B");
@@ -36,7 +36,7 @@ Deno.test("recorder: capacity bound evicts oldest (FIFO)", () => {
     assertEquals(ids, ["B", "C"]);
 });
 
-Deno.test("recorder: total_recorded counts lifetime ingest", () => {
+Deno.test("recorder: total_recorded counts lifetime ingest", async () => {
     const r = new FrameRecorder({ capacity: 2 });
     for (let i = 0; i < 5; i++) {
         r.record(buildHeartbeat(GENESIS_HASH_V1_0, i), NOW + i, `S${i}`);
@@ -45,7 +45,7 @@ Deno.test("recorder: total_recorded counts lifetime ingest", () => {
     assertEquals(r.total_recorded, 5);
 });
 
-Deno.test("recorder: range filters by time window", () => {
+Deno.test("recorder: range filters by time window", async () => {
     const r = new FrameRecorder();
     for (let t = 0; t < 10; t++) {
         r.record(buildHeartbeat(GENESIS_HASH_V1_0, t), NOW + t * 100, `S${t}`);
@@ -54,7 +54,7 @@ Deno.test("recorder: range filters by time window", () => {
     assertEquals(window.length, 4); // t=2,3,4,5
 });
 
-Deno.test("recorder: byType filters by frame type", () => {
+Deno.test("recorder: byType filters by frame type", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.record(buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 1), NOW + 10, "A");
@@ -63,7 +63,7 @@ Deno.test("recorder: byType filters by frame type", () => {
     assertEquals(r.byType(FRAME_TYPE_WARRANT_VOTE).length, 1);
 });
 
-Deno.test("recorder: byDeliverer filters by source", () => {
+Deno.test("recorder: byDeliverer filters by source", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW + 10, "B");
@@ -72,7 +72,7 @@ Deno.test("recorder: byDeliverer filters by source", () => {
     assertEquals(r.byDeliverer("B").length, 1);
 });
 
-Deno.test("recorder: filter applies arbitrary predicate", () => {
+Deno.test("recorder: filter applies arbitrary predicate", async () => {
     const r = new FrameRecorder();
     for (let t = 1; t <= 5; t++) {
         r.record(buildHeartbeat(GENESIS_HASH_V1_0, t), NOW + t, "A");
@@ -81,7 +81,7 @@ Deno.test("recorder: filter applies arbitrary predicate", () => {
     assertEquals(evens.length, 2);
 });
 
-Deno.test("recorder: serialize / deserialize round-trip", () => {
+Deno.test("recorder: serialize / deserialize round-trip", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.record(buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 5), NOW + 10, "B");
@@ -94,7 +94,7 @@ Deno.test("recorder: serialize / deserialize round-trip", () => {
     assertEquals(restored.snapshot()[1].delivered_by, "(replay)");
 });
 
-Deno.test("recorder: deserialize skips corrupted frames", () => {
+Deno.test("recorder: deserialize skips corrupted frames", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     const blob = r.serialize();
@@ -104,7 +104,7 @@ Deno.test("recorder: deserialize skips corrupted frames", () => {
     assertEquals(restored.size(), 0);
 });
 
-Deno.test("recorder: deserialize handles partial trailing bytes", () => {
+Deno.test("recorder: deserialize handles partial trailing bytes", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     const blob = r.serialize();
@@ -115,7 +115,7 @@ Deno.test("recorder: deserialize handles partial trailing bytes", () => {
     assertEquals(restored.size(), 1);
 });
 
-Deno.test("recorder: clear empties everything", () => {
+Deno.test("recorder: clear empties everything", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.clear();
@@ -123,12 +123,12 @@ Deno.test("recorder: clear empties everything", () => {
     assertEquals(r.total_recorded, 0);
 });
 
-Deno.test("recorder: invalid capacity throws", () => {
+Deno.test("recorder: invalid capacity throws", async () => {
     assertThrows(() => new FrameRecorder({ capacity: 0 }));
     assertThrows(() => new FrameRecorder({ capacity: -1 }));
 });
 
-Deno.test("recorder: snapshot is detached from internal buffer", () => {
+Deno.test("recorder: snapshot is detached from internal buffer", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     const snap = r.snapshot();
@@ -136,7 +136,7 @@ Deno.test("recorder: snapshot is detached from internal buffer", () => {
     assertEquals(r.size(), 1); // internal buffer unaffected
 });
 
-Deno.test("replay: replayThrough applies observe function in order", () => {
+Deno.test("replay: replayThrough applies observe function in order", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), NOW, "A");
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 2), NOW + 10, "B");
@@ -146,7 +146,7 @@ Deno.test("replay: replayThrough applies observe function in order", () => {
     assertEquals(ids, ["A", "B", "C"]);
 });
 
-Deno.test("replay: replayWindow rebuilds detector state from frames", () => {
+Deno.test("replay: replayWindow rebuilds detector state from frames", async () => {
     const r = new FrameRecorder();
     const wv1 = buildWarrantVote(0xAA00 >>> 0, 0, true, 1);
     const wv2 = buildWarrantVote(0xBB00 >>> 0, 0, true, 2);
@@ -168,7 +168,7 @@ Deno.test("replay: replayWindow rebuilds detector state from frames", () => {
     assertEquals(stats.single_witness, 1);
 });
 
-Deno.test("replay: window-bounded replay excludes outside frames", () => {
+Deno.test("replay: window-bounded replay excludes outside frames", async () => {
     const r = new FrameRecorder();
     for (let t = 0; t < 10; t++) {
         r.record(buildHeartbeat(GENESIS_HASH_V1_0, t), NOW + t * 100, "A");
@@ -178,7 +178,7 @@ Deno.test("replay: window-bounded replay excludes outside frames", () => {
     // Outside range: t=0,1,2 below + t=7,8,9 above = 6 excluded.
 });
 
-Deno.test("summarize: aggregates over a frame slice", () => {
+Deno.test("summarize: aggregates over a frame slice", async () => {
     const r = new FrameRecorder();
     r.record(buildHeartbeat(GENESIS_HASH_V1_0, 1), 1000, "A");
     r.record(buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 1), 1100, "B");
@@ -193,14 +193,14 @@ Deno.test("summarize: aggregates over a frame slice", () => {
     assertEquals(s.latest_at_ms, 1200);
 });
 
-Deno.test("summarize: empty input returns zero-shape", () => {
+Deno.test("summarize: empty input returns zero-shape", async () => {
     const s = summarize([]);
     assertEquals(s.total_frames, 0);
     assertEquals(s.earliest_at_ms, 0);
     assertEquals(s.latest_at_ms, 0);
 });
 
-Deno.test("recorder: forensic-replay determinism — replay produces same observer state", () => {
+Deno.test("recorder: forensic-replay determinism — replay produces same observer state", async () => {
     // Critical invariant: replay(frames) === observe-each-frame-once(frames).
     const r = new FrameRecorder();
     for (let i = 0; i < 5; i++) {

@@ -26,7 +26,7 @@ function trackerWithVerdicts(
     return t;
 }
 
-Deno.test("export: filters to triple+ by default", () => {
+Deno.test("export: filters to triple+ by default", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x01, broadcasters: [0xCC01] },                             // lone
         { digest: 0x02, broadcasters: [0xCC01, 0xCC02] },                     // double
@@ -38,7 +38,7 @@ Deno.test("export: filters to triple+ by default", () => {
     assertEquals(bundle.records.map(r => r.digest), [0x03, 0x04]);
 });
 
-Deno.test("export: only_high_confidence=false keeps everything", () => {
+Deno.test("export: only_high_confidence=false keeps everything", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x01, broadcasters: [0xCC01] },
         { digest: 0x02, broadcasters: [0xCC01, 0xCC02] },
@@ -48,7 +48,7 @@ Deno.test("export: only_high_confidence=false keeps everything", () => {
     assertEquals(bundle.record_count, 3);
 });
 
-Deno.test("export: deterministic hash across calls", () => {
+Deno.test("export: deterministic hash across calls", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x20, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -58,7 +58,7 @@ Deno.test("export: deterministic hash across calls", () => {
     assertEquals(b1.archive_hash, b2.archive_hash);
 });
 
-Deno.test("export: archive_hash_hex is well-formed", () => {
+Deno.test("export: archive_hash_hex is well-formed", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -66,7 +66,7 @@ Deno.test("export: archive_hash_hex is well-formed", () => {
     assert(/^0x[0-9a-f]{8}$/.test(bundle.archive_hash_hex));
 });
 
-Deno.test("export: empty tracker → empty bundle with hash 0x811C9DC5", () => {
+Deno.test("export: empty tracker → empty bundle with hash 0x811C9DC5", async () => {
     const t = new QuorumAgreementTracker();
     const bundle = exportArchive(t, { now_ms: NOW });
     assertEquals(bundle.record_count, 0);
@@ -74,7 +74,7 @@ Deno.test("export: empty tracker → empty bundle with hash 0x811C9DC5", () => {
     assertEquals(bundle.archive_hash_hex, "0x811c9dc5");
 });
 
-Deno.test("export: records sorted by digest ascending", () => {
+Deno.test("export: records sorted by digest ascending", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x30, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -84,7 +84,7 @@ Deno.test("export: records sorted by digest ascending", () => {
     assertEquals(bundle.records.map(r => r.digest), [0x10, 0x20, 0x30]);
 });
 
-Deno.test("export: min/max_digest_hex match sorted bounds", () => {
+Deno.test("export: min/max_digest_hex match sorted bounds", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x100, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x500, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -95,7 +95,7 @@ Deno.test("export: min/max_digest_hex match sorted bounds", () => {
     assertEquals(bundle.max_digest_hex, "0x00000500");
 });
 
-Deno.test("export: schema version is set", () => {
+Deno.test("export: schema version is set", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -104,7 +104,7 @@ Deno.test("export: schema version is set", () => {
     for (const r of bundle.records) assertEquals(r.schema, ARCHIVE_SCHEMA_VERSION);
 });
 
-Deno.test("export: high_confidence_at_archive flag is set correctly", () => {
+Deno.test("export: high_confidence_at_archive flag is set correctly", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] }, // triple+
     ]);
@@ -112,7 +112,7 @@ Deno.test("export: high_confidence_at_archive flag is set correctly", () => {
     assertEquals(bundle.records[0].high_confidence_at_archive, true);
 });
 
-Deno.test("export: adjudicators array is sorted ascending", () => {
+Deno.test("export: adjudicators array is sorted ascending", async () => {
     const t = new QuorumAgreementTracker();
     const f = buildQuorumVerdict(0x10, 0xCC01, 0, 3, 50, 32768, 100, NOW & 0xFFFFFFFF);
     for (const id of [0x300, 0x100, 0x200]) t.observe(f, id, NOW);
@@ -120,7 +120,7 @@ Deno.test("export: adjudicators array is sorted ascending", () => {
     assertEquals(bundle.records[0].adjudicators, [0x100, 0x200, 0x300]);
 });
 
-Deno.test("ndjson: round-trips bit-for-bit", () => {
+Deno.test("ndjson: round-trips bit-for-bit", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x20, broadcasters: [0xCC01, 0xCC02, 0xCC03, 0xCC04] },
@@ -133,7 +133,7 @@ Deno.test("ndjson: round-trips bit-for-bit", () => {
     assertEquals(result.bundle.archive_hash, bundle.archive_hash);
 });
 
-Deno.test("ndjson: drift detected via archive_hash mismatch", () => {
+Deno.test("ndjson: drift detected via archive_hash mismatch", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -150,12 +150,12 @@ Deno.test("ndjson: drift detected via archive_hash mismatch", () => {
     }
 });
 
-Deno.test("ndjson: empty blob is rejected", () => {
+Deno.test("ndjson: empty blob is rejected", async () => {
     const result = ndjsonToBundle("");
     assertEquals(result.ok, false);
 });
 
-Deno.test("ndjson: bad schema is rejected", () => {
+Deno.test("ndjson: bad schema is rejected", async () => {
     const bad = JSON.stringify({
         schema: "bad-schema",
         archive_hash_hex: "0x00000000",
@@ -166,7 +166,7 @@ Deno.test("ndjson: bad schema is rejected", () => {
     assertEquals(result.ok, false);
 });
 
-Deno.test("ndjson: record_count mismatch rejected", () => {
+Deno.test("ndjson: record_count mismatch rejected", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -180,12 +180,12 @@ Deno.test("ndjson: record_count mismatch rejected", () => {
     if (!result.ok) assert(result.reason.includes("record_count"));
 });
 
-Deno.test("ndjson: malformed JSON rejected", () => {
+Deno.test("ndjson: malformed JSON rejected", async () => {
     const result = ndjsonToBundle("not-json\n");
     assertEquals(result.ok, false);
 });
 
-Deno.test("computeArchiveHash: deterministic across calls", () => {
+Deno.test("computeArchiveHash: deterministic across calls", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x20, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -196,7 +196,7 @@ Deno.test("computeArchiveHash: deterministic across calls", () => {
     assertEquals(h1, h2);
 });
 
-Deno.test("computeArchiveHash: different digest sets → different hashes", () => {
+Deno.test("computeArchiveHash: different digest sets → different hashes", async () => {
     const t1 = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -208,7 +208,7 @@ Deno.test("computeArchiveHash: different digest sets → different hashes", () =
     assert(b1.archive_hash !== b2.archive_hash);
 });
 
-Deno.test("diff: identical archives have full overlap", () => {
+Deno.test("diff: identical archives have full overlap", async () => {
     const t = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x20, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -220,7 +220,7 @@ Deno.test("diff: identical archives have full overlap", () => {
     assertEquals(d.overlap_ratio, 1);
 });
 
-Deno.test("diff: disjoint archives have zero overlap", () => {
+Deno.test("diff: disjoint archives have zero overlap", async () => {
     const t1 = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
     ]);
@@ -234,7 +234,7 @@ Deno.test("diff: disjoint archives have zero overlap", () => {
     assertEquals(d.overlap_ratio, 0);
 });
 
-Deno.test("diff: partial overlap returns correct ratios", () => {
+Deno.test("diff: partial overlap returns correct ratios", async () => {
     const t1 = trackerWithVerdicts([
         { digest: 0x10, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x20, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
@@ -253,7 +253,7 @@ Deno.test("diff: partial overlap returns correct ratios", () => {
     assert(Math.abs(d.overlap_ratio - 1/3) < 1e-9);
 });
 
-Deno.test("diff: empty archives yield zero ratios", () => {
+Deno.test("diff: empty archives yield zero ratios", async () => {
     const t = new QuorumAgreementTracker();
     const a = exportArchive(t, { now_ms: NOW });
     const b = exportArchive(t, { now_ms: NOW });
@@ -261,7 +261,7 @@ Deno.test("diff: empty archives yield zero ratios", () => {
     assertEquals(d.overlap_ratio, 0);
 });
 
-Deno.test("diff: sorted output for determinism", () => {
+Deno.test("diff: sorted output for determinism", async () => {
     const t1 = trackerWithVerdicts([
         { digest: 0x300, broadcasters: [0xCC01, 0xCC02, 0xCC03] },
         { digest: 0x100, broadcasters: [0xCC01, 0xCC02, 0xCC03] },

@@ -49,7 +49,7 @@ function listFor(records: ArchivedVerdict[]) {
     }, T0);
 }
 
-Deno.test("rankPeersByNovelty: orders peers by novel digest count DESC", () => {
+Deno.test("rankPeersByNovelty: orders peers by novel digest count DESC", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10, 0x20])), T0);            // 0 novel
     agg.observe(0xAAA2, listFor(archiveWith([0x30, 0x40, 0x50])), T0);      // 3 novel
@@ -63,7 +63,7 @@ Deno.test("rankPeersByNovelty: orders peers by novel digest count DESC", () => {
     assertEquals(ranked[2].novel_count, 0);
 });
 
-Deno.test("rankPeersByNovelty: ties broken by peer_id ASC", () => {
+Deno.test("rankPeersByNovelty: ties broken by peer_id ASC", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA5, listFor(archiveWith([0x30])), T0);
     agg.observe(0xAAA1, listFor(archiveWith([0x40])), T0);
@@ -72,7 +72,7 @@ Deno.test("rankPeersByNovelty: ties broken by peer_id ASC", () => {
     assertEquals(ranked.map(r => r.peer_id), [0xAAA1, 0xAAA3, 0xAAA5]);
 });
 
-Deno.test("selectMostInformativePeer: returns top peer", () => {
+Deno.test("selectMostInformativePeer: returns top peer", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10])), T0);
     agg.observe(0xAAA2, listFor(archiveWith([0x10, 0x20, 0x30])), T0);
@@ -80,19 +80,19 @@ Deno.test("selectMostInformativePeer: returns top peer", () => {
     assertEquals(top, 0xAAA2);
 });
 
-Deno.test("selectMostInformativePeer: null when no peer adds anything", () => {
+Deno.test("selectMostInformativePeer: null when no peer adds anything", async () => {
     const agg = new NetworkDigestAggregator();
     agg.observe(0xAAA1, listFor(archiveWith([0x10, 0x20])), T0);
     const top = selectMostInformativePeer(agg, [0x10, 0x20, 0x30], T0);
     assertEquals(top, null);
 });
 
-Deno.test("selectMostInformativePeer: null when aggregator empty", () => {
+Deno.test("selectMostInformativePeer: null when aggregator empty", async () => {
     const agg = new NetworkDigestAggregator();
     assertEquals(selectMostInformativePeer(agg, [0x10], T0), null);
 });
 
-Deno.test("selectAlarmOverrideOrder: bypasses cooldown — returns informative peers", () => {
+Deno.test("selectAlarmOverrideOrder: bypasses cooldown — returns informative peers", async () => {
     let coord = makeCoordinator(0xCC01);
     coord = addPeer(coord, 0xAAA1);
     coord = addPeer(coord, 0xAAA2);
@@ -107,7 +107,7 @@ Deno.test("selectAlarmOverrideOrder: bypasses cooldown — returns informative p
     assertEquals(order, [0xAAA2, 0xAAA1]);
 });
 
-Deno.test("selectAlarmOverrideOrder: cold peers excluded even under alarm", () => {
+Deno.test("selectAlarmOverrideOrder: cold peers excluded even under alarm", async () => {
     let coord = makeCoordinator(0xCC01, {
         ...DEFAULT_SCHEDULER_CONFIG,
         failure_giveup_count: 2,
@@ -125,7 +125,7 @@ Deno.test("selectAlarmOverrideOrder: cold peers excluded even under alarm", () =
     assertEquals(order, [0xAAA2]);
 });
 
-Deno.test("selectAlarmOverrideOrder: peers unknown to coordinator excluded", () => {
+Deno.test("selectAlarmOverrideOrder: peers unknown to coordinator excluded", async () => {
     let coord = makeCoordinator(0xCC01);
     coord = addPeer(coord, 0xAAA1);
     // 0xAAA2 NOT added to coordinator.
@@ -136,7 +136,7 @@ Deno.test("selectAlarmOverrideOrder: peers unknown to coordinator excluded", () 
     assertEquals(order, [0xAAA1]);
 });
 
-Deno.test("selectAlarmOverrideOrder: stops at max parameter", () => {
+Deno.test("selectAlarmOverrideOrder: stops at max parameter", async () => {
     let coord = makeCoordinator(0xCC01);
     coord = addPeer(coord, 0xAAA1);
     coord = addPeer(coord, 0xAAA2);
@@ -149,7 +149,7 @@ Deno.test("selectAlarmOverrideOrder: stops at max parameter", () => {
     assertEquals(order.length, 2);
 });
 
-Deno.test("convergenceAlarmEvent: includes signal snapshot", () => {
+Deno.test("convergenceAlarmEvent: includes signal snapshot", async () => {
     const sig = computeConvergenceHealth([0x10], [0x10, 0x20, 0x30, 0x40, 0x50]);
     const ev = convergenceAlarmEvent(sig, [
         { peer_id: 0xAAA1, novel_count: 4, total_offered: 5 },
@@ -163,7 +163,7 @@ Deno.test("convergenceAlarmEvent: includes signal snapshot", () => {
     assertEquals(ev.informative_peers.length, 1);
 });
 
-Deno.test("convergenceAlarmEvent: hash is deterministic across calls", () => {
+Deno.test("convergenceAlarmEvent: hash is deterministic across calls", async () => {
     const sig = computeConvergenceHealth([0x10], [0x10, 0x20, 0x30]);
     const peers = [
         { peer_id: 0x01, novel_count: 2, total_offered: 3 },
@@ -174,7 +174,7 @@ Deno.test("convergenceAlarmEvent: hash is deterministic across calls", () => {
     assertEquals(e1.event_hash, e2.event_hash);
 });
 
-Deno.test("convergenceAlarmEvent: hash differs across distinct signals", () => {
+Deno.test("convergenceAlarmEvent: hash differs across distinct signals", async () => {
     const sigA = computeConvergenceHealth([0x10], [0x10, 0x20]);
     const sigB = computeConvergenceHealth([], [0x10, 0x20]);
     const peers = [{ peer_id: 0x01, novel_count: 1, total_offered: 2 }];
@@ -183,7 +183,7 @@ Deno.test("convergenceAlarmEvent: hash differs across distinct signals", () => {
     assert(eA.event_hash !== eB.event_hash);
 });
 
-Deno.test("convergenceAlarmEvent: top_n caps the peer list", () => {
+Deno.test("convergenceAlarmEvent: top_n caps the peer list", async () => {
     const sig = computeConvergenceHealth([], [0x10, 0x20, 0x30]);
     const peers = [
         { peer_id: 0x01, novel_count: 3, total_offered: 3 },
@@ -195,7 +195,7 @@ Deno.test("convergenceAlarmEvent: top_n caps the peer list", () => {
     assertEquals(ev.informative_peers.map(p => p.peer_id), [0x01, 0x02]);
 });
 
-Deno.test("end-to-end: alarm triggers override order matching aggregator novelty", () => {
+Deno.test("end-to-end: alarm triggers override order matching aggregator novelty", async () => {
     let coord = makeCoordinator(0xCC01);
     coord = addPeer(coord, 0xAAA1);
     coord = addPeer(coord, 0xAAA2);
@@ -218,6 +218,6 @@ Deno.test("end-to-end: alarm triggers override order matching aggregator novelty
     assertEquals(ev.intersection_size, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(AUTO_SYNC_SCHEMA, "OMEGA-1370/v1");
 });

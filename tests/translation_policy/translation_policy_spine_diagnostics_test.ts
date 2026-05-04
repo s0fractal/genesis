@@ -13,7 +13,7 @@ import {
   translationPolicySpineCompression,
 } from "../../src/network/translation_policy/translation_policy_protocol_registry.ts";
 
-Deno.test("spine diagnostics: formats current compression as capped", () => {
+Deno.test("spine diagnostics: formats current compression as capped", async () => {
   const snap = formatTranslationPolicySpineDiagnostics();
   assertEquals(snap.schema, TRANSLATION_POLICY_SPINE_DIAGNOSTICS_SCHEMA);
   assertEquals(snap.compression_schema, "OMEGA-2050/v1");
@@ -24,7 +24,7 @@ Deno.test("spine diagnostics: formats current compression as capped", () => {
   assert(snap.summary.includes("recursive13 capped13"));
 });
 
-Deno.test("spine diagnostics: fields preserve compact operator order", () => {
+Deno.test("spine diagnostics: fields preserve compact operator order", async () => {
   const fields = translationPolicySpineDiagnosticFields();
   assertEquals(fields.map((field) => field.label), [
     "TPOL SPINE",
@@ -37,7 +37,7 @@ Deno.test("spine diagnostics: fields preserve compact operator order", () => {
   assertEquals(fields[2].value, "recursive13 capped13 1910-2030 (13)");
 });
 
-Deno.test("spine diagnostics: cap list includes era ids for agent audit", () => {
+Deno.test("spine diagnostics: cap list includes era ids for agent audit", async () => {
   const list = formatTranslationPolicySpineCapList();
   assert(list.startsWith("1910:policy-replay-digest-forensic-event"));
   assert(list.endsWith(
@@ -46,7 +46,7 @@ Deno.test("spine diagnostics: cap list includes era ids for agent audit", () => 
   assertEquals(list.split(",").length, 13);
 });
 
-Deno.test("spine diagnostics: detects malformed compression schema as blocked", () => {
+Deno.test("spine diagnostics: detects malformed compression schema as blocked", async () => {
   const compression = {
     ...translationPolicySpineCompression(),
     schema: "OMEGA-2049/v1",
@@ -55,7 +55,7 @@ Deno.test("spine diagnostics: detects malformed compression schema as blocked", 
   assertEquals(translationPolicySpineDiagnosticGlyph("blocked"), "BLK");
 });
 
-Deno.test("spine diagnostics: detects uncapped recursion as blocked", () => {
+Deno.test("spine diagnostics: detects uncapped recursion as blocked", async () => {
   const compression = {
     ...translationPolicySpineCompression(),
     capped_layers: 1,
@@ -64,7 +64,7 @@ Deno.test("spine diagnostics: detects uncapped recursion as blocked", () => {
   assertEquals(translationPolicySpineDiagnosticBand(compression), "blocked");
 });
 
-Deno.test("spine diagnostics: review band for passive transport without recursion", () => {
+Deno.test("spine diagnostics: review band for passive transport without recursion", async () => {
   const compression: TranslationPolicySpineCompression = {
     schema: "OMEGA-2050/v1",
     total_layers: 2,
@@ -83,7 +83,7 @@ Deno.test("spine diagnostics: review band for passive transport without recursio
   assertEquals(snap.capped_range, "none");
 });
 
-Deno.test("spine diagnostics: truncates summary deterministically", () => {
+Deno.test("spine diagnostics: truncates summary deterministically", async () => {
   const snap = formatTranslationPolicySpineDiagnostics(
     translationPolicySpineCompression(),
     {

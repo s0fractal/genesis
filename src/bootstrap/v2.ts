@@ -134,8 +134,10 @@ export async function bootstrapV2() {
             setHudStat("e", "BTC ANCHOR", "UNTETHERED");
         }
 
-        // Boot V2 Mesh Network (Libp2p GossipSub)
-        const bootstrapMultiaddr = "/dns4/libp2p-relay.omega-federation.dev/tcp/443/wss/p2p-webrtc-star"; // placeholder
+        // Boot V2 Mesh Network (Libp2p GossipSub + KadDHT)
+        // Era 3000 Phase 2: Mesh Decentralization — No centralized relay!
+        // We use a generic public bootstrap node for initial Peer Discovery via circuit relays.
+        const bootstrapMultiaddr = "/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN";
         const mesh = new Libp2pMesh(engine, (snapshot) => {
             renderer.overwriteGPUState(snapshot);
         }, bootstrapMultiaddr, router);
@@ -513,7 +515,7 @@ ${debateMd || "(no recorded arguments)"}
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {
                 isReadingGPU = true;
-                renderer.readStateFromGPUAndHash().then(({ goldenTrace, goldenTraceNum, snapshot }) => {
+                renderer.readStateFromGPUAndHash().then(async ({ goldenTrace, goldenTraceNum, snapshot }) => {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
                     mesh.setLatestState(goldenTraceNum, snapshot);
                     
@@ -550,7 +552,7 @@ ${debateMd || "(no recorded arguments)"}
                             // Sanity-check: peer-side verifier must be happy with our own
                             // bundle. If this fails the lattice has drifted from the pure
                             // function — surface immediately rather than poison the mesh.
-                            if (childReceiptHash(r.child) === r.receiptHash) {
+                            if (await childReceiptHash(r.child) === r.receiptHash) {
                                 mesh.enqueuePlasmid(plasmid);
                                 birthCount++;
                             } else {

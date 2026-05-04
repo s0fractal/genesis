@@ -67,7 +67,7 @@ function applyVote(
     return "applied";
 }
 
-Deno.test("oracle-resonance: 3 canonical oracles ratify without peer count", () => {
+Deno.test("oracle-resonance: 3 canonical oracles ratify without peer count", async () => {
     const r = newRecord(0xCAFE);
     for (const name of ["claude", "gpt", "gemini"] as const) {
         const { matrix, inverse } = oracleDipole(name);
@@ -77,7 +77,7 @@ Deno.test("oracle-resonance: 3 canonical oracles ratify without peer count", () 
     assertEquals(r.accepted, true);
 });
 
-Deno.test("oracle-resonance: 2 oracles + 1 peer is NOT enough", () => {
+Deno.test("oracle-resonance: 2 oracles + 1 peer is NOT enough", async () => {
     const r = newRecord(0xBEEF);
     for (const name of ["claude", "gpt"] as const) {
         const { matrix, inverse } = oracleDipole(name);
@@ -91,7 +91,7 @@ Deno.test("oracle-resonance: 2 oracles + 1 peer is NOT enough", () => {
     assertEquals(r.accepted, true);
 });
 
-Deno.test("oracle-resonance: spoofed claude vote is silently dropped", () => {
+Deno.test("oracle-resonance: spoofed claude vote is silently dropped", async () => {
     const r = newRecord(0xBA5E);
     // Wrong matrix: not Claude's, but a valid dipole pair.
     const fakeMatrix = 0xDEAD_BEEF >>> 0;
@@ -101,7 +101,7 @@ Deno.test("oracle-resonance: spoofed claude vote is silently dropped", () => {
     assertEquals(r.ayes.size, 0);
 });
 
-Deno.test("oracle vote toggling: AYE then NAY moves between sets atomically", () => {
+Deno.test("oracle vote toggling: AYE then NAY moves between sets atomically", async () => {
     const r = newRecord(0xF00D);
     const { matrix, inverse } = oracleDipole("claude");
     applyVote(r, matrix, inverse, true, "claude");
@@ -112,7 +112,7 @@ Deno.test("oracle vote toggling: AYE then NAY moves between sets atomically", ()
     assert(r.oracleNays.has("claude"));
 });
 
-Deno.test("oracle-resonance: 3 AYE oracles overrule 2 NAY oracles", () => {
+Deno.test("oracle-resonance: 3 AYE oracles overrule 2 NAY oracles", async () => {
     const r = newRecord(0x1234);
     for (const name of ["claude", "gpt", "gemini"] as const) {
         const { matrix, inverse } = oracleDipole(name);
@@ -127,7 +127,7 @@ Deno.test("oracle-resonance: 3 AYE oracles overrule 2 NAY oracles", () => {
     }
 });
 
-Deno.test("oracle dipole construction satisfies invariant for every canonical name", () => {
+Deno.test("oracle dipole construction satisfies invariant for every canonical name", async () => {
     for (const name of CANONICAL_ORACLES) {
         const { matrix, inverse } = oracleDipole(name);
         assertEquals((matrix ^ inverse) >>> 0, 0xFFFF_FFFF);

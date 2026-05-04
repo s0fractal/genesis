@@ -27,7 +27,7 @@ function registry(): SchemaTranslatorRegistry {
     return r;
 }
 
-Deno.test("installer: disabled config is inert", () => {
+Deno.test("installer: disabled config is inert", async () => {
     const mesh = new FakeMesh();
     const target: TranslationPolicyBootstrapGlobalTarget = {};
     const result = installTranslationPolicyBootstrap(
@@ -41,7 +41,7 @@ Deno.test("installer: disabled config is inert", () => {
     assertEquals(target.__OMEGA_TRANSLATION_POLICY_RUNTIME__, undefined);
 });
 
-Deno.test("installer: missing peer ids does not throw or install", () => {
+Deno.test("installer: missing peer ids does not throw or install", async () => {
     const result = installTranslationPolicyBootstrap(
         new FakeMesh(),
         { enabled: true },
@@ -51,7 +51,7 @@ Deno.test("installer: missing peer ids does not throw or install", () => {
     assertEquals(result.reason, "invalid-peer-id");
 });
 
-Deno.test("installer: installs runtime, starts it, and sets HUD global", () => {
+Deno.test("installer: installs runtime, starts it, and sets HUD global", async () => {
     const mesh = new FakeMesh();
     const source = new LocalEventSource();
     const target: TranslationPolicyBootstrapGlobalTarget = {};
@@ -76,7 +76,7 @@ Deno.test("installer: installs runtime, starts it, and sets HUD global", () => {
     assertEquals(target.__OMEGA_TRANSLATION_POLICY_TICK__, true);
 });
 
-Deno.test("installer: installed runtime broadcasts through mesh adapter", () => {
+Deno.test("installer: installed runtime broadcasts through mesh adapter", async () => {
     const mesh = new FakeMesh();
     const source = new LocalEventSource();
     const result = installTranslationPolicyBootstrap(
@@ -91,7 +91,7 @@ Deno.test("installer: installed runtime broadcasts through mesh adapter", () => 
         },
         {},
     );
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     result.factory?.runtime.tick(T0);
     assertEquals(mesh.plasmids.length, 1);
     assertEquals(mesh.plasmids[0].semanticType, "TRANSLATION_POLICY");
@@ -99,7 +99,7 @@ Deno.test("installer: installed runtime broadcasts through mesh adapter", () => 
     assertEquals(mesh.plasmids[0].inverse, (~0x1234_5678) >>> 0);
 });
 
-Deno.test("installer: auto_start can remain disabled", () => {
+Deno.test("installer: auto_start can remain disabled", async () => {
     const source = new LocalEventSource();
     const result = installTranslationPolicyBootstrap(
         new FakeMesh(),
@@ -117,7 +117,7 @@ Deno.test("installer: auto_start can remain disabled", () => {
     assertEquals(result.factory?.runtime.isActive(), false);
 });
 
-Deno.test("installer: tick global can be disabled or configured", () => {
+Deno.test("installer: tick global can be disabled or configured", async () => {
     const disabledTarget: TranslationPolicyBootstrapGlobalTarget = {};
     installTranslationPolicyBootstrap(
         new FakeMesh(),
@@ -149,7 +149,7 @@ Deno.test("installer: tick global can be disabled or configured", () => {
     });
 });
 
-Deno.test("installer: telemetry event global can be disabled or configured", () => {
+Deno.test("installer: telemetry event global can be disabled or configured", async () => {
     const defaultTarget: TranslationPolicyBootstrapGlobalTarget = {};
     installTranslationPolicyBootstrap(
         new FakeMesh(),
@@ -184,7 +184,7 @@ Deno.test("installer: telemetry event global can be disabled or configured", () 
     });
 });
 
-Deno.test("installer: adapter construction failure is contained", () => {
+Deno.test("installer: adapter construction failure is contained", async () => {
     const result = installTranslationPolicyBootstrap(
         new FakeMesh(),
         {
@@ -199,6 +199,6 @@ Deno.test("installer: adapter construction failure is contained", () => {
     assertEquals(result.reason, "install-error");
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_BOOTSTRAP_INSTALLER_SCHEMA, "OMEGA-1790/v1");
 });

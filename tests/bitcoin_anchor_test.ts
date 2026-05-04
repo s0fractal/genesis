@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { formatInscription } from "../src/network/genesis_inscription.ts";
 import { fetchBitcoinTip, verifyGenesisInscription } from "../src/network/bitcoin_anchor.ts";
 
-Deno.test("formatInscription matches canonical OMEGA-64 payload", () => {
+Deno.test("formatInscription matches canonical OMEGA-64 payload", async () => {
     // 0x549A6307
     const payload = formatInscription(0x549A6307);
     assertEquals(payload, "OMEGA1:549a6307");

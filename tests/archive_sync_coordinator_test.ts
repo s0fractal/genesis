@@ -62,12 +62,12 @@ function deltaFor(a_records: ArchivedVerdict[], b_records: ArchivedVerdict[]) {
 
 // ---------- PEER SELECTION ----------
 
-Deno.test("coordinator: empty has nothing to sync", () => {
+Deno.test("coordinator: empty has nothing to sync", async () => {
     const c = makeCoordinator(SELF);
     assertEquals(selectNextSyncPeers(c, T0), []);
 });
 
-Deno.test("coordinator: never-attempted peer is selected first", () => {
+Deno.test("coordinator: never-attempted peer is selected first", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -78,7 +78,7 @@ Deno.test("coordinator: never-attempted peer is selected first", () => {
     assertEquals(sel, [PEER_B]);
 });
 
-Deno.test("coordinator: respects max parameter", () => {
+Deno.test("coordinator: respects max parameter", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -87,7 +87,7 @@ Deno.test("coordinator: respects max parameter", () => {
     assertEquals(sel.length, 2);
 });
 
-Deno.test("coordinator: cold peer excluded from selection", () => {
+Deno.test("coordinator: cold peer excluded from selection", async () => {
     let c = makeCoordinator(SELF, {
         ...DEFAULT_SCHEDULER_CONFIG,
         failure_giveup_count: 2,
@@ -101,7 +101,7 @@ Deno.test("coordinator: cold peer excluded from selection", () => {
     assertEquals(sel, [PEER_B]);
 });
 
-Deno.test("coordinator: oldest last_success_ms wins among due peers", () => {
+Deno.test("coordinator: oldest last_success_ms wins among due peers", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -114,7 +114,7 @@ Deno.test("coordinator: oldest last_success_ms wins among due peers", () => {
     assertEquals(sel, [PEER_B]); // older last_success_ms.
 });
 
-Deno.test("coordinator: fewer failures preferred at same age", () => {
+Deno.test("coordinator: fewer failures preferred at same age", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -128,7 +128,7 @@ Deno.test("coordinator: fewer failures preferred at same age", () => {
     assertEquals(sel, [PEER_B]);
 });
 
-Deno.test("coordinator: removePeer drops state", () => {
+Deno.test("coordinator: removePeer drops state", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -139,7 +139,7 @@ Deno.test("coordinator: removePeer drops state", () => {
 
 // ---------- ENVELOPE INGESTION ----------
 
-Deno.test("coordinator: ingestPeerFrames creates envelope on first frame", () => {
+Deno.test("coordinator: ingestPeerFrames creates envelope on first frame", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     const a = archiveWith([0x10]);
@@ -154,7 +154,7 @@ Deno.test("coordinator: ingestPeerFrames creates envelope on first frame", () =>
     assertEquals(src.contributors.size, 1);
 });
 
-Deno.test("coordinator: ingestPeerFrames tracks multi-peer contributions", () => {
+Deno.test("coordinator: ingestPeerFrames tracks multi-peer contributions", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -172,7 +172,7 @@ Deno.test("coordinator: ingestPeerFrames tracks multi-peer contributions", () =>
     assert(src.contributors.has(PEER_B));
 });
 
-Deno.test("coordinator: ignores non-DELTA_CHUNK frames", () => {
+Deno.test("coordinator: ignores non-DELTA_CHUNK frames", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     const noise = buildQuorumVerdict(0xBEEF, PEER_A, 0, 3, 50, 32768, 100, T0 & 0xFFFFFFFF);
@@ -183,7 +183,7 @@ Deno.test("coordinator: ignores non-DELTA_CHUNK frames", () => {
 
 // ---------- ENVELOPE PROGRESS ----------
 
-Deno.test("coordinator: progressEnvelope returns complete with target_peers", () => {
+Deno.test("coordinator: progressEnvelope returns complete with target_peers", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     const a = archiveWith([0x10]);
@@ -198,12 +198,12 @@ Deno.test("coordinator: progressEnvelope returns complete with target_peers", ()
     assertEquals(result!.originator, PEER_A);
 });
 
-Deno.test("coordinator: progressEnvelope for unknown envelope returns null", () => {
+Deno.test("coordinator: progressEnvelope for unknown envelope returns null", async () => {
     const c = makeCoordinator(SELF);
     assertEquals(progressEnvelope(c, 0xDEADBEEF, T0), null);
 });
 
-Deno.test("coordinator: progressEnvelope returns retransmit + multi-peer fanout", () => {
+Deno.test("coordinator: progressEnvelope returns retransmit + multi-peer fanout", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     c = addPeer(c, PEER_B);
@@ -225,7 +225,7 @@ Deno.test("coordinator: progressEnvelope returns retransmit + multi-peer fanout"
     assertEquals(result!.target_peers.sort((x, y) => x - y), [PEER_A, PEER_B].sort((x, y) => x - y));
 });
 
-Deno.test("coordinator: recordEnvelopeRetransmit increments per-sequence counter", () => {
+Deno.test("coordinator: recordEnvelopeRetransmit increments per-sequence counter", async () => {
     let c = makeCoordinator(SELF, DEFAULT_SCHEDULER_CONFIG, {
         ...DEFAULT_RETRANSMIT_CONFIG,
         retransmit_cooldown_ms: 0,
@@ -247,7 +247,7 @@ Deno.test("coordinator: recordEnvelopeRetransmit increments per-sequence counter
     assertEquals(result!.action.kind, "giveup");
 });
 
-Deno.test("coordinator: dropEnvelope removes envelope + sources", () => {
+Deno.test("coordinator: dropEnvelope removes envelope + sources", async () => {
     let c = makeCoordinator(SELF);
     c = addPeer(c, PEER_A);
     const a = archiveWith([0x10]);
@@ -263,24 +263,24 @@ Deno.test("coordinator: dropEnvelope removes envelope + sources", () => {
 
 // ---------- CONVERGENCE METRIC ----------
 
-Deno.test("convergence: empty network → fully converged (65536)", () => {
+Deno.test("convergence: empty network → fully converged (65536)", async () => {
     assertEquals(fleetConvergenceRate([0x10], []), 65536);
 });
 
-Deno.test("convergence: full overlap → 65536", () => {
+Deno.test("convergence: full overlap → 65536", async () => {
     assertEquals(fleetConvergenceRate([0x10, 0x20], [0x10, 0x20]), 65536);
 });
 
-Deno.test("convergence: no overlap → 0", () => {
+Deno.test("convergence: no overlap → 0", async () => {
     assertEquals(fleetConvergenceRate([0x10, 0x20], [0x30, 0x40]), 0);
 });
 
-Deno.test("convergence: half overlap → ~32768 (Q16 0.5)", () => {
+Deno.test("convergence: half overlap → ~32768 (Q16 0.5)", async () => {
     const r = fleetConvergenceRate([0x10, 0x20], [0x10, 0x20, 0x30, 0x40]);
     assertEquals(r, 32768);
 });
 
-Deno.test("convergence: superset of network is still bounded by network size", () => {
+Deno.test("convergence: superset of network is still bounded by network size", async () => {
     // Local has 4, network has 2 (subset). Intersection = 2 / |network| = 2 = 1.0.
     const r = fleetConvergenceRate([0x10, 0x20, 0x30, 0x40], [0x10, 0x20]);
     assertEquals(r, 65536);
@@ -288,7 +288,7 @@ Deno.test("convergence: superset of network is still bounded by network size", (
 
 // ---------- TELEMETRY ----------
 
-Deno.test("telemetry: counts peers, due, cold, envelopes, frames", () => {
+Deno.test("telemetry: counts peers, due, cold, envelopes, frames", async () => {
     let c = makeCoordinator(SELF, {
         ...DEFAULT_SCHEDULER_CONFIG,
         failure_giveup_count: 2,
@@ -317,6 +317,6 @@ Deno.test("telemetry: counts peers, due, cold, envelopes, frames", () => {
     assertEquals(tele.abandoned_sequence_count, 0);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(COORDINATOR_SCHEMA, "OMEGA-1340/v1");
 });

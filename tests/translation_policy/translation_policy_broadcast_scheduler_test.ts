@@ -43,7 +43,7 @@ function makeScheduler(
     return { scheduler, sent, monitor };
 }
 
-Deno.test("scheduler: first tick broadcasts to known peers in peer order", () => {
+Deno.test("scheduler: first tick broadcasts to known peers in peer order", async () => {
     const { scheduler, sent } = makeScheduler();
     scheduler.addPeer(0xCC);
     scheduler.addPeer(0xBB);
@@ -55,7 +55,7 @@ Deno.test("scheduler: first tick broadcasts to known peers in peer order", () =>
     assertEquals(decodeTranslationPolicyMeshPayload(sent[0].body)?.peer_id, 0xAA);
 });
 
-Deno.test("scheduler: cooldown blocks immediate repeat", () => {
+Deno.test("scheduler: cooldown blocks immediate repeat", async () => {
     const { scheduler, sent } = makeScheduler();
     scheduler.addPeer(0xBB);
     scheduler.tick(T0);
@@ -65,7 +65,7 @@ Deno.test("scheduler: cooldown blocks immediate repeat", () => {
     assertEquals(sent.length, 1);
 });
 
-Deno.test("scheduler: unchanged policy is suppressed after cooldown", () => {
+Deno.test("scheduler: unchanged policy is suppressed after cooldown", async () => {
     const { scheduler, sent } = makeScheduler();
     scheduler.addPeer(0xBB);
     scheduler.tick(T0);
@@ -76,7 +76,7 @@ Deno.test("scheduler: unchanged policy is suppressed after cooldown", () => {
     assertEquals(sent.length, 1);
 });
 
-Deno.test("scheduler: unchanged policy can rebroadcast after refresh horizon", () => {
+Deno.test("scheduler: unchanged policy can rebroadcast after refresh horizon", async () => {
     const { scheduler, sent } = makeScheduler();
     scheduler.addPeer(0xBB);
     scheduler.tick(T0);
@@ -86,7 +86,7 @@ Deno.test("scheduler: unchanged policy can rebroadcast after refresh horizon", (
     assertEquals(sent.length, 2);
 });
 
-Deno.test("scheduler: policy hash change bypasses unchanged suppression", () => {
+Deno.test("scheduler: policy hash change bypasses unchanged suppression", async () => {
     const sent: Array<{ peer_id: number; body: string }> = [];
     const r = registry([["alarms:v1.0", "alarms:v2.0"]]);
     const monitor = new TranslationPolicyMonitor(0xAA, r);
@@ -114,7 +114,7 @@ Deno.test("scheduler: policy hash change bypasses unchanged suppression", () => 
     assertEquals(first.policy_hash === updated.policy_hash, false);
 });
 
-Deno.test("scheduler: emit failure applies backoff and eventual cold classification", () => {
+Deno.test("scheduler: emit failure applies backoff and eventual cold classification", async () => {
     const { scheduler } = makeScheduler([], () => false);
     scheduler.addPeer(0xBB);
     const first = scheduler.tick(T0);
@@ -130,7 +130,7 @@ Deno.test("scheduler: emit failure applies backoff and eventual cold classificat
     assertEquals(cold.decisions[0].action, "cold");
 });
 
-Deno.test("scheduler: max_peers limits attempts but leaves later peers on cooldown decision", () => {
+Deno.test("scheduler: max_peers limits attempts but leaves later peers on cooldown decision", async () => {
     const { scheduler, sent } = makeScheduler();
     scheduler.addPeer(0x10);
     scheduler.addPeer(0x20);
@@ -141,7 +141,7 @@ Deno.test("scheduler: max_peers limits attempts but leaves later peers on cooldo
     assertEquals(result.decisions.map((x) => x.action), ["sent", "sent", "cooldown"]);
 });
 
-Deno.test("scheduler: duePeers excludes cooldown and cold peers", () => {
+Deno.test("scheduler: duePeers excludes cooldown and cold peers", async () => {
     const { scheduler } = makeScheduler([], (peer_id) => peer_id !== 0xCC);
     scheduler.addPeer(0xBB);
     scheduler.addPeer(0xCC);
@@ -151,7 +151,7 @@ Deno.test("scheduler: duePeers excludes cooldown and cold peers", () => {
     assertEquals(scheduler.duePeers(T0 + 20_000), [0xBB]);
 });
 
-Deno.test("scheduler: recordExternalSuccess seeds unchanged suppression", () => {
+Deno.test("scheduler: recordExternalSuccess seeds unchanged suppression", async () => {
     const { scheduler, monitor, sent } = makeScheduler();
     const claim = monitor.localClaim(T0);
     scheduler.recordExternalSuccess(0xBB, claim, T0);
@@ -160,7 +160,7 @@ Deno.test("scheduler: recordExternalSuccess seeds unchanged suppression", () => 
     assertEquals(sent.length, 0);
 });
 
-Deno.test("scheduler: remove and clear manage peer table", () => {
+Deno.test("scheduler: remove and clear manage peer table", async () => {
     const { scheduler } = makeScheduler();
     scheduler.addPeer(0xBB);
     scheduler.addPeer(0xCC);
@@ -171,6 +171,6 @@ Deno.test("scheduler: remove and clear manage peer table", () => {
     assertEquals(scheduler.peerCount(), 0);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_BROADCAST_SCHEMA, "OMEGA-1720/v1");
 });

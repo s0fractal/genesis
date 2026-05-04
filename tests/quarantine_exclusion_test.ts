@@ -16,7 +16,7 @@ import { WarrantProposalPayload } from "../src/network/quorum_warrant_bridge.ts"
 
 const T0 = 1_000_000;
 
-Deno.test("tracker: exclude drops existing observation", () => {
+Deno.test("tracker: exclude drops existing observation", async () => {
     const t = new EventChainQuorumTracker();
     t.observe(0xAA, 0x100, T0);
     t.observe(0xBB, 0x100, T0);
@@ -26,14 +26,14 @@ Deno.test("tracker: exclude drops existing observation", () => {
     assertEquals(t.peerCount(T0), 2);
 });
 
-Deno.test("tracker: excluded peer's subsequent observe calls are silently ignored", () => {
+Deno.test("tracker: excluded peer's subsequent observe calls are silently ignored", async () => {
     const t = new EventChainQuorumTracker();
     t.exclude(0xFF);
     t.observe(0xFF, 0x999, T0);
     assertEquals(t.peerCount(T0), 0);
 });
 
-Deno.test("tracker: unexclude allows new observations", () => {
+Deno.test("tracker: unexclude allows new observations", async () => {
     const t = new EventChainQuorumTracker();
     t.exclude(0xFF);
     t.observe(0xFF, 0x999, T0);
@@ -43,7 +43,7 @@ Deno.test("tracker: unexclude allows new observations", () => {
     assertEquals(t.peerCount(T0 + 100), 1);
 });
 
-Deno.test("tracker: excludedPeers returns sorted snapshot", () => {
+Deno.test("tracker: excludedPeers returns sorted snapshot", async () => {
     const t = new EventChainQuorumTracker();
     t.exclude(0xCC);
     t.exclude(0xAA);
@@ -51,7 +51,7 @@ Deno.test("tracker: excludedPeers returns sorted snapshot", () => {
     assertEquals(t.excludedPeers(), [0xAA, 0xBB, 0xCC]);
 });
 
-Deno.test("tracker: excluded peer's anchor doesn't enter consensus", () => {
+Deno.test("tracker: excluded peer's anchor doesn't enter consensus", async () => {
     const t = new EventChainQuorumTracker();
     t.observe(0xAA, 0x100, T0);
     t.observe(0xBB, 0x100, T0);
@@ -62,7 +62,7 @@ Deno.test("tracker: excluded peer's anchor doesn't enter consensus", () => {
     assertEquals(t.snapshot(T0).consensus_count, 2);
 });
 
-Deno.test("tracker: excluded dissenter doesn't appear in dissenter list", () => {
+Deno.test("tracker: excluded dissenter doesn't appear in dissenter list", async () => {
     const t = new EventChainQuorumTracker();
     t.observe(0xAA, 0x100, T0);
     t.observe(0xBB, 0x100, T0);
@@ -73,7 +73,7 @@ Deno.test("tracker: excluded dissenter doesn't appear in dissenter list", () => 
     assertEquals(t.dissenters(T0), []);
 });
 
-Deno.test("loop: excludePeer prevents excluded dissenter from triggering warrant", () => {
+Deno.test("loop: excludePeer prevents excluded dissenter from triggering warrant", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const emit: WarrantEmit = (p) => { emitted.push(p); return true; };
     const loop = new AutoInvestigationLoop(emit, {
@@ -90,19 +90,19 @@ Deno.test("loop: excludePeer prevents excluded dissenter from triggering warrant
     loop.observePeerAnchor(0xCC, 0x100, T0);
     loop.observePeerAnchor(0xFF, 0x999, T0);
     // First tick fires a warrant for 0xFF.
-    loop.tick(T0);
+    await loop.tick(T0);
     assertEquals(emitted.length, 1);
     // Now exclude 0xFF (simulating a quarantine engagement).
     loop.excludePeer(0xFF);
     // Even if 0xFF reports anchor again, observations are dropped.
     loop.observePeerAnchor(0xFF, 0x999, T0 + 100_000);
-    const r = loop.tick(T0 + 100_000);
+    const r = await loop.tick(T0 + 100_000);
     assertEquals(r.trigger_outcome.fire_now, []);
     assertEquals(r.proposals_built.length, 0);
     assertEquals(emitted.length, 1); // unchanged
 });
 
-Deno.test("loop: includePeer un-quarantines so dissenter can re-trigger after cooldown", () => {
+Deno.test("loop: includePeer un-quarantines so dissenter can re-trigger after cooldown", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const emit: WarrantEmit = (p) => { emitted.push(p); return true; };
     const loop = new AutoInvestigationLoop(emit, {
@@ -118,7 +118,7 @@ Deno.test("loop: includePeer un-quarantines so dissenter can re-trigger after co
     loop.observePeerAnchor(0xBB, 0x100, T0);
     loop.observePeerAnchor(0xCC, 0x100, T0);
     loop.observePeerAnchor(0xFF, 0x999, T0);
-    loop.tick(T0);
+    await loop.tick(T0);
     loop.excludePeer(0xFF);
     // Re-include after the trigger cooldown elapsed.
     loop.includePeer(0xFF);
@@ -126,14 +126,14 @@ Deno.test("loop: includePeer un-quarantines so dissenter can re-trigger after co
     loop.observePeerAnchor(0xBB, 0x100, T0 + 10_000);
     loop.observePeerAnchor(0xCC, 0x100, T0 + 10_000);
     loop.observePeerAnchor(0xFF, 0x999, T0 + 10_000);
-    const r = loop.tick(T0 + 10_000);
+    const r = await loop.tick(T0 + 10_000);
     // The trigger record was dropped on excludePeer; dedup window
     // was 100ms (long elapsed); peer dissents fresh → warrant fires.
     assertEquals(r.proposals_emitted, 1);
     assertEquals(emitted.length, 2);
 });
 
-Deno.test("loop: excluding the lone dissenter restores band='high'", () => {
+Deno.test("loop: excluding the lone dissenter restores band='high'", async () => {
     const emit: WarrantEmit = () => true;
     const loop = new AutoInvestigationLoop(emit, {
         quorum: { ttl_ms: 60_000, high_threshold: 3 },
@@ -148,16 +148,16 @@ Deno.test("loop: excluding the lone dissenter restores band='high'", () => {
     loop.observePeerAnchor(0xBB, 0x100, T0);
     loop.observePeerAnchor(0xCC, 0x100, T0);
     loop.observePeerAnchor(0xFF, 0x999, T0);
-    let r = loop.tick(T0);
+    let r = await loop.tick(T0);
     assertEquals(r.quorum_snapshot.band, "high");
     assertEquals(r.quorum_snapshot.dissenter_peer_ids, [0xFF]);
     loop.excludePeer(0xFF);
-    r = loop.tick(T0 + 100);
+    r = await loop.tick(T0 + 100);
     assertEquals(r.quorum_snapshot.band, "high");
     assertEquals(r.quorum_snapshot.dissenter_peer_ids, []);
     assertEquals(r.trigger_outcome.dissenter_count, 0);
 });
 
-Deno.test("loop: schema constant unchanged after Era 1560 additions", () => {
+Deno.test("loop: schema constant unchanged after Era 1560 additions", async () => {
     assertEquals(LOOP_SCHEMA, "OMEGA-1550/v1");
 });

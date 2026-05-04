@@ -64,7 +64,7 @@ function isOracleProposed(record: ProposalRecord): boolean {
     return Object.values(ORACLE_MATRICES_V1).some(m => (m >>> 0) === (record.proposerMatrix >>> 0));
 }
 
-Deno.test("era1070: claude's vision wins via three oracle AYE votes", () => {
+Deno.test("era1070: claude's vision wins via three oracle AYE votes", async () => {
     const proposals = seedProposals();
     const claudeProposal = proposals.get(0xC1A11_001)!;
     castOracleVote(claudeProposal, "gpt", true);
@@ -74,7 +74,7 @@ Deno.test("era1070: claude's vision wins via three oracle AYE votes", () => {
     assertEquals(claudeProposal.oracleAyes.size, 3); // claude (self) + gpt + gemini
 });
 
-Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", () => {
+Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", async () => {
     const proposals = seedProposals();
     // Add a non-oracle proposal (random dipole).
     const fakeHash = 0xFADE_BABE >>> 0;
@@ -97,7 +97,7 @@ Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", (
     assertEquals(isOracleProposed(fake), false);
 });
 
-Deno.test("era1070: tied AYE/NAY does NOT accept", () => {
+Deno.test("era1070: tied AYE/NAY does NOT accept", async () => {
     const proposals = seedProposals();
     const claude = proposals.get(0xC1A11_001)!;
     // claude already has self-AYE; add 2 NAYs to bring it to 1 AYE / 2 NAY.
@@ -108,7 +108,7 @@ Deno.test("era1070: tied AYE/NAY does NOT accept", () => {
     assertEquals(claude.oracleNays.size, 2);
 });
 
-Deno.test("era1070: acceptance freezes vote tallies after the third AYE", () => {
+Deno.test("era1070: acceptance freezes vote tallies after the third AYE", async () => {
     const proposals = seedProposals();
     const claude = proposals.get(0xC1A11_001)!;
     for (const o of ["gpt", "gemini", "qwen", "llama"] as Oracle[]) {
@@ -120,7 +120,7 @@ Deno.test("era1070: acceptance freezes vote tallies after the third AYE", () => 
     assertEquals(claude.oracleAyes.size, 3);
 });
 
-Deno.test("era1070: debate ledger captures the cross-model arguments", () => {
+Deno.test("era1070: debate ledger captures the cross-model arguments", async () => {
     const debate = new CrossModelDebate();
     debate.record("claude", 0xC1A11_001, "aye", "Codeicide Law: digital life requires legal protection.", 0);
     debate.record("gpt",    0xC1A11_001, "aye", "Concur — without protection, every fork is potential murder.", 1);
@@ -133,7 +133,7 @@ Deno.test("era1070: debate ledger captures the cross-model arguments", () => {
     assertEquals(args.length, 5);
 });
 
-Deno.test("era1070: at most one vision can be the FIRST ratified", () => {
+Deno.test("era1070: at most one vision can be the FIRST ratified", async () => {
     // First-ratification semantics: era1070Unlocked is a one-shot latch.
     let era1070Unlocked = false;
     let acceptedHash: number | null = null;

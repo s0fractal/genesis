@@ -15,12 +15,12 @@ function fillTracker(t: EventChainQuorumTracker, agreeing: number[], dissenters:
     for (const d of dissenters) t.observe(d.id, d.anchor, now);
 }
 
-Deno.test("trigger: invalid opts throw", () => {
+Deno.test("trigger: invalid opts throw", async () => {
     assertThrows(() => new QuorumInvestigationTrigger({ ...DEFAULT_TRIGGER_OPTS, per_peer_cooldown_ms: 0 }));
     assertThrows(() => new QuorumInvestigationTrigger({ ...DEFAULT_TRIGGER_OPTS, min_dissent_duration_ms: -1 }));
 });
 
-Deno.test("trigger: low-band consensus does NOT fire", () => {
+Deno.test("trigger: low-band consensus does NOT fire", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger();
     // Only 2 agreeing peers + 1 dissenter → band="double".
@@ -31,7 +31,7 @@ Deno.test("trigger: low-band consensus does NOT fire", () => {
     assertEquals(out.dissenter_count, 1);
 });
 
-Deno.test("trigger: high-band + dissenter past min duration fires", () => {
+Deno.test("trigger: high-band + dissenter past min duration fires", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         ...DEFAULT_TRIGGER_OPTS,
@@ -49,7 +49,7 @@ Deno.test("trigger: high-band + dissenter past min duration fires", () => {
     assertEquals(out.fire_now, [0xFF]);
 });
 
-Deno.test("trigger: cooldown blocks re-fire", () => {
+Deno.test("trigger: cooldown blocks re-fire", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         min_band: "triple+",
@@ -68,7 +68,7 @@ Deno.test("trigger: cooldown blocks re-fire", () => {
     assertEquals(out.pending, [0xFF]);
 });
 
-Deno.test("trigger: cooldown elapses → re-fires", () => {
+Deno.test("trigger: cooldown elapses → re-fires", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         min_band: "triple+",
@@ -84,7 +84,7 @@ Deno.test("trigger: cooldown elapses → re-fires", () => {
     assertEquals(out.fire_now, [0xFF]);
 });
 
-Deno.test("trigger: empty consensus → no fire", () => {
+Deno.test("trigger: empty consensus → no fire", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger();
     const out = tickTrigger(tracker, trig, T0);
@@ -92,7 +92,7 @@ Deno.test("trigger: empty consensus → no fire", () => {
     assertEquals(out.dissenter_count, 0);
 });
 
-Deno.test("trigger: dissenter resolved → record dropped", () => {
+Deno.test("trigger: dissenter resolved → record dropped", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         min_band: "triple+",
@@ -108,7 +108,7 @@ Deno.test("trigger: dissenter resolved → record dropped", () => {
     assertEquals(trig.records_snapshot().length, 0);
 });
 
-Deno.test("trigger: forget removes specific record", () => {
+Deno.test("trigger: forget removes specific record", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger();
     fillTracker(tracker, [0xAA, 0xBB, 0xCC], [{ id: 0xFF, anchor: 0x999 }], T0);
@@ -117,7 +117,7 @@ Deno.test("trigger: forget removes specific record", () => {
     assertEquals(trig.records_snapshot().length, 0);
 });
 
-Deno.test("trigger: markTriggered without prior record creates one", () => {
+Deno.test("trigger: markTriggered without prior record creates one", async () => {
     const trig = new QuorumInvestigationTrigger();
     trig.markTriggered(0xAA, T0);
     const records = trig.records_snapshot();
@@ -126,7 +126,7 @@ Deno.test("trigger: markTriggered without prior record creates one", () => {
     assertEquals(records[0].last_triggered_ms, T0);
 });
 
-Deno.test("trigger: consensus change resets first_seen but preserves cooldown", () => {
+Deno.test("trigger: consensus change resets first_seen but preserves cooldown", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         min_band: "triple+",
@@ -152,7 +152,7 @@ Deno.test("trigger: consensus change resets first_seen but preserves cooldown", 
     assertEquals(out.pending, [0xFF]);
 });
 
-Deno.test("trigger: tunable min_band='high' is more conservative", () => {
+Deno.test("trigger: tunable min_band='high' is more conservative", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         ...DEFAULT_TRIGGER_OPTS,
@@ -165,7 +165,7 @@ Deno.test("trigger: tunable min_band='high' is more conservative", () => {
     assertEquals(out.fire_now, []);
 });
 
-Deno.test("trigger: multiple dissenters all flagged when conditions met", () => {
+Deno.test("trigger: multiple dissenters all flagged when conditions met", async () => {
     const tracker = new EventChainQuorumTracker();
     const trig = new QuorumInvestigationTrigger({
         min_band: "triple+",
@@ -180,7 +180,7 @@ Deno.test("trigger: multiple dissenters all flagged when conditions met", () => 
     assertEquals(out.fire_now.sort((a, b) => a - b), [0xFE, 0xFF]);
 });
 
-Deno.test("trigger: records_snapshot sorted by peer_id", () => {
+Deno.test("trigger: records_snapshot sorted by peer_id", async () => {
     const trig = new QuorumInvestigationTrigger();
     trig.markTriggered(0xCC, T0);
     trig.markTriggered(0xAA, T0);
@@ -188,6 +188,6 @@ Deno.test("trigger: records_snapshot sorted by peer_id", () => {
     assertEquals(trig.records_snapshot().map(r => r.peer_id), [0xAA, 0xBB, 0xCC]);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRIGGER_SCHEMA, "OMEGA-1530/v1");
 });

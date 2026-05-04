@@ -101,9 +101,9 @@ pub fn derive_mitosis_child(
     }
 }
 
-/// Compute a deterministic FNV-1a hash of a child agent's 32-byte representation.
+/// Compute a deterministic SHA-256 hash of a child agent's 32-byte representation.
 /// This is the receipt content that gets committed by the ZK guest in Mode 2.
-pub fn child_receipt_hash(child: &PhaseAgentMinimal) -> u32 {
+pub fn child_receipt_hash(child: &PhaseAgentMinimal) -> [u8; 32] {
     let mut buf = [0u8; 32];
     buf[0..4].copy_from_slice(&child.phase.to_le_bytes());
     buf[4..8].copy_from_slice(&child.energy.to_le_bytes());
@@ -113,7 +113,7 @@ pub fn child_receipt_hash(child: &PhaseAgentMinimal) -> u32 {
     buf[20..24].copy_from_slice(&child.memory[0].to_le_bytes());
     buf[24..28].copy_from_slice(&child.memory[1].to_le_bytes());
     buf[28..32].copy_from_slice(&child.memory[2].to_le_bytes());
-    crate::senate::fnv1a_32(&buf)
+    crate::senate::sha256_hash(&buf)
 }
 
 #[cfg(test)]

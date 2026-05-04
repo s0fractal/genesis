@@ -46,18 +46,18 @@ function registry(pairs: Array<[string, string]> = []): SchemaTranslatorRegistry
     return r;
 }
 
-function warrant(): WarrantProposalPayload {
+async function warrant(): Promise<WarrantProposalPayload> {
     const proposalDescription = "TPOL peer=0x000000bb local=0x11111111 peerpol=0x22222222";
     return {
         semanticType: "PROPOSAL",
-        proposalHash: senateHash(proposalDescription),
+        proposalHash: await senateHash(proposalDescription),
         proposalDescription,
         target_peer_id: 0xBB,
         issued_at_ms: T0,
     };
 }
 
-Deno.test("adapter: emits translation policy claim plasmid", () => {
+Deno.test("adapter: emits translation policy claim plasmid", async () => {
     const mesh = new FakeMesh();
     const adapter = createTranslationPolicyMeshEmitAdapter(mesh);
     const claim = buildTranslationPolicyClaim(0xAA, registry(), T0);
@@ -70,7 +70,7 @@ Deno.test("adapter: emits translation policy claim plasmid", () => {
     assertEquals((p.matrix ^ p.inverse) >>> 0, 0xFFFF_FFFF);
 });
 
-Deno.test("adapter: emits corroboration raise plasmid", () => {
+Deno.test("adapter: emits corroboration raise plasmid", async () => {
     const mesh = new FakeMesh();
     const adapter = createTranslationPolicyMeshEmitAdapter(mesh);
     const local = buildTranslationPolicyClaim(0xAA, registry([
@@ -86,20 +86,20 @@ Deno.test("adapter: emits corroboration raise plasmid", () => {
     assertEquals(p.translationPolicyCorroborationBody, JSON.stringify(raise));
 });
 
-Deno.test("adapter: emits Senate-compatible policy warrant proposal plasmid", () => {
+Deno.test("adapter: emits Senate-compatible policy warrant proposal plasmid", async () => {
     const mesh = new FakeMesh();
     const adapter = createTranslationPolicyMeshEmitAdapter(mesh);
-    const proposal = warrant();
+    const proposal = await warrant();
     assertEquals(adapter.emitWarrantProposal(proposal), true);
     const p = mesh.plasmids[0];
     assertEquals(p.semanticType, "PROPOSAL");
     assertEquals(p.proposalHash, proposal.proposalHash);
     assertEquals(p.proposalDescription, proposal.proposalDescription.slice(0, 64));
     assertEquals(p.parentHash, 0xBB);
-    assertEquals(senateHash(p.proposalDescription!), p.proposalHash);
+    assertEquals(await senateHash(p.proposalDescription!), p.proposalHash);
 });
 
-Deno.test("adapter: callbacks match Era 1770 factory contract", () => {
+Deno.test("adapter: callbacks match Era 1770 factory contract", async () => {
     const mesh = new FakeMesh();
     const callbacks = translationPolicyMeshEmitCallbacks(mesh);
     const source = new LocalEventSource();
@@ -114,12 +114,12 @@ Deno.test("adapter: callbacks match Era 1770 factory contract", () => {
         now_ms: () => T0,
         auto_start: true,
     }).runtime;
-    source.dispatch("meshPeerJoined", { peer_id: 0xBB });
+    source.dispatch("meshPeerJoined", { peer_id: 0xBB }); await new Promise(r => setTimeout(r, 0));
     runtime.tick(T0);
     assertEquals(mesh.plasmids.map((p) => p.semanticType), ["TRANSLATION_POLICY"]);
 });
 
-Deno.test("adapter: telemetry records success and enqueue failures", () => {
+Deno.test("adapter: telemetry records success and enqueue failures", async () => {
     const mesh = new FakeMesh();
     const adapter = new TranslationPolicyMeshEmitAdapter(mesh);
     assertEquals(adapter.emitClaim(0xBB, "{}"), true);
@@ -135,22 +135,22 @@ Deno.test("adapter: telemetry records success and enqueue failures", () => {
     });
 });
 
-Deno.test("builder: custom matrix derives complement inverse by default", () => {
+Deno.test("builder: custom matrix derives complement inverse by default", async () => {
     const p = translationPolicyClaimPlasmid(0xBB, "{}", { matrix: 0x1234_5678 });
     assertEquals(p.matrix, 0x1234_5678);
     assertEquals(p.inverse, (~0x1234_5678) >>> 0);
 });
 
-Deno.test("builder: direct plasmid helpers preserve body fields", () => {
+Deno.test("builder: direct plasmid helpers preserve body fields", async () => {
     const claim = translationPolicyClaimPlasmid(0xBB, "claim-body");
     const raise = translationPolicyCorroborationPlasmid(0xCC, "raise-body");
-    const proposal = translationPolicyWarrantPlasmid(warrant());
+    const proposal = translationPolicyWarrantPlasmid(await warrant());
     assertEquals(claim.translationPolicyBody, "claim-body");
     assertEquals(raise.translationPolicyCorroborationBody, "raise-body");
     assertEquals(proposal.semanticType, "PROPOSAL");
 });
 
-Deno.test("adapter: invalid dipole and recursion are rejected", () => {
+Deno.test("adapter: invalid dipole and recursion are rejected", async () => {
     const mesh = new FakeMesh();
     assertThrows(() => new TranslationPolicyMeshEmitAdapter(mesh, {
         ...DEFAULT_TRANSLATION_POLICY_MESH_EMIT_OPTS,
@@ -162,6 +162,6 @@ Deno.test("adapter: invalid dipole and recursion are rejected", () => {
     }));
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_MESH_EMIT_ADAPTER_SCHEMA, "OMEGA-1780/v1");
 });

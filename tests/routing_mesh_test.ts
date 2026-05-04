@@ -6,7 +6,7 @@ import { PhaseRouter } from "../src/network/routing_bridge.ts";
  * Verifies that greedy next-hop selection routes a plasmid from node A
  * through node B to node C using hyperbolic distance gradients.
  */
-Deno.test("3-node mesh greedy routing A -> B -> C", () => {
+Deno.test("3-node mesh greedy routing A -> B -> C", async () => {
     // Node A at phase 0, B at 32, C at 64
     const nodeA = PhaseRouter.encode(0, 0, 0, 0);
     const nodeB = PhaseRouter.encode(32, 0, 0, 0);
@@ -31,7 +31,7 @@ Deno.test("3-node mesh greedy routing A -> B -> C", () => {
  * Era 1001: Toroidal wrap-around routing.
  * On a 1D ring, the shortest path from 0 to 224 goes backward through 224-256 wrap.
  */
-Deno.test("toroidal 3-node mesh prefers wrap-around shortcut", () => {
+Deno.test("toroidal 3-node mesh prefers wrap-around shortcut", async () => {
     const nodeA = PhaseRouter.encode(0, 0, 0, 0);
     const nodeB = PhaseRouter.encode(224, 0, 0, 0); // wraps to -32
     const nodeC = PhaseRouter.encode(192, 0, 0, 0); // target

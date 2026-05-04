@@ -61,7 +61,7 @@ function makeLoop(
     );
 }
 
-Deno.test("adapter: starts and stops", () => {
+Deno.test("adapter: starts and stops", async () => {
     const source = new LocalEventSource();
     const adapter = new TranslationPolicyLiveWiringAdapter(makeLoop(), source, {
         claim_event_name: "translationPolicyClaim",
@@ -78,7 +78,7 @@ Deno.test("adapter: starts and stops", () => {
     assertEquals(adapter.isActive(), false);
 });
 
-Deno.test("adapter: claim event routes into investigation loop", () => {
+Deno.test("adapter: claim event routes into investigation loop", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const source = new LocalEventSource();
     const loop = makeLoop(emitted);
@@ -94,14 +94,14 @@ Deno.test("adapter: claim event routes into investigation loop", () => {
         body: fields.translationPolicyBody,
         targetPeer: 0xAA,
         fromPeer: 0xBB,
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(emitted.length, 1);
     assertEquals(emitted[0].target_peer_id, 0xBB);
     assertEquals(adapter.telemetry().claims_received, 1);
     assertEquals(adapter.telemetry().claims_observed, 1);
 });
 
-Deno.test("adapter: malformed claim payload is counted", () => {
+Deno.test("adapter: malformed claim payload is counted", async () => {
     const source = new LocalEventSource();
     const loop = makeLoop();
     const adapter = new TranslationPolicyLiveWiringAdapter(loop, source, {
@@ -111,14 +111,14 @@ Deno.test("adapter: malformed claim payload is counted", () => {
         now_ms: () => T0,
     });
     adapter.start();
-    source.dispatch("translationPolicyClaim", {});
-    source.dispatch("translationPolicyClaim", { body: "not json" });
+    source.dispatch("translationPolicyClaim", {}); await new Promise(r => setTimeout(r, 0));
+    source.dispatch("translationPolicyClaim", { body: "not json" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().claims_received, 2);
     assertEquals(adapter.telemetry().claims_malformed, 2);
     assertEquals(loop.summary(T0).malformed_claims, 1);
 });
 
-Deno.test("adapter: corroboration raise event records into loop tracker", () => {
+Deno.test("adapter: corroboration raise event records into loop tracker", async () => {
     const tracker = new TranslationPolicyCorroborationTracker();
     const source = new LocalEventSource();
     const loop = makeLoop([], tracker);
@@ -137,12 +137,12 @@ Deno.test("adapter: corroboration raise event records into loop tracker", () => 
         body: JSON.stringify(raise),
         targetPeer: 0xAA,
         fromPeer: 0xC0,
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().corroboration_raises_recorded, 1);
     assertEquals(tracker.get(raise.drift_hash)?.witnessed_by, [0xC0]);
 });
 
-Deno.test("adapter: malformed corroboration raise is counted", () => {
+Deno.test("adapter: malformed corroboration raise is counted", async () => {
     const tracker = new TranslationPolicyCorroborationTracker();
     const source = new LocalEventSource();
     const loop = makeLoop([], tracker);
@@ -153,12 +153,12 @@ Deno.test("adapter: malformed corroboration raise is counted", () => {
         now_ms: () => T0,
     });
     adapter.start();
-    source.dispatch("translationPolicyCorroborationRaise", { body: "not json" });
+    source.dispatch("translationPolicyCorroborationRaise", { body: "not json" }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().corroboration_raises_received, 1);
     assertEquals(adapter.telemetry().corroboration_raises_malformed, 1);
 });
 
-Deno.test("adapter: stop unsubscribes from source", () => {
+Deno.test("adapter: stop unsubscribes from source", async () => {
     const emitted: WarrantProposalPayload[] = [];
     const source = new LocalEventSource();
     const adapter = new TranslationPolicyLiveWiringAdapter(makeLoop(emitted), source, {
@@ -170,12 +170,12 @@ Deno.test("adapter: stop unsubscribes from source", () => {
     adapter.start();
     adapter.stop();
     const fields = translationPolicyPlasmidFields(0xAA, peerMonitor().localClaim(T0));
-    source.dispatch("translationPolicyClaim", { body: fields.translationPolicyBody });
+    source.dispatch("translationPolicyClaim", { body: fields.translationPolicyBody }); await new Promise(r => setTimeout(r, 0));
     assertEquals(adapter.telemetry().claims_received, 0);
     assertEquals(emitted.length, 0);
 });
 
-Deno.test("adapter: optional local raise emit follows local drift observation", () => {
+Deno.test("adapter: optional local raise emit follows local drift observation", async () => {
     const source = new LocalEventSource();
     const tracker = new TranslationPolicyCorroborationTracker();
     const emittedRaises: Array<{ target: number; body: string }> = [];
@@ -196,7 +196,7 @@ Deno.test("adapter: optional local raise emit follows local drift observation", 
         body: fields.translationPolicyBody,
         targetPeer: 0xAA,
         fromPeer: 0xBB,
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(emittedRaises.length, 1);
     assertEquals(emittedRaises[0].target, 0xBB);
     const decoded = decodeTranslationPolicyCorroborationMeshPayload(emittedRaises[0].body);
@@ -206,7 +206,7 @@ Deno.test("adapter: optional local raise emit follows local drift observation", 
     assertEquals(adapter.telemetry().local_raises_emitted, 1);
 });
 
-Deno.test("adapter: custom raise target resolver deduplicates targets", () => {
+Deno.test("adapter: custom raise target resolver deduplicates targets", async () => {
     const source = new LocalEventSource();
     const tracker = new TranslationPolicyCorroborationTracker();
     const targets: number[] = [];
@@ -227,10 +227,10 @@ Deno.test("adapter: custom raise target resolver deduplicates targets", () => {
     source.dispatch("translationPolicyClaim", {
         body: fields.translationPolicyBody,
         fromPeer: 0xBB,
-    });
+    }); await new Promise(r => setTimeout(r, 0));
     assertEquals(targets, [0x10, 0x20]);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_LIVE_WIRING_SCHEMA, "OMEGA-1710/v1");
 });

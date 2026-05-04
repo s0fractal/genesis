@@ -114,7 +114,7 @@ function snapshot(overrides: {
     };
 }
 
-Deno.test("telemetry event: disabled emitter is inert", () => {
+Deno.test("telemetry event: disabled emitter is inert", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: false,
@@ -125,7 +125,7 @@ Deno.test("telemetry event: disabled emitter is inert", () => {
     assertEquals(target.events.length, 0);
 });
 
-Deno.test("telemetry event: enabled emitter dispatches first snapshot", () => {
+Deno.test("telemetry event: enabled emitter dispatches first snapshot", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: true,
@@ -140,7 +140,7 @@ Deno.test("telemetry event: enabled emitter dispatches first snapshot", () => {
     assertEquals(target.events[0].detail.hash, result.hash);
 });
 
-Deno.test("telemetry event: cooldown throttles dispatch", () => {
+Deno.test("telemetry event: cooldown throttles dispatch", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: true,
@@ -152,7 +152,7 @@ Deno.test("telemetry event: cooldown throttles dispatch", () => {
     assertEquals(target.events.length, 1);
 });
 
-Deno.test("telemetry event: unchanged snapshots are suppressed after cooldown", () => {
+Deno.test("telemetry event: unchanged snapshots are suppressed after cooldown", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: true,
@@ -165,7 +165,7 @@ Deno.test("telemetry event: unchanged snapshots are suppressed after cooldown", 
     assertEquals(target.events.length, 1);
 });
 
-Deno.test("telemetry event: changed snapshot emits after cooldown", () => {
+Deno.test("telemetry event: changed snapshot emits after cooldown", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: true,
@@ -177,7 +177,7 @@ Deno.test("telemetry event: changed snapshot emits after cooldown", () => {
     assertEquals(target.events.length, 2);
 });
 
-Deno.test("telemetry event: custom event name and change-only disable work", () => {
+Deno.test("telemetry event: custom event name and change-only disable work", async () => {
     const target = new CaptureTarget();
     const emitter = createTranslationPolicyTelemetryEventEmitter(target, {
         enabled: true,
@@ -193,7 +193,7 @@ Deno.test("telemetry event: custom event name and change-only disable work", () 
     assertEquals(target.events[1].detail.event_name, "omegaTpolTelemetry");
 });
 
-Deno.test("telemetry event: dispatch error is contained", () => {
+Deno.test("telemetry event: dispatch error is contained", async () => {
     const emitter = createTranslationPolicyTelemetryEventEmitter(new FailingTarget(), {
         enabled: true,
     })!;
@@ -203,13 +203,13 @@ Deno.test("telemetry event: dispatch error is contained", () => {
     assertEquals(result.error, "dispatch failed");
 });
 
-Deno.test("telemetry event: hash ignores wall-clock-only snapshot churn", () => {
+Deno.test("telemetry event: hash ignores wall-clock-only snapshot churn", async () => {
     assertEquals(
         translationPolicyTelemetryHash(snapshot({ now_ms: T0 })),
         translationPolicyTelemetryHash(snapshot({ now_ms: T0 + 42 })),
     );
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_TELEMETRY_EVENT_SCHEMA, "OMEGA-1820/v1");
 });

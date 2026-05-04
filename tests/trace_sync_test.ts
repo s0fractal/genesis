@@ -26,25 +26,25 @@ function fillRecorder(
     }
 }
 
-Deno.test("hash: same observation produces same hash", () => {
+Deno.test("hash: same observation produces same hash", async () => {
     const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
     const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
     assertEquals(observationHash(a), observationHash(b));
 });
 
-Deno.test("hash: different timestamp → different hash", () => {
+Deno.test("hash: different timestamp → different hash", async () => {
     const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
     const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW + 1, delivered_by: "X" };
     assert(observationHash(a) !== observationHash(b));
 });
 
-Deno.test("hash: different deliverer → different hash", () => {
+Deno.test("hash: different deliverer → different hash", async () => {
     const a = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "X" };
     const b = { frame: buildHeartbeat(GENESIS_HASH_V1_0, 1), received_at_ms: NOW, delivered_by: "Y" };
     assert(observationHash(a) !== observationHash(b));
 });
 
-Deno.test("merge: two disjoint traces fully concatenate", () => {
+Deno.test("merge: two disjoint traces fully concatenate", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 0, by: "A" }, { tick: 2, t_offset: 100, by: "A" }]);
@@ -56,7 +56,7 @@ Deno.test("merge: two disjoint traces fully concatenate", () => {
     assertEquals(result.b_only.length, 2);
 });
 
-Deno.test("merge: identical observations dedup to one", () => {
+Deno.test("merge: identical observations dedup to one", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     // Same frame + same delivered_by + same time → identical.
@@ -67,7 +67,7 @@ Deno.test("merge: identical observations dedup to one", () => {
     assertEquals(result.shared_hashes.length, 1);
 });
 
-Deno.test("merge: same frame seen by different relays at different times = 2 records", () => {
+Deno.test("merge: same frame seen by different relays at different times = 2 records", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 0, by: "A" }]);
@@ -78,7 +78,7 @@ Deno.test("merge: same frame seen by different relays at different times = 2 rec
     assertEquals(result.shared_hashes.length, 0);
 });
 
-Deno.test("merge: output sorted by received_at_ms", () => {
+Deno.test("merge: output sorted by received_at_ms", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 500, by: "A" }, { tick: 2, t_offset: 100, by: "A" }]);
@@ -89,7 +89,7 @@ Deno.test("merge: output sorted by received_at_ms", () => {
     assertEquals(ts, sorted);
 });
 
-Deno.test("merge: deterministic across calls", () => {
+Deno.test("merge: deterministic across calls", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     fillRecorder(a, [
@@ -111,7 +111,7 @@ Deno.test("merge: deterministic across calls", () => {
     }
 });
 
-Deno.test("merge: tie-break by hash when timestamps match", () => {
+Deno.test("merge: tie-break by hash when timestamps match", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     // Same timestamp, different content → both kept, sorted by hash.
@@ -126,12 +126,12 @@ Deno.test("merge: tie-break by hash when timestamps match", () => {
     assertEquals(result.merged[1].delivered_by, result2.merged[1].delivered_by);
 });
 
-Deno.test("merge: empty inputs yield empty result", () => {
+Deno.test("merge: empty inputs yield empty result", async () => {
     const result = mergeTraces([], []);
     assertEquals(result.merged.length, 0);
 });
 
-Deno.test("merge: one empty + one populated → populated returned", () => {
+Deno.test("merge: one empty + one populated → populated returned", async () => {
     const a = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 0, by: "A" }, { tick: 2, t_offset: 50, by: "A" }]);
     const result = mergeTraces(a.snapshot(), []);
@@ -140,7 +140,7 @@ Deno.test("merge: one empty + one populated → populated returned", () => {
     assertEquals(result.b_only.length, 0);
 });
 
-Deno.test("mergeMany: aggregates 3 recorders", () => {
+Deno.test("mergeMany: aggregates 3 recorders", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     const c = new FrameRecorder();
@@ -151,19 +151,19 @@ Deno.test("mergeMany: aggregates 3 recorders", () => {
     assertEquals(result.merged.length, 3);
 });
 
-Deno.test("mergeMany: empty list returns empty", () => {
+Deno.test("mergeMany: empty list returns empty", async () => {
     const result = mergeMany([]);
     assertEquals(result.merged.length, 0);
 });
 
-Deno.test("mergeMany: single recorder returns that recorder's data", () => {
+Deno.test("mergeMany: single recorder returns that recorder's data", async () => {
     const a = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 0, by: "A" }, { tick: 2, t_offset: 100, by: "A" }]);
     const result = mergeMany([a]);
     assertEquals(result.merged.length, 2);
 });
 
-Deno.test("recorderFromMerge: builds a recorder ready for replay", () => {
+Deno.test("recorderFromMerge: builds a recorder ready for replay", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     const wv = buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 1);
@@ -182,7 +182,7 @@ Deno.test("recorderFromMerge: builds a recorder ready for replay", () => {
     assertEquals(stats.double_witness, 1);
 });
 
-Deno.test("recorderFromMerge: respects custom capacity", () => {
+Deno.test("recorderFromMerge: respects custom capacity", async () => {
     const a = new FrameRecorder();
     fillRecorder(a, [{ tick: 1, t_offset: 0, by: "A" }, { tick: 2, t_offset: 100, by: "A" }]);
     const result = mergeTraces(a.snapshot(), []);
@@ -191,7 +191,7 @@ Deno.test("recorderFromMerge: respects custom capacity", () => {
     assertEquals(merged.size(), 1);
 });
 
-Deno.test("coverage: stats reflect overlap correctly", () => {
+Deno.test("coverage: stats reflect overlap correctly", async () => {
     const a = new FrameRecorder();
     const b = new FrameRecorder();
     // 1 shared, 1 A-only, 2 B-only.
@@ -206,14 +206,14 @@ Deno.test("coverage: stats reflect overlap correctly", () => {
     assert(Math.abs(stats.overlap_ratio - 0.25) < 1e-9);
 });
 
-Deno.test("coverage: empty merge returns zero shape", () => {
+Deno.test("coverage: empty merge returns zero shape", async () => {
     const result = mergeTraces([], []);
     const stats = coverageStats(result);
     assertEquals(stats.total_unique, 0);
     assertEquals(stats.overlap_ratio, 0);
 });
 
-Deno.test("merge: forensic invariant — merged replay ≥ each individual replay", () => {
+Deno.test("merge: forensic invariant — merged replay ≥ each individual replay", async () => {
     // Both relays observe the same partition incident from different
     // viewpoints. Merged replay sees more total intents than either.
     const a = new FrameRecorder();

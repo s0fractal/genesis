@@ -13,7 +13,7 @@ import {
 
 // --- Parsing ---
 
-Deno.test("parse: valid schema strings", () => {
+Deno.test("parse: valid schema strings", async () => {
     assertEquals(parseSinkSchema("financial-events:v1.0"), {
         name: "financial-events", major: 1, minor: 0,
     });
@@ -25,7 +25,7 @@ Deno.test("parse: valid schema strings", () => {
     });
 });
 
-Deno.test("parse: rejects malformed strings", () => {
+Deno.test("parse: rejects malformed strings", async () => {
     assertEquals(parseSinkSchema(""), null);
     assertEquals(parseSinkSchema("no-version"), null);
     assertEquals(parseSinkSchema("name:v1"), null);          // missing minor
@@ -36,16 +36,16 @@ Deno.test("parse: rejects malformed strings", () => {
     assertEquals(parseSinkSchema("name@invalid:v1.0"), null);
 });
 
-Deno.test("parse: rejects names longer than 32 chars", () => {
+Deno.test("parse: rejects names longer than 32 chars", async () => {
     assertEquals(parseSinkSchema("a".repeat(33) + ":v1.0"), null);
 });
 
-Deno.test("parse: accepts max-length name (32 chars)", () => {
+Deno.test("parse: accepts max-length name (32 chars)", async () => {
     const max = "a".repeat(32);
     assertEquals(parseSinkSchema(max + ":v1.0")?.name, max);
 });
 
-Deno.test("parse: non-string input", () => {
+Deno.test("parse: non-string input", async () => {
     assertEquals(parseSinkSchema(null as any), null);
     assertEquals(parseSinkSchema(undefined as any), null);
     assertEquals(parseSinkSchema(123 as any), null);
@@ -53,45 +53,45 @@ Deno.test("parse: non-string input", () => {
 
 // --- Formatting ---
 
-Deno.test("format: roundtrip", () => {
+Deno.test("format: roundtrip", async () => {
     const s = "alarms:v3.7";
     const parsed = parseSinkSchema(s)!;
     assertEquals(formatSinkSchema(parsed), s);
 });
 
-Deno.test("isValidSinkSchemaString: predicate", () => {
+Deno.test("isValidSinkSchemaString: predicate", async () => {
     assertEquals(isValidSinkSchemaString("alarms:v1.0"), true);
     assertEquals(isValidSinkSchemaString("nope"), false);
 });
 
 // --- Compatibility ---
 
-Deno.test("compatible: same name + same major → true", () => {
+Deno.test("compatible: same name + same major → true", async () => {
     const a = parseSinkSchema("alarms:v1.0")!;
     const b = parseSinkSchema("alarms:v1.5")!;
     assertEquals(compatibleSchemas(a, b), true);
 });
 
-Deno.test("compatible: same name + different major → false", () => {
+Deno.test("compatible: same name + different major → false", async () => {
     const a = parseSinkSchema("alarms:v1.5")!;
     const b = parseSinkSchema("alarms:v2.0")!;
     assertEquals(compatibleSchemas(a, b), false);
 });
 
-Deno.test("compatible: different name → false", () => {
+Deno.test("compatible: different name → false", async () => {
     const a = parseSinkSchema("alarms:v1.0")!;
     const b = parseSinkSchema("metrics:v1.0")!;
     assertEquals(compatibleSchemas(a, b), false);
 });
 
-Deno.test("compatibleSchemaStrings: convenience overload", () => {
+Deno.test("compatibleSchemaStrings: convenience overload", async () => {
     assertEquals(compatibleSchemaStrings("alarms:v1.0", "alarms:v1.5"), true);
     assertEquals(compatibleSchemaStrings("alarms:v1.0", "alarms:v2.0"), false);
     assertEquals(compatibleSchemaStrings("alarms:v1.0", "metrics:v1.0"), false);
     assertEquals(compatibleSchemaStrings("invalid", "alarms:v1.0"), false);
 });
 
-Deno.test("sameSinkSchema: full equality", () => {
+Deno.test("sameSinkSchema: full equality", async () => {
     const a = parseSinkSchema("alarms:v1.5")!;
     const b = parseSinkSchema("alarms:v1.5")!;
     const c = parseSinkSchema("alarms:v1.6")!;
@@ -101,32 +101,32 @@ Deno.test("sameSinkSchema: full equality", () => {
 
 // --- Registry ---
 
-Deno.test("registry: register + get", () => {
+Deno.test("registry: register + get", async () => {
     const r = new SinkSchemaRegistry();
     const schema = r.register("alpha", "alarms:v1.0");
     assertEquals(schema.name, "alarms");
     assertEquals(r.get("alpha"), { name: "alarms", major: 1, minor: 0 });
 });
 
-Deno.test("registry: register throws on malformed schema", () => {
+Deno.test("registry: register throws on malformed schema", async () => {
     const r = new SinkSchemaRegistry();
     assertThrows(() => r.register("alpha", "invalid"));
 });
 
-Deno.test("registry: register throws on duplicate sink_id", () => {
+Deno.test("registry: register throws on duplicate sink_id", async () => {
     const r = new SinkSchemaRegistry();
     r.register("alpha", "alarms:v1.0");
     assertThrows(() => r.register("alpha", "alarms:v1.5"));
 });
 
-Deno.test("registry: unregister drops entry", () => {
+Deno.test("registry: unregister drops entry", async () => {
     const r = new SinkSchemaRegistry();
     r.register("alpha", "alarms:v1.0");
     r.unregister("alpha");
     assertEquals(r.get("alpha"), undefined);
 });
 
-Deno.test("registry: sinksByName filters", () => {
+Deno.test("registry: sinksByName filters", async () => {
     const r = new SinkSchemaRegistry();
     r.register("alpha", "alarms:v1.0");
     r.register("beta",  "alarms:v2.0");
@@ -136,7 +136,7 @@ Deno.test("registry: sinksByName filters", () => {
     assertEquals(r.sinksByName("missing"), []);
 });
 
-Deno.test("registry: compatibleSinks filters by major", () => {
+Deno.test("registry: compatibleSinks filters by major", async () => {
     const r = new SinkSchemaRegistry();
     r.register("a", "alarms:v1.0");
     r.register("b", "alarms:v1.7");
@@ -145,7 +145,7 @@ Deno.test("registry: compatibleSinks filters by major", () => {
     assertEquals(r.compatibleSinks(target), ["a", "b"]);
 });
 
-Deno.test("registry: summary aggregates per-schema counts sorted", () => {
+Deno.test("registry: summary aggregates per-schema counts sorted", async () => {
     const r = new SinkSchemaRegistry();
     r.register("a", "alarms:v1.0");
     r.register("b", "alarms:v1.0");
@@ -157,7 +157,7 @@ Deno.test("registry: summary aggregates per-schema counts sorted", () => {
     ]);
 });
 
-Deno.test("registry: size reports total", () => {
+Deno.test("registry: size reports total", async () => {
     const r = new SinkSchemaRegistry();
     assertEquals(r.size(), 0);
     r.register("a", "alarms:v1.0");
@@ -165,11 +165,11 @@ Deno.test("registry: size reports total", () => {
     assertEquals(r.size(), 2);
 });
 
-Deno.test("registry: get on unknown id returns undefined", () => {
+Deno.test("registry: get on unknown id returns undefined", async () => {
     const r = new SinkSchemaRegistry();
     assertEquals(r.get("missing"), undefined);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(SINK_SCHEMA_VERSION, "OMEGA-1590/v1");
 });

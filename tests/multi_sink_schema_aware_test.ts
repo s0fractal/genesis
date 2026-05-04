@@ -33,7 +33,7 @@ function makeInvestigator() {
 
 // --- Sink registration ---
 
-Deno.test("aware-multi: addSink registers with schema", () => {
+Deno.test("aware-multi: addSink registers with schema", async () => {
     const { investigator } = makeInvestigator();
     const schema = investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     assertEquals(schema.name, "alarms");
@@ -42,20 +42,20 @@ Deno.test("aware-multi: addSink registers with schema", () => {
     assertEquals(investigator.schemaOf("alpha"), schema);
 });
 
-Deno.test("aware-multi: addSink throws on malformed schema", () => {
+Deno.test("aware-multi: addSink throws on malformed schema", async () => {
     const { investigator } = makeInvestigator();
     assertThrows(() => investigator.addSink("alpha", "garbage", TEST_OPTS));
     // Registry not polluted by failed registration.
     assertEquals(investigator.schemaOf("alpha"), undefined);
 });
 
-Deno.test("aware-multi: addSink throws on duplicate id", () => {
+Deno.test("aware-multi: addSink throws on duplicate id", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     assertThrows(() => investigator.addSink("alpha", "alarms:v2.0", TEST_OPTS));
 });
 
-Deno.test("aware-multi: removeSink drops registry + multi state", () => {
+Deno.test("aware-multi: removeSink drops registry + multi state", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.removeSink("alpha");
@@ -65,14 +65,14 @@ Deno.test("aware-multi: removeSink drops registry + multi state", () => {
 
 // --- Schema-validated observation ---
 
-Deno.test("observe: compatible schema accepted", () => {
+Deno.test("observe: compatible schema accepted", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "alarms:v1.5");
     assertEquals(r.ok, true);
 });
 
-Deno.test("observe: name mismatch rejected with typed reason", () => {
+Deno.test("observe: name mismatch rejected with typed reason", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "metrics:v1.0");
@@ -86,7 +86,7 @@ Deno.test("observe: name mismatch rejected with typed reason", () => {
     }
 });
 
-Deno.test("observe: major mismatch rejected with typed reason", () => {
+Deno.test("observe: major mismatch rejected with typed reason", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "alarms:v2.0");
@@ -97,7 +97,7 @@ Deno.test("observe: major mismatch rejected with typed reason", () => {
     }
 });
 
-Deno.test("observe: malformed peer schema rejected", () => {
+Deno.test("observe: malformed peer schema rejected", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     const r = investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "garbage");
@@ -107,14 +107,14 @@ Deno.test("observe: malformed peer schema rejected", () => {
     }
 });
 
-Deno.test("observe: unknown sink rejected", () => {
+Deno.test("observe: unknown sink rejected", async () => {
     const { investigator } = makeInvestigator();
     const r = investigator.observePeerAnchor("nope", 0xAA, 0x100, T0, "alarms:v1.0");
     assertEquals(r.ok, false);
     if (!r.ok) assertEquals(r.reason, "unknown-sink");
 });
 
-Deno.test("observe: omitting peer schema bypasses validation (legacy compat)", () => {
+Deno.test("observe: omitting peer schema bypasses validation (legacy compat)", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     // No peer_schema_string provided — observation forwards.
@@ -124,7 +124,7 @@ Deno.test("observe: omitting peer schema bypasses validation (legacy compat)", (
 
 // --- Telemetry ---
 
-Deno.test("rejection counters increment per category", () => {
+Deno.test("rejection counters increment per category", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.observePeerAnchor("nope", 0xAA, 0x100, T0, "alarms:v1.0");
@@ -138,7 +138,7 @@ Deno.test("rejection counters increment per category", () => {
     assertEquals(counts.sender_schema_malformed, 1);
 });
 
-Deno.test("summary: aggregated per-sink + per-schema info", () => {
+Deno.test("summary: aggregated per-sink + per-schema info", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.addSink("beta", "alarms:v1.5", TEST_OPTS);
@@ -153,7 +153,7 @@ Deno.test("summary: aggregated per-sink + per-schema info", () => {
 
 // --- Discovery helpers ---
 
-Deno.test("sinksByName: returns sorted ids matching domain", () => {
+Deno.test("sinksByName: returns sorted ids matching domain", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("zulu", "alarms:v1.0", TEST_OPTS);
     investigator.addSink("alpha", "alarms:v2.0", TEST_OPTS);
@@ -162,7 +162,7 @@ Deno.test("sinksByName: returns sorted ids matching domain", () => {
     assertEquals(investigator.sinksByName("metrics"), ["mike"]);
 });
 
-Deno.test("compatibleSinks: filters by name + major", () => {
+Deno.test("compatibleSinks: filters by name + major", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("a", "alarms:v1.0", TEST_OPTS);
     investigator.addSink("b", "alarms:v1.5", TEST_OPTS);
@@ -175,7 +175,7 @@ Deno.test("compatibleSinks: filters by name + major", () => {
     assertEquals(compat, ["a", "b"]);
 });
 
-Deno.test("translatableSinks: returns registered migration targets only", () => {
+Deno.test("translatableSinks: returns registered migration targets only", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("a", "alarms:v1.0", TEST_OPTS);
     investigator.addSink("b", "alarms:v2.0", TEST_OPTS);
@@ -189,7 +189,7 @@ Deno.test("translatableSinks: returns registered migration targets only", () => 
     );
 });
 
-Deno.test("compatibleOrTranslatableSinks: merges direct + migration fanout", () => {
+Deno.test("compatibleOrTranslatableSinks: merges direct + migration fanout", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("a", "alarms:v1.0", TEST_OPTS);
     investigator.addSink("b", "alarms:v2.0", TEST_OPTS);
@@ -201,7 +201,7 @@ Deno.test("compatibleOrTranslatableSinks: merges direct + migration fanout", () 
     );
 });
 
-Deno.test("observe: major mismatch accepted when translator registered", () => {
+Deno.test("observe: major mismatch accepted when translator registered", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.registerTranslator("alarms:v2.0", "alarms:v1.0", passthroughTranslator);
@@ -219,7 +219,7 @@ Deno.test("observe: major mismatch accepted when translator registered", () => {
     }]);
 });
 
-Deno.test("observe: major mismatch still rejected without translator", () => {
+Deno.test("observe: major mismatch still rejected without translator", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.registerTranslator("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
@@ -228,7 +228,7 @@ Deno.test("observe: major mismatch still rejected without translator", () => {
     if (!r.ok) assertEquals(r.reason, "major-mismatch");
 });
 
-Deno.test("translation telemetry: record apply counts per sink", () => {
+Deno.test("translation telemetry: record apply counts per sink", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     assertEquals(investigator.recordTranslationApply("missing", 1, 2), false);
@@ -245,7 +245,7 @@ Deno.test("translation telemetry: record apply counts per sink", () => {
     }]);
 });
 
-Deno.test("summary: exposes registered translator pairs", () => {
+Deno.test("summary: exposes registered translator pairs", async () => {
     const { investigator } = makeInvestigator();
     investigator.registerTranslator("alarms:v1.0", "alarms:v2.0", passthroughTranslator);
     investigator.registerTranslator("metrics:v1.0", "metrics:v2.0", passthroughTranslator);
@@ -257,7 +257,7 @@ Deno.test("summary: exposes registered translator pairs", () => {
 
 // --- End-to-end ---
 
-Deno.test("end-to-end: incompatible peer can't influence dissenter count", () => {
+Deno.test("end-to-end: incompatible peer can't influence dissenter count", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     // 3 healthy peers + 1 dissenter on the wrong domain.
@@ -271,7 +271,7 @@ Deno.test("end-to-end: incompatible peer can't influence dissenter count", () =>
     assertEquals(emitted.length, 0); // no warrant fired
 });
 
-Deno.test("end-to-end: minor version drift accepted, major rejected", () => {
+Deno.test("end-to-end: minor version drift accepted, major rejected", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("alpha", "alarms:v1.0", TEST_OPTS);
     investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0, "alarms:v1.0");
@@ -285,6 +285,6 @@ Deno.test("end-to-end: minor version drift accepted, major rejected", () => {
     assertEquals(tele.rejection_counts.major_mismatch, 1);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(SCHEMA_AWARE_MULTI_SCHEMA, "OMEGA-1610/v1");
 });

@@ -28,13 +28,13 @@ function makeInvestigator() {
     return { investigator: new MultiSinkInvestigator(emit), emitted };
 }
 
-Deno.test("multi: starts with zero sinks", () => {
+Deno.test("multi: starts with zero sinks", async () => {
     const { investigator } = makeInvestigator();
     assertEquals(investigator.sinkCount(), 0);
     assertEquals(investigator.sinkIds(), []);
 });
 
-Deno.test("multi: addSink registers + addSink twice throws", () => {
+Deno.test("multi: addSink registers + addSink twice throws", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     assertEquals(investigator.sinkCount(), 1);
@@ -42,7 +42,7 @@ Deno.test("multi: addSink registers + addSink twice throws", () => {
     assertThrows(() => investigator.addSink("alpha", TEST_OPTS));
 });
 
-Deno.test("multi: removeSink drops it", () => {
+Deno.test("multi: removeSink drops it", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -51,12 +51,12 @@ Deno.test("multi: removeSink drops it", () => {
     assertEquals(investigator.sinkIds(), ["beta"]);
 });
 
-Deno.test("multi: observePeerAnchor returns false for unknown sink", () => {
+Deno.test("multi: observePeerAnchor returns false for unknown sink", async () => {
     const { investigator } = makeInvestigator();
     assertEquals(investigator.observePeerAnchor("missing", 0xAA, 0x100, T0), false);
 });
 
-Deno.test("multi: per-sink quorum independence", () => {
+Deno.test("multi: per-sink quorum independence", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -69,26 +69,26 @@ Deno.test("multi: per-sink quorum independence", () => {
     investigator.observePeerAnchor("beta", 0xBB, 0x200, T0);
     investigator.observePeerAnchor("beta", 0xCC, 0x200, T0);
     investigator.observePeerAnchor("beta", 0xFF, 0x999, T0);
-    const r = investigator.tickAll(T0);
+    const r = await investigator.tickAll(T0);
     assertEquals(r.total_emitted, 1);
     assertEquals(r.per_sink.get("alpha")!.proposals_emitted, 0);
     assertEquals(r.per_sink.get("beta")!.proposals_emitted, 1);
     assertEquals(emitted[0].sink_id, "beta");
 });
 
-Deno.test("multi: emit callback receives sink_id metadata", () => {
+Deno.test("multi: emit callback receives sink_id metadata", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.observePeerAnchor("alpha", 0xAA, 0x100, T0);
     investigator.observePeerAnchor("alpha", 0xBB, 0x100, T0);
     investigator.observePeerAnchor("alpha", 0xCC, 0x100, T0);
     investigator.observePeerAnchor("alpha", 0xFF, 0x999, T0);
-    investigator.tickAll(T0);
+    await investigator.tickAll(T0);
     assertEquals(emitted.length, 1);
     assertEquals(emitted[0].sink_id, "alpha");
 });
 
-Deno.test("multi: globally excluded peer pre-add blocks new sinks", () => {
+Deno.test("multi: globally excluded peer pre-add blocks new sinks", async () => {
     const { investigator } = makeInvestigator();
     investigator.excludePeerGlobally(0xFF);
     investigator.addSink("alpha", TEST_OPTS);
@@ -97,11 +97,11 @@ Deno.test("multi: globally excluded peer pre-add blocks new sinks", () => {
     investigator.observePeerAnchor("alpha", 0xBB, 0x100, T0);
     investigator.observePeerAnchor("alpha", 0xCC, 0x100, T0);
     investigator.observePeerAnchor("alpha", 0xFF, 0x999, T0);
-    const r = investigator.tickAll(T0);
+    const r = await investigator.tickAll(T0);
     assertEquals(r.per_sink.get("alpha")!.quorum_snapshot.dissenter_peer_ids, []);
 });
 
-Deno.test("multi: excludePeerGlobally propagates to all existing sinks", () => {
+Deno.test("multi: excludePeerGlobally propagates to all existing sinks", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -113,7 +113,7 @@ Deno.test("multi: excludePeerGlobally propagates to all existing sinks", () => {
     assertEquals(investigator.globallyExcludedPeers(), [0xFF]);
 });
 
-Deno.test("multi: includePeerGlobally reverses exclusion", () => {
+Deno.test("multi: includePeerGlobally reverses exclusion", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.excludePeerGlobally(0xFF);
@@ -123,7 +123,7 @@ Deno.test("multi: includePeerGlobally reverses exclusion", () => {
     assertEquals(investigator.globallyExcludedPeers(), []);
 });
 
-Deno.test("multi: tickOne runs only one sink", () => {
+Deno.test("multi: tickOne runs only one sink", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -135,18 +135,18 @@ Deno.test("multi: tickOne runs only one sink", () => {
     investigator.observePeerAnchor("beta", 0xBB, 0x200, T0);
     investigator.observePeerAnchor("beta", 0xCC, 0x200, T0);
     investigator.observePeerAnchor("beta", 0xFE, 0x888, T0);
-    const r = investigator.tickOne("alpha", T0);
+    const r = await investigator.tickOne("alpha", T0);
     assert(r);
     assertEquals(r!.proposals_emitted, 1);
     // beta wasn't ticked — it has a different dissenter that wasn't actioned.
 });
 
-Deno.test("multi: tickOne returns undefined for unknown sink", () => {
+Deno.test("multi: tickOne returns undefined for unknown sink", async () => {
     const { investigator } = makeInvestigator();
-    assertEquals(investigator.tickOne("missing", T0), undefined);
+    assertEquals(await investigator.tickOne("missing", T0), undefined);
 });
 
-Deno.test("multi: summary aggregates dissenter counts across sinks", () => {
+Deno.test("multi: summary aggregates dissenter counts across sinks", async () => {
     const { investigator } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -167,7 +167,7 @@ Deno.test("multi: summary aggregates dissenter counts across sinks", () => {
     assertEquals(s.total_dissenters, 3); // 1 in alpha + 2 in beta
 });
 
-Deno.test("multi: tickAll iterates sinks in sorted-id order", () => {
+Deno.test("multi: tickAll iterates sinks in sorted-id order", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("zulu", TEST_OPTS);
     investigator.addSink("alpha", TEST_OPTS);
@@ -178,12 +178,12 @@ Deno.test("multi: tickAll iterates sinks in sorted-id order", () => {
         investigator.observePeerAnchor(sink, 0xCC, 0x100, T0);
         investigator.observePeerAnchor(sink, 0xFF, 0x999, T0);
     }
-    investigator.tickAll(T0);
+    await investigator.tickAll(T0);
     // Emissions arrive in sorted-sink order: alpha, mike, zulu.
     assertEquals(emitted.map(e => e.sink_id), ["alpha", "mike", "zulu"]);
 });
 
-Deno.test("end-to-end: multi-sink scenario with global quarantine", () => {
+Deno.test("end-to-end: multi-sink scenario with global quarantine", async () => {
     const { investigator, emitted } = makeInvestigator();
     investigator.addSink("alpha", TEST_OPTS);
     investigator.addSink("beta", TEST_OPTS);
@@ -195,7 +195,7 @@ Deno.test("end-to-end: multi-sink scenario with global quarantine", () => {
         investigator.observePeerAnchor(sink, 0xFF, 0x999, T0);
     }
     // First tick: warrants emit from BOTH sinks for 0xFF.
-    const r1 = investigator.tickAll(T0);
+    const r1 = await investigator.tickAll(T0);
     assertEquals(r1.total_emitted, 2);
     // Senate quarantines 0xFF globally.
     investigator.excludePeerGlobally(0xFF);
@@ -208,13 +208,13 @@ Deno.test("end-to-end: multi-sink scenario with global quarantine", () => {
     investigator.observePeerAnchor("beta", 0xAA, 0x100, T0 + 100_000);
     investigator.observePeerAnchor("beta", 0xBB, 0x100, T0 + 100_000);
     investigator.observePeerAnchor("beta", 0xCC, 0x100, T0 + 100_000);
-    const r2 = investigator.tickAll(T0 + 100_000);
+    const r2 = await investigator.tickAll(T0 + 100_000);
     assertEquals(r2.total_emitted, 0);
     assertEquals(r2.total_dissenters, 0);
     // Confirm emit log unchanged from r1.
     assertEquals(emitted.length, 2);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(MULTI_SINK_SCHEMA, "OMEGA-1580/v1");
 });

@@ -51,7 +51,7 @@ function classification(
     };
 }
 
-Deno.test("replay digest claim: builds compact claim from digest", () => {
+Deno.test("replay digest claim: builds compact claim from digest", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const claim = buildTranslationPolicyReplayDigestClaim(
         0x1_0000_0001,
@@ -67,14 +67,14 @@ Deno.test("replay digest claim: builds compact claim from digest", () => {
     assertEquals(claim.final_band, "blocked");
 });
 
-Deno.test("replay digest claim: JSON decode round-trips", () => {
+Deno.test("replay digest claim: JSON decode round-trips", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const claim = buildTranslationPolicyReplayDigestClaim(0xAA, 0xCA, digest, T0);
     const decoded = decodeTranslationPolicyReplayDigestClaim(JSON.stringify(claim));
     assertEquals(decoded, claim);
 });
 
-Deno.test("replay digest claim: decoder rejects malformed shapes", () => {
+Deno.test("replay digest claim: decoder rejects malformed shapes", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const claim = buildTranslationPolicyReplayDigestClaim(0xAA, 0xCA, digest, T0);
     assertEquals(decodeTranslationPolicyReplayDigestClaim("not json"), null);
@@ -102,7 +102,7 @@ Deno.test("replay digest claim: decoder rejects malformed shapes", () => {
     );
 });
 
-Deno.test("replay digest claim: plasmid fields carry target and body", () => {
+Deno.test("replay digest claim: plasmid fields carry target and body", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const claim = buildTranslationPolicyReplayDigestClaim(0xAA, 0xCA, digest, T0);
     const fields = translationPolicyReplayDigestPlasmidFields(0xBB, claim);
@@ -115,7 +115,7 @@ Deno.test("replay digest claim: plasmid fields carry target and body", () => {
     );
 });
 
-Deno.test("replay digest claim bridge: sends and tracks counters", () => {
+Deno.test("replay digest claim bridge: sends and tracks counters", async () => {
     let captured_target = 0;
     let captured_body = "";
     const bridge = new TranslationPolicyReplayDigestClaimBridge(
@@ -135,7 +135,7 @@ Deno.test("replay digest claim bridge: sends and tracks counters", () => {
     assertEquals(decodeTranslationPolicyReplayDigestClaim(captured_body)?.peer_id, 0xAA);
 });
 
-Deno.test("replay digest claim bridge: emit failure does not count", () => {
+Deno.test("replay digest claim bridge: emit failure does not count", async () => {
     const bridge = new TranslationPolicyReplayDigestClaimBridge(
         0xAA,
         0xCA,
@@ -147,7 +147,7 @@ Deno.test("replay digest claim bridge: emit failure does not count", () => {
     assertEquals(bridge.last_body, undefined);
 });
 
-Deno.test("replay digest claim bridge: handleIncoming decodes remote claim", () => {
+Deno.test("replay digest claim bridge: handleIncoming decodes remote claim", async () => {
     const bridge = new TranslationPolicyReplayDigestClaimBridge(
         0xAA,
         0xCA,
@@ -158,7 +158,7 @@ Deno.test("replay digest claim bridge: handleIncoming decodes remote claim", () 
     assertEquals(bridge.handleIncoming(JSON.stringify(claim))?.peer_id, 0xBB);
 });
 
-Deno.test("replay digest claim: matches local digest exactly", () => {
+Deno.test("replay digest claim: matches local digest exactly", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const claim = buildTranslationPolicyReplayDigestClaim(0xAA, 0xCA, digest, T0);
     assertEquals(translationPolicyReplayDigestClaimMatchesDigest(claim, digest), true);
@@ -171,14 +171,14 @@ Deno.test("replay digest claim: matches local digest exactly", () => {
     );
 });
 
-Deno.test("replay digest claim: equality ignores peer, witness, and wall clock", () => {
+Deno.test("replay digest claim: equality ignores peer, witness, and wall clock", async () => {
     const digest = translationPolicyForensicReplayDigest(classification());
     const a = buildTranslationPolicyReplayDigestClaim(0xAA, 0xCA, digest, T0);
     const b = buildTranslationPolicyReplayDigestClaim(0xBB, 0xDD, digest, T0 + 1);
     assertEquals(sameTranslationPolicyReplayDigestClaim(a, b), true);
 });
 
-Deno.test("replay digest claim: equality detects interpretation drift", () => {
+Deno.test("replay digest claim: equality detects interpretation drift", async () => {
     const a = buildTranslationPolicyReplayDigestClaim(
         0xAA,
         0xCA,
@@ -195,6 +195,6 @@ Deno.test("replay digest claim: equality detects interpretation drift", () => {
     assertEquals(sameTranslationPolicyReplayDigestClaim(a, b), false);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_REPLAY_DIGEST_CLAIM_SCHEMA, "OMEGA-1870/v1");
 });

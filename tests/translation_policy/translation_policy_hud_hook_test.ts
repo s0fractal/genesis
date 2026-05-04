@@ -66,7 +66,7 @@ function telemetry(
     };
 }
 
-Deno.test("hook: disabled by default and does not write HUD", () => {
+Deno.test("hook: disabled by default and does not write HUD", async () => {
     const writes: unknown[] = [];
     const hook = new TranslationPolicyHudHook(
         { telemetry: () => telemetry() },
@@ -79,7 +79,7 @@ Deno.test("hook: disabled by default and does not write HUD", () => {
     assertEquals(writes.length, 0);
 });
 
-Deno.test("hook: enabled writes compact summary to configured slot", () => {
+Deno.test("hook: enabled writes compact summary to configured slot", async () => {
     const writes: unknown[] = [];
     const hook = new TranslationPolicyHudHook(
         { telemetry: () => telemetry() },
@@ -99,7 +99,7 @@ Deno.test("hook: enabled writes compact summary to configured slot", () => {
     assertEquals(String(result.summary).includes("TPOL NOMINAL"), true);
 });
 
-Deno.test("hook: interval throttles repeated HUD writes", () => {
+Deno.test("hook: interval throttles repeated HUD writes", async () => {
     const writes: unknown[] = [];
     const hook = new TranslationPolicyHudHook(
         { telemetry: () => telemetry() },
@@ -116,7 +116,7 @@ Deno.test("hook: interval throttles repeated HUD writes", () => {
     assertEquals(writes.length, 2);
 });
 
-Deno.test("hook: runtime exceptions are contained", () => {
+Deno.test("hook: runtime exceptions are contained", async () => {
     const writes: unknown[] = [];
     const hook = new TranslationPolicyHudHook(
         { telemetry: () => { throw new Error("boom"); } },
@@ -132,12 +132,12 @@ Deno.test("hook: runtime exceptions are contained", () => {
     assertEquals(writes.length, 0);
 });
 
-Deno.test("factory: null source keeps bootstrap inert", () => {
+Deno.test("factory: null source keeps bootstrap inert", async () => {
     const hook = createTranslationPolicyHudHook(null, () => {});
     assertEquals(hook, null);
 });
 
-Deno.test("options: partial hook options merge nested HUD options", () => {
+Deno.test("options: partial hook options merge nested HUD options", async () => {
     const opts = mergeTranslationPolicyHudHookOptions({
         enabled: true,
         hud: { max_summary_len: 12 },
@@ -147,6 +147,6 @@ Deno.test("options: partial hook options merge nested HUD options", () => {
     assertEquals(opts.hud.max_summary_len, 12);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(TRANSLATION_POLICY_HUD_HOOK_SCHEMA, "OMEGA-1760/v1");
 });

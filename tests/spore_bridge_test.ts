@@ -3,7 +3,7 @@ import { encodeBase64, decodeBase64 } from "jsr:@std/encoding/base64";
 import { buildHeartbeat, frameFromBytes, frameToBytes, SPORE_FRAME_BYTES } from "../src/network/spore_frame.ts";
 import { GENESIS_HASH_V1_0 } from "../src/network/genesis_inscription.ts";
 
-Deno.test("SporeBridge: Frame Base64 Serialization Parity", () => {
+Deno.test("SporeBridge: Frame Base64 Serialization Parity", async () => {
     // 1. Generate a raw binary spore frame
     const originalFrame = buildHeartbeat(GENESIS_HASH_V1_0, 100);
     const bytes = frameToBytes(originalFrame);

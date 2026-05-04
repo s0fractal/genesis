@@ -19,24 +19,24 @@ function fnv1aZeroPad64(s: string): number {
     return h >>> 0;
 }
 
-Deno.test("senate hash: empty 64-byte buffer matches known FNV-1a vector", () => {
+Deno.test("senate hash: empty 64-byte buffer matches known FNV-1a vector", async () => {
     // 64 zero bytes hashed with FNV-1a — anchored against the Rust impl
     // (omega_v2/tests/cross_lang_hash.rs). If this drifts, both sides broke.
     assertEquals(fnv1aZeroPad64(""), 0xDFDE_6AC5);
 });
 
-Deno.test("senate hash: 'Era 1040 ZK' cross-language anchor", () => {
+Deno.test("senate hash: 'Era 1040 ZK' cross-language anchor", async () => {
     // Rust source-of-truth: omega_v2/tests/cross_lang_hash.rs.
     assertEquals(fnv1aZeroPad64("Era 1040 ZK"), 0x7698_B8EF);
 });
 
-Deno.test("senate hash: distinct descriptions produce distinct hashes", () => {
+Deno.test("senate hash: distinct descriptions produce distinct hashes", async () => {
     const a = fnv1aZeroPad64("Era 1040 zk");
     const b = fnv1aZeroPad64("Era 1041 senate");
     assert(a !== b);
 });
 
-Deno.test("senate hash: short and 64-byte-truncated descriptions diverge for >64 chars", () => {
+Deno.test("senate hash: short and 64-byte-truncated descriptions diverge for >64 chars", async () => {
     const short = "x".repeat(60);
     const long = "x".repeat(60) + "DIFFERENT_TAIL_DROPPED_AFTER_64";
     // Both pad/truncate to a 64-byte buffer; the first 64 bytes differ at byte 60.
@@ -46,7 +46,7 @@ Deno.test("senate hash: short and 64-byte-truncated descriptions diverge for >64
     assert(h1 !== h2);
 });
 
-Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", () => {
+Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", async () => {
     // Mirror of WebRTCV2Mesh.checkEra1030Trigger condition.
     function shouldUnlock(entries: number, uniqueMatrices: number): boolean {
         return entries >= 10 && uniqueMatrices >= 5;
@@ -57,7 +57,7 @@ Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", () => 
     assertEquals(shouldUnlock(50, 8), true);
 });
 
-Deno.test("senate acceptance rule: 3+ AYE peers AND ayes > nays", () => {
+Deno.test("senate acceptance rule: 3+ AYE peers AND ayes > nays", async () => {
     function shouldAccept(ayes: number, nays: number): boolean {
         return ayes >= 3 && ayes > nays;
     }

@@ -58,10 +58,10 @@ export class TranslationPolicyWarrantBridge {
         }
     }
 
-    issue(
+    async issue(
         events: ReadonlyArray<TranslationPolicyDriftEvent>,
         now_ms: number,
-    ): TranslationPolicyWarrantResult {
+    ): Promise<TranslationPolicyWarrantResult> {
         const payloads: WarrantProposalPayload[] = [];
         const deduped: number[] = [];
         for (const event of events) {
@@ -75,7 +75,7 @@ export class TranslationPolicyWarrantBridge {
                 buildTranslationPolicyWarrantDescription(event);
             payloads.push({
                 semanticType: "PROPOSAL",
-                proposalHash: senateHash(proposalDescription),
+                proposalHash: await senateHash(proposalDescription),
                 proposalDescription,
                 target_peer_id: event.peer_id >>> 0,
                 issued_at_ms: now_ms,

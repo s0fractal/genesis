@@ -92,7 +92,7 @@ function classification(
     };
 }
 
-Deno.test("replay digest digest replay digest: empty classification has stable digest shape", () => {
+Deno.test("replay digest digest replay digest: empty classification has stable digest shape", async () => {
     const digest = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification({
             total_events: 0,
@@ -113,7 +113,7 @@ Deno.test("replay digest digest replay digest: empty classification has stable d
     assertEquals(digest.final_consensus_digest, 0);
 });
 
-Deno.test("replay digest digest replay digest: deterministic across repeated calls", () => {
+Deno.test("replay digest digest replay digest: deterministic across repeated calls", async () => {
     const a = translationPolicyReplayDigestDigestForensicReplayDigest(
         classification(),
     );
@@ -123,7 +123,7 @@ Deno.test("replay digest digest replay digest: deterministic across repeated cal
     assertEquals(a, b);
 });
 
-Deno.test("replay digest digest replay digest: ignores non-interpretive bookkeeping counts", () => {
+Deno.test("replay digest digest replay digest: ignores non-interpretive bookkeeping counts", async () => {
     const a = classification({ total_events: 3, ignored_events: 0 });
     const b = classification({ total_events: 100, ignored_events: 97 });
     assertEquals(
@@ -132,7 +132,7 @@ Deno.test("replay digest digest replay digest: ignores non-interpretive bookkeep
     );
 });
 
-Deno.test("replay digest digest replay digest: changes when band timeline changes", () => {
+Deno.test("replay digest digest replay digest: changes when band timeline changes", async () => {
     const a = classification();
     const b = classification({
         band_timeline: [
@@ -147,7 +147,7 @@ Deno.test("replay digest digest replay digest: changes when band timeline change
     );
 });
 
-Deno.test("replay digest digest replay digest: changes when consensus interval changes", () => {
+Deno.test("replay digest digest replay digest: changes when consensus interval changes", async () => {
     const a = classification();
     const b = classification({
         consensus_digest_intervals: [
@@ -165,7 +165,7 @@ Deno.test("replay digest digest replay digest: changes when consensus interval c
     );
 });
 
-Deno.test("replay digest digest replay digest: changes when error windows change", () => {
+Deno.test("replay digest digest replay digest: changes when error windows change", async () => {
     const a = classification();
     const b = classification({
         error_windows: [{ ...a.error_windows[0], message: "2" }],
@@ -176,7 +176,7 @@ Deno.test("replay digest digest replay digest: changes when error windows change
     );
 });
 
-Deno.test("replay digest digest replay digest: component hashes are independently stable", () => {
+Deno.test("replay digest digest replay digest: component hashes are independently stable", async () => {
     const c = classification();
     const d = translationPolicyReplayDigestDigestForensicReplayDigest(c);
     assertEquals(
@@ -193,7 +193,7 @@ Deno.test("replay digest digest replay digest: component hashes are independentl
     );
 });
 
-Deno.test("replay digest digest replay digest: projection is canonical and contains sections", () => {
+Deno.test("replay digest digest replay digest: projection is canonical and contains sections", async () => {
     const p = translationPolicyReplayDigestDigestForensicReplayDigestProjection(
         classification(),
     );
@@ -202,7 +202,7 @@ Deno.test("replay digest digest replay digest: projection is canonical and conta
     assertEquals(p.includes("\nerrors\n"), true);
 });
 
-Deno.test("replay digest digest replay digest: same helper proves matching relay interpretations", () => {
+Deno.test("replay digest digest replay digest: same helper proves matching relay interpretations", async () => {
     const a = classification({ total_events: 10, ignored_events: 7 });
     const b = classification({ total_events: 3, ignored_events: 0 });
     assertEquals(
@@ -211,7 +211,7 @@ Deno.test("replay digest digest replay digest: same helper proves matching relay
     );
 });
 
-Deno.test("replay digest digest replay digest: malformed payload count is interpretive", () => {
+Deno.test("replay digest digest replay digest: malformed payload count is interpretive", async () => {
     const a = classification({ malformed_payloads: 0 });
     const b = classification({ malformed_payloads: 1 });
     assertNotEquals(
@@ -220,7 +220,7 @@ Deno.test("replay digest digest replay digest: malformed payload count is interp
     );
 });
 
-Deno.test("replay digest digest replay digest: schema constant", () => {
+Deno.test("replay digest digest replay digest: schema constant", async () => {
     assertEquals(
         TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST_SCHEMA,
         "OMEGA-2010/v1",

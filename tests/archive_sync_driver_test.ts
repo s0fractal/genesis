@@ -54,12 +54,12 @@ function deltaFor(a_records: ArchivedVerdict[], b_records: ArchivedVerdict[]) {
 
 // ---------- SCHEDULER ----------
 
-Deno.test("scheduler: fresh peer should sync immediately", () => {
+Deno.test("scheduler: fresh peer should sync immediately", async () => {
     const s = initPeerSyncState(0xAA);
     assertEquals(shouldSyncNow(s, T0), true);
 });
 
-Deno.test("scheduler: success defers next attempt by base interval", () => {
+Deno.test("scheduler: success defers next attempt by base interval", async () => {
     let s = initPeerSyncState(0xAA);
     s = recordSyncAttempt(s, T0);
     s = recordSyncSuccess(s, DEFAULT_SCHEDULER_CONFIG, T0);
@@ -67,7 +67,7 @@ Deno.test("scheduler: success defers next attempt by base interval", () => {
     assertEquals(shouldSyncNow(s, T0 + DEFAULT_SCHEDULER_CONFIG.base_interval_ms), true);
 });
 
-Deno.test("scheduler: failure applies exponential backoff", () => {
+Deno.test("scheduler: failure applies exponential backoff", async () => {
     let s = initPeerSyncState(0xAA);
     const cfg = { ...DEFAULT_SCHEDULER_CONFIG, base_interval_ms: 1000, backoff_multiplier: 2, max_backoff_ms: 60_000 };
     s = recordSyncAttempt(s, T0);
@@ -83,7 +83,7 @@ Deno.test("scheduler: failure applies exponential backoff", () => {
     assertEquals(shouldSyncNow(s, T0 + 2000 + 4000), true);
 });
 
-Deno.test("scheduler: backoff caps at max_backoff_ms", () => {
+Deno.test("scheduler: backoff caps at max_backoff_ms", async () => {
     let s = initPeerSyncState(0xAA);
     const cfg = { ...DEFAULT_SCHEDULER_CONFIG, base_interval_ms: 1000, backoff_multiplier: 10, max_backoff_ms: 5000 };
     let now = T0;
@@ -96,7 +96,7 @@ Deno.test("scheduler: backoff caps at max_backoff_ms", () => {
     assert(s.next_attempt_ms - now <= 5000);
 });
 
-Deno.test("scheduler: success resets failure counter", () => {
+Deno.test("scheduler: success resets failure counter", async () => {
     let s = initPeerSyncState(0xAA);
     s = recordSyncFailure(s, DEFAULT_SCHEDULER_CONFIG, T0);
     s = recordSyncFailure(s, DEFAULT_SCHEDULER_CONFIG, T0 + 100);
@@ -105,7 +105,7 @@ Deno.test("scheduler: success resets failure counter", () => {
     assertEquals(s.consecutive_failures, 0);
 });
 
-Deno.test("scheduler: isPeerCold triggers after configured failure count", () => {
+Deno.test("scheduler: isPeerCold triggers after configured failure count", async () => {
     let s = initPeerSyncState(0xAA);
     const cfg = { ...DEFAULT_SCHEDULER_CONFIG, failure_giveup_count: 3 };
     assertEquals(isPeerCold(s, cfg), false);
@@ -117,7 +117,7 @@ Deno.test("scheduler: isPeerCold triggers after configured failure count", () =>
 
 // ---------- RETRANSMISSION DRIVER ----------
 
-Deno.test("driver: ingestFrames merges new frames, dedups by sequence", () => {
+Deno.test("driver: ingestFrames merges new frames, dedups by sequence", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -129,7 +129,7 @@ Deno.test("driver: ingestFrames merges new frames, dedups by sequence", () => {
     assertEquals(env.frames_by_sequence.size, 3);
 });
 
-Deno.test("driver: ingestFrames filters frames from other envelopes", () => {
+Deno.test("driver: ingestFrames filters frames from other envelopes", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20]);
     const c = archiveWith([0x10, 0x40]);
@@ -142,7 +142,7 @@ Deno.test("driver: ingestFrames filters frames from other envelopes", () => {
     assertEquals(env.frames_by_sequence.size, framesB.length);
 });
 
-Deno.test("driver: complete action when all frames received", () => {
+Deno.test("driver: complete action when all frames received", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -156,7 +156,7 @@ Deno.test("driver: complete action when all frames received", () => {
     }
 });
 
-Deno.test("driver: retransmit action lists missing sequences (no cooldown)", () => {
+Deno.test("driver: retransmit action lists missing sequences (no cooldown)", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -172,7 +172,7 @@ Deno.test("driver: retransmit action lists missing sequences (no cooldown)", () 
     }
 });
 
-Deno.test("driver: cooldown blocks back-to-back retransmits", () => {
+Deno.test("driver: cooldown blocks back-to-back retransmits", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -194,7 +194,7 @@ Deno.test("driver: cooldown blocks back-to-back retransmits", () => {
     assertEquals(act.kind, "retransmit");
 });
 
-Deno.test("driver: per-sequence attempt cap → giveup once exhausted", () => {
+Deno.test("driver: per-sequence attempt cap → giveup once exhausted", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -220,7 +220,7 @@ Deno.test("driver: per-sequence attempt cap → giveup once exhausted", () => {
     }
 });
 
-Deno.test("driver: envelope_giveup_ms triggers full surrender", () => {
+Deno.test("driver: envelope_giveup_ms triggers full surrender", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30]);
     const delta = deltaFor(a, b);
@@ -237,7 +237,7 @@ Deno.test("driver: envelope_giveup_ms triggers full surrender", () => {
     }
 });
 
-Deno.test("driver: recordRetransmitRequest abandons sequence at cap", () => {
+Deno.test("driver: recordRetransmitRequest abandons sequence at cap", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20]);
     const delta = deltaFor(a, b);
@@ -249,7 +249,7 @@ Deno.test("driver: recordRetransmitRequest abandons sequence at cap", () => {
     assertEquals(env.abandoned_sequences.has(1), true);
 });
 
-Deno.test("driver: ingestFrames updates last_progress_ms only when frames added", () => {
+Deno.test("driver: ingestFrames updates last_progress_ms only when frames added", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20]);
     const delta = deltaFor(a, b);
@@ -265,7 +265,7 @@ Deno.test("driver: ingestFrames updates last_progress_ms only when frames added"
     assertEquals(env.last_progress_ms, T0 + 300);
 });
 
-Deno.test("driver: full retransmit/recovery loop converges", () => {
+Deno.test("driver: full retransmit/recovery loop converges", async () => {
     const a = archiveWith([0x10]);
     const b = archiveWith([0x10, 0x20, 0x30, 0x40]);
     const delta = deltaFor(a, b);
@@ -289,6 +289,6 @@ Deno.test("driver: full retransmit/recovery loop converges", () => {
     }
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(DRIVER_SCHEMA, "OMEGA-1330/v1");
 });

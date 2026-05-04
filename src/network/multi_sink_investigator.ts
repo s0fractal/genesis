@@ -101,7 +101,7 @@ export class MultiSinkInvestigator {
 
     /** Run a tick on every registered sink. Returns aggregated +
      *  per-sink results. */
-    tickAll(now_ms: number): MultiTickResult {
+    async tickAll(now_ms: number): Promise<MultiTickResult> {
         const per_sink = new Map<string, LoopTickResult>();
         let total_emitted = 0;
         let total_built = 0;
@@ -110,7 +110,7 @@ export class MultiSinkInvestigator {
         // output is reproducible.
         for (const id of [...this.sinks.keys()].sort()) {
             const loop = this.sinks.get(id)!;
-            const r = loop.tick(now_ms);
+            const r = await loop.tick(now_ms);
             per_sink.set(id, r);
             total_emitted += r.proposals_emitted;
             total_built += r.proposals_built.length;
@@ -121,8 +121,10 @@ export class MultiSinkInvestigator {
 
     /** Run tick on a single sink only. Useful when only one sink
      *  has new observations and tickAll would waste work. */
-    tickOne(sink_id: string, now_ms: number): LoopTickResult | undefined {
-        return this.sinks.get(sink_id)?.tick(now_ms);
+    async tickOne(sink_id: string, now_ms: number): Promise<LoopTickResult | undefined> {
+        const loop = this.sinks.get(sink_id);
+        if (!loop) return undefined;
+        return await loop.tick(now_ms);
     }
 
     /** Globally exclude a peer (e.g. quarantined by senate).

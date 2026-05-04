@@ -26,14 +26,14 @@ function writeAgent(view: DataView, off: number, a: {
     view.setUint32(off + 28, a.memory[2] >>> 0, true);
 }
 
-Deno.test("drainMitosisLog: empty log produces no receipts", () => {
+Deno.test("drainMitosisLog: empty log produces no receipts", async () => {
     const buf = makeLog();
     const { receipts, nowSeen } = drainMitosisLog(buf, 0);
     assertEquals(receipts.length, 0);
     assertEquals(nowSeen, 0);
 });
 
-Deno.test("drainMitosisLog: single receipt round-trips", () => {
+Deno.test("drainMitosisLog: single receipt round-trips", async () => {
     const buf = makeLog();
     const view = new DataView(buf.buffer);
     // Header: head=1, total=1.
@@ -53,8 +53,9 @@ Deno.test("drainMitosisLog: single receipt round-trips", () => {
     view.setUint32(slotOff + 64, 0, true);
     // q_phase + receipt_hash + tick.
     view.setUint32(slotOff + 144, 7, true);
-    view.setUint32(slotOff + 148, childReceiptHash(child), true);
-    view.setUint32(slotOff + 152, 100, true);
+    const _h1 = await childReceiptHash(child);
+    for (let i=0; i<32; i++) view.setUint8(slotOff + 148 + i, parseInt(_h1.slice(i*2, i*2+2), 16));
+    view.setUint32(slotOff + 180, 100, true);
 
     const { receipts, nowSeen } = drainMitosisLog(buf, 0);
     assertEquals(receipts.length, 1);
@@ -65,7 +66,7 @@ Deno.test("drainMitosisLog: single receipt round-trips", () => {
     assertEquals(r.child.phase, child.phase);
     assertEquals(r.child.genome, child.genome);
     assertEquals(r.qPhase, 7);
-    assertEquals(r.receiptHash, childReceiptHash(child));
+    assertEquals(r.receiptHash, await childReceiptHash(child));
     assertEquals(r.tick, 100);
     assertEquals(r.attractors.length, 0);
 
@@ -74,7 +75,7 @@ Deno.test("drainMitosisLog: single receipt round-trips", () => {
     assertEquals(rederived.genome, r.child.genome);
 });
 
-Deno.test("drainMitosisLog: lastSeen suppresses already-drained entries", () => {
+Deno.test("drainMitosisLog: lastSeen suppresses already-drained entries", async () => {
     const buf = makeLog();
     const view = new DataView(buf.buffer);
     view.setUint32(0, 3, true);  // head = 3
@@ -92,7 +93,7 @@ Deno.test("drainMitosisLog: lastSeen suppresses already-drained entries", () => 
         view.setUint32(off + 64, 0, true);
         view.setUint32(off + 144, 7, true);
         view.setUint32(off + 148, 0, true);
-        view.setUint32(off + 152, i, true);
+        view.setUint32(off + 180, i, true);
     }
     const { receipts, nowSeen } = drainMitosisLog(buf, 2);
     assertEquals(receipts.length, 1);
@@ -100,7 +101,7 @@ Deno.test("drainMitosisLog: lastSeen suppresses already-drained entries", () => 
     assertEquals(nowSeen, 3);
 });
 
-Deno.test("drainMitosisLog: writer overflow drops oldest entries", () => {
+Deno.test("drainMitosisLog: writer overflow drops oldest entries", async () => {
     const buf = makeLog();
     const view = new DataView(buf.buffer);
     // Simulate writer that pushed 50 entries — only last 32 are recoverable.
@@ -126,7 +127,7 @@ Deno.test("drainMitosisLog: writer overflow drops oldest entries", () => {
         view.setUint32(off + 64, 0, true);
         view.setUint32(off + 144, 7, true);
         view.setUint32(off + 148, 0, true);
-        view.setUint32(off + 152, logical, true);
+        view.setUint32(off + 180, logical, true);
     }
     // Reader thinks it has seen 5; actual range starts at 18.
     const { receipts } = drainMitosisLog(buf, 5);
@@ -137,7 +138,7 @@ Deno.test("drainMitosisLog: writer overflow drops oldest entries", () => {
     }
 });
 
-Deno.test("drainMitosisLog: attractor snapshot round-trips", () => {
+Deno.test("drainMitosisLog: attractor snapshot round-trips", async () => {
     const buf = makeLog();
     const view = new DataView(buf.buffer);
     view.setUint32(0, 1, true);
@@ -165,7 +166,7 @@ Deno.test("drainMitosisLog: attractor snapshot round-trips", () => {
     view.setUint32(off + 108, 200, true);
     view.setUint32(off + 144, 7, true);
     view.setUint32(off + 148, 0, true);
-    view.setUint32(off + 152, 0, true);
+    view.setUint32(off + 180, 0, true);
 
     const { receipts } = drainMitosisLog(buf, 0);
     assertEquals(receipts.length, 1);

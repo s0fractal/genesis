@@ -32,7 +32,7 @@ function makeSink(events: Array<{ kind: string; hash: number }>): ForensicEventS
 
 // --- buildSchemaTaggedDelta + buildSchemaTaggedHashList ---
 
-Deno.test("buildSchemaTaggedDelta: wraps + tags with sender schema string", () => {
+Deno.test("buildSchemaTaggedDelta: wraps + tags with sender schema string", async () => {
     const sinkA = makeSink([{ kind: "alrm", hash: 0x10 }]);
     const sinkB = makeSink([{ kind: "alrm", hash: 0x10 }, { kind: "alrm", hash: 0x20 }]);
     const list = buildEventHashList(sinkA, T0);
@@ -43,7 +43,7 @@ Deno.test("buildSchemaTaggedDelta: wraps + tags with sender schema string", () =
     assertEquals(tagged.delta, delta);
 });
 
-Deno.test("buildSchemaTaggedHashList: includes sender schema", () => {
+Deno.test("buildSchemaTaggedHashList: includes sender schema", async () => {
     const sink = makeSink([]);
     const tagged = buildSchemaTaggedHashList(buildEventHashList(sink, T0), ALARMS_V1);
     assertEquals(tagged.sender_sink_schema, "alarms:v1.0");
@@ -52,7 +52,7 @@ Deno.test("buildSchemaTaggedHashList: includes sender schema", () => {
 
 // --- applyEventDeltaWithSchema ---
 
-Deno.test("apply: same major → success delegates to Era 1390", () => {
+Deno.test("apply: same major → success delegates to Era 1390", async () => {
     const localSink = makeSink([{ kind: "alrm", hash: 0x10 }]);
     const senderSink = makeSink([{ kind: "alrm", hash: 0x10 }, { kind: "alrm", hash: 0x20 }]);
     const localList = buildEventHashList(localSink, T0);
@@ -66,7 +66,7 @@ Deno.test("apply: same major → success delegates to Era 1390", () => {
     assertEquals(localSink.size(), 2);
 });
 
-Deno.test("apply: name mismatch → name-mismatch rejection", () => {
+Deno.test("apply: name mismatch → name-mismatch rejection", async () => {
     const localSink = makeSink([]);
     const senderSink = makeSink([{ kind: "vrdt", hash: 0x42 }]);
     const tagged = buildSchemaTaggedDelta(
@@ -85,7 +85,7 @@ Deno.test("apply: name mismatch → name-mismatch rejection", () => {
     assertEquals(localSink.size(), 0);
 });
 
-Deno.test("apply: major mismatch → major-mismatch rejection", () => {
+Deno.test("apply: major mismatch → major-mismatch rejection", async () => {
     const localSink = makeSink([]);
     const senderSink = makeSink([{ kind: "alrm", hash: 0x42 }]);
     const tagged = buildSchemaTaggedDelta(
@@ -100,7 +100,7 @@ Deno.test("apply: major mismatch → major-mismatch rejection", () => {
     }
 });
 
-Deno.test("apply: major mismatch with registered translator → translated apply", () => {
+Deno.test("apply: major mismatch with registered translator → translated apply", async () => {
     const localSink = makeSink([]);
     const senderSink = makeSink([{ kind: "alrm2", hash: 0x42 }]);
     const tagged = buildSchemaTaggedDelta(
@@ -124,7 +124,7 @@ Deno.test("apply: major mismatch with registered translator → translated apply
     assertEquals(localSink.list()[0].kind, "alrm");
 });
 
-Deno.test("apply: translator drop is a verified no-op", () => {
+Deno.test("apply: translator drop is a verified no-op", async () => {
     const localSink = makeSink([]);
     const senderSink = makeSink([{ kind: "alrm2", hash: 0x42 }]);
     const tagged = buildSchemaTaggedDelta(
@@ -143,7 +143,7 @@ Deno.test("apply: translator drop is a verified no-op", () => {
     assertEquals(localSink.size(), 0);
 });
 
-Deno.test("apply: malformed sender schema → sender-schema-malformed", () => {
+Deno.test("apply: malformed sender schema → sender-schema-malformed", async () => {
     const localSink = makeSink([]);
     const tagged: SchemaTaggedDelta = {
         schema: SCHEMA_SYNC_SCHEMA,
@@ -162,7 +162,7 @@ Deno.test("apply: malformed sender schema → sender-schema-malformed", () => {
     if (!out.ok) assertEquals(out.reason, "sender-schema-malformed");
 });
 
-Deno.test("apply: wrapper-schema-mismatch when wrapper schema wrong", () => {
+Deno.test("apply: wrapper-schema-mismatch when wrapper schema wrong", async () => {
     const localSink = makeSink([]);
     const tagged: SchemaTaggedDelta = {
         schema: "OMEGA-9999/v1",
@@ -181,7 +181,7 @@ Deno.test("apply: wrapper-schema-mismatch when wrapper schema wrong", () => {
     if (!out.ok) assertEquals(out.reason, "wrapper-schema-mismatch");
 });
 
-Deno.test("apply: underlying Era 1390 collision surfaces as apply-failed", () => {
+Deno.test("apply: underlying Era 1390 collision surfaces as apply-failed", async () => {
     const localSink = makeSink([{ kind: "alrm", hash: 0x42 }]);
     const senderSink = makeSink([{ kind: "vrdt", hash: 0x42 }]); // same hash, different kind
     // Need to build a delta that includes the colliding entry.
@@ -197,18 +197,18 @@ Deno.test("apply: underlying Era 1390 collision surfaces as apply-failed", () =>
 
 // --- validateSchemaCompatibility ---
 
-Deno.test("validate: compatible schemas → ok", () => {
+Deno.test("validate: compatible schemas → ok", async () => {
     const out = validateSchemaCompatibility(ALARMS_V1, "alarms:v1.5");
     assertEquals(out.ok, true);
 });
 
-Deno.test("validate: incompatible major → major-mismatch", () => {
+Deno.test("validate: incompatible major → major-mismatch", async () => {
     const out = validateSchemaCompatibility(ALARMS_V1, "alarms:v2.0");
     assertEquals(out.ok, false);
     if (!out.ok) assertEquals(out.reason, "major-mismatch");
 });
 
-Deno.test("validate: malformed sender → sender-schema-malformed", () => {
+Deno.test("validate: malformed sender → sender-schema-malformed", async () => {
     const out = validateSchemaCompatibility(ALARMS_V1, "garbage");
     assertEquals(out.ok, false);
     if (!out.ok) assertEquals(out.reason, "sender-schema-malformed");
@@ -216,7 +216,7 @@ Deno.test("validate: malformed sender → sender-schema-malformed", () => {
 
 // --- SchemaAwareSinkSync ---
 
-Deno.test("aware: build HASH_LIST tagged with own schema", () => {
+Deno.test("aware: build HASH_LIST tagged with own schema", async () => {
     const sink = makeSink([{ kind: "alrm", hash: 0x10 }]);
     const aware = new SchemaAwareSinkSync(sink, ALARMS_V1);
     const list = aware.buildHashList(T0);
@@ -224,7 +224,7 @@ Deno.test("aware: build HASH_LIST tagged with own schema", () => {
     assertEquals(list.list.event_hashes.length, 1);
 });
 
-Deno.test("aware: computeDeltaForPeer with compatible schema returns delta", () => {
+Deno.test("aware: computeDeltaForPeer with compatible schema returns delta", async () => {
     const localSink = makeSink([{ kind: "alrm", hash: 0x10 }]);
     const peerSink = makeSink([]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
@@ -235,7 +235,7 @@ Deno.test("aware: computeDeltaForPeer with compatible schema returns delta", () 
     assertEquals(delta!.delta.missing_entries.length, 1);
 });
 
-Deno.test("aware: computeDeltaForPeer with incompatible schema returns null", () => {
+Deno.test("aware: computeDeltaForPeer with incompatible schema returns null", async () => {
     const localSink = makeSink([]);
     const peerSink = makeSink([]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
@@ -244,7 +244,7 @@ Deno.test("aware: computeDeltaForPeer with incompatible schema returns null", ()
     assertEquals(aware.computeDeltaForPeer(peerList, T0), null);
 });
 
-Deno.test("aware: computeDeltaForPeer allows major mismatch when translator registered", () => {
+Deno.test("aware: computeDeltaForPeer allows major mismatch when translator registered", async () => {
     const localSink = makeSink([{ kind: "alrm2", hash: 0x20 }]);
     const peerSink = makeSink([]);
     const registry = new SchemaTranslatorRegistry();
@@ -261,7 +261,7 @@ Deno.test("aware: computeDeltaForPeer allows major mismatch when translator regi
     assertEquals(delta!.delta.missing_entries.length, 1);
 });
 
-Deno.test("aware: computeDeltaForPeer rejects bad wrapper schema", () => {
+Deno.test("aware: computeDeltaForPeer rejects bad wrapper schema", async () => {
     const localSink = makeSink([]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
     const bogus = {
@@ -272,7 +272,7 @@ Deno.test("aware: computeDeltaForPeer rejects bad wrapper schema", () => {
     assertEquals(aware.computeDeltaForPeer(bogus as any, T0), null);
 });
 
-Deno.test("aware: apply same-major delta succeeds", () => {
+Deno.test("aware: apply same-major delta succeeds", async () => {
     const localSink = makeSink([{ kind: "alrm", hash: 0x10 }]);
     const peerSink = makeSink([{ kind: "alrm", hash: 0x20 }]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
@@ -284,7 +284,7 @@ Deno.test("aware: apply same-major delta succeeds", () => {
     if (result.ok) assertEquals(result.added_count, 1);
 });
 
-Deno.test("aware: apply major-mismatch delta refuses", () => {
+Deno.test("aware: apply major-mismatch delta refuses", async () => {
     const localSink = makeSink([]);
     const aware = new SchemaAwareSinkSync(localSink, ALARMS_V1);
     const tagged = buildSchemaTaggedDelta(
@@ -296,7 +296,7 @@ Deno.test("aware: apply major-mismatch delta refuses", () => {
     if (!result.ok) assertEquals(result.reason, "major-mismatch");
 });
 
-Deno.test("aware: apply major-mismatch delta translates with registry", () => {
+Deno.test("aware: apply major-mismatch delta translates with registry", async () => {
     const localSink = makeSink([]);
     const registry = new SchemaTranslatorRegistry();
     registry.register("alarms:v2.0", "alarms:v1.0", (event) => ({
@@ -318,12 +318,12 @@ Deno.test("aware: apply major-mismatch delta translates with registry", () => {
     assertEquals(localSink.list()[0].kind, "alrm");
 });
 
-Deno.test("aware: underlyingSyncSchema reports Era 1390 string", () => {
+Deno.test("aware: underlyingSyncSchema reports Era 1390 string", async () => {
     const aware = new SchemaAwareSinkSync(makeSink([]), ALARMS_V1);
     assertEquals(aware.underlyingSyncSchema(), "OMEGA-1390/v1");
 });
 
-Deno.test("end-to-end: same-schema sinks converge through aware path", () => {
+Deno.test("end-to-end: same-schema sinks converge through aware path", async () => {
     const sinkA = makeSink([{ kind: "alrm", hash: 0x10 }, { kind: "alrm", hash: 0x20 }]);
     const sinkB = makeSink([{ kind: "alrm", hash: 0x20 }, { kind: "alrm", hash: 0x30 }]);
     const aA = new SchemaAwareSinkSync(sinkA, ALARMS_V1);
@@ -341,6 +341,6 @@ Deno.test("end-to-end: same-schema sinks converge through aware path", () => {
     assertEquals(sinkB.size(), 3);
 });
 
-Deno.test("schema constant", () => {
+Deno.test("schema constant", async () => {
     assertEquals(SCHEMA_SYNC_SCHEMA, "OMEGA-1600/v1");
 });
