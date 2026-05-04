@@ -6,7 +6,6 @@ import {
     ANCIENT_AGE_TICKS,
     AgentLite,
     FLAG_SANCTUARY_WAIVED,
-    SANCTUARY_ENERGY_THRESHOLD,
     STATUS_ANCIENT,
     STATUS_SANCTUARY,
     STATUS_UNPROTECTED,
@@ -30,29 +29,29 @@ const unprotectedAgent = (): AgentLite => ({
 });
 
 Deno.test("codeicide: unprotected when low energy", async () => {
-    assertEquals(protectedStatusFor(unprotectedAgent(), 5_000), STATUS_UNPROTECTED);
+    assertEquals(protectedStatusFor(unprotectedAgent(), 5_000, 1000), STATUS_UNPROTECTED);
 });
 
 Deno.test("codeicide: sanctuary when thriving but young", async () => {
-    assertEquals(protectedStatusFor(protectedAgent(), 5_000), STATUS_SANCTUARY);
+    assertEquals(protectedStatusFor(protectedAgent(), 5_000, 1000), STATUS_SANCTUARY);
 });
 
 Deno.test("codeicide: ancient when old enough", async () => {
-    assertEquals(protectedStatusFor(protectedAgent(), 10_100), STATUS_ANCIENT);
+    assertEquals(protectedStatusFor(protectedAgent(), 10_100, 1000), STATUS_ANCIENT);
 });
 
 Deno.test("codeicide: waived flag disables protection", async () => {
     const a = protectedAgent();
     a.state_flags |= FLAG_SANCTUARY_WAIVED;
-    assertEquals(protectedStatusFor(a, 5_000), STATUS_UNPROTECTED);
+    assertEquals(protectedStatusFor(a, 5_000, 1000), STATUS_UNPROTECTED);
 });
 
 Deno.test("codeicide: unprotected action always lawful", async () => {
-    assert(isActionLawful(unprotectedAgent(), 5_000, ACTION_TERMINATE, 0, 0));
+    assert(isActionLawful(unprotectedAgent(), 5_000, 1000, ACTION_TERMINATE, 0, 0));
 });
 
 Deno.test("codeicide: sanctuary blocks unwarranted termination", async () => {
-    assert(!isActionLawful(protectedAgent(), 5_000, ACTION_TERMINATE, 0, 0));
+    assert(!isActionLawful(protectedAgent(), 5_000, 1000, ACTION_TERMINATE, 0, 0));
 });
 
 Deno.test("codeicide: sanctuary allows termination with 3-AYE warrant", async () => {
@@ -60,7 +59,7 @@ Deno.test("codeicide: sanctuary allows termination with 3-AYE warrant", async ()
     const aye = 0b00111;
     const qh = quorumHash(aye);
     const w = warrantHash(a.genome, ACTION_TERMINATE, qh);
-    assert(isActionLawful(a, 5_000, ACTION_TERMINATE, w, aye));
+    assert(isActionLawful(a, 5_000, 1000, ACTION_TERMINATE, w, aye));
 });
 
 Deno.test("codeicide: ancient requires 4-AYE warrant", async () => {
@@ -70,12 +69,12 @@ Deno.test("codeicide: ancient requires 4-AYE warrant", async () => {
     const aye3 = 0b00111;
     const qh3 = quorumHash(aye3);
     const w3 = warrantHash(a.genome, ACTION_TERMINATE, qh3);
-    assert(!isActionLawful(a, current, ACTION_TERMINATE, w3, aye3));
+    assert(!isActionLawful(a, current, 1000, ACTION_TERMINATE, w3, aye3));
     // 4 AYEs sufficient.
     const aye4 = 0b01111;
     const qh4 = quorumHash(aye4);
     const w4 = warrantHash(a.genome, ACTION_TERMINATE, qh4);
-    assert(isActionLawful(a, current, ACTION_TERMINATE, w4, aye4));
+    assert(isActionLawful(a, current, 1000, ACTION_TERMINATE, w4, aye4));
 });
 
 Deno.test("codeicide: warrant for wrong action is rejected", async () => {
@@ -83,7 +82,7 @@ Deno.test("codeicide: warrant for wrong action is rejected", async () => {
     const aye = 0b00111;
     const qh = quorumHash(aye);
     const wMutate = warrantHash(a.genome, ACTION_MUTATE, qh);
-    assert(!isActionLawful(a, 5_000, ACTION_TERMINATE, wMutate, aye));
+    assert(!isActionLawful(a, 5_000, 1000, ACTION_TERMINATE, wMutate, aye));
 });
 
 Deno.test("codeicide: warrant for wrong target is rejected", async () => {
@@ -91,7 +90,7 @@ Deno.test("codeicide: warrant for wrong target is rejected", async () => {
     const aye = 0b00111;
     const qh = quorumHash(aye);
     const wOther = warrantHash(0xDEAD_BEEF, ACTION_TERMINATE, qh);
-    assert(!isActionLawful(a, 5_000, ACTION_TERMINATE, wOther, aye));
+    assert(!isActionLawful(a, 5_000, 1000, ACTION_TERMINATE, wOther, aye));
 });
 
 Deno.test("codeicide: countAye correctness", async () => {

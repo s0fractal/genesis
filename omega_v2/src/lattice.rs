@@ -29,7 +29,7 @@ pub struct SignalStore {
     pub max_cells: u32,
     
     // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
-    pub _pad1: u32,
+    pub total_energy: u32,
     pub _pad2: u32,
     pub _pad3: u32,
     pub _pad4: u32,
@@ -67,7 +67,7 @@ impl PhaseLattice {
                 absolute_tick: 0,
                 active_agent_count: 0,
                 max_cells: 0,
-                _pad1: 0,
+                total_energy: 0,
                 _pad2: 0,
                 _pad3: 0,
                 _pad4: 0,
@@ -402,11 +402,15 @@ impl PhaseLattice {
 
         let mut next_dead_idx = 0;
         let mut replications = 0;
+        let mut sum_energy = 0u64;
         
         unsafe {
             let active = self.signals.active_agent_count as usize;
             for i in 0..active {
                 let parent = &mut *self.minimal_agents_ptr.add(i);
+                if parent.energy > 0 {
+                    sum_energy += parent.energy as u64;
+                }
                 
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
@@ -419,8 +423,9 @@ impl PhaseLattice {
                     // setting that flag would temporarily refuse mitosis for the
                     // tick. Ancient agents remain free to reproduce — wisdom
                     // wants to propagate.
+                    let avg = self.signals.total_energy / core::cmp::max(1, self.signals.active_agent_count);
                     let _status = crate::codeicide_law::protected_status_for(
-                        parent, self.signals.absolute_tick,
+                        parent, self.signals.absolute_tick, avg
                     );
                     if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                         // Skip — agent has explicitly opted out this tick.
@@ -472,6 +477,7 @@ impl PhaseLattice {
                     }
                 }
             }
+            self.signals.total_energy = core::cmp::min(sum_energy, u32::MAX as u64) as u32;
         }
         replications
     }

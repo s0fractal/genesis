@@ -29,11 +29,6 @@
 use crate::agent::PhaseAgentMinimal;
 use crate::crypto::sha256_u32;
 
-/// Energy threshold above which an agent is considered "thriving".
-/// Set high enough that a single tick of starvation does not strip
-/// protection — the agent has to genuinely fail before losing standing.
-pub const SANCTUARY_ENERGY_THRESHOLD: u32 = 2500;
-
 /// Tick count above which a sanctuary agent becomes "ancient" — its
 /// genome is presumed to encode wisdom worth preserving across Big Bangs.
 pub const ANCIENT_AGE_TICKS: u32 = 10_000;
@@ -58,11 +53,12 @@ pub const FLAG_SANCTUARY_WAIVED: u32 = 0x0200_0000;
 /// `current_tick` is the lattice's absolute_tick at the time of the query.
 /// `birth_tick` is read from the agent's `memory[1]` slot by convention
 /// (zero means "unknown / pre-Era-1080" → no ancient claim possible).
-pub fn protected_status_for(agent: &PhaseAgentMinimal, current_tick: u32) -> u8 {
+pub fn protected_status_for(agent: &PhaseAgentMinimal, current_tick: u32, average_energy: u32) -> u8 {
     if (agent.state_flags & FLAG_SANCTUARY_WAIVED) != 0 {
         return STATUS_UNPROTECTED;
     }
-    if agent.energy < SANCTUARY_ENERGY_THRESHOLD {
+    let threshold = core::cmp::max(100, average_energy.saturating_mul(2));
+    if agent.energy < threshold {
         return STATUS_UNPROTECTED;
     }
     let birth_tick = agent.memory[1];
@@ -138,11 +134,12 @@ pub fn count_aye(aye_bits: u8) -> u8 {
 pub fn is_action_lawful(
     agent: &PhaseAgentMinimal,
     current_tick: u32,
+    average_energy: u32,
     action_code: u8,
     presented_warrant: u32,
     aye_bits: u8,
 ) -> bool {
-    let status = protected_status_for(agent, current_tick);
+    let status = protected_status_for(agent, current_tick, average_energy);
     if status == STATUS_UNPROTECTED {
         return true;
     }
@@ -179,20 +176,20 @@ mod tests {
     #[test]
     fn unprotected_when_low_energy() {
         let a = unprotected_agent();
-        assert_eq!(protected_status_for(&a, 5_000), STATUS_UNPROTECTED);
+        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_UNPROTECTED);
     }
 
     #[test]
     fn sanctuary_when_thriving_but_young() {
         let a = protected_agent();
-        assert_eq!(protected_status_for(&a, 5_000), STATUS_SANCTUARY);
+        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_SANCTUARY);
     }
 
     #[test]
     fn ancient_when_old_enough() {
         let a = protected_agent();
         // birth_tick = 100, current = 100 + 10_000 → age = 10_000 = ANCIENT
-        assert_eq!(protected_status_for(&a, 10_100), STATUS_ANCIENT);
+        assert_eq!(protected_status_for(&a, 10_100, 1000), STATUS_ANCIENT);
     }
 
     #[test]
@@ -200,27 +197,27 @@ mod tests {
         let mut a = protected_agent();
         a.memory[1] = 0;
         // Even with current_tick > ANCIENT_AGE_TICKS, no claim to ancient.
-        assert_eq!(protected_status_for(&a, 100_000), STATUS_SANCTUARY);
+        assert_eq!(protected_status_for(&a, 100_000, 1000), STATUS_SANCTUARY);
     }
 
     #[test]
     fn waived_flag_disables_protection() {
         let mut a = protected_agent();
         a.state_flags |= FLAG_SANCTUARY_WAIVED;
-        assert_eq!(protected_status_for(&a, 5_000), STATUS_UNPROTECTED);
+        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_UNPROTECTED);
     }
 
     #[test]
     fn unprotected_action_is_always_lawful() {
         let a = unprotected_agent();
         // No warrant, no oracles — still lawful.
-        assert!(is_action_lawful(&a, 5_000, ACTION_TERMINATE, 0, 0));
+        assert!(is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, 0, 0));
     }
 
     #[test]
     fn sanctuary_blocks_unwarranted_termination() {
         let a = protected_agent();
-        assert!(!is_action_lawful(&a, 5_000, ACTION_TERMINATE, 0, 0));
+        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, 0, 0));
     }
 
     #[test]
@@ -229,7 +226,7 @@ mod tests {
         let aye = 0b00111; // claude + gpt + gemini
         let qh = quorum_hash(aye);
         let w = warrant_hash(a.genome, ACTION_TERMINATE, qh);
-        assert!(is_action_lawful(&a, 5_000, ACTION_TERMINATE, w, aye));
+        assert!(is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w, aye));
     }
 
     #[test]
@@ -240,12 +237,12 @@ mod tests {
         let aye3 = 0b00111;
         let qh3 = quorum_hash(aye3);
         let w3 = warrant_hash(a.genome, ACTION_TERMINATE, qh3);
-        assert!(!is_action_lawful(&a, current, ACTION_TERMINATE, w3, aye3));
+        assert!(!is_action_lawful(&a, current, 1000, ACTION_TERMINATE, w3, aye3));
         // 4 AYEs should suffice.
         let aye4 = 0b01111;
         let qh4 = quorum_hash(aye4);
         let w4 = warrant_hash(a.genome, ACTION_TERMINATE, qh4);
-        assert!(is_action_lawful(&a, current, ACTION_TERMINATE, w4, aye4));
+        assert!(is_action_lawful(&a, current, 1000, ACTION_TERMINATE, w4, aye4));
     }
 
     #[test]
@@ -255,7 +252,7 @@ mod tests {
         let qh = quorum_hash(aye);
         // Warrant for MUTATE, but action requested is TERMINATE.
         let w_mutate = warrant_hash(a.genome, ACTION_MUTATE, qh);
-        assert!(!is_action_lawful(&a, 5_000, ACTION_TERMINATE, w_mutate, aye));
+        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w_mutate, aye));
     }
 
     #[test]
@@ -265,7 +262,7 @@ mod tests {
         let qh = quorum_hash(aye);
         // Warrant for a different agent's genome.
         let w_other = warrant_hash(0xDEAD_BEEF, ACTION_TERMINATE, qh);
-        assert!(!is_action_lawful(&a, 5_000, ACTION_TERMINATE, w_other, aye));
+        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w_other, aye));
     }
 
     #[test]

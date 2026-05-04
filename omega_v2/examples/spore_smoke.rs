@@ -18,7 +18,6 @@
 
 use omega_v2::codeicide_law::{
     is_action_lawful, quorum_hash, warrant_hash, ACTION_TERMINATE,
-    SANCTUARY_ENERGY_THRESHOLD,
 };
 use omega_v2::genesis_inscription::{compute_genesis_hash_sha256, GenesisAnchors, GENESIS_HASH_LEGACY_V1_0};
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
@@ -90,13 +89,13 @@ fn main() {
 
     let protected = PhaseAgentMinimal {
         phase: 0,
-        energy: SANCTUARY_ENERGY_THRESHOLD + 1,
+        energy: 2500, // Thriving
         base_freq: 0,
         state_flags: 0,
         genome: 0xCAFE_BABE,
         memory: [0, 100, 0],
     };
-    let lawful = is_action_lawful(&protected, 5_000, ACTION_TERMINATE, w, 0b00111);
+    let lawful = is_action_lawful(&protected, 5_000, 1000, ACTION_TERMINATE, w, 0b00111);
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;
 

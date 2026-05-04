@@ -118,7 +118,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         absolute_tick: 0,
         active_agent_count: 0,
         max_cells: 0,
-        _pad1: 0,
+        total_energy: 0,
         _pad2: 0,
         _pad3: 0,
         _pad4: 0,
@@ -1005,7 +1005,8 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.absolute_tick;
-            crate::codeicide_law::protected_status_for(agent, tick) as u32
+            let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
+            crate::codeicide_law::protected_status_for(agent, tick, avg) as u32
         } else {
             0
         }
@@ -1041,8 +1042,9 @@ pub extern "C" fn v2_codeicide_is_lawful(
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.absolute_tick;
+            let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
             if crate::codeicide_law::is_action_lawful(
-                agent, tick, action_code as u8, presented_warrant, aye_bits as u8,
+                agent, tick, avg, action_code as u8, presented_warrant, aye_bits as u8,
             ) {
                 1
             } else {

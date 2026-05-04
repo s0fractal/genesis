@@ -387,6 +387,7 @@ mod tests {
         assert!(is_action_lawful(
             &agent,
             5_000,
+            1000,
             ACTION_TERMINATE,
             issued.issued_warrant,
             issued.aye_bits,
@@ -419,6 +420,7 @@ mod tests {
         assert!(!is_action_lawful(
             &agent,
             5_000,
+            1000,
             ACTION_MUTATE,
             issued.issued_warrant,
             issued.aye_bits,

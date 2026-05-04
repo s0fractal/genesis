@@ -9,7 +9,6 @@
 import { ORACLE_MATRICES_V1 } from "./oracle_identity.ts";
 import { fnv1a32 } from "./cross_model_debate.ts";
 
-export const SANCTUARY_ENERGY_THRESHOLD = 2500;
 export const ANCIENT_AGE_TICKS = 10_000;
 
 export const ACTION_MUTATE = 1;
@@ -30,11 +29,12 @@ export interface AgentLite {
 }
 
 /** Returns the protection status of `agent` at the given lattice tick. */
-export function protectedStatusFor(agent: AgentLite, currentTick: number): number {
+export function protectedStatusFor(agent: AgentLite, currentTick: number, averageEnergy: number): number {
     if ((agent.state_flags & FLAG_SANCTUARY_WAIVED) !== 0) {
         return STATUS_UNPROTECTED;
     }
-    if (agent.energy < SANCTUARY_ENERGY_THRESHOLD) {
+    const threshold = Math.max(100, Math.floor(averageEnergy * 2));
+    if (agent.energy < threshold) {
         return STATUS_UNPROTECTED;
     }
     const birthTick = agent.memory[1] >>> 0;
@@ -88,11 +88,12 @@ export function countAye(ayeBits: number): number {
 export function isActionLawful(
     agent: AgentLite,
     currentTick: number,
+    averageEnergy: number,
     actionCode: number,
     presentedWarrant: number,
     ayeBits: number,
 ): boolean {
-    const status = protectedStatusFor(agent, currentTick);
+    const status = protectedStatusFor(agent, currentTick, averageEnergy);
     if (status === STATUS_UNPROTECTED) return true;
     const required = status === STATUS_ANCIENT ? 4 : 3;
     if (countAye(ayeBits) < required) return false;
