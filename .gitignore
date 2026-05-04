@@ -4,6 +4,8 @@ dist/
 
 OMEGA_EXPORT.md
 .DS_Store
+scratch/
+scratch
 
 # Era 1040 Phase 3: built ELFs are reproducible from `cargo prove build`
 omega_zk_host/target/

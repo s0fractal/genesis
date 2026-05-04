@@ -26,9 +26,14 @@ const STANCE_CODE: Record<DebateArgument["stance"], number> = {
     abstain: 3,
 } as const;
 
-/** SHA-256 32-bit truncated — alias for legacy fnv1a32 name to avoid breaking imports. */
+/** FNV-1a 32-bit (offset basis 2166136261, prime 16777619). */
 export function fnv1a32(bytes: Uint8Array): number {
-    return sha256_u32(bytes);
+    let hash = 0x811C_9DC5;
+    for (let i = 0; i < bytes.length; i++) {
+        hash ^= bytes[i];
+        hash = Math.imul(hash, 0x0100_0193);
+    }
+    return hash >>> 0;
 }
 
 /** In-memory ledger of full reasoning text (the kernel only stores fingerprints). */

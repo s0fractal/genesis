@@ -120,6 +120,27 @@ impl PhaseLattice {
         (wy * w + wx) as usize
     }
 
+    /// Safe accessor to minimal agents to prevent FFI out-of-bounds UB
+    #[inline(always)]
+    pub fn get_agent(&self, idx: u32) -> Option<&PhaseAgentMinimal> {
+        let active = self.signals.active_agent_count;
+        if self.minimal_agents_ptr.is_null() || idx >= active || (idx as usize) >= crate::MAX_MINIMAL_AGENTS {
+            None
+        } else {
+            Some(unsafe { &*(self.minimal_agents_ptr.add(idx as usize)) })
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_agent_mut(&mut self, idx: u32) -> Option<&mut PhaseAgentMinimal> {
+        let active = self.signals.active_agent_count;
+        if self.minimal_agents_ptr.is_null() || idx >= active || (idx as usize) >= crate::MAX_MINIMAL_AGENTS {
+            None
+        } else {
+            Some(unsafe { &mut *(self.minimal_agents_ptr.add(idx as usize)) })
+        }
+    }
+
     pub fn ignite_big_bang(&mut self, root_seed: u32, initial_population: u32) {
         if self.minimal_agents_ptr.is_null() { return; }
         

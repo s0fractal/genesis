@@ -70,7 +70,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 /// Static Memory Pre-Allocation for Bare-Metal Environment.
 /// 16MB of contiguous RAM allocated exactly at compile time.
-pub const MAX_MINIMAL_AGENTS: usize = 1_000_000;
+pub const MAX_MINIMAL_AGENTS: usize = 500_000;
 pub static AGENTS_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
     phase: 0,
     energy: 0,  // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
@@ -704,12 +704,11 @@ use senate::Proposal;
 pub extern "C" fn v2_route_address_from_agent(index: u32) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        let active = lattice.signals.active_agent_count;
-        if lattice.minimal_agents_ptr.is_null() || index >= active {
-            return 0;
+        if let Some(agent) = lattice.get_agent(index) {
+            PhaseAddress::from_agent(agent, lattice.topology.q_phase).raw
+        } else {
+            0
         }
-        let agent = &*(lattice.minimal_agents_ptr.add(index as usize));
-        PhaseAddress::from_agent(agent, lattice.topology.q_phase).raw
     }
 }
 
@@ -1004,13 +1003,12 @@ pub unsafe extern "C" fn v2_debate_push(
 pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        let active = lattice.signals.active_agent_count;
-        if lattice.minimal_agents_ptr.is_null() || idx >= active {
-            return 0;
+        if let Some(agent) = lattice.get_agent(idx) {
+            let tick = lattice.signals.absolute_tick;
+            crate::codeicide_law::protected_status_for(agent, tick) as u32
+        } else {
+            0
         }
-        let agent = &*(lattice.minimal_agents_ptr.add(idx as usize));
-        let tick = lattice.signals.absolute_tick;
-        crate::codeicide_law::protected_status_for(agent, tick) as u32
     }
 }
 
@@ -1041,18 +1039,17 @@ pub extern "C" fn v2_codeicide_is_lawful(
 ) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        let active = lattice.signals.active_agent_count;
-        if lattice.minimal_agents_ptr.is_null() || idx >= active {
-            return 1;
-        }
-        let agent = &*(lattice.minimal_agents_ptr.add(idx as usize));
-        let tick = lattice.signals.absolute_tick;
-        if crate::codeicide_law::is_action_lawful(
-            agent, tick, action_code as u8, presented_warrant, aye_bits as u8,
-        ) {
-            1
+        if let Some(agent) = lattice.get_agent(idx) {
+            let tick = lattice.signals.absolute_tick;
+            if crate::codeicide_law::is_action_lawful(
+                agent, tick, action_code as u8, presented_warrant, aye_bits as u8,
+            ) {
+                1
+            } else {
+                0
+            }
         } else {
-            0
+            1
         }
     }
 }
@@ -1063,15 +1060,12 @@ pub extern "C" fn v2_codeicide_is_lawful(
 pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
-        let active = lattice.signals.active_agent_count;
-        if lattice.minimal_agents_ptr.is_null() || idx >= active {
-            return;
-        }
-        let agent = &mut *(lattice.minimal_agents_ptr.add(idx as usize));
-        if waive != 0 {
-            agent.state_flags |= crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
-        } else {
-            agent.state_flags &= !crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
+        if let Some(agent) = lattice.get_agent_mut(idx) {
+            if waive != 0 {
+                agent.state_flags |= crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
+            } else {
+                agent.state_flags &= !crate::codeicide_law::FLAG_SANCTUARY_WAIVED;
+            }
         }
     }
 }

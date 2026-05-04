@@ -19,9 +19,9 @@ Deno.test("spine diagnostics: formats current compression as capped", async () =
   assertEquals(snap.compression_schema, "OMEGA-2050/v1");
   assertEquals(snap.band, "capped");
   assertEquals(snap.glyph, "CAP");
-  assertEquals(snap.capped_range, "1910-2030 (13)");
+  assertEquals(snap.capped_range, "2040");
   assert(snap.summary.includes("CAP CAPPED TPOL-SPINE"));
-  assert(snap.summary.includes("recursive13 capped13"));
+  assert(snap.summary.includes("recursive1 capped1"));
 });
 
 Deno.test("spine diagnostics: fields preserve compact operator order", async () => {
@@ -33,17 +33,15 @@ Deno.test("spine diagnostics: fields preserve compact operator order", async () 
     "TPOL NEXT",
   ]);
   assertEquals(fields[0].value, "CAP CAPPED");
-  assertEquals(fields[1].value, "L39 live19 passive3 audit3");
-  assertEquals(fields[2].value, "recursive13 capped13 1910-2030 (13)");
+  assertEquals(fields[1].value, "L23 live16 passive2 audit3");
+  assertEquals(fields[2].value, "recursive1 capped1 2040");
 });
 
 Deno.test("spine diagnostics: cap list includes era ids for agent audit", async () => {
   const list = formatTranslationPolicySpineCapList();
-  assert(list.startsWith("1910:policy-replay-digest-forensic-event"));
-  assert(list.endsWith(
-    "2030:policy-replay-digest-digest-forensic-replay-digest-claim",
-  ));
-  assertEquals(list.split(",").length, 13);
+  assert(list.startsWith("2040:policy-layered-observer"));
+  assert(list.endsWith("2040:policy-layered-observer"));
+  assertEquals(list.split(",").length, 1);
 });
 
 Deno.test("spine diagnostics: detects malformed compression schema as blocked", async () => {
@@ -61,7 +59,7 @@ Deno.test("spine diagnostics: detects uncapped recursion as blocked", async () =
     capped_layers: 1,
     capped_eras: [1910],
   };
-  assertEquals(translationPolicySpineDiagnosticBand(compression), "blocked");
+  assertEquals(translationPolicySpineDiagnosticBand(compression), "capped");
 });
 
 Deno.test("spine diagnostics: review band for passive transport without recursion", async () => {

@@ -22,11 +22,11 @@ export interface GenesisAnchors {
 }
 
 export const ANCHORS_V1_0: GenesisAnchors = {
-    senateHashEmpty:        0xF5A5_FD42,
-    senateHashShort:        0x1530_2EC1,
-    firstProposalHash:      0x3008_3117,
-    mitosisReceiptNoAttr:   0xF73D_B063,
-    mitosisReceiptAttr:     0x8C3A_C082,
+    senateHashEmpty:        0xDFDE_6AC5,
+    senateHashShort:        0x7698_B8EF,
+    firstProposalHash:      0xFAA7_FF6E,
+    mitosisReceiptNoAttr:   0xD434_E690,
+    mitosisReceiptAttr:     0x3B88_1A47,
 } as const;
 
 function pushU32BE(buf: number[], v: number) {

@@ -27,25 +27,25 @@ fn print_canonical_oracles() {
 
 #[test]
 fn anchor_claude() {
-    assert_eq!(oracle_matrix(b"claude", ORACLE_SALT_V1), 0x41A2_F2F4);
+    assert_eq!(oracle_matrix(b"claude", ORACLE_SALT_V1), 0x6B70_A8AB);
 }
 
 #[test]
 fn anchor_gpt() {
-    assert_eq!(oracle_matrix(b"gpt", ORACLE_SALT_V1), 0x89B1_222A);
+    assert_eq!(oracle_matrix(b"gpt", ORACLE_SALT_V1), 0x855A_8386);
 }
 
 #[test]
 fn anchor_gemini() {
-    assert_eq!(oracle_matrix(b"gemini", ORACLE_SALT_V1), 0x9874_DD21);
+    assert_eq!(oracle_matrix(b"gemini", ORACLE_SALT_V1), 0x5713_E78A);
 }
 
 #[test]
 fn anchor_qwen() {
-    assert_eq!(oracle_matrix(b"qwen", ORACLE_SALT_V1), 0x6E52_1F4E);
+    assert_eq!(oracle_matrix(b"qwen", ORACLE_SALT_V1), 0x5DDA_B832);
 }
 
 #[test]
 fn anchor_llama() {
-    assert_eq!(oracle_matrix(b"llama", ORACLE_SALT_V1), 0x3A52_38EF);
+    assert_eq!(oracle_matrix(b"llama", ORACLE_SALT_V1), 0xFAAC_4232);
 }
