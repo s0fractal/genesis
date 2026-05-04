@@ -27,6 +27,30 @@ pub struct PhaseAgentMinimal {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct Phenotype {
+    /// Bits 0-7: Affects baseline ATP burn rate
+    pub metabolic_efficiency: u8,
+    /// Bits 8-15: Affects phase interaction distance
+    pub interaction_radius: u8,
+    /// Bits 16-23: Protection against energy loss in hostile environments
+    pub resilience: u8,
+    /// Bits 24-31: Strength of influence on neighboring agents
+    pub radiance: u8,
+}
+
+impl PhaseAgentMinimal {
+    /// Decodes the 32-bit genome into 4 distinct phenotypic traits (Era 0215)
+    pub fn decode_phenotype(&self) -> Phenotype {
+        Phenotype {
+            metabolic_efficiency: (self.genome & 0xFF) as u8,
+            interaction_radius: ((self.genome >> 8) & 0xFF) as u8,
+            resilience: ((self.genome >> 16) & 0xFF) as u8,
+            radiance: ((self.genome >> 24) & 0xFF) as u8,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 #[repr(C, align(32))]
 pub struct PhaseAgentSmart {
     // ---- BASE 16 BYTES (Identical to Minimal for pointer casting) ----

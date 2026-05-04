@@ -87,13 +87,30 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let left = agents_in[left_idx];
         let right = agents_in[right_idx];
 
+        // --- Era 0215: Phenotypic Expression ---
+        let genome = agent.genome;
+        let p_efficiency = genome & 0xFFu;
+        let p_radius = (genome >> 8u) & 0xFFu;
+        let p_resilience = (genome >> 16u) & 0xFFu;
+
         // --- 2. Kuramoto Q10 coupling via LUT ---
+        let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         let sin_left = sin_q10(left.phase, agent.phase);
         let sin_right = sin_q10(right.phase, agent.phase);
-        let coupling = ((sin_left + sin_right) * KURAMOTO_COUPLING_BASE) / (2 * Q10_SCALE);
+        let coupling = ((sin_left + sin_right) * k) / (2i * Q10_SCALE);
 
-        // --- 3. Metabolic burn (complexity-scaled) ---
-        let burn = METABOLIC_BASE_COST + (countOneBits(agent.genome) / METABOLIC_BURN_DIVISOR);
+        // --- 3. Metabolic burn (decoded from phenotype) ---
+        let efficiency_adj = 2i - i32(p_efficiency / 64u);
+        var base_burn: u32 = 1u;
+        let raw_base = i32(METABOLIC_BASE_COST) + efficiency_adj;
+        if (raw_base > 1i) { base_burn = u32(raw_base); }
+
+        let resilience_reduction = p_resilience / 128u;
+        var burn: u32 = 1u;
+        if (base_burn > resilience_reduction + 1u) {
+            burn = base_burn - resilience_reduction;
+        }
+
         var new_energy = select(agent.energy - burn, 0u, burn >= agent.energy);
 
         // --- 4. Phase drift (base_freq Q20 + coupling + attractor field) ---

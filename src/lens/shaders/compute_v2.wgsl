@@ -211,7 +211,9 @@ fn compute_main(
     let my_y = deterministic_sin(agent.phase, topology.q_phase);
     
     // 3. Integer Kuramoto Coupling + Ontological Gravity (Multi-Intent)
-    let k_coupling = min(agent.energy, 1000u); 
+    let p_radius = (agent.genome >> 8u) & 0xFFu;
+    var k_coupling = min(agent.energy, 1000u); 
+    k_coupling = k_coupling + (p_radius * 4u);
     
     force_x = my_x + (((anchor_x - my_x) * i32(k_coupling)) >> 10u);
     force_y = my_y + (((anchor_y - my_y) * i32(k_coupling)) >> 10u);
@@ -326,8 +328,24 @@ fn compute_main(
     let total_freq = agent.base_freq + attractor_drift;
     let new_phase = (coupled_phase + u32(total_freq >> topology.q_math)) & max_phase_mask;
     
+    // --- Era 0215: Phenotypic Expression ---
+    let genome = agent.genome;
+    let p_efficiency = genome & 0xFFu;
+    let p_resilience = (genome >> 16u) & 0xFFu;
+
+    let efficiency_adj = 2i - i32(p_efficiency / 64u);
+    var base_burn: u32 = 1u;
+    let raw_base = 1i + efficiency_adj;
+    if (raw_base > 1i) { base_burn = u32(raw_base); }
+
+    let resilience_reduction = p_resilience / 128u;
+    var burn: u32 = 1u;
+    if (base_burn > resilience_reduction + 1u) {
+        burn = base_burn - resilience_reduction;
+    }
+
     // ERA 3000: ATP METABOLISM
-    var metabolic_delta: i32 = -1; // Entropy (Base Burn)
+    var metabolic_delta: i32 = -i32(burn); // Entropy (Base Burn)
     
     // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
     if (new_phase % 64u == 0u) {

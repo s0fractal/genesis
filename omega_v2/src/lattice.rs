@@ -201,14 +201,25 @@ impl PhaseLattice {
                     let left = &*snapshot.add(left_idx);
                     let right = &*snapshot.add(right_idx);
 
+                    // Era 0215: Phenotypic Expression
+                    let phenotype = agent.decode_phenotype();
+
                     // Kuramoto coupling: K * (sin(left - agent) + sin(right - agent)) / (2 * Q10)
+                    // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
+                    let k = kuramoto_k + (phenotype.interaction_radius as i32 * 4);
                     let sin_left = crate::math::sin_q10(left.phase, agent.phase);
                     let sin_right = crate::math::sin_q10(right.phase, agent.phase);
-                    let coupling = ((sin_left + sin_right) * kuramoto_k) / (2 * q10_scale);
+                    let coupling = ((sin_left + sin_right) * k) / (2 * q10_scale);
 
-                    // Metabolic burn: complex genomes burn faster
-                    let burn = crate::constants::METABOLIC_BASE_COST
-                        + (agent.genome.count_ones() / crate::constants::METABOLIC_BURN_DIVISOR);
+                    // Metabolic burn: decoded from phenotype
+                    // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
+                    let efficiency_adj = 2i32 - (phenotype.metabolic_efficiency as i32 / 64);
+                    let base_burn = (crate::constants::METABOLIC_BASE_COST as i32 + efficiency_adj).max(1) as u32;
+
+                    // Resilience flat reduction
+                    let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
+                    let burn = base_burn.saturating_sub(resilience_reduction).max(1);
+
                     agent.energy = agent.energy.saturating_sub(burn);
 
                     let mut attractor_drift = 0i32;
@@ -660,6 +671,7 @@ mod tests {
         agents[0].energy = 100;
         agents[0].phase = 1; // avoid resonance bonus (1 % 64 != 0)
         agents[0].base_freq = 0;
+        agents[0].genome = 128; // phenotypic efficiency 128 = base burn
         let before = agents[0].energy;
         lattice.tick_physics();
         assert_eq!(agents[0].energy, before - crate::constants::ENERGY_DECAY_PER_TICK, "Energy should decay by ENERGY_DECAY_PER_TICK");
@@ -832,8 +844,8 @@ mod tests {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(3);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.active_agent_count = 3;
-        // Agent 0 will die in one tick: burn = 1 + 24/4 = 7 for 0xDEADBEEF genome
-        agents[0].energy = 7;
+        // Agent 0 will die in one tick (energy = 1)
+        agents[0].energy = 1;
         agents[0].state_flags = 0;
         agents[0].genome = 0xDEADBEEF;
         agents[1].energy = 1000;

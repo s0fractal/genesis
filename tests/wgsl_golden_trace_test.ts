@@ -180,6 +180,7 @@ if (gpuAvailable) {
                         console.log(`[MISMATCH] Tick ${i+1}: GPU Agent ${agentIdx}: phase=${gpuA.getUint32(0,true)} energy=${gpuA.getUint32(4,true)} freq=${gpuA.getInt32(8,true)} flags=${gpuA.getUint32(12,true)}`);
                         
                         stagingBuf.unmap();
+
                         throw new Error(`WGSL drift detected at tick ${i+1}, byte ${firstMismatch} (agent ${agentIdx}, field offset ${fieldOffset})`);
                     }
                     
