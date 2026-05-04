@@ -219,16 +219,12 @@ export class Libp2pMesh {
     this.node.services.pubsub.addEventListener('message', (evt: any) => {
         if (evt.detail.topic === 'v2-sync-bin') {
             this.handleSyncBinMessage(evt.detail.from.toString(), new Uint8Array(evt.detail.data));
-        } else if (evt.detail.topic === 'v2-sync' || evt.detail.topic === 'v2-plasmid') {
-            this.handleSyncMessage(evt.detail.from.toString(), new TextDecoder().decode(evt.detail.data));
         } else if (evt.detail.topic === 'v2-state') {
             this.handleStateMessage(evt.detail.from.toString(), evt.detail.data.buffer as ArrayBuffer);
         }
     });
 
-    this.node.services.pubsub.subscribe('v2-sync');
     this.node.services.pubsub.subscribe('v2-sync-bin');
-    this.node.services.pubsub.subscribe('v2-plasmid');
     this.node.services.pubsub.subscribe('v2-state');
 
     await this.node.start();
@@ -276,7 +272,55 @@ export class Libp2pMesh {
     const frame = frameFromBytes(eventData);
     if (!frame) return;
     const packet = parseV2SyncFrame(frame);
-    if (!packet) return;
+    if (!packet) {
+        // Handle Binary Plasmids (Era 2060 Zero-Copy RPC)
+        if (frame.frameType === FRAME_TYPE_ATTRACTOR) {
+            const matrix = frame.proposalOrTarget;
+            const inverse = frame.payloadA;
+            const pulseFreq = frame.payloadB;
+            const pulseAmp = frame.payloadC;
+            const recursionDepth = frame.oracleBit;
+            
+            const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
+            if (setAttractor) {
+              const slotIdx = recursionDepth % 4;
+              setAttractor(slotIdx, matrix, inverse, pulseFreq, pulseAmp);
+            }
+            this.attractorConsensusPeers.add(peerId);
+            const ledgerEntry = this.consensusLedger.get(matrix);
+            if (ledgerEntry) ledgerEntry.peerCount += 1;
+            else this.consensusLedger.set(matrix, { matrix, inverse, pulseFreq, pulseAmp, peerCount: 1 });
+            if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
+              this.era1020Unlocked = true;
+              globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
+            }
+            this.checkEra1030Trigger();
+            
+            const nextDepth = recursionDepth + 1;
+            if (nextDepth < 8) { // maxRecursion
+              this.enqueueBinaryFrame(buildAttractor(matrix, inverse, pulseFreq, pulseAmp, nextDepth));
+            }
+        }
+        else if (frame.frameType === FRAME_TYPE_PROPOSAL) {
+            // Re-construct the mock 'plasmid' to pass to handleProposal
+            const plasmidMock = {
+                semanticType: "PROPOSAL",
+                matrix: frame.proposalOrTarget,
+                inverse: frame.payloadA,
+                pulseFreq: frame.payloadB,
+                pulseAmp: frame.payloadC,
+                recursionDepth: frame.oracleBit,
+                maxRecursion: 8,
+            } as any;
+            this.handleProposal(plasmidMock, peerId);
+            
+            const nextDepth = frame.oracleBit + 1;
+            if (nextDepth < 8) {
+              this.enqueueBinaryFrame(buildProposal(frame.proposalOrTarget, frame.payloadA, frame.payloadB, frame.payloadC, nextDepth));
+            }
+        }
+        return;
+    }
 
     // Passive Phase Routing (Era 2060: 3D Poincaré Disk Model)
     if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
@@ -328,180 +372,6 @@ export class Libp2pMesh {
         const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
         this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
       }
-    }
-  }
-
-  private handleSyncMessage(peerId: string, eventData: string) {
-    try {
-      // Parse lightweight UDP packet
-      const packet = JSON.parse(eventData);
-      if (packet.t === "V2_HANDSHAKE") {
-        // Era 1000: Store peer PhaseAddress
-        const addr = packet.addr as number;
-        if (addr !== 0) {
-          this.peerAddresses.set(peerId, addr);
-          console.log(`[LIBP2P-MESH] Peer ${peerId} PhaseAddress=${addr}`);
-        }
-        return;
-      }
-      if (packet.t === "V2_SYNC") {
-        // Era 2060: 3D Phase Routing (Attraction Zone + Time Curvature)
-        if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
-          let hopCount = (packet.hc as number) ?? 0;
-          const maxHops = (packet.mh as number) ?? 8;
-          if (hopCount >= maxHops) {
-            console.log(`[LIBP2P-MESH] Plasmid max hops exceeded, dropping.`);
-            return;
-          }
-          const targetAddr = packet.ta as number;
-          const senderAddr = this.peerAddresses.get(peerId) ?? 0;
-          
-          const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
-          const tauSender = (packet.gt as number) ?? 0;
-          const tauTarget = tauSelf; // Assuming target is in the present
-
-          const distSelf = this.router.hyperbolicDistanceToroidal3D(this.selfAddress, tauSelf, targetAddr, tauTarget);
-          const distSender = senderAddr !== 0
-            ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
-            : Number.MAX_SAFE_INTEGER; // unknown sender -> accept
-            
-          if (distSelf > distSender) {
-            // Self is farther from target than sender -> ignore
-            return;
-          }
-          
-          // Calculate time curvature penalty for routing this plasmid
-          const tauDiff = Math.abs(tauSelf - tauSender);
-          if (tauDiff > 0) {
-              const penalty = Math.floor((tauDiff * 8) + ((tauDiff * tauDiff) / 1024));
-              // Burn more ATP (hopCount) when bending space-time
-              hopCount += penalty;
-              if (hopCount >= maxHops) {
-                  console.log(`[LIBP2P-MESH] Time curvature max hops exceeded, dropping.`);
-                  return;
-              }
-          }
-        }
-
-        const slot = this.peerSlots.get(peerId);
-        if (slot !== undefined) {
-          const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-          if (setIntent) {
-            if (packet.m > 0) {
-              setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
-            } else {
-              setIntent(slot, 0, 0, 0, 0, 0, 0);
-            }
-          }
-        }
-
-        // Golden Trace Validation for legacy peers
-        const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
-        const remoteGt = packet.gt as number;
-        if (localTrace !== remoteGt && !this.isSyncFrozen) {
-          console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
-          if (remoteGt > localTrace) {
-            console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
-            this.isSyncFrozen = true;
-            const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
-            this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
-          }
-        }
-      } else if (packet.t === "PLASMID") {
-        const plasmid = packet.plasmid as PlasmidPayload | undefined;
-        if (plasmid) {
-          if (plasmid.recursionDepth >= plasmid.maxRecursion) {
-            console.log(`[LIBP2P-MESH] Plasmid max recursion exceeded, dropping.`);
-          } else {
-            const isValidDipole = this.router?.validateDipole(plasmid.matrix, plasmid.inverse) ?? false;
-            if (!isValidDipole) {
-              console.warn(`[LIBP2P-MESH] Invalid dipole rejected (matrix=${plasmid.matrix.toString(16)}, inverse=${plasmid.inverse.toString(16)}).`);
-            } else {
-              switch (plasmid.semanticType) {
-                case "ATTRACTOR": {
-                  const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
-                  if (setAttractor) {
-                    const slotIdx = plasmid.recursionDepth % 4;
-                    setAttractor(slotIdx, plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp);
-                  }
-                  this.attractorConsensusPeers.add(peerId);
-                  const ledgerEntry = this.consensusLedger.get(plasmid.matrix);
-                  if (ledgerEntry) ledgerEntry.peerCount += 1;
-                  else this.consensusLedger.set(plasmid.matrix, { matrix: plasmid.matrix, inverse: plasmid.inverse, pulseFreq: plasmid.pulseFreq, pulseAmp: plasmid.pulseAmp, peerCount: 1 });
-                  if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
-                    this.era1020Unlocked = true;
-                    globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
-                  }
-                  this.checkEra1030Trigger();
-                  break;
-                }
-                case "PROPOSAL": this.handleProposal(plasmid, peerId); break;
-                case "VOTE": this.handleVote(plasmid, peerId); break;
-                case "ORACLE_INJECTION": globalThis.dispatchEvent(new CustomEvent("oraclePlasmidInjection", { detail: { plasmid, fromPeer: peerId } })); break;
-                case "DIPOLE": {
-                  if (plasmid.parent && plasmid.claimedChild && plasmid.qPhase !== undefined) {
-                    const ok = Libp2pMesh.verifyMitosisProof(plasmid);
-                    if (!ok) {
-                      console.warn(`[LIBP2P-MESH] DIPOLE proof rejected from ${peerId} (matrix=${plasmid.matrix.toString(16)}).`);
-                      break;
-                    }
-                    this.verifiedDipoleCount += 1;
-                    this.checkEra1050Trigger();
-                    this.autoRatifyEra1040Proposal(plasmid.matrix, plasmid.inverse);
-                  }
-                  globalThis.dispatchEvent(new CustomEvent("dipoleBirthAnnouncement", { detail: { plasmid, fromPeer: peerId, verified: !!plasmid.claimedChild } }));
-                  break;
-                }
-                case "INTENT": {
-                  const intentSlot = this.peerSlots.get(peerId);
-                  const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
-                  if (setIntent && intentSlot !== undefined) {
-                    setIntent(intentSlot, plasmid.attractorAddress, plasmid.matrix, plasmid.pulseFreq, plasmid.pulseAmp);
-                  }
-                  break;
-                }
-                case "TRANSLATION_POLICY":
-                  if (plasmid.translationPolicyBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyClaim", { detail: { body: plasmid.translationPolicyBody, targetPeer: plasmid.translationPolicyTarget, fromPeer: peerId } }));
-                  break;
-                case "TRANSLATION_POLICY_CORROBORATION":
-                  if (plasmid.translationPolicyCorroborationBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyCorroborationRaise", { detail: { body: plasmid.translationPolicyCorroborationBody, targetPeer: plasmid.translationPolicyCorroborationTarget, fromPeer: peerId } }));
-                  break;
-                case "TRANSLATION_POLICY_REPLAY_DIGEST":
-                  if (plasmid.translationPolicyReplayDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestBody, targetPeer: plasmid.translationPolicyReplayDigestTarget, fromPeer: peerId } }));
-                  break;
-                case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST":
-                  if (plasmid.translationPolicyReplayDigestDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestDigestBody, targetPeer: plasmid.translationPolicyReplayDigestDigestTarget, fromPeer: peerId } }));
-                  break;
-                case "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST":
-                  if (plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody) globalThis.dispatchEvent(new CustomEvent("translationPolicyReplayDigestDigestForensicReplayDigestClaim", { detail: { body: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestBody, targetPeer: plasmid.translationPolicyReplayDigestDigestForensicReplayDigestTarget, fromPeer: peerId } }));
-                  break;
-              }
-              const nextDepth = plasmid.recursionDepth + 1;
-              if (nextDepth < plasmid.maxRecursion) {
-                this.enqueuePlasmid({ ...plasmid, recursionDepth: nextDepth });
-              }
-            }
-          }
-        }
-      } else if (packet.t === "REQ_SNAPSHOT") {
-        if (this.latestSnapshot) {
-          console.log(`[LIBP2P-MESH] Sending 32MB Snapshot to pubsub...`);
-          const header = JSON.stringify({ t: "SNAPSHOT_HEADER", size: this.latestSnapshot.byteLength });
-          this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(header));
-          const CHUNK_SIZE = 64000;
-          for (let i = 0; i < this.latestSnapshot.byteLength; i += CHUNK_SIZE) {
-            const chunk = this.latestSnapshot.slice(i, i + CHUNK_SIZE);
-            this.node.services.pubsub.publish("v2-state", chunk);
-          }
-        }
-      } else if (packet.t === "SNAPSHOT_HEADER") {
-        console.log(`[LIBP2P-MESH] Incoming 32MB Snapshot (${packet.size} bytes)...`);
-        this.incomingSnapshot = new Uint8Array(packet.size);
-        this.incomingBytesReceived = 0;
-        this.isSyncFrozen = true;
-      }
-    } catch (_e) {
-      // Ignore parse errors on UDP layer
     }
   }
 
@@ -564,9 +434,22 @@ export class Libp2pMesh {
   /**
    * Era 1010: Enqueue a plasmid for broadcast across the P2P mesh.
    */
+  public enqueueBinaryFrame(frame: SporeFrame) {
+    this.pendingPlasmids.push(frame as any); // hack for now, push SporeFrame
+  }
+
   public enqueuePlasmid(plasmid: PlasmidPayload) {
     if (plasmid.recursionDepth >= plasmid.maxRecursion) {
       console.warn(`[V2-MESH] Plasmid recursion depth exceeded, dropping.`);
+      return;
+    }
+    // Encode known plasmids to binary Zero-Copy SporeFrames immediately
+    if (plasmid.semanticType === "ATTRACTOR") {
+      this.enqueueBinaryFrame(buildAttractor(plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp, plasmid.recursionDepth));
+      return;
+    }
+    if (plasmid.semanticType === "PROPOSAL") {
+      this.enqueueBinaryFrame(buildProposal(plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp, plasmid.recursionDepth));
       return;
     }
     this.pendingPlasmids.push(plasmid);
@@ -1180,22 +1063,6 @@ export class Libp2pMesh {
 
     const binPayload = frameToBytes(syncFrame);
     
-    // We still keep the legacy payload around for older peers until full cutover
-    const legacyPayload = JSON.stringify({
-      t: "V2_SYNC",
-      x: this.__lastLocalIntent.x,
-      y: this.__lastLocalIntent.y,
-      m: this.__lastLocalIntent.m,
-      r: this.__lastLocalIntent.r,
-      g: this.__lastLocalIntent.g,
-      o: this.__lastLocalIntent.op,
-      gt: this.latestGoldenTraceNum,
-      ta: this.selfAddress,
-      hc: 0,
-      mh: 8,
-      btcTx: (window as any).__OMEGA_GENESIS_TXID__ || "untethered"
-    });
-
     let deltaBuffer: ArrayBuffer | null = null;
     if (this.engine.wasm?.exports.v2_generate_delta_snapshot) {
       const numMutations = (this.engine.wasm.exports
@@ -1212,15 +1079,21 @@ export class Libp2pMesh {
 
     try {
       this.node.services.pubsub.publish("v2-sync-bin", binPayload);
-      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(legacyPayload));
       
       if (plasmid) {
-          const plasmidPayload = JSON.stringify({ t: "PLASMID", plasmid });
-          this.node.services.pubsub.publish("v2-plasmid", new TextEncoder().encode(plasmidPayload));
+          if ((plasmid as any).magic === 0x4F46) {
+              const binPlasmid = frameToBytes(plasmid as any);
+              this.node.services.pubsub.publish("v2-sync-bin", binPlasmid);
+          } else {
+              // JSON Plasmids are SUNSET in Era 2060.
+              // Any non-binary plasmids remaining in the queue will be dropped.
+              console.warn(`[LIBP2P-MESH] Dropping legacy JSON plasmid: ${plasmid.semanticType}`);
+          }
       }
       
       if (deltaBuffer) {
-        this.node.services.pubsub.publish("v2-sync", new Uint8Array(deltaBuffer));
+        // Delta buffer can be sent as raw bytes over v2-sync-bin or v2-state
+        this.node.services.pubsub.publish("v2-state", new Uint8Array(deltaBuffer));
       }
     } catch (e) {
       console.warn(`[LIBP2P-MESH] Failed to publish state:`, e);

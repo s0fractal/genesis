@@ -24,6 +24,10 @@ export const FRAME_TYPE_EVENT_DELTA_CHUNK = 10;
 export const FRAME_TYPE_EVENT_HASH_REQUEST = 11;
 export const FRAME_TYPE_EVENT_HASH_RESPONSE = 12;
 export const FRAME_TYPE_V2_SYNC = 13;
+export const FRAME_TYPE_BLE_MESH_BROADCAST = 14;
+export const FRAME_TYPE_LORA_LONG_RANGE = 15;
+export const FRAME_TYPE_ATTRACTOR = 16;
+export const FRAME_TYPE_PROPOSAL = 17;
 
 export interface SporeFrame {
     magic: number;
@@ -256,6 +260,44 @@ export function buildV2SyncFrame(
     // reserved: [hc:8 | mh:8 | 0:16]
     f.reserved = (((hc & 0xFF) << 24) | ((mh & 0xFF) << 16)) >>> 0;
     
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Build an ATTRACTOR frame (Era 2060 Plasmid replacement) */
+export function buildAttractor(
+    matrix: number,
+    inverse: number,
+    pulseFreq: number,
+    pulseAmp: number,
+    recursionDepth: number
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_ATTRACTOR;
+    f.oracleBit = recursionDepth & 0xFF;
+    f.proposalOrTarget = matrix >>> 0;
+    f.payloadA = inverse >>> 0;
+    f.payloadB = pulseFreq >>> 0;
+    f.payloadC = pulseAmp >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Build a PROPOSAL frame (Era 2060 Plasmid replacement) */
+export function buildProposal(
+    matrix: number,
+    inverse: number,
+    pulseFreq: number,
+    pulseAmp: number,
+    recursionDepth: number
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_PROPOSAL;
+    f.oracleBit = recursionDepth & 0xFF;
+    f.proposalOrTarget = matrix >>> 0;
+    f.payloadA = inverse >>> 0;
+    f.payloadB = pulseFreq >>> 0;
+    f.payloadC = pulseAmp >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;
 }

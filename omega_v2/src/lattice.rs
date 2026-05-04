@@ -310,7 +310,7 @@ impl PhaseLattice {
                     let agent_sin = crate::math::sin_q10(0, agent.phase);
 
                     // Wave Interference: sin(Ψ - θ) = sin(Ψ)cos(θ) - cos(Ψ)sin(θ)
-                    let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / (q10_scale * q10_scale);
+                    let total_coupling = ((sum_sin as i64 * agent_cos as i64 - sum_cos as i64 * agent_sin as i64) / (q10_scale as i64 * q10_scale as i64)) as i32;
                     let coupling = (total_coupling * k) / (6 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype

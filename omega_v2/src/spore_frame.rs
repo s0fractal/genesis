@@ -104,10 +104,14 @@ pub const FRAME_TYPE_EVENT_HASH_REQUEST: u8 = 11;
 ///                        seq, total are 1-based; valid is the count of
 ///                        live u32 slots in this frame (1..4).
 pub const FRAME_TYPE_EVENT_HASH_RESPONSE: u8 = 12;
+pub const FRAME_TYPE_V2_SYNC: u8 = 13;
 /// Era 2060: Silicon to Mycelium — BLE Mesh physical broadcast frame.
-pub const FRAME_TYPE_BLE_MESH_BROADCAST: u8 = 13;
+pub const FRAME_TYPE_BLE_MESH_BROADCAST: u8 = 14;
 /// Era 2060: Silicon to Mycelium — LoRa Long Range physical broadcast frame.
-pub const FRAME_TYPE_LORA_LONG_RANGE: u8 = 14;
+pub const FRAME_TYPE_LORA_LONG_RANGE: u8 = 15;
+/// Era 2060: Zero-Copy Binary Plasmids
+pub const FRAME_TYPE_ATTRACTOR: u8 = 16;
+pub const FRAME_TYPE_PROPOSAL: u8 = 17;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -607,8 +611,9 @@ mod tests {
         assert_eq!(FRAME_TYPE_EVENT_DELTA_CHUNK, 10);
         assert_eq!(FRAME_TYPE_EVENT_HASH_REQUEST, 11);
         assert_eq!(FRAME_TYPE_EVENT_HASH_RESPONSE, 12);
-        assert_eq!(FRAME_TYPE_BLE_MESH_BROADCAST, 13);
-        assert_eq!(FRAME_TYPE_LORA_LONG_RANGE, 14);
+        assert_eq!(FRAME_TYPE_V2_SYNC, 13);
+        assert_eq!(FRAME_TYPE_BLE_MESH_BROADCAST, 14);
+        assert_eq!(FRAME_TYPE_LORA_LONG_RANGE, 15);
     }
 
     #[test]
