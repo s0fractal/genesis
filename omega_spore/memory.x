@@ -37,4 +37,6 @@ SECTIONS
         *(.bss .bss.*);
         *(COMMON);
     } > RAM
+
+    PROVIDE(_stack_start = ORIGIN(RAM) + LENGTH(RAM));
 }

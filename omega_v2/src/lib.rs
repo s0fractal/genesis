@@ -235,14 +235,19 @@ pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32) {
+pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32, trng_ptr: *const u8, trng_len: usize) {
     let ge = crate::bitcoin_oracle::get_genesis_entropy();
     let ge_u32 = u32::from_le_bytes([ge[0], ge[1], ge[2], ge[3]]);
     let final_seed = seed ^ ge_u32;
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         let mut mem = EPIGENETIC_MEMORY.lock();
-        lattice.ignite_epigenetic_big_bang(final_seed, agent_count, &*mem);
+        let trng_slice = if trng_ptr.is_null() || trng_len == 0 {
+            &[]
+        } else {
+            core::slice::from_raw_parts(trng_ptr, trng_len)
+        };
+        lattice.ignite_epigenetic_big_bang(final_seed, agent_count, &*mem, trng_slice);
     }
 }
 

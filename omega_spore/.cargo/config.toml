@@ -7,3 +7,17 @@ rustflags = [
   "-C", "link-arg=-nostdlib",
   "-C", "relocation-model=static",
 ]
+
+[target.thumbv6m-none-eabi]
+rustflags = [
+  "-C", "link-arg=-Tmemory.x",
+  "-C", "link-arg=-nostdlib",
+  "-C", "relocation-model=static",
+]
+
+[target.riscv32imc-unknown-none-elf]
+rustflags = [
+  "-C", "link-arg=-Tmemory.x",
+  "-C", "link-arg=-nostdlib",
+  "-C", "relocation-model=static",
+]

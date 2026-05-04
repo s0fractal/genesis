@@ -104,6 +104,10 @@ pub const FRAME_TYPE_EVENT_HASH_REQUEST: u8 = 11;
 ///                        seq, total are 1-based; valid is the count of
 ///                        live u32 slots in this frame (1..4).
 pub const FRAME_TYPE_EVENT_HASH_RESPONSE: u8 = 12;
+/// Era 2060: Silicon to Mycelium — BLE Mesh physical broadcast frame.
+pub const FRAME_TYPE_BLE_MESH_BROADCAST: u8 = 13;
+/// Era 2060: Silicon to Mycelium — LoRa Long Range physical broadcast frame.
+pub const FRAME_TYPE_LORA_LONG_RANGE: u8 = 14;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -345,11 +349,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1470: Build a HASH_RESPONSE chunk carrying up to 4
-    /// hashes. `seq` and `total` are 1-based chunk indices; `valid`
-    /// is how many of the four `hashes[..]` slots are populated
-    /// (always 1..=4). `request_id` echoes the originating
-    /// REQUEST's tick.
+    /// Era 1470: Build a HASH_RESPONSE chunk carrying up to 4 hashes.
     pub fn event_hash_response(
         request_id: u32,
         seq: u8,
@@ -366,6 +366,40 @@ impl SporeFrame {
         f.tick = request_id;
         f._reserved =
             ((seq as u32) << 24) | ((total as u32) << 16) | ((valid as u32) << 8);
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 2060: Build a BLE_MESH_BROADCAST frame.
+    pub fn ble_mesh_broadcast(
+        sender_id: u32,
+        target_id: u32,
+        payload_hash: u32,
+        tick: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_BLE_MESH_BROADCAST;
+        f.proposal_or_target = target_id;
+        f.payload_a = sender_id;
+        f.payload_b = payload_hash;
+        f.tick = tick;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 2060: Build a LORA_LONG_RANGE frame.
+    pub fn lora_long_range(
+        sender_id: u32,
+        target_id: u32,
+        payload_hash: u32,
+        tick: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_LORA_LONG_RANGE;
+        f.proposal_or_target = target_id;
+        f.payload_a = sender_id;
+        f.payload_b = payload_hash;
+        f.tick = tick;
         f.crc32 = f.compute_crc();
         f
     }
@@ -573,6 +607,8 @@ mod tests {
         assert_eq!(FRAME_TYPE_EVENT_DELTA_CHUNK, 10);
         assert_eq!(FRAME_TYPE_EVENT_HASH_REQUEST, 11);
         assert_eq!(FRAME_TYPE_EVENT_HASH_RESPONSE, 12);
+        assert_eq!(FRAME_TYPE_BLE_MESH_BROADCAST, 13);
+        assert_eq!(FRAME_TYPE_LORA_LONG_RANGE, 14);
     }
 
     #[test]

@@ -23,10 +23,18 @@ impl<T> Spinlock<T> {
     }
 
     /// Acquires the lock, spinning until it is available.
+    #[cfg(target_has_atomic = "8")]
     pub fn lock(&self) -> SpinlockGuard<'_, T> {
         while self.locked.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
             core::hint::spin_loop();
         }
+        SpinlockGuard { lock: self }
+    }
+
+    #[cfg(not(target_has_atomic = "8"))]
+    pub fn lock(&self) -> SpinlockGuard<'_, T> {
+        // No atomics available (e.g. thumbv6m, riscv32imc). 
+        // Safe because these are single-core embedded targets without threads.
         SpinlockGuard { lock: self }
     }
 
@@ -58,6 +66,7 @@ impl<T> core::ops::DerefMut for SpinlockGuard<'_, T> {
 
 impl<T> Drop for SpinlockGuard<'_, T> {
     fn drop(&mut self) {
+        #[cfg(target_has_atomic = "8")]
         self.lock.locked.store(false, Ordering::Release);
     }
 }

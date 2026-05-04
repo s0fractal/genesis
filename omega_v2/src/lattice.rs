@@ -174,12 +174,21 @@ impl PhaseLattice {
 
     /// Era 950+: Big Bang guided by Epigenetic Memory.
     /// Instead of purely random genomes, successful historical traits bias new agents.
-    pub fn ignite_epigenetic_big_bang(&mut self, root_seed: u32, initial_population: u32, memory: &crate::epigenetics::EpigeneticMemory) {
+    pub fn ignite_epigenetic_big_bang(&mut self, root_seed: u32, initial_population: u32, memory: &crate::epigenetics::EpigeneticMemory, trng_entropy: &[u8]) {
         if self.minimal_agents_ptr.is_null() { return; }
         
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
         self.signals.active_agent_count = safe_population;
-        let mut rng = crate::math::Xorshift64::new(root_seed);
+        
+        // Era 2060: Silicon to Mycelium.
+        // Hash the TRNG entropy directly into the root_seed.
+        let mut final_seed = root_seed;
+        for &byte in trng_entropy {
+            final_seed ^= byte as u32;
+            final_seed = final_seed.wrapping_mul(0x0100_0193);
+        }
+        
+        let mut rng = crate::math::Xorshift64::new(final_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
 
         unsafe {
@@ -705,7 +714,7 @@ mod tests {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(100);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         let memory = crate::epigenetics::EpigeneticMemory::new();
-        lattice.ignite_epigenetic_big_bang(42, 50, &memory);
+        lattice.ignite_epigenetic_big_bang(42, 50, &memory, &[0xAA, 0xBB]);
         assert_eq!(lattice.signals.active_agent_count, 50);
         assert!(agents[0].energy > 0);
         // With empty memory, genomes should still be stochastic (non-zero entropy)
