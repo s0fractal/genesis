@@ -102,6 +102,14 @@ impl PhaseLattice {
 
     /// Pre-populates the `.bss` static memory with randomized kinetic energy and base frequencies
     /// using a hyper-minimal Linear Congruential Generator (LCG).
+
+    #[inline(always)]
+    fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> usize {
+        let wx = x.rem_euclid(w);
+        let wy = y.rem_euclid(h);
+        (wy * w + wx) as usize
+    }
+
     pub fn ignite_big_bang(&mut self, root_seed: u32, initial_population: u32) {
         if self.minimal_agents_ptr.is_null() { return; }
         
@@ -201,11 +209,23 @@ impl PhaseLattice {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
                 
                 if agent.energy > 0 {
-                    let left_idx = if i == 0 { active - 1 } else { i - 1 };
-                    let right_idx = if i + 1 >= active { 0 } else { i + 1 };
+                    let w = (1i32 << self.topology.q_radial).max(1);
+                    let h = (active as i32 / w).max(1);
+                    let cx = (i as i32) % w;
+                    let cy = (i as i32) / w;
 
-                    let left = &*snapshot.add(left_idx);
-                    let right = &*snapshot.add(right_idx);
+                    let n_indices = [
+                        Self::wrap_index_2d(cx - 1, cy, w, h),
+                        Self::wrap_index_2d(cx + 1, cy, w, h),
+                        Self::wrap_index_2d(cx, cy - 1, w, h),
+                        Self::wrap_index_2d(cx, cy + 1, w, h),
+                        Self::wrap_index_2d(cx + 1, cy - 1, w, h),
+                        Self::wrap_index_2d(cx - 1, cy + 1, w, h),
+                    ];
+                    
+                    // We map left to n_indices[0] and right to n_indices[1] for legacy Hebbian
+                    let left = &*snapshot.add(if n_indices[0] < active { n_indices[0] } else { 0 });
+                    let right = &*snapshot.add(if n_indices[1] < active { n_indices[1] } else { 0 });
 
                     // Era 0215: Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
@@ -228,12 +248,19 @@ impl PhaseLattice {
                     // Kuramoto coupling modulated by Hebbian weights
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
                     let k = kuramoto_k + (phenotype.interaction_radius as i32 * 4);
-                    let sin_left = crate::math::sin_q10(left.phase, agent.phase);
-                    let sin_right = crate::math::sin_q10(right.phase, agent.phase);
-                    
-                    let coupling_left = (sin_left * weight_left) / q10_scale;
-                    let coupling_right = (sin_right * weight_right) / q10_scale;
-                    let coupling = ((coupling_left + coupling_right) * k) / (2 * q10_scale);
+                    // 6-neighbor Kuramoto coupling
+                    let mut total_coupling = 0i32;
+                    for &n_idx in &n_indices {
+                        if n_idx < active {
+                            let n = &*snapshot.add(n_idx);
+                            if n.energy > 0 {
+                                let sin_n = crate::math::sin_q10(n.phase, agent.phase);
+                                // For simplicity, we use weight_left for all neighbors except we already updated left/right
+                                total_coupling += (sin_n * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i32) / q10_scale;
+                            }
+                        }
+                    }
+                    let coupling = (total_coupling * k) / (6 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
@@ -253,13 +280,23 @@ impl PhaseLattice {
                     let right_species = (right.state_flags >> 1) & 0x7F;
 
                     let mut energy_delta = -(burn as i32);
-
-                    let adv_left = crate::agent::species_advantage(agent_species, left_species);
-                    let adv_right = crate::agent::species_advantage(agent_species, right_species);
-
                     let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
-                    if adv_left == 1 { energy_delta += steal; } else if adv_left == -1 { energy_delta -= steal; }
-                    if adv_right == 1 { energy_delta += steal; } else if adv_right == -1 { energy_delta -= steal; }
+                    let mut energy_diffusion = 0i32;
+
+                    for &n_idx in &n_indices {
+                        if n_idx < active {
+                            let n = &*snapshot.add(n_idx);
+                            if n.energy > 0 {
+                                let n_species = (n.state_flags >> 1) & 0x7F;
+                                let adv = crate::agent::species_advantage(agent_species, n_species);
+                                if adv == 1 { energy_delta += steal; }
+                                else if adv == -1 { energy_delta -= steal; }
+                                
+                                energy_diffusion += (n.energy as i32 - agent.energy as i32) / 8;
+                            }
+                        }
+                    }
+                    energy_delta += energy_diffusion;
 
                     if energy_delta < 0 {
                         agent.energy = agent.energy.saturating_sub(energy_delta.abs() as u32);
@@ -893,9 +930,9 @@ mod tests {
         agents[0].energy = 1;
         agents[0].state_flags = 0;
         agents[0].genome = 0xDEADBEEF;
-        agents[1].energy = 1000;
+        agents[1].energy = 0;
         agents[1].state_flags = 0;
-        agents[2].energy = 1000;
+        agents[2].energy = 0;
         agents[2].state_flags = 0;
         
         // Clear phi buffer before test

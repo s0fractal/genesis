@@ -91,6 +91,14 @@ fn deterministic_sin(phase: u32, q_phase: u32) -> i32 {
 }
 
 // ERA 1000: Phase Distance Function (Circular topology modulo wrapping)
+
+// Era 950: 2D Hex Grid Wrap
+fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> u32 {
+    let wx = (x + w) % w;
+    let wy = (y + h) % h;
+    return u32(wy * w + wx);
+}
+
 fn phase_dist(p1: u32, p2: u32, max_p: u32) -> u32 {
     let diff = max(p1, p2) - min(p1, p2);
     if (diff > (max_p >> 1u)) { return max_p - diff; }
@@ -198,11 +206,21 @@ fn compute_main(
             var new_mem_z = agent.memory_z;
             
             let max_r_cells = 1u << topology.q_radial;
-            let n_indices = array<u32, 4>(
-                (index + signals.active_agent_count - 1u) % signals.active_agent_count,
-                (index + 1u) % signals.active_agent_count,
-                (index + max_r_cells) % signals.active_agent_count,
-                (index + signals.active_agent_count - max_r_cells) % signals.active_agent_count
+            let w = i32(max_r_cells);
+            // Height might not be exact if active_agent_count is not a multiple of w
+            // but we approximate grid height. Fallback to 1 if active is too small.
+            let h = max(1i, i32(signals.active_agent_count) / w);
+            let cx = i32(index) % w;
+            let cy = i32(index) / w;
+            
+            // 6-neighbor hex grid (axial-like or shifted)
+            let n_indices = array<u32, 6>(
+                wrap_index_2d(cx - 1, cy, w, h),
+                wrap_index_2d(cx + 1, cy, w, h),
+                wrap_index_2d(cx, cy - 1, w, h),
+                wrap_index_2d(cx, cy + 1, w, h),
+                wrap_index_2d(cx + 1, cy - 1, w, h),
+                wrap_index_2d(cx - 1, cy + 1, w, h)
             );
     
     // 2. ERA 4000: Compute Target Phase Using Global Order Parameter (Mean Field)
@@ -300,12 +318,14 @@ fn compute_main(
     // -------------------------------------------------------------
     // ERA 5000: QUANTUM CHROMODYNAMICS (GENETIC BATTLE ROYALE)
     // -------------------------------------------------------------
-    if (signals.active_agent_count > 4u) {
-        // Calibrated force: 1200 allows 4-way stable emergent crystallization
-        let chr_force = 1200i; 
+    if (signals.active_agent_count > 6u) {
+        // Calibrated force: reduced to 800 to account for 6 neighbors instead of 4
+        let chr_force = 800i; 
         
-        for (var i = 0u; i < 4u; i++) {
-            let n = agents_in[n_indices[i]];
+        for (var i = 0u; i < 6u; i++) {
+            let n_idx = n_indices[i];
+            if (n_idx >= signals.active_agent_count) { continue; }
+            let n = agents_in[n_idx];
             if (n.energy > 0u) {
                 let dx_n = deterministic_cos(n.phase, topology.q_phase) - my_x;
                 let dy_n = deterministic_sin(n.phase, topology.q_phase) - my_y;
@@ -361,20 +381,30 @@ fn compute_main(
     // ERA 3000: ATP METABOLISM
     var metabolic_delta: i32 = -i32(burn); // Entropy (Base Burn)
     
-    // Era 0218: Species Specialization (Predator-Prey)
+    // Era 0218/1070: Species Specialization & Energy Diffusion
     let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
     let steal = 5i; // PREDATOR_ENERGY_STEAL
-    if (signals.active_agent_count > 4u) {
-        for (var i = 0u; i < 4u; i++) {
-            let n = agents_in[n_indices[i]];
-            if (n.energy > 0u) {
-                let n_species = (n.state_flags >> 1u) & 0x7Fu;
-                let adv = species_advantage(agent_species, n_species);
-                if (adv == 1i) { metabolic_delta += steal; }
-                else if (adv == -1i) { metabolic_delta -= steal; }
+    var energy_diffusion: i32 = 0i;
+    
+    if (signals.active_agent_count > 6u) {
+        for (var i = 0u; i < 6u; i++) {
+            // Guard against out-of-bounds if topology shrinks suddenly
+            let n_idx = n_indices[i];
+            if (n_idx < signals.active_agent_count) {
+                let n = agents_in[n_idx];
+                if (n.energy > 0u) {
+                    let n_species = (n.state_flags >> 1u) & 0x7Fu;
+                    let adv = species_advantage(agent_species, n_species);
+                    if (adv == 1i) { metabolic_delta += steal; }
+                    else if (adv == -1i) { metabolic_delta -= steal; }
+                    
+                    // Local Heat/ATP Diffusion
+                    energy_diffusion += (i32(n.energy) - i32(agent.energy)) / 8i;
+                }
             }
         }
     }
+    metabolic_delta += energy_diffusion;
 
     // Cosmic Resonance: Synthesize massive ATP if harmonized with the foundational math structure
     if (new_phase % 64u == 0u) {
@@ -403,8 +433,10 @@ fn compute_main(
             let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);
             var lose_packet = false;
             
-            for (var i = 0u; i < 4u; i++) {
-                let n_opt = agents_in[n_indices[i]];
+            for (var i = 0u; i < 6u; i++) {
+                let n_idx = n_indices[i];
+                if (n_idx >= signals.active_agent_count) { continue; }
+                let n_opt = agents_in[n_idx];
                 if (n_opt.energy > 0u && n_opt.memory_z == 0u) {
                     let n_dist = phase_dist(n_opt.phase, target_p, max_phase_mask);
                     if (n_dist < my_dist) {
@@ -443,8 +475,10 @@ fn compute_main(
         } else {
             // Receptive Empty Cell. Poll neighbors for incoming Gradient Pull.
             var best_gradient = 0i;
-            for (var i = 0u; i < 4u; i++) {
-                let n_opt = agents_in[n_indices[i]];
+            for (var i = 0u; i < 6u; i++) {
+                let n_idx = n_indices[i];
+                if (n_idx >= signals.active_agent_count) { continue; }
+                let n_opt = agents_in[n_idx];
                 if (n_opt.memory_z > 0u) {
                     let target_p = n_opt.memory_x;
                     let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);
