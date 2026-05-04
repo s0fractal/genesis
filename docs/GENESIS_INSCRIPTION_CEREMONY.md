@@ -36,6 +36,15 @@ organism reached self-consistency**. Every conformant implementation
 since then must reproduce `0x549a6307` from the five anchor constants
 and the canonical protocol identifier.
 
+## Autonomous Start (Self-Boot)
+
+OMEGA-64 supports an autonomous self-boot sequence to revive the genesis state from IPFS.
+Instead of relying on the Big Bang to regenerate the network, the lattice will hydrate directly from an IPFS CID if provided:
+```javascript
+window.__OMEGA_GENESIS_CID__ = "Qm..."; // The IPFS CID of the snapshot
+```
+The node will automatically fetch the snapshot, populate the WebAssembly `.bss` memory space, reconstruct the Senate seats via `oracleDipole()`, and verify the integrity using `v2_get_golden_trace()`.
+
 ## Verification
 
 To verify your local environment reproduces the canonical Genesis Hash:

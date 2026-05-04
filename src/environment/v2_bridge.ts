@@ -71,7 +71,7 @@ export class OmegaV2Engine {
     /**
      * Initializes the bare-metal WASM kernel.
      */
-    async boot(adapter: GPUAdapter) {
+    async boot(adapter: GPUAdapter, initialSnapshot?: Uint8Array) {
         console.log("🌌 [OMEGA-V2] Bootstrapping Bare-Metal Engine...");
 
         // 1. Fetch Dynamic Derived Constraints from Host Device
@@ -101,11 +101,28 @@ export class OmegaV2Engine {
         // 5. Inject Environmental Constants directly via Fast-FFI
         this.injectClimate();
         
-        // 6. Ignite the Big Bang (Populate WASM .bss memory with initial stars)
-        const exportBigBang = instance.exports.v2_ignite_big_bang as CallableFunction;
-        if (exportBigBang && this.currentTopology) {
-            exportBigBang(Math.floor(Math.random() * 1000000), this.currentTopology.maxAllocatedAgents);
-            console.log(`🎆 [V2-BRIDGE] The Big Bang was ignited.`);
+        // 6. Restore from Snapshot OR Ignite the Big Bang
+        if (initialSnapshot && this.currentTopology) {
+            const ptrs = this.getMemoryPointers();
+            // Validate size
+            const agentCount = Math.floor(initialSnapshot.length / PHASE_AGENT_MINIMAL_BYTES);
+            const safeCount = Math.min(agentCount, this.currentTopology.maxAllocatedAgents);
+            const safeBytes = safeCount * PHASE_AGENT_MINIMAL_BYTES;
+            
+            // Copy snapshot directly into WebAssembly .bss
+            ptrs.agentBytes.set(initialSnapshot.subarray(0, safeBytes));
+            
+            // Update Active Agent Count in SignalStore
+            const signals = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset, 4);
+            signals[2] = safeCount; // active_agent_count is at offset 8 (index 2 of u32)
+            
+            console.log(`🌌 [V2-BRIDGE] Snapshot restored from IPFS: ${safeCount} agents resurrected.`);
+        } else {
+            const exportBigBang = instance.exports.v2_ignite_big_bang as CallableFunction;
+            if (exportBigBang && this.currentTopology) {
+                exportBigBang(Math.floor(Math.random() * 1000000), this.currentTopology.maxAllocatedAgents);
+                console.log(`🎆 [V2-BRIDGE] The Big Bang was ignited.`);
+            }
         }
     }
 

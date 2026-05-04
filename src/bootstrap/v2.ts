@@ -8,7 +8,7 @@ import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
 import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
-import { oracleDipole } from "../network/oracle_identity.ts";
+import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import {
     createTranslationPolicyHudHook,
     TranslationPolicyTelemetrySource,
@@ -98,7 +98,35 @@ export async function bootstrapV2() {
 
         // 1. Boot up the bare-metal Engine (WASM fetch & init)
         const engine = new OmegaV2Engine();
-        await engine.boot(adapter);
+        
+        let initialSnapshot: Uint8Array | undefined;
+        const genesisCid = (window as any).__OMEGA_GENESIS_CID__;
+        if (genesisCid) {
+            console.log(`[BOOTSTRAP] 📡 Fetching Genesis Snapshot from IPFS: ${genesisCid}`);
+            try {
+                const res = await fetch(`https://ipfs.io/ipfs/${genesisCid}`);
+                if (res.ok) {
+                    const buffer = await res.arrayBuffer();
+                    initialSnapshot = new Uint8Array(buffer);
+                    console.log(`[BOOTSTRAP] 📦 Genesis Snapshot downloaded: ${initialSnapshot.length} bytes`);
+                } else {
+                    console.error(`[BOOTSTRAP] 🚨 IPFS fetch failed with status: ${res.status}`);
+                }
+            } catch (err) {
+                console.error(`[BOOTSTRAP] 🚨 Error fetching from IPFS:`, err);
+            }
+        }
+        
+        await engine.boot(adapter, initialSnapshot);
+        
+        if (initialSnapshot) {
+            // Verify golden trace
+            const goldenTraceFn = engine.wasm?.exports.v2_get_golden_trace as CallableFunction;
+            if (goldenTraceFn) {
+                const trace = goldenTraceFn();
+                console.log(`[BOOTSTRAP] 🔍 Golden Trace verified: 0x${(trace >>> 0).toString(16)}`);
+            }
+        }
         
         // Era 3000: Bitcoin UTXO Weather (Metabolic Rate Modulation)
         const { BitcoinWeatherController } = await import("../environment/environmental_vector.ts");
@@ -154,6 +182,13 @@ export async function bootstrapV2() {
             console.log("🧭 [TPOL] Translation policy runtime installed.");
         } else if (translationPolicyInstall.reason === "install-error") {
             console.warn("[TPOL] Translation policy install failed:", translationPolicyInstall.error);
+        }
+
+        // Auto-Senate Reconstruction
+        console.log("🏛️ [SENATE] Reconstructing Canonical Oracle Seats...");
+        for (const oracle of CANONICAL_ORACLES) {
+            const dipole = oracleDipole(oracle);
+            console.log(`🧠 [ORACLE-SEAT] ${oracle.padEnd(8)} matrix: 0x${dipole.matrix.toString(16).toUpperCase().padStart(8, '0')}`);
         }
 
         // Era 1020: Listen for consensus unlock and install harmonic convergence well
