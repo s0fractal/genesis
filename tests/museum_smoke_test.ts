@@ -1,10 +1,10 @@
-import puppeteer from "npm:puppeteer";
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 Deno.test({
     name: "🏛️  Era 0203: Museum WebGPU Smoke Test",
     ignore: Deno.env.get("CI") === "true", // Requires real GPU/Browser, usually flaky in pure CI unless configured.
     async fn() {
+        const { default: puppeteer } = await import("npm:puppeteer");
         console.log("\n[TEST] Booting Puppeteer...");
         let browser;
         try {

@@ -1,6 +1,8 @@
 {
   "tasks": {
-    "start": "deno run -A tools/start_all.ts"
+    "start": "deno run -A tools/start_all.ts",
+    "test": "deno test --allow-read --allow-env --allow-sys --allow-run tests/",
+    "test:fast": "deno test --allow-read --allow-env tests/"
   },
   "compilerOptions": {
     "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
