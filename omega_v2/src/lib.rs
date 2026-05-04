@@ -381,18 +381,18 @@ pub extern "C" fn v2_clear_epigenetic() {
 // -------------------------------------------------------------------------
 
 #[no_mangle]
-pub extern "C" fn v2_anchor_init(h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
+pub extern "C" fn v2_anchor_init_network(network_id: u32, h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
     unsafe {
         let mut anchor = PHI_ANCHOR_CHAIN.lock();
-        anchor.init([h0, h1, h2, h3, h4, h5]);
+        anchor.init_network(network_id, [h0, h1, h2, h3, h4, h5]);
     }
 }
 
 #[no_mangle]
-pub extern "C" fn v2_anchor_ingest_block(hash: u64) {
+pub extern "C" fn v2_anchor_ingest_block(network_id: u32, hash: u64) {
     unsafe {
         let mut anchor = PHI_ANCHOR_CHAIN.lock();
-        anchor.ingest_block(hash);
+        anchor.ingest_block_network(network_id, hash);
     }
 }
 
@@ -434,7 +434,7 @@ pub extern "C" fn v2_anchor_verify_coherence(
 pub extern "C" fn v2_anchor_total_blocks() -> u64 {
     unsafe {
         let mut anchor = PHI_ANCHOR_CHAIN.lock();
-        anchor.total_blocks
+        anchor.total_blocks_all()
     }
 }
 

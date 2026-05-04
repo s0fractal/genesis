@@ -207,6 +207,37 @@ export class OmegaV2Engine {
         (this.wasmInstance.exports.v2_ingest_cosmic_entropy as CallableFunction)(rawHashBigInt);
     }
 
+    
+    // -----------------------------------------------------------------------
+    // ERA 1110: Multi-Anchor Temporal Layer (BTC, ETH, SOL)
+    // -----------------------------------------------------------------------
+
+    public initNetworkAnchor(networkId: number, hashes: bigint[]) {
+        if (!this.wasmInstance) return;
+        if (hashes.length < 6) return;
+        const fn = this.wasmInstance.exports.v2_anchor_init_network as CallableFunction;
+        if (fn) {
+            fn(networkId, hashes[0], hashes[1], hashes[2], hashes[3], hashes[4], hashes[5]);
+        }
+    }
+
+    public ingestNetworkBlock(networkId: number, hash: bigint) {
+        if (!this.wasmInstance) return;
+        const fn = this.wasmInstance.exports.v2_anchor_ingest_block as CallableFunction;
+        if (fn) {
+            fn(networkId, hash);
+        }
+    }
+
+    public getAnchorTotalBlocks(): bigint {
+        if (!this.wasmInstance) return 0n;
+        const fn = this.wasmInstance.exports.v2_anchor_total_blocks as CallableFunction;
+        if (fn) {
+            return fn() as bigint;
+        }
+        return 0n;
+    }
+
     // -----------------------------------------------------------------------
     // ERA 970+ EpicyclicSoul Resonance Tensor Bridge
     // -----------------------------------------------------------------------
