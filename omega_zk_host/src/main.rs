@@ -239,8 +239,105 @@ fn base64_encode(bytes: &[u8]) -> String {
     out
 }
 
+fn run_rollup_test() -> Result<ProofBundle, String> {
+    // Generate a mock state for Mode 3 rollup test.
+    let q_phase = 8u32;
+    let active_count = 4u32;
+    
+    let topology = omega_v2::topology::PhaseTopology {
+        q_phase,
+        q_sectors: 1,
+        q_radial: 1,
+        q_math: 0,
+        weather_multiplier: 1,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
+    };
+
+    let mut snapshot = Vec::new();
+    for i in 0..active_count {
+        snapshot.push(PhaseAgentMinimal {
+            phase: (i * 10) % 256,
+            energy: 1000,
+            base_freq: 5,
+            state_flags: 0,
+            genome: 0xAAAA_BBBB,
+            memory: [0, 0, 0],
+        });
+    }
+
+    // Build SP1 stdin
+    let mut stdin = SP1Stdin::new();
+    stdin.write::<u8>(&3u8); // Mode 3
+    stdin.write::<u32>(&topology.q_phase);
+    stdin.write::<u32>(&topology.q_sectors);
+    stdin.write::<u32>(&topology.q_radial);
+    stdin.write::<u32>(&topology.q_math);
+    stdin.write::<u32>(&topology.weather_multiplier);
+    
+    stdin.write::<u32>(&active_count);
+    for agent in &snapshot {
+        stdin.write::<u32>(&agent.phase);
+        stdin.write::<u32>(&agent.energy);
+        stdin.write::<i32>(&agent.base_freq);
+        stdin.write::<u32>(&agent.state_flags);
+        stdin.write::<u32>(&agent.genome);
+        stdin.write::<u32>(&agent.memory[0]);
+        stdin.write::<u32>(&agent.memory[1]);
+        stdin.write::<u32>(&agent.memory[2]);
+    }
+    
+    stdin.write::<u32>(&0u32); // attractor_count = 0
+
+    eprintln!("[zk_host] Initialising SP1 mock prover client for Rollup Test…");
+    let prover = ProverClient::builder().mock().build();
+    let elf = Elf::Static(ELF_BYTES);
+    let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
+
+    eprintln!("[zk_host] Generating STARK proof…");
+    let proof = prover
+        .prove(&pk, stdin)
+        .run()
+        .map_err(|e| format!("proof generation failed: {:?}", e))?;
+    eprintln!("[zk_host] Proof generated. Verifying locally…");
+
+    prover
+        .verify(&proof, pk.verifying_key(), None)
+        .map_err(|e| format!("local verification failed: {:?}", e))?;
+    eprintln!("[zk_host] ✅ Verification succeeded.");
+
+    let proof_bytes = bincode::serialize(&proof)
+        .map_err(|e| format!("proof serialization failed: {:?}", e))?;
+    let public_values = bincode::serialize(&proof.public_values)
+        .map_err(|e| format!("public values serialization failed: {:?}", e))?;
+
+    Ok(ProofBundle {
+        kind: "stark-mock-rollup".into(),
+        receipt_hash: "0x0".into(), // Or parse from public values if needed
+        parent_genome: "0x0".into(),
+        verified: true,
+        proof_bytes: Some(base64_encode(&proof_bytes)),
+        public_values: Some(base64_encode(&public_values)),
+        note: Some(format!("SP1 Rollup mock prover; {} agents", active_count)),
+    })
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--rollup-test") {
+        match run_rollup_test() {
+            Ok(bundle) => {
+                println!("{}", serde_json::to_string_pretty(&bundle).unwrap());
+            }
+            Err(e) => {
+                eprintln!("[zk_host] FAILED: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
     let receipt = if args.iter().any(|a| a == "--self-test") {
         self_test_receipt()
     } else {
