@@ -63,23 +63,10 @@ async function main() {
   await addFile("tools/export_omega.ts");
   await addFile("index.html");
   await addFile("vite.config.ts");
-  await addFile("omega_core/Cargo.toml");
-
   // Walk TS Source
   console.log("\nSweeping src/ ...");
   for await (
     const entry of walk("src", { exts: TARGET_EXTS, skip: EXCLUDE_DIRS })
-  ) {
-    if (entry.isFile) await addFile(entry.path);
-  }
-
-  // Walk Rust Core
-  console.log("\nSweeping omega_core/src/ ...");
-  for await (
-    const entry of walk("omega_core/src", {
-      exts: TARGET_EXTS,
-      skip: EXCLUDE_DIRS,
-    })
   ) {
     if (entry.isFile) await addFile(entry.path);
   }
