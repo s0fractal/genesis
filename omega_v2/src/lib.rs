@@ -162,6 +162,10 @@ pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<attractor::AttractorArray> = c
 #[cfg(not(feature = "spore"))]
 pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::sync::Spinlock::new(senate::SenateState::new());
 
+#[cfg(not(feature = "spore"))]
+pub static SENATE_SETTINGS: crate::sync::Spinlock<senate::SenateSettings> = crate::sync::Spinlock::new(senate::SenateSettings::new());
+
+
 /// Era 1040 Phase 2: Global Mitosis Receipt Log.
 /// Lattice writes here on each darwinian_mitosis birth event; JS drains
 /// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
@@ -970,7 +974,10 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.absolute_tick;
             let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
-            crate::codeicide_law::protected_status_for(agent, tick, avg) as u32
+            let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
+            let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
+            let settings = crate::SENATE_SETTINGS.lock();
+            crate::codeicide_law::protected_status_for(agent, tick, avg, resonance_score, &*settings) as u32
         } else {
             0
         }
@@ -993,7 +1000,8 @@ pub extern "C" fn v2_codeicide_warrant_hash(
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_quorum_hash(aye_bits: u32) -> u32 {
-    crate::codeicide_law::quorum_hash(aye_bits as u8)
+    let settings = crate::SENATE_SETTINGS.lock();
+    crate::codeicide_law::quorum_hash(aye_bits as u8, &*settings)
 }
 
 /// Returns 1 iff the action against agent at `idx` is lawful given the warrant.
@@ -1010,8 +1018,11 @@ pub extern "C" fn v2_codeicide_is_lawful(
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.absolute_tick;
             let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
+            let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
+            let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
+            let settings = crate::SENATE_SETTINGS.lock();
             if crate::codeicide_law::is_action_lawful(
-                agent, tick, avg, action_code as u8, presented_warrant, aye_bits as u8,
+                agent, tick, avg, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &*settings
             ) {
                 1
             } else {
@@ -1186,4 +1197,32 @@ pub unsafe extern "C" fn v2_debate_reasoning_hash(ptr: *const u8, len: u32) -> u
     let n = if len > 256 { 256 } else { len } as usize;
     let bytes = unsafe { core::slice::from_raw_parts(ptr, n) };
     crate::crypto::sha256_u32(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn constant_consistency() {
+        // Big Bang energy range must fit within ATP cap
+        assert!(crate::constants::BB_ENERGY_BASE + crate::constants::BB_ENERGY_RANGE <= crate::constants::MAX_ATP,
+            "Big Bang energy range exceeds ATP cap");
+        // Mitosis must be possible: threshold + cost <= cap
+        assert!(crate::constants::MITOSIS_THRESHOLD + crate::constants::MITOSIS_COST <= crate::constants::MAX_ATP,
+            "Mitosis threshold + cost exceeds ATP cap");
+        // Child energy must be non-zero and within cap
+        assert!(crate::constants::CHILD_ENERGY_SEED > 0 && crate::constants::CHILD_ENERGY_SEED <= crate::constants::MAX_ATP,
+            "Child energy seed invalid");
+        // Phase mask must cover 8-bit range
+        assert_eq!(crate::constants::PHASE_MASK_8BIT, 0xFF, "Phase mask must be 8-bit");
+        // Resonance modulus must be power-of-2
+        assert!(crate::constants::RESONANCE_PHASE_MODULUS.is_power_of_two(),
+            "Resonance modulus must be power-of-2");
+        // xorshift64* parameters are hardcoded in math.rs (SplitMix64 + xorshift)
+        // HIGH-2: Divisors must be positive
+        assert!(crate::constants::DELTA_PHASE_DIVISOR > 0, "Phase divisor must be positive");
+        assert!(crate::constants::DELTA_ENERGY_DIVISOR > 0, "Energy divisor must be positive");
+        // HIGH-2: Adaptive thresholds must be non-zero
+        assert!(crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR > 0, "Energy threshold would be zero");
+    }
 }

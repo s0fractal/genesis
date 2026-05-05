@@ -158,6 +158,9 @@ export async function bootstrapV2() {
                     // Slot 3 is dedicated to Liquid Ontology semantic injections
                     setIntent(3, x, y, energy, radius, g, o);
                 }
+            },
+            injectIntent: (phase, energy, id) => {
+                engine.injectIntent(phase, energy, id);
             }
         };
         const semanticCoupler = new SemanticCoupler(injector);

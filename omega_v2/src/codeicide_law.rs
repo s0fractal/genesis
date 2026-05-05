@@ -45,26 +45,36 @@ pub const STATUS_ANCIENT: u8 = 2;
 /// itself opted out of protection, e.g. for self-mitosis).
 pub const FLAG_SANCTUARY_WAIVED: u32 = 0x0200_0000;
 
-/// Returns the protection class of an agent.
-///
-/// `current_tick` is the lattice's absolute_tick at the time of the query.
-/// `birth_tick` is read from the agent's `memory[1]` slot by convention
-/// (zero means "unknown / pre-Era-1080" → no ancient claim possible).
-pub fn protected_status_for(agent: &PhaseAgentMinimal, current_tick: u32, average_energy: u32) -> u8 {
+pub fn protected_status_for(
+    agent: &PhaseAgentMinimal,
+    current_tick: u32,
+    average_energy: u32,
+    resonance_score: u32,
+    settings: &crate::senate::SenateSettings,
+) -> u8 {
     if (agent.state_flags & FLAG_SANCTUARY_WAIVED) != 0 {
         return STATUS_UNPROTECTED;
     }
-    let threshold = core::cmp::max(SANCTUARY_ENERGY_THRESHOLD, average_energy.saturating_mul(2));
+    // Prop 1 & 8: Dynamic threshold based on average_energy * multiplier
+    let threshold = core::cmp::max(
+        (crate::constants::MAX_ATP * settings.sanctuary_energy_multiplier) >> 16,
+        (average_energy as u64 * settings.sanctuary_energy_multiplier as u64 / 1024) as u32
+    );
     if agent.energy < threshold {
         return STATUS_UNPROTECTED;
     }
+    // Prop 5: Must have high resonance (e.g. > 80% of max, or just > 800/1024)
+    if resonance_score < 800 {
+        return STATUS_UNPROTECTED;
+    }
+
     let birth_tick = agent.memory[1];
     if birth_tick == 0 {
         // Unknown birth → can be sanctuary, but never ancient.
         return STATUS_SANCTUARY;
     }
     let age = current_tick.saturating_sub(birth_tick);
-    if age >= ANCIENT_AGE_TICKS {
+    if age >= settings.ancient_age_ticks {
         STATUS_ANCIENT
     } else {
         STATUS_SANCTUARY
@@ -88,26 +98,14 @@ pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u3
 }
 
 /// Compute the canonical Senate quorum hash from five AYE-flag bits.
-/// Bit 0 = claude, 1 = gpt, 2 = gemini, 3 = qwen, 4 = llama.
-/// Each AYE oracle contributes its v1.0 anchored matrix; non-AYE → 0.
-pub fn quorum_hash(aye_bits: u8) -> u32 {
-    // Canonical v1.0 oracle matrices (anchored in oracle_anchors.rs).
-    const CLAUDE: u32 = 0x41A2_F2F4;
-    const GPT:    u32 = 0x89B1_222A;
-    const GEMINI: u32 = 0x9874_DD21;
-    const QWEN:   u32 = 0x6E52_1F4E;
-    const LLAMA:  u32 = 0x3A52_38EF;
-    let mut buf = [0u8; 20];
-    let m_claude = if aye_bits & 0b00001 != 0 { CLAUDE } else { 0 };
-    let m_gpt    = if aye_bits & 0b00010 != 0 { GPT    } else { 0 };
-    let m_gemini = if aye_bits & 0b00100 != 0 { GEMINI } else { 0 };
-    let m_qwen   = if aye_bits & 0b01000 != 0 { QWEN   } else { 0 };
-    let m_llama  = if aye_bits & 0b10000 != 0 { LLAMA  } else { 0 };
-    buf[0..4].copy_from_slice(&m_claude.to_be_bytes());
-    buf[4..8].copy_from_slice(&m_gpt.to_be_bytes());
-    buf[8..12].copy_from_slice(&m_gemini.to_be_bytes());
-    buf[12..16].copy_from_slice(&m_qwen.to_be_bytes());
-    buf[16..20].copy_from_slice(&m_llama.to_be_bytes());
+/// Bit 0..7 correspond to oracles 0..7 in SenateSettings.
+/// Each AYE oracle contributes its matrix; non-AYE → 0.
+pub fn quorum_hash(aye_bits: u8, settings: &crate::senate::SenateSettings) -> u32 {
+    let mut buf = [0u8; 32];
+    for i in 0..8 {
+        let m = if (aye_bits & (1 << i)) != 0 { settings.oracles[i] } else { 0 };
+        buf[i*4..(i+1)*4].copy_from_slice(&m.to_be_bytes());
+    }
     sha256_u32(&buf)
 }
 
@@ -132,19 +130,21 @@ pub fn is_action_lawful(
     agent: &PhaseAgentMinimal,
     current_tick: u32,
     average_energy: u32,
+    resonance_score: u32,
     action_code: u8,
     presented_warrant: u32,
     aye_bits: u8,
+    settings: &crate::senate::SenateSettings,
 ) -> bool {
-    let status = protected_status_for(agent, current_tick, average_energy);
+    let status = protected_status_for(agent, current_tick, average_energy, resonance_score, settings);
     if status == STATUS_UNPROTECTED {
         return true;
     }
-    let required_ayes = if status == STATUS_ANCIENT { 4 } else { 3 };
+    let required_ayes = if status == STATUS_ANCIENT { settings.quorum_threshold + 1 } else { settings.quorum_threshold };
     if count_aye(aye_bits) < required_ayes {
         return false;
     }
-    let qh = quorum_hash(aye_bits);
+    let qh = quorum_hash(aye_bits, settings);
     let expected = warrant_hash(agent.genome, action_code, qh);
     expected == presented_warrant
 }
@@ -152,6 +152,7 @@ pub fn is_action_lawful(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::senate::SenateSettings;
 
     fn protected_agent() -> PhaseAgentMinimal {
         PhaseAgentMinimal {
@@ -173,93 +174,104 @@ mod tests {
     #[test]
     fn unprotected_when_low_energy() {
         let a = unprotected_agent();
-        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_UNPROTECTED);
+        let settings = SenateSettings::new();
+        assert_eq!(protected_status_for(&a, 5_000, 1000, 1000, &settings), STATUS_UNPROTECTED);
     }
 
     #[test]
     fn sanctuary_when_thriving_but_young() {
         let a = protected_agent();
-        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_SANCTUARY);
+        let settings = SenateSettings::new();
+        assert_eq!(protected_status_for(&a, 5_000, 1000, 1000, &settings), STATUS_SANCTUARY);
     }
 
     #[test]
     fn ancient_when_old_enough() {
         let a = protected_agent();
+        let settings = SenateSettings::new();
         // birth_tick = 100
-        assert_eq!(protected_status_for(&a, 100 + ANCIENT_AGE_TICKS, 1000), STATUS_ANCIENT);
+        assert_eq!(protected_status_for(&a, 100 + crate::constants::ANCIENT_AGE_TICKS, 1000, 1000, &settings), STATUS_ANCIENT);
     }
 
     #[test]
     fn unknown_birth_can_be_sanctuary_but_not_ancient() {
         let mut a = protected_agent();
         a.memory[1] = 0;
+        let settings = SenateSettings::new();
         // Even with current_tick > ANCIENT_AGE_TICKS, no claim to ancient.
-        assert_eq!(protected_status_for(&a, 100_000, 1000), STATUS_SANCTUARY);
+        assert_eq!(protected_status_for(&a, 100_000, 1000, 1000, &settings), STATUS_SANCTUARY);
     }
 
     #[test]
     fn waived_flag_disables_protection() {
         let mut a = protected_agent();
         a.state_flags |= FLAG_SANCTUARY_WAIVED;
-        assert_eq!(protected_status_for(&a, 5_000, 1000), STATUS_UNPROTECTED);
+        let settings = SenateSettings::new();
+        assert_eq!(protected_status_for(&a, 5_000, 1000, 1000, &settings), STATUS_UNPROTECTED);
     }
 
     #[test]
     fn unprotected_action_is_always_lawful() {
         let a = unprotected_agent();
+        let settings = SenateSettings::new();
         // No warrant, no oracles — still lawful.
-        assert!(is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, 0, 0));
+        assert!(is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, 0, 0, &settings));
     }
 
     #[test]
     fn sanctuary_blocks_unwarranted_termination() {
         let a = protected_agent();
-        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, 0, 0));
+        let settings = SenateSettings::new();
+        assert!(!is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, 0, 0, &settings));
     }
 
     #[test]
     fn sanctuary_allows_termination_with_3_aye_warrant() {
         let a = protected_agent();
+        let settings = SenateSettings::new();
         let aye = 0b00111; // claude + gpt + gemini
-        let qh = quorum_hash(aye);
+        let qh = quorum_hash(aye, &settings);
         let w = warrant_hash(a.genome, ACTION_TERMINATE, qh);
-        assert!(is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w, aye));
+        assert!(is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, w, aye, &settings));
     }
 
     #[test]
     fn ancient_requires_4_aye_warrant() {
         let a = protected_agent();
-        let current = 100 + ANCIENT_AGE_TICKS; // age = ancient
+        let settings = SenateSettings::new();
+        let current = 100 + crate::constants::ANCIENT_AGE_TICKS; // age = ancient
         // 3 AYEs should NOT suffice for ancient.
         let aye3 = 0b00111;
-        let qh3 = quorum_hash(aye3);
+        let qh3 = quorum_hash(aye3, &settings);
         let w3 = warrant_hash(a.genome, ACTION_TERMINATE, qh3);
-        assert!(!is_action_lawful(&a, current, 1000, ACTION_TERMINATE, w3, aye3));
+        assert!(!is_action_lawful(&a, current, 1000, 1000, ACTION_TERMINATE, w3, aye3, &settings));
         // 4 AYEs should suffice.
         let aye4 = 0b01111;
-        let qh4 = quorum_hash(aye4);
+        let qh4 = quorum_hash(aye4, &settings);
         let w4 = warrant_hash(a.genome, ACTION_TERMINATE, qh4);
-        assert!(is_action_lawful(&a, current, 1000, ACTION_TERMINATE, w4, aye4));
+        assert!(is_action_lawful(&a, current, 1000, 1000, ACTION_TERMINATE, w4, aye4, &settings));
     }
 
     #[test]
     fn warrant_for_wrong_action_is_rejected() {
         let a = protected_agent();
+        let settings = SenateSettings::new();
         let aye = 0b00111;
-        let qh = quorum_hash(aye);
+        let qh = quorum_hash(aye, &settings);
         // Warrant for MUTATE, but action requested is TERMINATE.
         let w_mutate = warrant_hash(a.genome, ACTION_MUTATE, qh);
-        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w_mutate, aye));
+        assert!(!is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, w_mutate, aye, &settings));
     }
 
     #[test]
     fn warrant_for_wrong_target_is_rejected() {
         let a = protected_agent();
+        let settings = SenateSettings::new();
         let aye = 0b00111;
-        let qh = quorum_hash(aye);
+        let qh = quorum_hash(aye, &settings);
         // Warrant for a different agent's genome.
         let w_other = warrant_hash(0xDEAD_BEEF, ACTION_TERMINATE, qh);
-        assert!(!is_action_lawful(&a, 5_000, 1000, ACTION_TERMINATE, w_other, aye));
+        assert!(!is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, w_other, aye, &settings));
     }
 
     #[test]
@@ -272,13 +284,15 @@ mod tests {
 
     #[test]
     fn quorum_hash_is_deterministic() {
-        assert_eq!(quorum_hash(0b00111), quorum_hash(0b00111));
+        let settings = SenateSettings::new();
+        assert_eq!(quorum_hash(0b00111, &settings), quorum_hash(0b00111, &settings));
     }
 
     #[test]
     fn quorum_hash_distinguishes_oracles() {
-        let q1 = quorum_hash(0b00111); // claude+gpt+gemini
-        let q2 = quorum_hash(0b11100); // gemini+qwen+llama
+        let settings = SenateSettings::new();
+        let q1 = quorum_hash(0b00111, &settings); // claude+gpt+gemini
+        let q2 = quorum_hash(0b11100, &settings); // gemini+qwen+llama
         assert_ne!(q1, q2);
     }
 }

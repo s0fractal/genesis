@@ -99,11 +99,29 @@ fn species_advantage(a: u32, b: u32) -> i32 {
 }
 
 
-// Era 950: 2D Hex Grid Wrap
 fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> u32 {
     let wx = (x + w) % w;
     let wy = (y + h) % h;
     return u32(wy * w + wx);
+}
+
+fn mul_div_q20(a: i32, b: i32) -> i32 {
+    let sign_a = select(1i, -1i, a < 0);
+    let sign_b = select(1i, -1i, b < 0);
+    let abs_a = u32(abs(a));
+    let abs_b = u32(abs(b));
+    
+    let a_hi = abs_a >> 16u;
+    let a_lo = abs_a & 0xFFFFu;
+    
+    let p_hi = a_hi * abs_b;
+    let p_lo = a_lo * abs_b;
+    
+    let hi_part = p_hi >> 4u;
+    let lo_part = (((p_hi & 15u) << 16u) + p_lo) >> 20u;
+    let res = hi_part + lo_part;
+    
+    return i32(res) * sign_a * sign_b;
 }
 
 @compute @workgroup_size(64)
@@ -182,7 +200,9 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let agent_cos = cos_q10(0u, agent.phase);
         let agent_sin = sin_q10(0u, agent.phase);
         
-        let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / (Q10_SCALE * Q10_SCALE);
+        let sum_sin_norm = sum_sin / HEBBIAN_DEFAULT_WEIGHT;
+        let sum_cos_norm = sum_cos / HEBBIAN_DEFAULT_WEIGHT;
+        let total_coupling = (sum_sin_norm * agent_cos - sum_cos_norm * agent_sin) / 1024i;
         let coupling = (total_coupling * k) / (6i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
@@ -196,6 +216,15 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let base_cost = (maintenance_cost * topology.weather_multiplier) / 1024u;
         let raw_base = i32(base_cost) + efficiency_adj;
         if (raw_base > 1i) { base_burn = u32(raw_base); }
+
+        let active_clamped = max(1u, signals.active_agent_count);
+        let avg_energy = signals.total_energy / active_clamped;
+        var metabolic_pressure = i32((avg_energy * 1024u) / 1000u);
+        metabolic_pressure = clamp(metabolic_pressure, 512i, 2048i);
+        let day_phase = (signals.absolute_tick % 1024u) / 4u;
+        let sun_multiplier = 1024i + sin_q10(0u, day_phase);
+        
+        base_burn = max(1u, u32((i32(base_burn) * metabolic_pressure * sun_multiplier) / 1048576i));
 
         let resilience_reduction = p_resilience / 128u;
         var burn: u32 = 1u;

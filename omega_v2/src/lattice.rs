@@ -245,6 +245,17 @@ impl PhaseLattice {
             };
             core::ptr::copy_nonoverlapping(self.minimal_agents_ptr, snapshot, active);
 
+            // Era 1080 Prop 2: Homeostatic Metabolism Pressure
+            let active_clamped = core::cmp::max(1, self.signals.active_agent_count);
+            let avg_energy = self.signals.total_energy / active_clamped;
+            let target_energy = 1000;
+            let mut metabolic_pressure = (avg_energy * 1024 / target_energy) as i32;
+            metabolic_pressure = metabolic_pressure.clamp(512, 2048); // 0.5x to 2.0x
+
+            // Era 1080 Prop 3: Deterministic Day Cycle
+            let day_phase = (self.signals.absolute_tick % 1024) * 256 / 1024;
+            let sun_multiplier = 1024 + crate::math::sin_q10(0, day_phase as u32);
+
             for i in 0..active {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
                 
@@ -310,7 +321,7 @@ impl PhaseLattice {
                     let agent_sin = crate::math::sin_q10(0, agent.phase);
 
                     // Wave Interference: sin(Ψ - θ) = sin(Ψ)cos(θ) - cos(Ψ)sin(θ)
-                    let total_coupling = ((sum_sin as i64 * agent_cos as i64 - sum_cos as i64 * agent_sin as i64) / (q10_scale as i64 * q10_scale as i64)) as i32;
+                    let total_coupling = ((sum_sin as i64 * agent_cos as i64 - sum_cos as i64 * agent_sin as i64) / (q10_scale as i64 * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i64)) as i32;
                     let coupling = (total_coupling * k) / (6 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
@@ -322,7 +333,10 @@ impl PhaseLattice {
                     let maintenance_cost = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
                     // Era 3000: Apply Bitcoin UTXO Weather (1024 = 1.0x)
                     let base_cost = (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
-                    let base_burn = (base_cost as i32 + efficiency_adj).max(1) as u32;
+                    let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
+                    
+                    // Apply metabolic pressure and sun cycle (Q10 * Q10 = Q20)
+                    let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier) / 1_048_576).max(1) as u32;
 
                     // Resilience flat reduction
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
@@ -470,8 +484,11 @@ impl PhaseLattice {
                     #[cfg(not(feature = "spore"))]
                     {
                         let avg = self.signals.total_energy / core::cmp::max(1, self.signals.active_agent_count);
+                        let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
+                        let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
+                        let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.absolute_tick, avg
+                            parent, self.signals.absolute_tick, avg, resonance_score, &*settings
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
@@ -876,9 +893,13 @@ mod tests {
         agents[0].phase = 0;
         agents[0].energy = 1000;
         agents[0].base_freq = 0;
+        agents[0].memory[1] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
+        agents[0].memory[2] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
         agents[1].phase = 32;
         agents[1].energy = 1000;
         agents[1].base_freq = 0;
+        agents[1].memory[1] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
+        agents[1].memory[2] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
         agents[2].energy = 0; // dead
         
         let phase_before_0 = agents[0].phase;
@@ -1127,5 +1148,67 @@ mod tests {
             assert_eq!(agents1[i].energy, agents2[i].energy, "Energy must be deterministic");
             assert_eq!(agents1[i].base_freq, agents2[i].base_freq, "Base freq must be deterministic");
         }
+    }
+}
+
+#[cfg(test)]
+mod debug_tests {
+    use super::*;
+    #[test]
+    fn test_agent3_burn() {
+        let set_bits = 0x3002B252u32.count_ones();
+        let maintenance_cost = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
+        let weather_multiplier = 1024u32;
+        let base_cost = (maintenance_cost as u64 * weather_multiplier as u64) / 1024;
+        let p_efficiency = (0x3002B252u32 & 0xFF) as u8;
+        let efficiency_adj = 2i32 - (p_efficiency as i32 / 64);
+        let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
+        let metabolic_pressure = 512i32;
+        let sun_multiplier = 1024i32;
+        let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier) / 1_048_576).max(1) as u32;
+        
+        let p_resilience = ((0x3002B252u32 >> 16) & 0xFF) as u8;
+        let resilience_reduction = p_resilience as u32 / 128;
+        let burn = base_burn.saturating_sub(resilience_reduction).max(1);
+        
+        let n_energies = vec![1045i32, 881, 1001, 1058, 601, 383];
+        let n_species = vec![62u32, 103, 17, 30, 100, 123];
+        
+        let agent_energy = 250i32;
+        let agent_species = 82u32;
+        
+        let mut energy_delta = -(burn as i32);
+        let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
+        let mut energy_diffusion = 0i32;
+        
+        for i in 0..6 {
+            let adv = crate::agent::species_advantage(agent_species, n_species[i]);
+            if adv == 1 { energy_delta += steal; }
+            else if adv == -1 { energy_delta -= steal; }
+            
+            energy_diffusion += (n_energies[i] - agent_energy) / 8;
+        }
+        energy_delta += energy_diffusion;
+        
+        // coupling = -56
+        let coupling = -56i32;
+        let thermodynamic_stress = (coupling.abs() + energy_diffusion.abs()) as u32;
+        let time_dilation_multiplier = 1 + core::cmp::min(
+            thermodynamic_stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
+            crate::constants::MAX_TIME_DILATION - 1
+        );
+        let extra_burn = burn * (time_dilation_multiplier - 1);
+        energy_delta -= extra_burn as i32;
+        
+        let final_energy = if energy_delta < 0 {
+            (agent_energy as u32).saturating_sub(energy_delta.abs() as u32)
+        } else {
+            (agent_energy as u32).saturating_add(energy_delta as u32).min(crate::constants::MAX_ATP)
+        };
+
+        println!("burn={} energy_diffusion={} energy_delta_before_burn={} thermo={} dilation={} extra_burn={} final_delta={} final_energy={}",
+            burn, energy_diffusion, energy_delta + extra_burn as i32, thermodynamic_stress, time_dilation_multiplier, extra_burn, energy_delta, final_energy);
+            
+        // We don't strictly assert final_energy because it's a moving target during debugging
     }
 }

@@ -313,6 +313,7 @@ interface PhaseVector {
 
 interface IPerturbationInjector {
     inject(x: number, y: number, energy: number, radius: number, phaseShift: number, plasmid: Uint8Array): void;
+    injectIntent(intentPhase: number, energy: number, intentId: number): void;
 }
 
 

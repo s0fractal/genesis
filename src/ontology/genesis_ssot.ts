@@ -111,7 +111,39 @@ export const CONSTANTS = {
     ESP_MUTATION_RATE_MAX: { type: "i32", value: 102 }, // ~0.1 * 1024
     ESP_DIFFUSION_RATE_MIN: { type: "i32", value: 0 },
     ESP_DIFFUSION_RATE_MAX: { type: "i32", value: 1024 }, // 1.0 * 1024
-    ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: { type: "i32", value: 1 } // Boolean flag mapped as integer 
+    ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: { type: "i32", value: 1 }, // Boolean flag mapped as integer 
+
+    // === Omega V2 Legacy Constants ===
+    MAX_ATP: { type: "u32", value: 4096 },
+    BB_ENERGY_RANGE: { type: "u32", expr: "4096 / 4" },
+    BB_ENERGY_BASE: { type: "u32", expr: "4096 / 32" },
+    BB_FREQ_RANGE: { type: "u32", value: 4000 },
+    BB_FREQ_OFFSET: { type: "i32", value: 2000 },
+    BB_FREQ_Q_SCALE: { type: "i32", value: 1024 },
+    Q16_FACTOR_MITOSIS: { type: "u32", value: 32768 },
+    MITOSIS_THRESHOLD: { type: "u32", expr: "(4096 * 32768) >> 16" },
+    MITOSIS_COST: { type: "u32", expr: "4096 / 4" },
+    CHILD_ENERGY_SEED: { type: "u32", expr: "4096 / 4" },
+    PHASE_MASK_8BIT: { type: "u32", value: 255 },
+    RESONANCE_PHASE_MODULUS: { type: "u32", value: 64 },
+    CHRONOTOPOLOGY_STRESS_DIVISOR: { type: "u32", value: 32 },
+    MAX_TIME_DILATION: { type: "u32", value: 8 },
+    LANDAUER_BIT_COST: { type: "u32", expr: "4096 / 4096" },
+    STRUCTURAL_MAINTENANCE_DIVISOR: { type: "u32", value: 8 },
+    STRESSOR_MIXER: { type: "u32", value: 17 },
+    STRESSOR_MODULUS: { type: "u32", value: 100 },
+    HOMEOSTASIS_Q_SHIFT: { type: "u32", value: 10 },
+    PHASE_DRIFT_Q_SHIFT: { type: "u32", value: 20 },
+    HEBBIAN_DEFAULT_WEIGHT: { type: "i32", value: 1024 },
+    HEBBIAN_MAX_WEIGHT: { type: "i32", value: 4096 },
+    DELTA_PHASE_DIVISOR: { type: "u32", value: 8 },
+    Q16_FACTOR_SANCTUARY: { type: "u32", value: 40000 },
+    SANCTUARY_ENERGY_THRESHOLD: { type: "u32", expr: "(4096 * 40000) >> 16" },
+    Q16_FACTOR_ANCIENT_AGE: { type: "u32", value: 163840 },
+    ANCIENT_AGE_TICKS: { type: "u32", expr: "(4096 * 163840) >> 16" },
+    PREDATOR_ENERGY_STEAL: { type: "u32", expr: "(4096 / 1024) + 1" },
+    DELTA_ENERGY_DIVISOR: { type: "u32", value: 128 },
+    GOLDEN_TRACE_SAMPLES: { type: "u32", value: 32 }
 };
 
 export const MACROS = {

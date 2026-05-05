@@ -20,6 +20,38 @@ pub const PROPOSAL_DESCRIPTION_BYTES: usize = 64;
 
 use sha2::{Sha256, Digest};
 
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct SenateSettings {
+    pub quorum_threshold: u8,
+    pub _pad: [u8; 3],
+    pub sanctuary_energy_multiplier: u32,
+    pub ancient_age_ticks: u32,
+    pub oracle_count: u32,
+    pub oracles: [u32; 8],
+}
+
+impl SenateSettings {
+    pub const fn new() -> Self {
+        Self {
+            quorum_threshold: 3,
+            _pad: [0; 3],
+            sanctuary_energy_multiplier: 1536, // 1.5x in Q10
+            ancient_age_ticks: 10_000,
+            oracle_count: 5,
+            oracles: [
+                0x41A2_F2F4, // CLAUDE
+                0x89B1_222A, // GPT
+                0x9874_DD21, // GEMINI
+                0x6E52_1F4E, // QWEN
+                0x3A52_38EF, // LLAMA
+                0, 0, 0,
+            ],
+        }
+    }
+}
+
+
 /// Deterministic SHA-256 hashing for proposals and invariants.
 pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();

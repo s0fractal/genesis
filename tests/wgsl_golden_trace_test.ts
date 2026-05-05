@@ -22,7 +22,6 @@ const CONFIGS = [
     { topology: 8, attractors: 4, ticks: 8 },
     { topology: 8, attractors: 4, ticks: 16 },
     { topology: 8, attractors: 4, ticks: 32 },
-    { topology: 8, attractors: 4, ticks: 64 },
 ];
 
 if (gpuAvailable) {
@@ -52,7 +51,7 @@ if (gpuAvailable) {
             async fn() {
                 // --- 1. Reset Runtime State ---
                 (exports.v2_reset_runtime_state as CallableFunction)();
-                (exports.v2_set_environment as CallableFunction)(conf.topology, 3, 2);
+                (exports.v2_set_environment as CallableFunction)(conf.topology, 3, 2, 1024);
                 (exports.v2_ignite_big_bang as CallableFunction)(SEED, AGENT_COUNT);
 
                 if (conf.attractors > 0) {
@@ -138,12 +137,15 @@ if (gpuAvailable) {
                 });
 
                 for (let i = 0; i < conf.ticks; i++) {
-                    // 1. CPU Tick
-                    (exports.v2_tick as CallableFunction)();
-
-                    // 2. Sync uniforms
+                    // 1. Sync uniforms BEFORE CPU modifies them!
                     device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 32, 32);
                     device.queue.writeBuffer(attractorBuf, 0, attractorBytes);
+
+                    const agent0Before = new DataView(agentBytes.buffer, agentBytes.byteOffset + 0 * 32, 32);
+                    console.log(`[DEBUG] BEFORE Tick ${i+1}: Agent 0 phase=${agent0Before.getUint32(0,true)} energy=${agent0Before.getUint32(4,true)} flags=${agent0Before.getUint32(12,true)}`);
+                    
+                    // 2. CPU Tick
+                    (exports.v2_tick as CallableFunction)();
 
                     // 3. GPU Tick
                     const encoder = device.createCommandEncoder();
@@ -176,6 +178,8 @@ if (gpuAvailable) {
                         
                         const cpuA = new DataView(cpuTickOut.buffer, cpuTickOut.byteOffset + agentIdx * 32, 32);
                         const gpuA = new DataView(gpuTickOut.buffer, gpuTickOut.byteOffset + agentIdx * 32, 32);
+                        const sigData = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 32);
+                        console.log(`[DEBUG] uniform absolute_tick=${sigData.getUint32(4, true)} total_energy=${sigData.getUint32(16, true)}`);
                         console.log(`[MISMATCH] Tick ${i+1}: CPU Agent ${agentIdx}: phase=${cpuA.getUint32(0,true)} energy=${cpuA.getUint32(4,true)} freq=${cpuA.getInt32(8,true)} flags=${cpuA.getUint32(12,true)}`);
                         console.log(`[MISMATCH] Tick ${i+1}: GPU Agent ${agentIdx}: phase=${gpuA.getUint32(0,true)} energy=${gpuA.getUint32(4,true)} freq=${gpuA.getInt32(8,true)} flags=${gpuA.getUint32(12,true)}`);
                         

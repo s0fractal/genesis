@@ -210,7 +210,8 @@ impl WarrantLedger {
         if aye {
             p.aye_bits |= bit;
             if p.aye_count() >= p.required_threshold {
-                let qh = quorum_hash(p.aye_bits);
+                let settings = crate::SENATE_SETTINGS.lock();
+                let qh = quorum_hash(p.aye_bits, &*settings);
                 p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
                 p.status = WARRANT_STATUS_ISSUED;
                 self.issued_count = self.issued_count.wrapping_add(1);
@@ -287,7 +288,8 @@ mod tests {
         assert_eq!(p.aye_count(), 3);
         assert_eq!(p.aye_bits, 0b00111);
         // Issued warrant must match the canonical Codeicide computation.
-        let qh = quorum_hash(0b00111);
+        let settings = crate::senate::SenateSettings::new();
+        let qh = quorum_hash(0b00111, &settings);
         let expected = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
         assert_eq!(p.issued_warrant, expected);
         assert_eq!(ledger.issued_count, 1);
@@ -384,13 +386,16 @@ mod tests {
         let issued = ledger.entries[ledger.find(h)];
         assert!(issued.is_issued());
         // The issued warrant + matching aye_bits MUST satisfy Codeicide.
+        let settings = crate::senate::SenateSettings::new();
         assert!(is_action_lawful(
             &agent,
             5_000,
             1000,
+            1000,
             ACTION_TERMINATE,
             issued.issued_warrant,
             issued.aye_bits,
+            &settings
         ));
     }
 
@@ -417,13 +422,16 @@ mod tests {
         ledger.vote(h, 2, true);
         let issued = ledger.entries[ledger.find(h)];
         // Present it to Codeicide as a MUTATE — must be rejected.
+        let settings = crate::senate::SenateSettings::new();
         assert!(!is_action_lawful(
             &agent,
             5_000,
             1000,
+            1000,
             ACTION_MUTATE,
             issued.issued_warrant,
             issued.aye_bits,
+            &settings
         ));
     }
 

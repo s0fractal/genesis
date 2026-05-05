@@ -79,9 +79,10 @@ fn main() {
     }
 
     // --- 5. Codeicide gates --------------------------------------------
-    let qh = quorum_hash(0b00111);
+    let settings = omega_v2::senate::SenateSettings::new();
+    let qh = quorum_hash(0b00111, &settings);
     println!("quorum_hash(claude+gpt+gem) = 0x{:08x}", qh);
-    all_ok &= qh == 0x5931_2923;
+    all_ok &= qh == 0x0980_967D;
 
     let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
     println!("warrant_hash(CAFE,TERM,qh)  = 0x{:08x}", w);
@@ -95,7 +96,7 @@ fn main() {
         genome: 0xCAFE_BABE,
         memory: [0, 100, 0],
     };
-    let lawful = is_action_lawful(&protected, 5_000, 1000, ACTION_TERMINATE, w, 0b00111);
+    let lawful = is_action_lawful(&protected, 5_000, 1000, 1000, ACTION_TERMINATE, w, 0b00111, &settings);
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;
 

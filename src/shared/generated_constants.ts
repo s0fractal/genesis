@@ -75,6 +75,36 @@ export const ESP_MUTATION_RATE_MAX = 102;
 export const ESP_DIFFUSION_RATE_MIN = 0;
 export const ESP_DIFFUSION_RATE_MAX = 1024;
 export const ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED = 1;
+export const MAX_ATP = 4096;
+export const BB_ENERGY_RANGE = 1024;
+export const BB_ENERGY_BASE = 128;
+export const BB_FREQ_RANGE = 4000;
+export const BB_FREQ_OFFSET = 2000;
+export const BB_FREQ_Q_SCALE = 1024;
+export const Q16_FACTOR_MITOSIS = 32768;
+export const MITOSIS_THRESHOLD = 2048;
+export const MITOSIS_COST = 1024;
+export const CHILD_ENERGY_SEED = 1024;
+export const PHASE_MASK_8BIT = 255;
+export const RESONANCE_PHASE_MODULUS = 64;
+export const CHRONOTOPOLOGY_STRESS_DIVISOR = 32;
+export const MAX_TIME_DILATION = 8;
+export const LANDAUER_BIT_COST = 1;
+export const STRUCTURAL_MAINTENANCE_DIVISOR = 8;
+export const STRESSOR_MIXER = 17;
+export const STRESSOR_MODULUS = 100;
+export const HOMEOSTASIS_Q_SHIFT = 10;
+export const PHASE_DRIFT_Q_SHIFT = 20;
+export const HEBBIAN_DEFAULT_WEIGHT = 1024;
+export const HEBBIAN_MAX_WEIGHT = 4096;
+export const DELTA_PHASE_DIVISOR = 8;
+export const Q16_FACTOR_SANCTUARY = 40000;
+export const SANCTUARY_ENERGY_THRESHOLD = 2500;
+export const Q16_FACTOR_ANCIENT_AGE = 163840;
+export const ANCIENT_AGE_TICKS = 10240;
+export const PREDATOR_ENERGY_STEAL = 5;
+export const DELTA_ENERGY_DIVISOR = 128;
+export const GOLDEN_TRACE_SAMPLES = 32;
 
 // --- MACROS ---
 export function fast_abs(v: number): number {

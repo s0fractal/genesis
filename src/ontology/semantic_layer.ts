@@ -19,22 +19,16 @@ export class SemanticCoupler {
         view.setBigUint64(0, hash_u64, true); 
         const hashBytes = new Uint8Array(view.buffer);
         
-        // 3. Derive spatial coordinates from the hash resonance
-        // Mathematical grid mapping 256x256
-        const x = (hashBytes[0] ^ hashBytes[1]) % 256;
-        const y = (hashBytes[2] ^ hashBytes[3]) % 256;
-        
         // 4. Derive energetic disturbance amplitude and topological radius
         const energy = ((hashBytes[4] & 0x0F) + 1) * 100;
-        const radius = (hashBytes[5] & 0x0F) + 5;
         
         // 5. Determine structural mutation parameter
         const phaseShift = hashBytes[6];
+        const intentId = Number(hash_u64 & 0xFFFFFFFFn);
         
         // Inject the conceptual perturbation into the lock-free shared physical reality
-        // In Ontology 11, we inject the raw Hash array as an 8-byte Plasmid Memory structure
-        this.injector.inject(x, y, energy, radius, phaseShift, hashBytes);
-        console.log(`[Σ³] Projected Plasmid '${intent}' -> Field(${x}, ${y}) : ΔPhase=${phaseShift}, Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
+        this.injector.injectIntent(phaseShift, energy, intentId);
+        console.log(`[Σ³] Projected Intent '${intent}' -> Phi(${phaseShift}) : Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
     }
 
     // Era 2060: Injects the semantic feedback of a deceased agent's compost into the lattice

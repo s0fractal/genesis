@@ -391,6 +391,11 @@ export class OmegaV2Engine {
     // ERA 2070: Senate Alignment Feedback
     // -----------------------------------------------------------------------
 
+    public injectIntent(phase: number, energy: number, id: number) {
+        if (!this.wasmInstance) return;
+        (this.wasmInstance.exports.v2_phi_inject_intent as CallableFunction)(phase, energy, id);
+    }
+
     public applySenateAlignment(score: number) {
         if (!this.wasmInstance || !this.cachedPointers) return;
         const setAttractor = this.wasmInstance.exports.v2_set_attractor as CallableFunction;

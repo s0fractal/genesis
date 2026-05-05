@@ -384,6 +384,15 @@ fn compute_main(
     let raw_base = i32(base_cost) + efficiency_adj;
     if (raw_base > 1i) { base_burn = u32(raw_base); }
 
+    let active_clamped = max(1u, signals.active_agent_count);
+    let avg_energy = signals.total_energy / active_clamped;
+    var metabolic_pressure = i32((avg_energy * 1024u) / 1000u);
+    metabolic_pressure = clamp(metabolic_pressure, 512i, 2048i);
+    let day_phase = (signals.absolute_tick % 1024u) / 8u; // using 128 table
+    let sun_multiplier = 1024i + deterministic_sin(day_phase, 7u);
+    
+    base_burn = max(1u, u32((i32(base_burn) * metabolic_pressure * sun_multiplier) / 1048576i));
+
     let resilience_reduction = p_resilience / 128u;
     var burn: u32 = 1u;
     if (base_burn > resilience_reduction + 1u) {
