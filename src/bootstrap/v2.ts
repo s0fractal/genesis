@@ -10,8 +10,7 @@ import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
 import { ZKProverBridge } from "../network/zk_prover_bridge.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
-import { CompostConsumer } from "../liquid/compost_consumer.ts";
-import { SemanticCoupler } from "../ontology/semantic_layer.ts";
+import { PhiBridge } from "../network/phi_bridge.ts";
 // Translation Policy bloat removed (Era 2070 Consolidation)
 
 let oracleWorker: Worker | null = null;
@@ -143,32 +142,8 @@ export async function bootstrapV2() {
             console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
         }
 
-        // Era 2060: Liquid Autopoiesis
-        const injector: IPerturbationInjector = {
-            inject: (x, y, energy, radius, phaseShift, plasmidBytes) => {
-                const setIntent = engine.wasm?.exports.v2_set_intent as CallableFunction;
-                if (setIntent) {
-                    let g = 0;
-                    let o = 0;
-                    if (plasmidBytes.length >= 8) {
-                        const view = new DataView(plasmidBytes.buffer, plasmidBytes.byteOffset, plasmidBytes.byteLength);
-                        g = view.getUint32(0, true);
-                        o = view.getUint32(4, true);
-                    }
-                    // Slot 3 is dedicated to Liquid Ontology semantic injections
-                    setIntent(3, x, y, energy, radius, g, o);
-                }
-            },
-            injectIntent: (phase, energy, id) => {
-                engine.injectIntent(phase, energy, id);
-            }
-        };
-        const semanticCoupler = new SemanticCoupler(injector, (plasmid) => {
-            if (p2p) {
-                p2p.enqueuePlasmid(plasmid);
-            }
-        });
-        const compostConsumer = new CompostConsumer(engine);
+        // Era 2080: PhiBridge Substrate
+        const phiBridge = new PhiBridge(engine);
 
         // Era 2100: Bitcoin Genesis Verification
         const genesisTxid = (window as any).__OMEGA_GENESIS_TXID__;
@@ -214,6 +189,9 @@ export async function bootstrapV2() {
         const mesh = new Libp2pMesh(engine, async (snapshot) => {
             renderer.overwriteGPUState(snapshot);
         }, bootstrapMultiaddr, router);
+        
+        // Era 2080: Wire the physical mesh into the PhiBridge
+        phiBridge.attachMesh(mesh);
 
         globalThis.addEventListener('zkProofReceived', async (e: any) => {
             const { peerId, bundle } = e.detail;
@@ -583,11 +561,8 @@ ${debateMd || "(no recorded arguments)"}
                     // snapshot + claimed child + attractor field + receipt hash).
                     const ptrs = engine.getMemoryPointers();
                     
-                    // Era 2060: Drain the dead agents (Compost) from PhiMessageBuffer
-                    const compostEvents = compostConsumer.harvest();
-                    for (const event of compostEvents) {
-                        semanticCoupler.projectCompost(event);
-                    }
+                    // Era 2080: PhiBridge forwards receipts
+                    // (Semantic compost harvesting now belongs exclusively to Liquid Substrate via receipt listeners)
 
                     let birthCount = 0;
                     if (ptrs.mitosisLogBytes && lastMitosisSeen === 0) {
