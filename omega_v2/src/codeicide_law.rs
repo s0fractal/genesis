@@ -28,10 +28,7 @@
 
 use crate::agent::PhaseAgentMinimal;
 use crate::crypto::sha256_u32;
-
-/// Tick count above which a sanctuary agent becomes "ancient" — its
-/// genome is presumed to encode wisdom worth preserving across Big Bangs.
-pub const ANCIENT_AGE_TICKS: u32 = 10_000;
+use crate::constants::{ANCIENT_AGE_TICKS, SANCTUARY_ENERGY_THRESHOLD};
 
 /// Action codes that warrants must specify.
 /// 1 = mutation request, 2 = termination request, 3 = forced relocation.
@@ -57,7 +54,7 @@ pub fn protected_status_for(agent: &PhaseAgentMinimal, current_tick: u32, averag
     if (agent.state_flags & FLAG_SANCTUARY_WAIVED) != 0 {
         return STATUS_UNPROTECTED;
     }
-    let threshold = core::cmp::max(100, average_energy.saturating_mul(2));
+    let threshold = core::cmp::max(SANCTUARY_ENERGY_THRESHOLD, average_energy.saturating_mul(2));
     if agent.energy < threshold {
         return STATUS_UNPROTECTED;
     }
@@ -188,8 +185,8 @@ mod tests {
     #[test]
     fn ancient_when_old_enough() {
         let a = protected_agent();
-        // birth_tick = 100, current = 100 + 10_000 → age = 10_000 = ANCIENT
-        assert_eq!(protected_status_for(&a, 10_100, 1000), STATUS_ANCIENT);
+        // birth_tick = 100
+        assert_eq!(protected_status_for(&a, 100 + ANCIENT_AGE_TICKS, 1000), STATUS_ANCIENT);
     }
 
     #[test]
@@ -232,7 +229,7 @@ mod tests {
     #[test]
     fn ancient_requires_4_aye_warrant() {
         let a = protected_agent();
-        let current = 10_100; // age = 10_000 → ancient
+        let current = 100 + ANCIENT_AGE_TICKS; // age = ancient
         // 3 AYEs should NOT suffice for ancient.
         let aye3 = 0b00111;
         let qh3 = quorum_hash(aye3);

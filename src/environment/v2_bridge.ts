@@ -386,4 +386,31 @@ export class OmegaV2Engine {
         }
         return new Uint8Array(32);
     }
+
+    // -----------------------------------------------------------------------
+    // ERA 2070: Senate Alignment Feedback
+    // -----------------------------------------------------------------------
+
+    public applySenateAlignment(score: number) {
+        if (!this.wasmInstance || !this.cachedPointers) return;
+        const setAttractor = this.wasmInstance.exports.v2_set_attractor as CallableFunction;
+        if (!setAttractor) return;
+
+        // Modulate all active attractors' pulse_amp based on alignment score [-5, 5].
+        // Base pulse_amp is typically 256. We'll use 256 + (score * 50).
+        const newAmp = Math.max(10, 256 + (score * 50));
+        
+        const view = new DataView(this.cachedPointers.attractorBytes.buffer, this.cachedPointers.attractorBytes.byteOffset, 80);
+        const count = view.getUint32(0, true);
+        
+        for (let i = 0; i < Math.min(count, 4); i++) {
+            const offset = 16 + (i * 16);
+            const matrix = view.getUint32(offset, true);
+            const inverse = view.getUint32(offset + 4, true);
+            const pulseFreq = view.getUint32(offset + 8, true);
+            
+            // Overwrite attractor with new amplitude
+            setAttractor(i, matrix, inverse, pulseFreq, newAmp);
+        }
+    }
 }

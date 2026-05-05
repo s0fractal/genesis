@@ -16,8 +16,10 @@ pub const BB_FREQ_OFFSET: i32 = 2000;
 pub const BB_FREQ_Q_SCALE: i32 = 1024;
 
 // --- Darwinian Mitosis ---
+/// Q16 Factor for Mitosis Threshold (0.5 in Q16)
+pub const Q16_FACTOR_MITOSIS: u32 = 32768;
 /// Minimum ATP required for a cell to undergo mitosis
-pub const MITOSIS_THRESHOLD: u32 = MAX_ATP / 2; // 2048
+pub const MITOSIS_THRESHOLD: u32 = (MAX_ATP * Q16_FACTOR_MITOSIS) >> 16; // 2048
 /// ATP cost deducted from parent during replication
 pub const MITOSIS_COST: u32 = MAX_ATP / 4; // 1024
 /// Initial ATP granted to the child cell
@@ -59,6 +61,12 @@ pub const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 /// Represents "1/8 of full period is a significant phase change".
 pub const DELTA_PHASE_DIVISOR: u32 = 8;
 /// Divisor for adaptive energy threshold: threshold = MAX_ATP / DIVISOR
+
+// --- Codeicide Law Thresholds ---
+pub const Q16_FACTOR_SANCTUARY: u32 = 40000; // ~61% of MAX_ATP (2500)
+pub const SANCTUARY_ENERGY_THRESHOLD: u32 = (MAX_ATP * Q16_FACTOR_SANCTUARY) >> 16;
+pub const Q16_FACTOR_ANCIENT_AGE: u32 = 163840; // 2.5 in Q16
+pub const ANCIENT_AGE_TICKS: u32 = (MAX_ATP * Q16_FACTOR_ANCIENT_AGE) >> 16; // ~10,000
 // --- Era 0218: Species Specialization ---
 /// ATP transferred from prey to predator per tick
 pub const PREDATOR_ENERGY_STEAL: u32 = (MAX_ATP / 1024) + 1; // 5

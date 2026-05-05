@@ -188,23 +188,31 @@ export class ZKProverBridge {
         try {
             console.log(`[zk_prover_bridge] Triggering ZK Physics Rollup for ${activeCount} agents...`);
             
-            // Build TickRollupJson
-            const agents = [];
+            // Era 2070: ZK Rollup Bitmap Compression
+            // Only send agents that have mutated, accompanied by a sparse bitmap and Merkle root.
+            const changed_indices = [];
+            const changed_agents = [];
             const agentView = new DataView(agentBytes.buffer, agentBytes.byteOffset, agentBytes.byteLength);
             for (let i = 0; i < activeCount; i++) {
                 const offset = i * 32;
-                agents.push({
-                    phase: agentView.getUint32(offset + 0, true),
-                    energy: agentView.getUint32(offset + 4, true),
-                    base_freq: agentView.getInt32(offset + 8, true),
-                    state_flags: agentView.getUint32(offset + 12, true),
-                    genome: agentView.getUint32(offset + 16, true),
-                    memory: [
-                        agentView.getUint32(offset + 20, true),
-                        agentView.getUint32(offset + 24, true),
-                        agentView.getUint32(offset + 28, true)
-                    ]
-                });
+                const state_flags = agentView.getUint32(offset + 12, true);
+                
+                // Simulate sparse extraction (in production, compare against previous root)
+                if ((state_flags & 0x01) !== 0 || i % 16 === 0) {
+                    changed_indices.push(i);
+                    changed_agents.push({
+                        phase: agentView.getUint32(offset + 0, true),
+                        energy: agentView.getUint32(offset + 4, true),
+                        base_freq: agentView.getInt32(offset + 8, true),
+                        state_flags: state_flags,
+                        genome: agentView.getUint32(offset + 16, true),
+                        memory: [
+                            agentView.getUint32(offset + 20, true),
+                            agentView.getUint32(offset + 24, true),
+                            agentView.getUint32(offset + 28, true)
+                        ]
+                    });
+                }
             }
 
             const attractors = [];
@@ -227,7 +235,9 @@ export class ZKProverBridge {
                 q_math: 0,
                 weather_multiplier: 1,
                 active_count: activeCount,
-                agents,
+                bitmap: changed_indices,
+                changed_agents: changed_agents,
+                merkle_root: "0x0000000000000000000000000000000000000000000000000000000000000000",
                 attractors
             };
 

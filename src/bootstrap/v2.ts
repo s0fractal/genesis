@@ -12,29 +12,7 @@ import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import { CompostConsumer } from "../liquid/compost_consumer.ts";
 import { SemanticCoupler } from "../ontology/semantic_layer.ts";
-import {
-    createTranslationPolicyHudHook,
-    TranslationPolicyTelemetrySource,
-} from "./translation_policy/translation_policy_hud_hook.ts";
-import {
-    installTranslationPolicyBootstrap,
-    TranslationPolicyBootstrapInstallOptions,
-    TranslationPolicyBootstrapGlobalTarget,
-} from "./translation_policy/translation_policy_bootstrap_installer.ts";
-import {
-    createTranslationPolicyRuntimeTickHook,
-    TranslationPolicyRuntimeTickHookResult,
-    TranslationPolicyRuntimeTickHookOptionsInput,
-    TranslationPolicyRuntimeTickSource,
-} from "./translation_policy/translation_policy_runtime_tick_hook.ts";
-import {
-    translationPolicyBootstrapTelemetrySnapshot,
-    TranslationPolicyBootstrapTelemetrySnapshot,
-} from "./translation_policy/translation_policy_bootstrap_telemetry.ts";
-import {
-    createTranslationPolicyTelemetryEventEmitter,
-    TranslationPolicyTelemetryEventOptionsInput,
-} from "./translation_policy/translation_policy_telemetry_event.ts";
+// Translation Policy bloat removed (Era 2070 Consolidation)
 
 let oracleWorker: Worker | null = null;
 try {
@@ -48,24 +26,7 @@ let isOracleBound = false;
 
 declare global {
     interface Window {
-        __OMEGA_TRANSLATION_POLICY_RUNTIME__?: {
-            telemetry(now_ms: number): unknown;
-        };
-        __OMEGA_TRANSLATION_POLICY_HUD__?: boolean | {
-            enabled?: boolean;
-            slot?: "a" | "b" | "c" | "d" | "e" | "f";
-            min_interval_ms?: number;
-            label?: string;
-            hud?: { max_summary_len?: number };
-        };
-        __OMEGA_TRANSLATION_POLICY_BOOTSTRAP__?:
-            TranslationPolicyBootstrapInstallOptions;
-        __OMEGA_TRANSLATION_POLICY_TICK__?:
-            boolean | TranslationPolicyRuntimeTickHookOptionsInput;
-        __OMEGA_TRANSLATION_POLICY_TELEMETRY__?:
-            TranslationPolicyBootstrapTelemetrySnapshot;
-        __OMEGA_TRANSLATION_POLICY_TELEMETRY_EVENT__?:
-            boolean | TranslationPolicyTelemetryEventOptionsInput;
+        __OMEGA_TRANSLATION_POLICY_HUD__?: boolean | any;
     }
 }
 const FNV64_OFFSET_BASIS = 0xcbf29ce484222325n;
@@ -274,18 +235,6 @@ export async function bootstrapV2() {
 
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
-        // Era 1790: optional installer composes mesh emit adapter,
-        // translation-policy runtime, and HUD global wiring.
-        const translationPolicyInstall = installTranslationPolicyBootstrap(
-            mesh,
-            window.__OMEGA_TRANSLATION_POLICY_BOOTSTRAP__,
-            window as TranslationPolicyBootstrapGlobalTarget,
-        );
-        if (translationPolicyInstall.installed) {
-            console.log("🧭 [TPOL] Translation policy runtime installed.");
-        } else if (translationPolicyInstall.reason === "install-error") {
-            console.warn("[TPOL] Translation policy install failed:", translationPolicyInstall.error);
-        }
 
         // Auto-Senate Reconstruction
         console.log("🏛️ [SENATE] Reconstructing Canonical Oracle Seats...");
@@ -527,40 +476,7 @@ ${debateMd || "(no recorded arguments)"}
         let isReadingGPU = false;
         // Era 1040 Phase 2: tracks how many mitosis receipts we've already drained.
         
-        // Era 1760: optional operator-owned translation-policy HUD bridge.
-        const translationPolicyHudConfig = window.__OMEGA_TRANSLATION_POLICY_HUD__;
-        const translationPolicyHudHook = createTranslationPolicyHudHook(
-            window.__OMEGA_TRANSLATION_POLICY_RUNTIME__ as TranslationPolicyTelemetrySource | undefined,
-            setHudStat,
-            typeof translationPolicyHudConfig === "object"
-                ? { ...translationPolicyHudConfig, enabled: translationPolicyHudConfig.enabled === true }
-                : { enabled: translationPolicyHudConfig === true },
-        );
-        // Era 1800: bounded outbound policy-broadcast tick. Separate
-        // from HUD formatting so display cadence never drives network IO.
-        const translationPolicyTickConfig = window.__OMEGA_TRANSLATION_POLICY_TICK__;
-        const translationPolicyTickHook = createTranslationPolicyRuntimeTickHook(
-            window.__OMEGA_TRANSLATION_POLICY_RUNTIME__ as TranslationPolicyRuntimeTickSource | undefined,
-            typeof translationPolicyTickConfig === "object"
-                ? { ...translationPolicyTickConfig, enabled: translationPolicyTickConfig.enabled === true }
-                : { enabled: translationPolicyTickConfig === true },
-        );
-        // Era 1820: optional snapshot event emission. Consumers subscribe to
-        // `translationPolicyTelemetry` without polling the frame-loop global.
-        const translationPolicyTelemetryEventConfig =
-            window.__OMEGA_TRANSLATION_POLICY_TELEMETRY_EVENT__;
-        const translationPolicyTelemetryEventEmitter =
-            createTranslationPolicyTelemetryEventEmitter(
-                window,
-                typeof translationPolicyTelemetryEventConfig === "object"
-                    ? {
-                        ...translationPolicyTelemetryEventConfig,
-                        enabled:
-                            translationPolicyTelemetryEventConfig.enabled === true,
-                    }
-                    : { enabled: translationPolicyTelemetryEventConfig === true },
-            );
-        let lastTranslationPolicyTick: TranslationPolicyRuntimeTickHookResult | null = null;
+
 
         const loop = () => {
             tickFps();
@@ -639,22 +555,14 @@ ${debateMd || "(no recorded arguments)"}
             } else {
                 setHudStat("f", "SENATE", `OPEN ${senate.proposalCount}`);
             }
-            const policyNow = performance.now();
-            lastTranslationPolicyTick =
-                translationPolicyTickHook?.tick(policyNow) ?? lastTranslationPolicyTick;
-            translationPolicyHudHook?.tick(policyNow);
-            const translationPolicySnapshot =
-                translationPolicyBootstrapTelemetrySnapshot(
-                    translationPolicyInstall,
-                    lastTranslationPolicyTick,
-                    policyNow,
-                );
-            window.__OMEGA_TRANSLATION_POLICY_TELEMETRY__ =
-                translationPolicySnapshot;
-            translationPolicyTelemetryEventEmitter?.tick(
-                translationPolicySnapshot,
-                policyNow,
-            );
+
+            // Era 2070: Senate Alignment -> Physics Attractor Feedback Loop
+            if (mesh.era1070AcceptedVisionHash !== null) {
+                const score = mesh.debate.alignmentScore(mesh.era1070AcceptedVisionHash);
+                engine.applySenateAlignment(score);
+            }
+
+
 
             // Asynchronous 1Hz GPU State Extraction via Staging Buffers
             if (frameCount % 60 === 0 && !isReadingGPU) {

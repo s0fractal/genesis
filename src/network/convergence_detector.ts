@@ -63,6 +63,7 @@ function classify(copies: number): WitnessClass {
 export class ConvergenceDetector {
     private records: Map<number, WitnessRecord> = new Map();
     private order: number[] = [];
+    private peer_failures: Map<string, number> = new Map();
 
     constructor(public capacity: number = 512) {
         if (capacity < 1) throw new Error("capacity must be ≥ 1");
@@ -100,6 +101,7 @@ export class ConvergenceDetector {
             }
             return rec;
         }
+        this.peer_failures.set(delivered_by, 0); // Reset failures on activity
         rec.last_seen_at_ms = now_ms;
         rec.copies += 1;
         rec.witness_class = classify(rec.copies);
@@ -174,8 +176,32 @@ export class ConvergenceDetector {
         return [...this.records.values()];
     }
 
+    /**
+     * Increment failure count for a peer (e.g. timeout or rejected message).
+     */
+    recordSilence(peer_id: string): void {
+        const fails = this.peer_failures.get(peer_id) || 0;
+        this.peer_failures.set(peer_id, fails + 1);
+    }
+
+    /**
+     * Returns a list of peer IDs that have exceeded MAX_IDLE_TICKS.
+     * The node should disconnect these peers to save pubsub overhead.
+     */
+    pruneSilentPeers(max_idle_ticks: number): string[] {
+        const dead: string[] = [];
+        for (const [peer, fails] of this.peer_failures.entries()) {
+            if (fails > max_idle_ticks) {
+                dead.push(peer);
+                this.peer_failures.delete(peer);
+            }
+        }
+        return dead;
+    }
+
     clear(): void {
         this.records.clear();
         this.order = [];
+        this.peer_failures.clear();
     }
 }
