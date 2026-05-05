@@ -20,8 +20,8 @@ struct SignalStore {
     max_cells: u32,
     total_energy: u32,
     _pad2: u32,
-    _pad3: u32,
-    _pad4: u32,
+    total_entropy_low: u32,
+    total_entropy_high: u32,
 }
 
 struct OntologicalIntent {

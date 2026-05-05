@@ -30,9 +30,8 @@ pub struct SignalStore {
     
     // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
     pub total_energy: u32,
-    pub _pad2: u32,
-    pub _pad3: u32,
-    pub _pad4: u32,
+    pub _pad2: u32, // Explicit 4-byte padding for u64 alignment
+    pub total_entropy_released: u64,
 }
 
 #[repr(C)]
@@ -70,8 +69,7 @@ impl PhaseLattice {
                 max_cells: 0,
                 total_energy: 0,
                 _pad2: 0,
-                _pad3: 0,
-                _pad4: 0,
+                total_entropy_released: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
@@ -396,6 +394,14 @@ impl PhaseLattice {
                 // Compost event: agent died this tick
                 if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
                     agent.state_flags |= 0x01; // Mark as dead
+                    
+                    // Thermodynamics: Entropy release (Landauer's Principle)
+                    let entropy_burst = (agent.genome as u64)
+                        .wrapping_add(agent.memory[0] as u64)
+                        .wrapping_add(agent.memory[1] as u64)
+                        .wrapping_add(agent.memory[2] as u64);
+                    self.signals.total_entropy_released = self.signals.total_entropy_released.wrapping_add(entropy_burst);
+
                     let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
                     let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
                     buf.push(compost);

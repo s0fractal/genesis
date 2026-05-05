@@ -121,8 +121,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         max_cells: 0,
         total_energy: 0,
         _pad2: 0,
-        _pad3: 0,
-        _pad4: 0,
+        total_entropy_released: 0,
     },
     intents: [crate::topology::OntologicalIntent {
         focus_x: 0,
