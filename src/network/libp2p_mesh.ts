@@ -39,8 +39,6 @@ export interface PlasmidPayload {
     | "TRANSLATION_POLICY"
     | "TRANSLATION_POLICY_CORROBORATION"
     | "TRANSLATION_POLICY_REPLAY_DIGEST"
-    | "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST"
-    | "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST"
     | "ZK_PROOF_EVENT"
     | "ZK_ROLLUP_EVENT";
   parentHash?: number;
@@ -58,6 +56,8 @@ export interface PlasmidPayload {
   attractors?: AttractorEntry[]; // Snapshot of attractor field (DIPOLE only)
   qPhase?: number; // Topology q_phase at time of mitosis (DIPOLE only)
   receiptHash?: string; // Pre-computed FNV-1a child hash (DIPOLE only)
+  entropyDelta?: number; // Era 2070: Shift in Kuramoto order (DIPOLE only)
+  metabolicCost?: number; // Era 2070: Energy burned during birth (DIPOLE only)
   proofBundle?: import("./zk_prover_bridge.ts").ZKProofBundle; // Era 1040: SP1 STARK Proof
   rollupState?: Uint8Array; // Era 2060: The full PhaseAgent array corresponding to a rollup proof
   // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
@@ -81,14 +81,8 @@ export interface PlasmidPayload {
   // Carries serialized TranslationPolicyReplayDigestClaim JSON.
   translationPolicyReplayDigestBody?: string; // TRANSLATION_POLICY_REPLAY_DIGEST only
   translationPolicyReplayDigestTarget?: number; // peer_id of recipient
-  // Era 1950: Translation policy replay-digest replay digest claim.
-  // Carries serialized TranslationPolicyReplayDigestDigestClaim JSON.
-  translationPolicyReplayDigestDigestBody?: string; // TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST only
-  translationPolicyReplayDigestDigestTarget?: number; // peer_id of recipient
-  // Era 2040: Translation policy tpdd forensic replay digest claim.
-  // Carries serialized TranslationPolicyReplayDigestDigestForensicReplayDigestClaim JSON.
-  translationPolicyReplayDigestDigestForensicReplayDigestBody?: string; // TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST only
-  translationPolicyReplayDigestDigestForensicReplayDigestTarget?: number; // peer_id of recipient
+  // Era 2070: Translation policy recursive digests are deprecated.
+  // Use primary diagnostic telemetry instead.
 }
 
 export interface SenateProposalRecord {
@@ -777,6 +771,28 @@ export class Libp2pMesh {
                   ORACLE_MATRICES_V1[newName] = newMatrix;
                   console.log(`🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`);
               }
+              // Propagate to Rust
+              if (this.engine.wasm?.exports.v2_apply_senate_patch) {
+                  (this.engine.wasm.exports.v2_apply_senate_patch as any)(4, newMatrix, 0);
+              }
+          }
+      } else if (record.description.startsWith("SET_QUORUM:")) {
+          const val = parseInt(record.description.split(":")[1], 10);
+          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(1, val, 0);
+              console.log(`🏛️ [SENATE] Applied SET_QUORUM=${val} to Rust core.`);
+          }
+      } else if (record.description.startsWith("SET_SANCTUARY_MULT:")) {
+          const val = parseInt(record.description.split(":")[1], 10);
+          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(2, val, 0);
+              console.log(`🏛️ [SENATE] Applied SET_SANCTUARY_MULT=${val} to Rust core.`);
+          }
+      } else if (record.description.startsWith("SET_ANCIENT_AGE:")) {
+          const val = parseInt(record.description.split(":")[1], 10);
+          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(3, val, 0);
+              console.log(`🏛️ [SENATE] Applied SET_ANCIENT_AGE=${val} to Rust core.`);
           }
       }
 

@@ -460,15 +460,27 @@ impl PhaseLattice {
 
         let mut next_dead_idx = 0;
         let mut replications = 0;
+        let mut hist = crate::codeicide_law::EnergyHistogram::new();
         let mut sum_energy = 0u64;
         
         unsafe {
             let active = self.signals.active_agent_count as usize;
+            // Pass 1: Build the EnergyHistogram and sum energy
             for i in 0..active {
-                let parent = &mut *self.minimal_agents_ptr.add(i);
+                let parent = &*self.minimal_agents_ptr.add(i);
                 if parent.energy > 0 {
                     sum_energy += parent.energy as u64;
+                    let bucket = core::cmp::min(parent.energy >> 8, 15) as usize;
+                    hist.buckets[bucket] += 1;
                 }
+            }
+            
+            let p90_threshold = crate::codeicide_law::p90_energy(&hist, self.signals.active_agent_count);
+            
+            // Pass 2: Mitosis sweep
+            for i in 0..active {
+                let parent = &mut *self.minimal_agents_ptr.add(i);
+
                 
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
@@ -483,12 +495,11 @@ impl PhaseLattice {
                     // wants to propagate.
                     #[cfg(not(feature = "spore"))]
                     {
-                        let avg = self.signals.total_energy / core::cmp::max(1, self.signals.active_agent_count);
                         let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
                         let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
                         let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.absolute_tick, avg, resonance_score, &*settings
+                            parent, self.signals.absolute_tick, p90_threshold, resonance_score, &*settings
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
@@ -521,6 +532,9 @@ impl PhaseLattice {
                             let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
                             *child = derived;
 
+                            let cost = crate::constants::MITOSIS_COST;
+                            let entropy_delta = (derived.phase as i32).wrapping_sub(parent_snapshot.phase as i32);
+
                             // Era 1040 Phase 2: append the receipt to the global log
                             // so JS can broadcast a fully-verifiable DIPOLE plasmid.
                             let receipt = crate::mitosis_log::MitosisReceipt {
@@ -530,7 +544,8 @@ impl PhaseLattice {
                                 q_phase: self.topology.q_phase,
                                 receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
                                 tick: self.signals.absolute_tick,
-                                _pad: [0; 2],
+                                entropy_delta,
+                                metabolic_cost: cost,
                             };
                             let mut log = crate::MITOSIS_LOG.lock();
                             log.push(receipt);
@@ -1153,7 +1168,7 @@ mod tests {
 
 #[cfg(test)]
 mod debug_tests {
-    use super::*;
+    // use super::*;
     #[test]
     fn test_agent3_burn() {
         let set_bits = 0x3002B252u32.count_ones();

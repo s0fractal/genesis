@@ -17,6 +17,8 @@ export interface MitosisReceipt {
     qPhase: number;
     receiptHash: string;
     tick: number;
+    entropyDelta: number;
+    metabolicCost: number;
 }
 
 function readAgent(view: DataView, offset: number): AgentMinimal {
@@ -97,6 +99,8 @@ export function drainMitosisLog(
             qPhase: view.getUint32(off + 144, true),
             receiptHash: hashHex,
             tick: view.getUint32(off + 180, true),
+            entropyDelta: view.getInt32(off + 184, true),
+            metabolicCost: view.getUint32(off + 188, true),
         });
     }
 

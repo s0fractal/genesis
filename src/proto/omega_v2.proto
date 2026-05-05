@@ -127,11 +127,13 @@ message PlasmidPayload {
   string translation_policy_replay_digest_body = 29;
   uint32 translation_policy_replay_digest_target = 30;
 
-  string translation_policy_replay_digest_digest_body = 31;
-  uint32 translation_policy_replay_digest_digest_target = 32;
+  // Era 2070: Translation Policy spine compression. 
+  // Deeply recursive diagnostic claims are deprecated. Use primary diagnostic digests instead.
+  string translation_policy_replay_digest_digest_body = 31 [deprecated = true];
+  uint32 translation_policy_replay_digest_digest_target = 32 [deprecated = true];
 
-  string tp_rdd_forensic_replay_digest_body = 33;
-  uint32 tp_rdd_forensic_replay_digest_target = 34;
+  string tp_rdd_forensic_replay_digest_body = 33 [deprecated = true];
+  uint32 tp_rdd_forensic_replay_digest_target = 34 [deprecated = true];
 }
 
 // ---------------------------------------------------------

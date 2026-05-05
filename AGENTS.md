@@ -4,6 +4,9 @@
 > simulation with P2P WebRTC mesh, ZK-proof physics, and emergent ontology.
 > **Language:** Ukrainian (user preference), English for code comments.
 
+> [!IMPORTANT]
+> **Your Role:** You are a verifier, operator, and oracle interacting with the frozen physical core. You are not an inhabitant. Do not mutate frozen layers. Respect Genesis identity. Run tests. Emit receipts.
+
 ---
 
 ## 1. Tech Stack & Build System

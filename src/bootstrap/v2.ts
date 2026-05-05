@@ -163,7 +163,11 @@ export async function bootstrapV2() {
                 engine.injectIntent(phase, energy, id);
             }
         };
-        const semanticCoupler = new SemanticCoupler(injector);
+        const semanticCoupler = new SemanticCoupler(injector, (plasmid) => {
+            if (p2p) {
+                p2p.enqueuePlasmid(plasmid);
+            }
+        });
         const compostConsumer = new CompostConsumer(engine);
 
         // Era 2100: Bitcoin Genesis Verification
@@ -614,6 +618,8 @@ ${debateMd || "(no recorded arguments)"}
                                 attractors: r.attractors,
                                 qPhase: r.qPhase,
                                 receiptHash: r.receiptHash,
+                                entropyDelta: r.entropyDelta,
+                                metabolicCost: r.metabolicCost,
                             };
                             // Sanity-check: peer-side verifier must be happy with our own
                             // bundle. If this fails the lattice has drifted from the pure

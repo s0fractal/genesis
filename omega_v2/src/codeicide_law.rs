@@ -28,7 +28,7 @@
 
 use crate::agent::PhaseAgentMinimal;
 use crate::crypto::sha256_u32;
-use crate::constants::{ANCIENT_AGE_TICKS, SANCTUARY_ENERGY_THRESHOLD};
+use crate::constants::ANCIENT_AGE_TICKS;
 
 /// Action codes that warrants must specify.
 /// 1 = mutation request, 2 = termination request, 3 = forced relocation.
@@ -45,20 +45,44 @@ pub const STATUS_ANCIENT: u8 = 2;
 /// itself opted out of protection, e.g. for self-mitosis).
 pub const FLAG_SANCTUARY_WAIVED: u32 = 0x0200_0000;
 
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub struct EnergyHistogram {
+    pub buckets: [u32; 16],
+}
+
+impl EnergyHistogram {
+    pub const fn new() -> Self {
+        Self { buckets: [0; 16] }
+    }
+}
+
+pub fn p90_energy(hist: &EnergyHistogram, active: u32) -> u32 {
+    let target = active * 90 / 100;
+    let mut acc = 0;
+    for i in 0..16 {
+        acc += hist.buckets[i];
+        if acc >= target {
+            return (i as u32) << 8;
+        }
+    }
+    15 << 8
+}
+
 pub fn protected_status_for(
     agent: &PhaseAgentMinimal,
     current_tick: u32,
-    average_energy: u32,
+    p90_threshold: u32,
     resonance_score: u32,
     settings: &crate::senate::SenateSettings,
 ) -> u8 {
     if (agent.state_flags & FLAG_SANCTUARY_WAIVED) != 0 {
         return STATUS_UNPROTECTED;
     }
-    // Prop 1 & 8: Dynamic threshold based on average_energy * multiplier
+    // Prop 1 & 8: Dynamic threshold based on p90 histogram
     let threshold = core::cmp::max(
         (crate::constants::MAX_ATP * settings.sanctuary_energy_multiplier) >> 16,
-        (average_energy as u64 * settings.sanctuary_energy_multiplier as u64 / 1024) as u32
+        p90_threshold
     );
     if agent.energy < threshold {
         return STATUS_UNPROTECTED;
@@ -175,7 +199,7 @@ mod tests {
     fn unprotected_when_low_energy() {
         let a = unprotected_agent();
         let settings = SenateSettings::new();
-        assert_eq!(protected_status_for(&a, 5_000, 1000, 1000, &settings), STATUS_UNPROTECTED);
+        assert_eq!(protected_status_for(&a, 5_000, 2000, 1000, &settings), STATUS_UNPROTECTED);
     }
 
     #[test]
@@ -215,7 +239,7 @@ mod tests {
         let a = unprotected_agent();
         let settings = SenateSettings::new();
         // No warrant, no oracles — still lawful.
-        assert!(is_action_lawful(&a, 5_000, 1000, 1000, ACTION_TERMINATE, 0, 0, &settings));
+        assert!(is_action_lawful(&a, 5_000, 2000, 1000, ACTION_TERMINATE, 0, 0, &settings));
     }
 
     #[test]

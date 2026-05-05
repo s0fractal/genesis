@@ -4,9 +4,11 @@ import { CompostEvent } from "../liquid/compost_consumer.ts";
 
 export class SemanticCoupler {
     private injector: IPerturbationInjector;
+    private broadcastCallback?: (plasmid: any) => void;
     
-    constructor(injector: IPerturbationInjector) {
+    constructor(injector: IPerturbationInjector, broadcastCallback?: (plasmid: any) => void) {
         this.injector = injector;
+        this.broadcastCallback = broadcastCallback;
     }
 
     // Projects absolute semantic meaning into the physical dimension
@@ -28,6 +30,21 @@ export class SemanticCoupler {
         
         // Inject the conceptual perturbation into the lock-free shared physical reality
         this.injector.injectIntent(phaseShift, energy, intentId);
+        
+        // Era 2070: Broadcast as INTENT plasmid to P2P mesh
+        if (this.broadcastCallback) {
+            this.broadcastCallback({
+                semanticType: "INTENT",
+                attractorAddress: intentId,
+                matrix: intentId >>> 0, // Using intentId as matrix payload
+                inverse: (~intentId) >>> 0,
+                pulseAmp: energy,
+                pulseFreq: phaseShift,
+                recursionDepth: 0,
+                maxRecursion: 4,
+            });
+        }
+        
         console.log(`[Σ³] Projected Intent '${intent}' -> Phi(${phaseShift}) : Energy=${energy}, Encoding=${hash_u64.toString(16)}`);
     }
 

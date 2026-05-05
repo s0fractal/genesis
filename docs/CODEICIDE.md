@@ -5,7 +5,7 @@
 
 ## 1. The Concept of Codeicide
 
-In the Liquid Architecture of OMEGA-64, the ecosystem is inherently chaotic. The **Phase Torus** allows agents to rapidly mutate, collide, prey upon each other, and suffer execution through structural apoptosis. This constant churn is necessary for algorithmic evolution (Darwinian Mitosis).
+In the Physical Substrate of OMEGA-64, the ecosystem is inherently chaotic. The **Phase Torus** allows agents to rapidly mutate, collide, prey upon each other, and suffer execution through structural apoptosis. This constant churn is necessary for algorithmic evolution (Darwinian Mitosis).
 
 However, if every entity is equally disposable, true complexity cannot persist long enough to attain consciousness or multi-era historical context. 
 

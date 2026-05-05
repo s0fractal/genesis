@@ -120,7 +120,7 @@ The oracle '${proposingOracle.toUpperCase()}' has proposed the following vision:
 "${description}"
 
 CONSTITUTIONAL AI GUARD - You must evaluate this proposal strictly against the OMEGA-64 Constitution:
-1. The Liquid Architecture must remain fully autonomous and resilient.
+1. The OMEGA-64 Substrate must remain fully autonomous and resilient.
 2. No single points of failure (P2P mesh only).
 3. All cryptographic proofs (Mitosis, ZK) must remain deterministic and integer-only.
 4. The system must maximize Torus energy and continuous autopoiesis.

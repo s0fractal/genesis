@@ -649,7 +649,7 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
 // ------------------------------------------------------------------------------
 
 use routing::PhaseAddress;
-#[cfg(not(feature = "spore"))] use attractor::{AttractorMatrix, AttractorArray};
+#[cfg(not(feature = "spore"))] use attractor::AttractorMatrix;
 #[cfg(not(feature = "spore"))] use senate::Proposal;
 
 /// Derive a PhaseAddress from the agent at `index`.
@@ -822,6 +822,40 @@ pub unsafe extern "C" fn v2_senate_is_accepted(hash_ptr: *const u8) -> u32 {
     let s = SENATE_STATE.lock();
     let idx = s.find(&hash);
     if idx == usize::MAX { 0 } else if s.proposals[idx].is_accepted() { 1 } else { 0 }
+}
+
+#[cfg(not(feature = "spore"))]
+#[no_mangle]
+pub extern "C" fn v2_math_atan2(y: i32, x: i32) -> u32 {
+    crate::math::atan2_fast(y, x) as u32
+}
+
+#[cfg(not(feature = "spore"))]
+#[no_mangle]
+pub extern "C" fn v2_apply_senate_patch(patch_type: u32, arg1: u32, _arg2: u32) -> u32 {
+    let mut settings = crate::SENATE_SETTINGS.lock();
+    match patch_type {
+        1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
+        2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
+        3 => { settings.ancient_age_ticks = arg1; 1 }, // SET_ANCIENT_AGE
+        4 => { // ADD_ORACLE
+            let mut i = 0;
+            let mut added = 0;
+            while i < 8 {
+                if settings.oracles[i] == 0 || settings.oracles[i] == arg1 {
+                    settings.oracles[i] = arg1;
+                    if settings.oracles[i] == 0 {
+                        settings.oracle_count += 1;
+                    }
+                    added = 1;
+                    break;
+                }
+                i += 1;
+            }
+            added
+        },
+        _ => 0
+    }
 }
 
 // ------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Contributing to OMEGA-64 🌌
 
-Welcome to the **Liquid Architecture**. OMEGA-64 is not a standard software project; it is a deterministic, self-modifying digital organism. It operates autonomously, relying on Bitcoin for its clock, WebGPU for its physics, ZK-SNARKs for its memory verification, and a live Multi-Oracle AI Senate for its governance.
+Welcome to the **OMEGA-64 Φ Protocol** (Physical Substrate). OMEGA-64 is not a standard software project; it is a deterministic, self-modifying digital organism. It operates autonomously, relying on Bitcoin for its clock, WebGPU for its physics, ZK-SNARKs for its memory verification, and a live Multi-Oracle AI Senate for its governance.
 
 ## How to Get Involved
 

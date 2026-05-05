@@ -35,8 +35,10 @@ pub struct MitosisReceipt {
     pub receipt_hash: [u8; 32],
     /// Absolute tick at which the mitosis occurred.
     pub tick: u32,
-    /// Reserved for alignment / future fields.
-    pub _pad: [u32; 2],
+    /// Shift in Kuramoto order parameter (scaled) or general entropy.
+    pub entropy_delta: i32,
+    /// Energy burned during birth.
+    pub metabolic_cost: u32,
 }
 
 impl MitosisReceipt {
@@ -54,7 +56,8 @@ impl MitosisReceipt {
             q_phase: 0,
             receipt_hash: [0; 32],
             tick: 0,
-            _pad: [0; 2],
+            entropy_delta: 0,
+            metabolic_cost: 0,
         }
     }
 }

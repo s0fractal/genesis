@@ -63,6 +63,13 @@ async function main() {
   await addFile("tools/export_omega.ts");
   await addFile("index.html");
   await addFile("vite.config.ts");
+  
+  // SSoT Proof Allowlist
+  await addFile("tools/build_ssot.ts");
+  await addFile("src/ontology/genesis_ssot.ts");
+  await addFile("src/shared/generated_constants.ts");
+  await addFile("omega_v2/src/constants.rs");
+  await addFile("src/lens/shaders/generated_constants.wgsl");
   // Walk TS Source
   console.log("\nSweeping src/ ...");
   for await (
