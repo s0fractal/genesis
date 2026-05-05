@@ -657,6 +657,7 @@ ${debateMd || "(no recorded arguments)"}
                             macroSeason: Math.floor(frameCount / 3600) % 4,
                             currentSeasonName: "V2_AWAKENING",
                             mycelialContext: "The bare-metal V2 runtime is operating linearly.",
+                            structuralImage: captureTorusVisuals(canvas),
                         });
                     }
 

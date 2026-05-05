@@ -197,8 +197,12 @@ self.onmessage = async (e: MessageEvent) => {
             );
 
             const inferencePromise = async () => {
+                const contentPayload: any[] = [{ type: "text", text: prompt }];
+                if (_structuralSnapshot) {
+                    contentPayload.push({ type: "image_url", image_url: { url: _structuralSnapshot } });
+                }
                 const reply = await engine!.chat.completions.create({
-                    messages: [{ role: "user", content: prompt }],
+                    messages: [{ role: "user", content: contentPayload as any }],
                     temperature: 0.7,
                 });
                 return reply.choices[0].message.content || "";
@@ -223,6 +227,7 @@ ${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-comple
 The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}. Entropy: ${data.currentEntropy.toFixed(2)}. Population: ${data.totalPopulation} active Plasmids.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
+[VLM SIGHT INITIATED]: You have been granted Vision. Analyze the attached visual phenotype of the Torus. Does it reflect the mathematical stability requested by your Dipole? If you observe chaotic visual noise, glaring asymmetry, or metabolic overheating (excessive red heat), you MUST forcefully alter GLOBAL PHYSICS or inject AST Logic to stabilize the geometry.
 You may intervene by injecting AST Logic (Plasmid), an Evolutionary Sandbox Physics (ESP) Overlay, OR a Global Physics Delta.
 
 To inject AST Logic:
@@ -245,9 +250,11 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
             
             const cacheKey = fastHash(prompt);
             try {
-                const cached = await getCachedResponse(cacheKey);
-                if (cached && (performance.now() - cached.ts < 3600000)) { 
-                    return { mask: dipole.name, response: cached.response };
+                if (!data.structuralImage) {
+                    const cached = await getCachedResponse(cacheKey);
+                    if (cached && (performance.now() - cached.ts < 3600000)) { 
+                        return { mask: dipole.name, response: cached.response };
+                    }
                 }
             } catch (_e) { 
                 // Cache miss, proceed to fetch
