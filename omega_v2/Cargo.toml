@@ -15,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 # lang item.
 default = ["builtin-panic"]
 builtin-panic = []
+spore = []
 
 [dependencies]
 # We only use core and alloc, so dependencies must also be no_std

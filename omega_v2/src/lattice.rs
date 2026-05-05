@@ -46,6 +46,7 @@ pub struct PhaseLattice {
     pub smart_agents_ptr: *mut PhaseAgentSmart,
     pub minimal_agents_ptr: *mut PhaseAgentMinimal,
     pub tick_snapshot_ptr: *mut PhaseAgentMinimal,
+    #[cfg(not(feature = "spore"))]
     pub attractors_ptr: *const crate::attractor::AttractorArray,
     pub active_agent_count: u32,
 }
@@ -76,6 +77,7 @@ impl PhaseLattice {
             smart_agents_ptr: smart_ptr,
             minimal_agents_ptr: min_ptr,
             tick_snapshot_ptr: core::ptr::null_mut(),
+            #[cfg(not(feature = "spore"))]
             attractors_ptr: core::ptr::null(),
             active_agent_count: 0,
         }
@@ -370,6 +372,7 @@ impl PhaseLattice {
                     }
 
                     let mut attractor_drift = 0i32;
+                    #[cfg(not(feature = "spore"))]
                     if !self.attractors_ptr.is_null() {
                         let arr = &*self.attractors_ptr;
                         let attractor_count = core::cmp::min(arr.count, 4) as usize;
@@ -458,13 +461,16 @@ impl PhaseLattice {
                     // setting that flag would temporarily refuse mitosis for the
                     // tick. Ancient agents remain free to reproduce — wisdom
                     // wants to propagate.
-                    let avg = self.signals.total_energy / core::cmp::max(1, self.signals.active_agent_count);
-                    let _status = crate::codeicide_law::protected_status_for(
-                        parent, self.signals.absolute_tick, avg
-                    );
-                    if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
-                        // Skip — agent has explicitly opted out this tick.
-                        continue;
+                    #[cfg(not(feature = "spore"))]
+                    {
+                        let avg = self.signals.total_energy / core::cmp::max(1, self.signals.active_agent_count);
+                        let _status = crate::codeicide_law::protected_status_for(
+                            parent, self.signals.absolute_tick, avg
+                        );
+                        if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
+                            // Skip — agent has explicitly opted out this tick.
+                            continue;
+                        }
                     }
 
                     // Era 1040 Phase 2: snapshot the parent state BEFORE the energy
@@ -481,33 +487,41 @@ impl PhaseLattice {
                     }
 
                     if next_dead_idx < active {
-                        // Era 1040: Use pure mitosis_proof::derive_mitosis_child so the
-                        // lattice path is bit-for-bit identical to the path that the SP1
-                        // ZK guest executes when verifying receipts. Any divergence here
-                        // would invalidate proofs across the mesh.
-                        let mut arr = crate::ATTRACTOR_ARRAY.lock();
-                        let derived = crate::mitosis_proof::derive_mitosis_child(
-                            &parent_snapshot,
-                            &*arr,
-                            self.topology.q_phase,
-                        );
-                        let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
-                        *child = derived;
+                        #[cfg(not(feature = "spore"))]
+                        {
+                            let mut arr = crate::ATTRACTOR_ARRAY.lock();
+                            let derived = crate::mitosis_proof::derive_mitosis_child(
+                                &parent_snapshot,
+                                &*arr,
+                                self.topology.q_phase,
+                            );
+                            let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                            *child = derived;
 
-                        // Era 1040 Phase 2: append the receipt to the global log
-                        // so JS can broadcast a fully-verifiable DIPOLE plasmid.
-                        let receipt = crate::mitosis_log::MitosisReceipt {
-                            parent: parent_snapshot,
-                            child: derived,
-                            attractors: *arr,
-                            q_phase: self.topology.q_phase,
-                            receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
-                            tick: self.signals.absolute_tick,
-                            _pad: [0; 2],
-                        };
-                        let mut log = crate::MITOSIS_LOG.lock();
-                        log.push(receipt);
-
+                            // Era 1040 Phase 2: append the receipt to the global log
+                            // so JS can broadcast a fully-verifiable DIPOLE plasmid.
+                            let receipt = crate::mitosis_log::MitosisReceipt {
+                                parent: parent_snapshot,
+                                child: derived,
+                                attractors: *arr,
+                                q_phase: self.topology.q_phase,
+                                receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
+                                tick: self.signals.absolute_tick,
+                                _pad: [0; 2],
+                            };
+                            let mut log = crate::MITOSIS_LOG.lock();
+                            log.push(receipt);
+                        }
+                        #[cfg(feature = "spore")]
+                        {
+                            let mut derived = parent_snapshot;
+                            derived.energy = crate::constants::MITOSIS_COST / 2;
+                            derived.phase = derived.phase.wrapping_add(128) & ((1 << self.topology.q_phase) - 1);
+                            derived.genome ^= 1;
+                            let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                            *child = derived;
+                        }
+                        
                         replications += 1;
                     }
                 }

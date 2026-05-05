@@ -17,7 +17,7 @@
 // bit-for-bit from any independent implementation given the same inputs.
 // Cross-language anchor lives in `tests/genesis_inscription_test.ts`.
 
-use crate::senate::fnv1a_32;
+use crate::crypto::fnv1a_32;
 
 /// OMEGA Protocol version identifier — frozen at v1.0.
 pub const PROTOCOL_VERSION: &[u8] = b"OMEGA-64/RFC-001/v1.0";

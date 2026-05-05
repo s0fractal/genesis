@@ -17,7 +17,7 @@ doctest = false
 bench = false
 
 [dependencies]
-omega_v2 = { path = "../omega_v2", default-features = false }
+omega_v2 = { path = "../omega_v2", default-features = false, features = ["spore"] }
 
 [profile.release]
 opt-level = "z"

@@ -18,3 +18,15 @@ pub fn sha256_u32(data: &[u8]) -> u32 {
     let full_hash = sha256_hash(data);
     u32::from_be_bytes([full_hash[0], full_hash[1], full_hash[2], full_hash[3]])
 }
+
+/// FNV-1a 32-bit (offset basis 2166136261, prime 16777619).
+pub const fn fnv1a_32(bytes: &[u8]) -> u32 {
+    let mut hash: u32 = 0x811C_9DC5;
+    let mut i = 0;
+    while i < bytes.len() {
+        hash ^= bytes[i] as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+        i += 1;
+    }
+    hash
+}

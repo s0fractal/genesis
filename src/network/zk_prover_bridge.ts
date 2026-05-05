@@ -94,6 +94,7 @@ export class ZKProverBridge {
                 const outStr = decoder.decode(output.stdout);
                 
                 // Since the output is pretty-printed, each line is not a valid JSON.
+                let parsed: any = null;
                 try {
                     // Extract just the JSON part (it should be the only thing on stdout, since logs are stderr)
                     parsed = JSON.parse(outStr);

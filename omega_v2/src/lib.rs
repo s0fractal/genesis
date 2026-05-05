@@ -25,15 +25,15 @@ pub mod phi_protocol;
 pub mod resonance;
 pub mod halo;
 pub mod routing;
-pub mod attractor;
-pub mod senate;
-pub mod mitosis_proof;
-pub mod mitosis_log;
+#[cfg(not(feature = "spore"))] pub mod attractor;
+#[cfg(not(feature = "spore"))] pub mod senate;
+#[cfg(not(feature = "spore"))] pub mod mitosis_proof;
+#[cfg(not(feature = "spore"))] pub mod mitosis_log;
 pub mod genesis_inscription;
-pub mod oracle_identity;
-pub mod cross_model_debate;
-pub mod codeicide_law;
-pub mod warrant_issuance;
+#[cfg(not(feature = "spore"))] pub mod oracle_identity;
+#[cfg(not(feature = "spore"))] pub mod cross_model_debate;
+#[cfg(not(feature = "spore"))] pub mod codeicide_law;
+#[cfg(not(feature = "spore"))] pub mod warrant_issuance;
 pub mod spore_frame;
 pub mod spore_routing;
 pub mod resilience_snapshot;
@@ -70,7 +70,10 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 
 /// Static Memory Pre-Allocation for Bare-Metal Environment.
 /// 16MB of contiguous RAM allocated exactly at compile time.
+#[cfg(not(feature = "spore"))]
 pub const MAX_MINIMAL_AGENTS: usize = 500_000;
+#[cfg(feature = "spore")]
+pub const MAX_MINIMAL_AGENTS: usize = 1024;
 pub static AGENTS_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
     phase: 0,
     energy: 0,  // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
@@ -136,6 +139,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
     smart_agents_ptr: core::ptr::null_mut(),
     minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
     tick_snapshot_ptr: core::ptr::null_mut(),
+    #[cfg(not(feature = "spore"))]
     attractors_ptr: core::ptr::null(),
     active_agent_count: 0,
 });
@@ -157,25 +161,30 @@ pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync:
 pub static HALO_STATE: crate::sync::Spinlock<HaloState> = crate::sync::Spinlock::new(HaloState::empty());
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
-pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<AttractorArray> = crate::sync::Spinlock::new(AttractorArray::new());
+#[cfg(not(feature = "spore"))]
+pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<attractor::AttractorArray> = crate::sync::Spinlock::new(attractor::AttractorArray::new());
 
 /// Era 1030: Global Senate State for autopoietic legislation.
+#[cfg(not(feature = "spore"))]
 pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::sync::Spinlock::new(senate::SenateState::new());
 
 /// Era 1040 Phase 2: Global Mitosis Receipt Log.
 /// Lattice writes here on each darwinian_mitosis birth event; JS drains
 /// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
+#[cfg(not(feature = "spore"))]
 pub static MITOSIS_LOG: crate::sync::Spinlock<mitosis_log::MitosisLog> = crate::sync::Spinlock::new(mitosis_log::MitosisLog::new());
 
 /// Era 1070: Global Cross-Model Debate Ledger.
 /// Each canonical oracle records its arguments here; the kernel only
 /// fingerprints them so the protocol can verify provenance without
 /// trusting reasoning content.
+#[cfg(not(feature = "spore"))]
 pub static DEBATE_LEDGER: crate::sync::Spinlock<cross_model_debate::DebateLedger> = crate::sync::Spinlock::new(cross_model_debate::DebateLedger::new());
 
 /// Era 1090: Global Senate Warrant Ledger.
 /// Tracks WarrantProposals raised by the Senate; transitions to ISSUED
 /// state when ≥ required_threshold canonical oracles AYE the proposal.
+#[cfg(not(feature = "spore"))]
 pub static WARRANT_LEDGER: crate::sync::Spinlock<warrant_issuance::WarrantLedger> = crate::sync::Spinlock::new(warrant_issuance::WarrantLedger::new());
 
 // -----------------------------------------------------------------------------
@@ -211,7 +220,10 @@ pub extern "C" fn v2_boot_engine() {
         let agents = AGENTS_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal;
         lattice.minimal_agents_ptr = agents;
         lattice.tick_snapshot_ptr = SHADOW_LATTICE_MEMORY.as_mut_ptr() as *mut PhaseAgentMinimal;
-        lattice.attractors_ptr = ATTRACTOR_ARRAY.as_mut_ptr();
+        #[cfg(not(feature = "spore"))]
+        {
+            lattice.attractors_ptr = ATTRACTOR_ARRAY.as_mut_ptr();
+        }
     }
 }
 
@@ -277,9 +289,11 @@ pub extern "C" fn v2_reset_runtime_state() {
         lattice.signals.active_agent_count = 0;
         lattice.intents = [crate::topology::OntologicalIntent::empty(); 4];
         
-        let mut arr = ATTRACTOR_ARRAY.lock();
-        arr.clear();
-        
+        #[cfg(not(feature = "spore"))]
+        {
+            let mut arr = ATTRACTOR_ARRAY.lock();
+            arr.clear();
+        }
         let mut field = RESONANCE_FIELD.lock();
         *field = ResonanceField::zero();
         
@@ -517,6 +531,7 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
 
 /// Validate that matrix and inverse form a perfect dipole (bitwise complements).
 /// Returns 1 if valid, 0 if invalid.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
     let m = AttractorMatrix::new(matrix, inverse, 0, 0);
@@ -524,6 +539,7 @@ pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
 }
 
 /// Set an attractor at `index` (0..3). Replaces existing or extends count.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_freq: u32, pulse_amp: u32) {
     if index >= 4 { return; }
@@ -535,6 +551,7 @@ pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_
 }
 
 /// Clear all attractors.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_clear_attractors() {
     unsafe {
@@ -544,6 +561,7 @@ pub extern "C" fn v2_clear_attractors() {
 }
 
 /// Returns pointer to the global AttractorArray (80 bytes, 16-byte aligned).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_attractor_array_ptr() -> *const u8 {
     ATTRACTOR_ARRAY.as_mut_ptr() as *const u8
@@ -700,8 +718,8 @@ pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseA
 // ------------------------------------------------------------------------------
 
 use routing::PhaseAddress;
-use attractor::{AttractorMatrix, AttractorArray};
-use senate::Proposal;
+#[cfg(not(feature = "spore"))] use attractor::{AttractorMatrix, AttractorArray};
+#[cfg(not(feature = "spore"))] use senate::Proposal;
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns 0 if the index is out of bounds or the lattice is not booted.
@@ -769,6 +787,7 @@ pub extern "C" fn v2_route_taylor_step_curvature(
 // ------------------------------------------------------------------------------
 
 /// Returns pointer to the global SenateState (zero-copy read from JS).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
     SENATE_STATE.as_mut_ptr() as *const u8
@@ -781,12 +800,13 @@ pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
 /// # Safety
 /// Caller must ensure desc_ptr is valid for `desc_len` bytes (or null if 0).
 /// Caller must ensure out_ptr is valid for 32 bytes.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32, out_ptr: *mut u8) {
     if out_ptr.is_null() { return; }
     let out = unsafe { core::slice::from_raw_parts_mut(out_ptr, 32) };
     if desc_ptr.is_null() || desc_len == 0 {
-        let h = crate::senate::sha256_hash(&[]);
+        let h = crate::crypto::sha256_hash(&[]);
         out.copy_from_slice(&h);
         return;
     }
@@ -800,7 +820,7 @@ pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32, out_
         buf[i] = bytes[i];
         i += 1;
     }
-    let h = crate::senate::sha256_hash(&buf);
+    let h = crate::crypto::sha256_hash(&buf);
     out.copy_from_slice(&h);
 }
 
@@ -809,6 +829,7 @@ pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32, out_
 ///
 /// # Safety
 /// Caller must ensure desc_ptr is valid for `desc_len` bytes (or null if 0).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_propose(
     desc_ptr: *const u8,
@@ -838,6 +859,7 @@ pub unsafe extern "C" fn v2_senate_propose(
 /// `aye_threshold` is the AYE count required to accept (typical: 3).
 ///
 /// Returns: 0 = not found / closed, 1 = vote applied, 2 = ACCEPTED on this vote.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, weight: u32, aye_threshold: u32) -> u32 {
     if hash_ptr.is_null() { return 0; }
@@ -848,6 +870,7 @@ pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, weight: u
 }
 
 /// Returns the AYE count for a proposal, or 0xFFFFFFFF if not found.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_proposal_ayes(hash_ptr: *const u8) -> u32 {
     if hash_ptr.is_null() { return 0xFFFF_FFFF; }
@@ -859,6 +882,7 @@ pub unsafe extern "C" fn v2_senate_proposal_ayes(hash_ptr: *const u8) -> u32 {
 }
 
 /// Returns 1 if the proposal at `hash` has been accepted, 0 otherwise / not found.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_is_accepted(hash_ptr: *const u8) -> u32 {
     if hash_ptr.is_null() { return 0; }
@@ -890,6 +914,7 @@ pub extern "C" fn v2_genesis_hash_compute() -> u32 {
 }
 
 /// Number of proposals that have transitioned to ACCEPTED state since boot.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_senate_accepted_count() -> u32 {
     unsafe {
@@ -910,12 +935,14 @@ pub extern "C" fn v2_senate_accepted_count() -> u32 {
 ///   [16..]   entries: [MitosisReceipt; 32]
 /// Each MitosisReceipt is 160 bytes (parent 32 + child 32 + attractors 80 +
 /// q_phase 4 + receipt_hash 4 + tick 4 + _pad 4).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_ptr() -> *const u8 {
     MITOSIS_LOG.as_mut_ptr() as *const u8
 }
 
 /// Total number of mitosis receipts ever written since boot.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_total() -> u32 {
     unsafe {
@@ -925,12 +952,14 @@ pub extern "C" fn v2_mitosis_log_total() -> u32 {
 }
 
 /// Capacity of the mitosis log ring buffer (32).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_capacity() -> u32 {
     crate::mitosis_log::MITOSIS_LOG_CAPACITY as u32
 }
 
 /// Reset the mitosis log (test-only).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_clear() {
     unsafe {
@@ -944,11 +973,13 @@ pub extern "C" fn v2_mitosis_log_clear() {
 // ------------------------------------------------------------------------------
 
 /// Returns pointer to the global DebateLedger (zero-copy read from JS).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_ptr() -> *const u8 {
     DEBATE_LEDGER.as_mut_ptr() as *const u8
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_total() -> u32 {
     unsafe {
@@ -957,11 +988,13 @@ pub extern "C" fn v2_debate_ledger_total() -> u32 {
     }
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_capacity() -> u32 {
     crate::cross_model_debate::DEBATE_LEDGER_CAPACITY as u32
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_debate_ledger_clear() {
     unsafe {
@@ -975,6 +1008,7 @@ pub extern "C" fn v2_debate_ledger_clear() {
 ///
 /// # Safety
 /// Both pointers must be valid for their respective lengths (or null with len=0).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_debate_push(
     oracle_ptr: *const u8,
@@ -1012,6 +1046,7 @@ pub unsafe extern "C" fn v2_debate_push(
 
 /// Returns the protection status of agent at index `idx`:
 /// 0 = unprotected, 1 = sanctuary, 2 = ancient.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
     unsafe {
@@ -1027,6 +1062,7 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
 }
 
 /// Compute the canonical warrant hash for (target_genome, action, quorum).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_warrant_hash(
     target_genome: u32,
@@ -1038,12 +1074,14 @@ pub extern "C" fn v2_codeicide_warrant_hash(
 
 /// Compute the canonical Senate quorum hash from AYE bitmask.
 /// Bit 0 = claude, 1 = gpt, 2 = gemini, 3 = qwen, 4 = llama.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_quorum_hash(aye_bits: u32) -> u32 {
     crate::codeicide_law::quorum_hash(aye_bits as u8)
 }
 
 /// Returns 1 iff the action against agent at `idx` is lawful given the warrant.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_is_lawful(
     idx: u32,
@@ -1071,6 +1109,7 @@ pub extern "C" fn v2_codeicide_is_lawful(
 
 /// Set or clear the FLAG_SANCTUARY_WAIVED bit on agent at `idx`.
 /// `waive` non-zero sets the flag; zero clears it.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
     unsafe {
@@ -1090,11 +1129,13 @@ pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
 // ------------------------------------------------------------------------------
 
 /// Returns pointer to the global WarrantLedger (zero-copy read from JS).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_ptr() -> *const u8 {
     WARRANT_LEDGER.as_mut_ptr() as *const u8
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_total() -> u32 {
     unsafe {
@@ -1103,6 +1144,7 @@ pub extern "C" fn v2_warrant_ledger_total() -> u32 {
     }
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_issued_count() -> u32 {
     unsafe {
@@ -1111,6 +1153,7 @@ pub extern "C" fn v2_warrant_ledger_issued_count() -> u32 {
     }
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_ledger_clear() {
     unsafe {
@@ -1124,6 +1167,7 @@ pub extern "C" fn v2_warrant_ledger_clear() {
 ///
 /// # Safety
 /// `reason_ptr` must be valid for `reason_len` bytes (or null with len=0).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_warrant_raise(
     target_genome: u32,
@@ -1161,6 +1205,7 @@ pub unsafe extern "C" fn v2_warrant_raise(
 /// `oracle_bit`: 0=claude, 1=gpt, 2=gemini, 3=qwen, 4=llama.
 /// `aye` non-zero = AYE, zero = NAY.
 /// Returns 0=miss/closed, 1=applied, 2=ISSUED.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32) -> u32 {
     if oracle_bit > 4 {
@@ -1173,6 +1218,7 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32)
 }
 
 /// Returns the issued warrant_hash for a proposal, or 0 if not yet issued.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
     unsafe {
@@ -1187,6 +1233,7 @@ pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
 }
 
 /// Returns the AYE bitmask for a proposal, or 0xFFFFFFFF if not found.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_aye_bits(proposal_hash: u32) -> u32 {
     unsafe {
@@ -1200,6 +1247,7 @@ pub extern "C" fn v2_warrant_aye_bits(proposal_hash: u32) -> u32 {
 }
 
 /// Expire all open proposals older than `max_age` ticks. Returns count expired.
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_warrant_expire_old(current_tick: u32, max_age: u32) -> u32 {
     unsafe {
@@ -1213,6 +1261,7 @@ pub extern "C" fn v2_warrant_expire_old(current_tick: u32, max_age: u32) -> u32 
 ///
 /// # Safety
 /// `ptr` must be valid for `len` bytes (or null with len=0).
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_debate_reasoning_hash(ptr: *const u8, len: u32) -> u32 {
     if ptr.is_null() || len == 0 {

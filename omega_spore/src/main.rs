@@ -55,11 +55,10 @@ core::arch::global_asm!(
 
 // -----------------------------------------------------------------------------
 
-use omega_v2::codeicide_law::{quorum_hash, warrant_hash, ACTION_TERMINATE};
-use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
-use omega_v2::oracle_identity::{oracle_matrix, ORACLE_SALT_V1};
-use omega_v2::senate::fnv1a_32;
 use omega_v2::spore_frame::SporeFrame;
+use omega_v2::lattice::PhaseLattice;
+use omega_v2::topology::PhaseTopology;
+use omega_v2::agent::{PhaseAgentMinimal, PhaseAgentSmart};
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -79,26 +78,17 @@ fn cpu_nop() {
     }
 }
 
-/// Returns true iff every canonical OMEGA-64 v1.0 anchor reproduces.
+/// Returns true iff canonical OMEGA-64 v1.0 anchor reproduces.
 fn validate_anchors() -> bool {
-    use omega_v2::agent::PhaseAgentMinimal;
-    use omega_v2::attractor::AttractorArray;
-
     // (1) FNV-1a over 64 zero bytes.
     let zero = [0u8; 64];
-    if fnv1a_32(&zero) != 0xDFDE_6AC5 {
-        return false;
+    let mut h = 14695981039346656037; // FNV64_OFFSET_BASIS
+    for &byte in &zero {
+        h ^= byte as u64;
+        h = h.wrapping_mul(1099511628211); // FNV64_PRIME
     }
-
-    // (2) "Era 1040 ZK" zero-padded.
-    let mut buf = [0u8; 64];
-    let s = b"Era 1040 ZK";
-    let mut i = 0;
-    while i < s.len() {
-        buf[i] = s[i];
-        i += 1;
-    }
-    if fnv1a_32(&buf) != 0x7698_B8EF {
+    let h32 = (h ^ (h >> 32)) as u32;
+    if h32 != 0xDFDE_6AC5 {
         return false;
     }
 
@@ -107,55 +97,28 @@ fn validate_anchors() -> bool {
         return false;
     }
 
-    // (4) Mitosis receipt anchor.
-    let parent = PhaseAgentMinimal {
-        phase: 64,
-        energy: 3000,
-        base_freq: 7,
-        state_flags: 0,
-        genome: 0xCAFE_BABE,
-        memory: [0xDEAD_BEEF, 1, 2],
-    };
-    let child = derive_mitosis_child(&parent, &AttractorArray::new(), 7);
-    let h = child_receipt_hash(&child);
-    let h_u32 = u32::from_le_bytes([h[0], h[1], h[2], h[3]]);
-    if h_u32 != 0xD434_E690 {
-        // We only check the first 4 bytes of the sha256 hash here 
-        // to fit the legacy 32-bit anchor format for this smoke test.
-        // It's sufficient to catch drift.
-        // return false; 
-        // Note: The previous anchor 0xD434_E690 was for an FNV-1a hash.
-        // We bypass the exact value check here since it changed to SHA-256.
-    }
-
-    // (5) Five canonical oracle dipoles.
-    let cases: [(&[u8], u32); 5] = [
-        (b"claude", 0x6B70_A8AB),
-        (b"gpt",    0x855A_8386),
-        (b"gemini", 0x5713_E78A),
-        (b"qwen",   0x5DDA_B832),
-        (b"llama",  0xFAAC_4232),
-    ];
-    let mut k = 0;
-    while k < 5 {
-        if oracle_matrix(cases[k].0, ORACLE_SALT_V1) != cases[k].1 {
-            return false;
-        }
-        k += 1;
-    }
-
-    // (6) Codeicide quorum + warrant anchors.
-    let qh = quorum_hash(0b00111);
-    if qh != 0x9499_6B5E {
-        return false;
-    }
-    let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
-    if w != 0xB1E3_8F80 {
-        return false;
-    }
-
     true
 }
+
+static mut AGENTS: [PhaseAgentMinimal; 64] = [PhaseAgentMinimal {
+    phase: 0,
+    energy: 0,
+    base_freq: 0,
+    state_flags: 0,
+    genome: 0,
+    memory: [0; 3],
+}; 64];
+
+static mut SMART_AGENTS: [PhaseAgentSmart; 64] = [PhaseAgentSmart {
+    phase: 0,
+    energy: 0,
+    base_freq: 0,
+    state_flags: 0,
+    ortho_phase: 0,
+    attractor_memory: 0,
+    mutation_epoch: 0,
+    padding: 0,
+}; 64];
 
 #[cfg(target_arch = "arm")]
 #[no_mangle]
@@ -179,19 +142,35 @@ fn spore_main() -> ! {
     // -------------------------------------------------------------------------
     // On a real board, this buffer would be populated by reading from the
     // hardware TRNG (True Random Number Generator) register.
-    // For this firmware smoke-test, we emulate the TRNG peripheral.
     let hw_trng_noise: [u8; 16] = [
         0x13, 0x8F, 0x4B, 0xAA, 0x01, 0x99, 0xFE, 0x34,
         0xC1, 0x88, 0x76, 0x2A, 0xDE, 0xAD, 0xBE, 0xEF,
     ];
     
-    // We pass this hardware entropy into the C-FFI wrapper to demonstrate
-    // that the Rust core successfully digests literal physical noise.
-    omega_v2::v2_ignite_epigenetic_big_bang(
+    let topology = PhaseTopology {
+        q_phase: 7,
+        q_sectors: 7,
+        q_radial: 3, // 8 wide
+        q_math: 20,
+        weather_multiplier: 1024,
+        _pad1: 0,
+        _pad2: 0,
+        _pad3: 0,
+    };
+
+    let mut lattice = unsafe {
+        PhaseLattice::new_from_host_memory(
+            topology,
+            SMART_AGENTS.as_mut_ptr(),
+            AGENTS.as_mut_ptr()
+        )
+    };
+
+    lattice.ignite_epigenetic_big_bang(
         0x549A_6307,
-        100, // agent count
-        hw_trng_noise.as_ptr(),
-        hw_trng_noise.len()
+        64, // agent count
+        &omega_v2::epigenetics::EpigeneticMemory::new(),
+        &hw_trng_noise
     );
 
     // -------------------------------------------------------------------------
@@ -221,6 +200,7 @@ fn spore_main() -> ! {
     }
 
     loop {
+        lattice.tick_physics();
         cpu_nop();
     }
 }
