@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "export": "deno run -A tools/export_omega.ts",
-    "verify:dist": "deno run -A tools/verify_dist.ts",
+    "build:proto": "pbjs -t static-module -w commonjs -o src/proto/omega_v2.js src/proto/omega_v2.proto && pbts -o src/proto/omega_v2.d.ts src/proto/omega_v2.js",
     "build:wasm": "deno run -A tools/build_v2.ts",
     "build": "npm run build:wasm && vite build && npm run verify:dist",
     "serve": "vite preview",

@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package omega_v2;
+
+// ---------------------------------------------------------
+// 1. Core Physics Structures (Deterministic Integer-Only)
+// ---------------------------------------------------------
+
+message PhaseAgentMinimal {
+  // High-precision Q20 or continuous integer mapping of the 0..255 phase.
+  uint32 phase = 1;
+  // ATP Energy limit constraints.
+  uint32 energy = 2;
+  // Fundamental oscillator frequency omega_i (signed Q20).
+  int32 base_freq = 3;
+  // Bitmask: [1: is_locked] [7: species] [24: reserved custom traits].
+  uint32 state_flags = 4;
+  // Cellular Automata state vector or Species Genome.
+  uint32 genome = 5;
+  // 3-word memory slots.
+  repeated uint32 memory = 6; // strictly 3 elements
+}
+
+message AttractorMatrix {
+  uint32 state = 1;
+}
+
+message AttractorArray {
+  uint32 count = 1;
+  // Padded out to match 16-byte WGSL alignment.
+  repeated uint32 _pad = 2; // strictly 3 elements
+  repeated AttractorMatrix data = 3; // up to 4 elements
+}
+
+message SignalStore {
+  uint32 dirty_flags = 1;
+  uint32 absolute_tick = 2;
+  uint32 active_agent_count = 3;
+  uint32 max_cells = 4;
+}
+
+// ---------------------------------------------------------
+// 2. Bare-Metal Transport Layer (SporeFrame - Era 1110)
+// ---------------------------------------------------------
+
+message SporeFrame {
+  // Exactly 32 bytes on the wire.
+  uint32 magic = 1;       // ASCII "SPOR" or equivalent
+  uint32 frame_type = 2;
+  uint32 ttl = 3;
+  bytes payload = 4;      // up to 16 bytes
+  uint32 crc = 5;         // FNV-1a checksum
+}
+
+// ---------------------------------------------------------
+// 3. Cryptographic Proofs (Era 1040 / 2060)
+// ---------------------------------------------------------
+
+message ZKProofBundle {
+  string kind = 1;           // e.g. "stark-mock", "stark-real"
+  string receipt_hash = 2;   // FNV-1a hash
+  uint32 parent_genome = 3;  // Mitosis-specific
+  bool verified = 4;
+  bytes proof_bytes = 5;
+  bytes public_values = 6;
+  string note = 7;
+}
+
+message TickRollupReceipt {
+  string initial_hash = 1;
+  string final_hash = 2;
+  ZKProofBundle proof = 3;
+}
+
+// ---------------------------------------------------------
+// 4. Mesh Consensus Layer (PlasmidPayload)
+// ---------------------------------------------------------
+
+message PlasmidPayload {
+  // Semantic routing type
+  string semantic_type = 1; // "INTENT", "DIPOLE", "PROPOSAL", "VOTE", "ZK_ROLLUP_EVENT", etc.
+
+  // Core P2P fields
+  uint32 attractor_address = 2;
+  uint32 matrix = 3;
+  uint32 inverse = 4;
+  uint32 pulse_freq = 5;
+  uint32 pulse_amp = 6;
+
+  uint32 parent_hash = 7;
+  uint32 recursion_depth = 8;
+  uint32 max_recursion = 9;
+
+  // Era 1030: Senate Extensions
+  string proposal_hash = 10;
+  string proposal_description = 11;
+  bool vote_aye = 12;
+
+  // Era 1060: Oracle Attribution
+  string oracle_name = 13;
+  string oracle_reasoning = 14;
+
+  // Era 2060: Bitcoin Hyperbolic Geometry
+  uint32 tau = 15;
+
+  // Era 1040: ZK-Notarized Mutations (Mitosis)
+  PhaseAgentMinimal parent = 16;
+  PhaseAgentMinimal claimed_child = 17;
+  repeated AttractorMatrix attractors = 18;
+  uint32 q_phase = 19;
+  string receipt_hash = 20;
+  ZKProofBundle proof_bundle = 21;
+
+  // Era 2060: ZK Rollup
+  bytes rollup_state = 22; // The full PhaseAgent array
+
+  // Mesh Bridge Extensions (Era 1510 - 2040)
+  string event_sync_body = 23;
+  uint32 event_sync_target = 24;
+
+  string translation_policy_body = 25;
+  uint32 translation_policy_target = 26;
+
+  string translation_policy_corroboration_body = 27;
+  uint32 translation_policy_corroboration_target = 28;
+
+  string translation_policy_replay_digest_body = 29;
+  uint32 translation_policy_replay_digest_target = 30;
+
+  string translation_policy_replay_digest_digest_body = 31;
+  uint32 translation_policy_replay_digest_digest_target = 32;
+
+  string tp_rdd_forensic_replay_digest_body = 33;
+  uint32 tp_rdd_forensic_replay_digest_target = 34;
+}
+
+// ---------------------------------------------------------
+// 5. Unified Outer Envelope
+// ---------------------------------------------------------
+
+message OmegaV2Message {
+  oneof payload {
+    PlasmidPayload plasmid = 1;
+    SporeFrame spore = 2;
+  }
+}
