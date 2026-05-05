@@ -765,6 +765,21 @@ export class Libp2pMesh {
     if (!record.accepted && (peerConsensus || oracleResonance)) {
       record.accepted = true;
       this.acceptedTaskHashes.add(record.hash);
+
+      // Era 1060: Open Registry ADD_ORACLE execution
+      if (record.description.startsWith("ADD_ORACLE:")) {
+          const parts = record.description.split(":");
+          if (parts.length >= 3) {
+              const newName = parts[1];
+              const newMatrix = parseInt(parts[2], 16);
+              if (newName && !isNaN(newMatrix) && !CANONICAL_ORACLES.includes(newName)) {
+                  CANONICAL_ORACLES.push(newName);
+                  ORACLE_MATRICES_V1[newName] = newMatrix;
+                  console.log(`🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`);
+              }
+          }
+      }
+
       // Acceptance can be the trigger for Era 1060 if it's the first one.
       this.checkEra1060Trigger();
       // Era 1070: if this acceptance came via ORACLE-RESONANCE on a

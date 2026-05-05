@@ -604,6 +604,17 @@ pub extern "C" fn v2_resonance_sum_cos() -> i64 {
     }
 }
 
+// --- Intent Projection (Era 1080) ---
+
+/// Receives a projected intent from the SemanticCoupler (TS) and publishes it
+/// as a PHI_MSG_INTENT into the lock-free PhiMessageBuffer.
+#[no_mangle]
+pub extern "C" fn v2_phi_inject_intent(phase: u32, energy: u32, intent_id: u32) {
+    let msg = crate::phi_protocol::PhiMessage::encode_intent(phase, energy, intent_id);
+    let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+    buf.push(msg);
+}
+
 /// Returns Σ ρ_i · sin(φ_i) as i64 (truncated from internal i128).
 #[no_mangle]
 pub extern "C" fn v2_resonance_sum_sin() -> i64 {

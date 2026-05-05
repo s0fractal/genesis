@@ -29,15 +29,15 @@ export function oracleDipole(name: string, salt: string = ORACLE_SALT_V1): { mat
     return { matrix: m, inverse: (~m) >>> 0 };
 }
 
-/** Canonical oracle name registry — frozen for OMEGA-64 v1.0. */
-export const CANONICAL_ORACLES = ["claude", "gpt", "gemini", "qwen", "llama"] as const;
-export type CanonicalOracle = typeof CANONICAL_ORACLES[number];
+/** Canonical oracle name registry — initially seeded, but open via ADD_ORACLE in Era 1060. */
+export const CANONICAL_ORACLES: string[] = ["claude", "gpt", "gemini", "qwen", "llama"];
+export type CanonicalOracle = string;
 
-/** Frozen v1.0 oracle matrices (anchored against omega_v2/tests/oracle_anchors.rs). */
+/** Oracle matrices registry. */
 export const ORACLE_MATRICES_V1: Record<CanonicalOracle, number> = {
     claude: 0x41a2_f2f4,
     gpt:    0x89b1_222a,
     gemini: 0x9874_dd21,
     qwen:   0x6e52_1f4e,
     llama:  0x3a52_38ef,
-} as const;
+};
