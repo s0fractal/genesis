@@ -6,6 +6,9 @@
 // Each level has a smaller "radius of influence" (logarithmic or power-of-2).
 // Packets (plasmids) fall toward the nearest phase well along the gradient.
 
+pub const ADDRESS_BROADCAST: u32 = 0x0000_0000;
+pub const ADDRESS_LOOPBACK: u32 = 0xFFFF_FFFF;
+
 use crate::agent::PhaseAgentMinimal;
 
 /// A 32-bit hierarchical phase address.
@@ -91,7 +94,7 @@ impl PhaseAddress {
     /// Here, the z-axis acts as an exponential curvature penalty (ATP Cost) for out-of-sync nodes.
     pub fn hyperbolic_distance_toroidal_3d_scaled(self, tau_self: u32, other: Self, tau_other: u32) -> u32 {
         let base_distance = self.hyperbolic_distance_toroidal_scaled(other);
-        let tau_diff = tau_self.abs_diff(tau_other);
+        let tau_diff = core::cmp::min(tau_self.abs_diff(tau_other), 64);
         
         // Fixed-point hyperbolic curvature math for integer-only execution:
         // We penalize time travel heavily. distance += (Δτ * 8) + (Δτ² / 1024)

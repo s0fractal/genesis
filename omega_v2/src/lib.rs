@@ -23,7 +23,6 @@ pub mod epigenetics;
 pub mod anchor;
 pub mod phi_protocol;
 pub mod resonance;
-pub mod halo;
 pub mod routing;
 #[cfg(not(feature = "spore"))] pub mod attractor;
 #[cfg(not(feature = "spore"))] pub mod senate;
@@ -52,7 +51,6 @@ use epigenetics::EpigeneticMemory;
 use anchor::PhiAnchorChain;
 use phi_protocol::{PhiMessageBuffer, PhiMessage};
 use resonance::ResonanceField;
-use halo::HaloState;
 
 
 
@@ -156,9 +154,6 @@ pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> = crate::
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
 pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync::Spinlock::new(ResonanceField::zero());
 
-/// Distributed Federation: Halo boundary state for cross-node sync.
-/// Exchanged via WebRTC between adjacent nodes in the toroidal chain.
-pub static HALO_STATE: crate::sync::Spinlock<HaloState> = crate::sync::Spinlock::new(HaloState::empty());
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
 #[cfg(not(feature = "spore"))]
@@ -297,9 +292,7 @@ pub extern "C" fn v2_reset_runtime_state() {
         let mut field = RESONANCE_FIELD.lock();
         *field = ResonanceField::zero();
         
-        let mut halo = HALO_STATE.lock();
-        *halo = HaloState::empty();
-        
+
         let mut phi_buf = PHI_MESSAGE_BUFFER.lock();
         *phi_buf = PhiMessageBuffer::new();
         
@@ -635,83 +628,7 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
     }
 }
 
-// --- Era 400: Distributed Federation Halo Sync ---
 
-/// Extract boundary agents from the local lattice into HALO_STATE.
-#[no_mangle]
-pub extern "C" fn v2_halo_extract() {
-    unsafe {
-        let mut lattice = OMEGA_LATTICE.lock();
-        let active = lattice.signals.active_agent_count as usize;
-        if lattice.minimal_agents_ptr.is_null() || active == 0 {
-            return;
-        }
-        let agents = core::slice::from_raw_parts(lattice.minimal_agents_ptr, active);
-        let mut state = HALO_STATE.lock();
-        state.extract(agents, active);
-    }
-}
-
-/// Returns pointer to the left halo agent (owned by previous node).
-/// # Safety
-/// Pointer is valid until next v2_halo_extract() call.
-#[no_mangle]
-pub extern "C" fn v2_halo_left_ptr() -> *const PhaseAgentMinimal {
-    unsafe {
-        let mut state = HALO_STATE.lock();
-        core::ptr::addr_of!(state.left_halo[0])
-    }
-}
-
-/// Returns pointer to the right halo agent (owned by next node).
-/// # Safety
-/// Pointer is valid until next v2_halo_extract() call.
-#[no_mangle]
-pub extern "C" fn v2_halo_right_ptr() -> *const PhaseAgentMinimal {
-    unsafe {
-        let mut state = HALO_STATE.lock();
-        core::ptr::addr_of!(state.right_halo[0])
-    }
-}
-
-/// Returns the halo sequence number (monotonically incremented per extract).
-#[no_mangle]
-pub extern "C" fn v2_halo_sequence() -> u64 {
-    unsafe {
-        let mut state = HALO_STATE.lock();
-        state.sequence
-    }
-}
-
-/// Returns 1 if both halos contain living agents (connected federation).
-#[no_mangle]
-pub extern "C" fn v2_halo_is_connected() -> u32 {
-    unsafe {
-        let mut state = HALO_STATE.lock();
-        if state.is_connected() { 1 } else { 0 }
-    }
-}
-
-/// Inject a halo received from a neighbor node.
-/// `from_left`: 1 if this is the left neighbor's right boundary, 0 if right neighbor's left boundary.
-/// `agent_ptr`: pointer to the received PhaseAgentMinimal (must be valid, 32 bytes).
-///
-/// # Safety
-/// `agent_ptr` must be a valid, non-null, aligned pointer to a `PhaseAgentMinimal`.
-#[no_mangle]
-pub unsafe extern "C" fn v2_halo_inject(from_left: u32, agent_ptr: *const PhaseAgentMinimal) {
-    if agent_ptr.is_null() { return; }
-    if agent_ptr.align_offset(core::mem::align_of::<PhaseAgentMinimal>()) != 0 { return; }
-    unsafe {
-        let mut state = HALO_STATE.lock();
-        let agent = core::ptr::read(agent_ptr);
-        if from_left != 0 {
-            state.left_halo[0] = agent;
-        } else {
-            state.right_halo[0] = agent;
-        }
-    }
-}
 
 // ------------------------------------------------------------------------------
 // Era 1000: Taylor Series Phase Routing FFI

@@ -98,6 +98,8 @@ requires 3+ unique AYE peers with `ayes > nays`.
 I-7. **Genesis identity.** OMEGA-64 v1.0 ≡ `0x549A_6307`. Any
 implementation claiming v1.0 conformance MUST compute this hash.
 
+I-8. **Mitosis Sovereignty.** Any agent above the mitosis energy threshold may replicate unless it explicitly waives its sanctuary status. No external oracle can block cell division.
+
 ## 5. Plasmid Wire Format v1.0 (frozen)
 
 ```jsonc

@@ -243,6 +243,8 @@ pub fn main() {
             }
             let final_hash = omega_v2::senate::sha256_hash(&final_bytes);
 
+            assert!(initial_hash != final_hash || active_count == 0, "Static state, skipping ZK proof");
+
             // Commit the rollup proof bundle
             sp1_zkvm::io::commit(&(mode, q_phase, initial_hash, final_hash, active_count));
         }
