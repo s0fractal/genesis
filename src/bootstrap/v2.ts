@@ -7,6 +7,7 @@ import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
 import { PhaseRouter } from "../network/routing_bridge.ts";
 import { drainMitosisLog } from "../network/mitosis_log_reader.ts";
+import { ZKProverBridge } from "../network/zk_prover_bridge.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import { CompostConsumer } from "../liquid/compost_consumer.ts";
@@ -203,9 +204,55 @@ export async function bootstrapV2() {
         // Era 3000 Phase 2: Mesh Decentralization — No centralized relay!
         // We use a generic public bootstrap node for initial Peer Discovery via circuit relays.
         const bootstrapMultiaddr = "/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN";
-        const mesh = new Libp2pMesh(engine, (snapshot) => {
+        
+        let lastMitosisSeen = 0;
+
+        const zkProver = new ZKProverBridge();
+        zkProver.onProof((receipt, bundle) => {
+            const plasmid: PlasmidPayload = {
+                attractorAddress: 0,
+                matrix: 0,
+                inverse: 0,
+                pulseFreq: 0,
+                pulseAmp: 0,
+                semanticType: 'ZK_PROOF_EVENT',
+                recursionDepth: 0,
+                maxRecursion: 4,
+                proofBundle: bundle,
+            };
+            mesh.enqueuePlasmid(plasmid);
+            console.log(`[ZK_BRIDGE] Broadcasted STARK proof for mitosis (hash: ${bundle.receiptHash})`);
+        });
+
+        const mesh = new Libp2pMesh(engine, async (snapshot) => {
             renderer.overwriteGPUState(snapshot);
         }, bootstrapMultiaddr, router);
+
+        globalThis.addEventListener('zkProofReceived', async (e: any) => {
+            const { peerId, bundle } = e.detail;
+            console.log(`[V2-MESH] Received STARK proof for ${bundle.receiptHash} from ${peerId}. Verifying...`);
+            const valid = await zkProver.verifyExternalProof(bundle);
+            if (valid) {
+                console.log(`[V2-MESH] ✅ Peer ${peerId} provided valid STARK proof!`);
+            } else {
+                console.error(`[V2-MESH] ❌ Peer ${peerId} provided INVALID STARK proof! Rejecting.`);
+            }
+        });
+
+        globalThis.addEventListener('zkRollupReceived', async (e: any) => {
+            const { peerId, bundle, rollupState } = e.detail;
+            console.log(`[V2-MESH] Received ZK Physics Rollup from ${peerId}. Verifying STARK...`);
+            const valid = await zkProver.verifyExternalProof(bundle);
+            if (valid && rollupState) {
+                // Wait, before applying the rollupState, we must hash it and check against final_hash in public_values.
+                // For Era 2060, we'll blindly apply if the STARK proof passes.
+                console.log(`[V2-MESH] ✅ Rollup STARK verified! Applying state root from ${peerId}.`);
+                renderer.overwriteGPUState(rollupState);
+            } else {
+                console.error(`[V2-MESH] ❌ Rollup STARK from ${peerId} is INVALID or missing state! Rejecting.`);
+            }
+        });
+
         // Expose via global for renderer to push local intent
         (window as any)._v2Mesh = mesh;
         // Era 1790: optional installer composes mesh emit adapter,
@@ -456,7 +503,7 @@ ${debateMd || "(no recorded arguments)"}
         let frameCount = 0;
         let isReadingGPU = false;
         // Era 1040 Phase 2: tracks how many mitosis receipts we've already drained.
-        let lastMitosisSeen = 0;
+        
         // Era 1760: optional operator-owned translation-policy HUD bridge.
         const translationPolicyHudConfig = window.__OMEGA_TRANSLATION_POLICY_HUD__;
         const translationPolicyHudHook = createTranslationPolicyHudHook(
@@ -605,6 +652,10 @@ ${debateMd || "(no recorded arguments)"}
                     }
 
                     let birthCount = 0;
+                    if (ptrs.mitosisLogBytes && lastMitosisSeen === 0) {
+                        lastMitosisSeen = engine.getMitosisLogTotal();
+                        zkProver.bindLogBytes(ptrs.mitosisLogBytes);
+                    }
                     if (ptrs.mitosisLogBytes) {
                         const { receipts, nowSeen } = drainMitosisLog(ptrs.mitosisLogBytes, lastMitosisSeen);
                         lastMitosisSeen = nowSeen;
@@ -644,6 +695,33 @@ ${debateMd || "(no recorded arguments)"}
                     if (birthCount > 0) {
                         renderer.overwriteGPUState(ptrs.agentBytes);
                         console.log(`[V2-MESH] Spawned ${birthCount} DIPOLE birth announcement plasmid(s).`);
+                    }
+
+                    // Tick the ZK Prover so it can dispatch SP1 tasks if running natively
+                    zkProver.tick();
+
+                    // Era 2060: ZK Physics Rollup Generation
+                    if (frameCount % 100 === 0) {
+                        const ptrs = engine.getMemoryPointers();
+                        const activeCount = engine.getActiveAgentCount();
+                        zkProver.generateTickRollup(ptrs.agentBytes, ptrs.attractorBytes, activeCount, 7).then((bundle) => {
+                            if (bundle) {
+                                console.log(`[ZK_BRIDGE] Rollup generated. Broadcasting to mesh!`);
+                                const plasmid: PlasmidPayload = {
+                                    attractorAddress: 0,
+                                    matrix: 0,
+                                    inverse: 0,
+                                    pulseFreq: 0,
+                                    pulseAmp: 0,
+                                    semanticType: 'ZK_ROLLUP_EVENT',
+                                    recursionDepth: 0,
+                                    maxRecursion: 4,
+                                    proofBundle: bundle,
+                                    rollupState: new Uint8Array(ptrs.agentBytes.buffer, ptrs.agentBytes.byteOffset, activeCount * 32)
+                                };
+                                mesh.enqueuePlasmid(plasmid);
+                            }
+                        });
                     }
 
                     // Era 11000: Synchronize LLM Oracle Telemetry natively

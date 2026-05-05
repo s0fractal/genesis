@@ -211,6 +211,12 @@ export class OmegaV2Engine {
         return this.cachedPointers;
     }
 
+    public getActiveAgentCount(): number {
+        const ptrs = this.getMemoryPointers();
+        const signals = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset, 4);
+        return signals[2]; // active_agent_count is at offset 8 (index 2)
+    }
+
     /** Era 1040 Phase 2: total mitosis receipts written since boot. */
     public getMitosisLogTotal(): number {
         if (!this.wasmInstance) return 0;

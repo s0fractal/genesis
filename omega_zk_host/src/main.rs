@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::blocking::{Elf, ProveRequest, Prover, ProverClient, SP1Stdin};
 use sp1_sdk::ProvingKey;
 use std::io::Read;
+use base64::Engine;
 
 const ELF_BYTES: &[u8] = include_bytes!(
     "../../target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest"
@@ -52,6 +53,18 @@ struct MitosisReceiptJson {
     tick: u32,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct TickRollupJson {
+    q_phase: u32,
+    q_sectors: u32,
+    q_radial: u32,
+    q_math: u32,
+    weather_multiplier: u32,
+    active_count: u32,
+    agents: Vec<AgentJson>,
+    attractors: Vec<AttractorJson>,
+}
+
 impl AgentJson {
     fn to_agent(&self) -> PhaseAgentMinimal {
         PhaseAgentMinimal {
@@ -76,7 +89,7 @@ impl AgentJson {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ProofBundle {
     kind: String,
     receipt_hash: String,
@@ -199,8 +212,8 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
         receipt_hash: format!("0x{}", receipt.receipt_hash),
         parent_genome: format!("0x{:08x}", parent.genome),
         verified: true,
-        proof_bytes: Some(base64_encode(&proof_bytes)),
-        public_values: Some(base64_encode(&public_values)),
+        proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
+        public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
         note: Some(format!(
             "SP1 mock prover; ELF {} bytes; proof {} bytes",
             ELF_BYTES.len(),
@@ -209,34 +222,102 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
     })
 }
 
+fn run_rollup(rollup: TickRollupJson) -> Result<ProofBundle, String> {
+    eprintln!("[zk_host_rollup] Initialising SP1 mock prover client for Mode 3…");
+    let prover = ProverClient::builder().mock().build();
+    let elf = Elf::Static(ELF_BYTES);
+    let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
+
+    let mut stdin = SP1Stdin::new();
+    // Mode 3: ZK Physics Rollup
+    stdin.write(&3u32);
+    
+    // Topology params
+    stdin.write(&rollup.q_phase);
+    stdin.write(&rollup.q_sectors);
+    stdin.write(&rollup.q_radial);
+    stdin.write(&rollup.q_math);
+    stdin.write(&rollup.weather_multiplier);
+
+    // Initial state
+    stdin.write(&rollup.active_count);
+    for a in &rollup.agents {
+        stdin.write(&a.phase);
+        stdin.write(&a.energy);
+        stdin.write(&a.base_freq);
+        stdin.write(&a.state_flags);
+        stdin.write(&a.genome);
+        stdin.write(&a.memory[0]);
+        stdin.write(&a.memory[1]);
+        stdin.write(&a.memory[2]);
+    }
+
+    // Attractors
+    stdin.write(&(rollup.attractors.len() as u32));
+    for a in &rollup.attractors {
+        stdin.write(&a.matrix);
+        stdin.write(&a.inverse);
+        stdin.write(&a.pulse_freq);
+        stdin.write(&a.pulse_amp);
+    }
+
+    eprintln!("[zk_host_rollup] Generating physics STARK proof for {} agents…", rollup.active_count);
+    let proof = prover
+        .prove(&pk, stdin)
+        .run()
+        .map_err(|e| format!("proving failed: {:?}", e))?;
+
+    let proof_bytes = bincode::serialize(&proof)
+        .map_err(|e| format!("proof serialization failed: {:?}", e))?;
+    
+    // Public values should contain initial_hash and final_hash
+    let public_values = proof.public_values.to_vec();
+
+    eprintln!("[zk_host_rollup] ✅ Rollup STARK generated successfully!");
+    Ok(ProofBundle {
+        kind: "ZK_ROLLUP".to_string(),
+        receipt_hash: "ROLLUP".to_string(), // Can be updated if needed
+        parent_genome: "0x00000000".to_string(),
+        verified: true,
+        proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
+        public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
+        note: Some(format!("Rollup proof for {} agents", rollup.active_count)),
+    })
+}
+
+fn run_verify_only(bundle: ProofBundle) -> Result<ProofBundle, String> {
+    eprintln!("[zk_host] Initialising SP1 mock prover client for verification…");
+    let prover = ProverClient::builder().mock().build();
+    let elf = Elf::Static(ELF_BYTES);
+    let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
+
+    let proof_bytes_b64 = bundle.proof_bytes.as_ref().ok_or("missing proof_bytes")?;
+    let proof_bytes = base64::engine::general_purpose::STANDARD
+        .decode(proof_bytes_b64)
+        .map_err(|e| format!("base64 decode failed: {:?}", e))?;
+    
+    let proof: sp1_sdk::SP1ProofWithPublicValues = bincode::deserialize(&proof_bytes)
+        .map_err(|e| format!("proof deserialization failed: {:?}", e))?;
+
+    prover
+        .verify(&proof, pk.verifying_key(), None)
+        .map_err(|e| format!("verification failed: {:?}", e))?;
+
+    eprintln!("[zk_host] ✅ Verification succeeded.");
+    Ok(ProofBundle {
+        kind: bundle.kind,
+        receipt_hash: bundle.receipt_hash,
+        parent_genome: bundle.parent_genome,
+        verified: true,
+        proof_bytes: Some(proof_bytes_b64.clone()),
+        public_values: bundle.public_values,
+        note: Some("Verified externally".into()),
+    })
+}
+
 fn base64_encode(bytes: &[u8]) -> String {
-    const TABLE: &[u8] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity((bytes.len() + 2) / 3 * 4);
-    let mut i = 0;
-    while i + 3 <= bytes.len() {
-        let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8) | (bytes[i + 2] as u32);
-        out.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
-        out.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
-        out.push(TABLE[((n >> 6) & 0x3F) as usize] as char);
-        out.push(TABLE[(n & 0x3F) as usize] as char);
-        i += 3;
-    }
-    let rem = bytes.len() - i;
-    if rem == 1 {
-        let n = (bytes[i] as u32) << 16;
-        out.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
-        out.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
-        out.push('=');
-        out.push('=');
-    } else if rem == 2 {
-        let n = ((bytes[i] as u32) << 16) | ((bytes[i + 1] as u32) << 8);
-        out.push(TABLE[((n >> 18) & 0x3F) as usize] as char);
-        out.push(TABLE[((n >> 12) & 0x3F) as usize] as char);
-        out.push(TABLE[((n >> 6) & 0x3F) as usize] as char);
-        out.push('=');
-    }
-    out
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
 fn run_rollup_test() -> Result<ProofBundle, String> {
@@ -317,8 +398,8 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
         receipt_hash: "0x0".into(), // Or parse from public values if needed
         parent_genome: "0x0".into(),
         verified: true,
-        proof_bytes: Some(base64_encode(&proof_bytes)),
-        public_values: Some(base64_encode(&public_values)),
+        proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
+        public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
         note: Some(format!("SP1 Rollup mock prover; {} agents", active_count)),
     })
 }
@@ -332,6 +413,42 @@ fn main() {
             }
             Err(e) => {
                 eprintln!("[zk_host] FAILED: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    if args.iter().any(|a| a == "--verify-only") {
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buf)
+            .expect("failed to read stdin");
+        let bundle: ProofBundle = serde_json::from_str(&buf).expect("invalid proof bundle JSON");
+        match run_verify_only(bundle) {
+            Ok(res) => {
+                println!("{}", serde_json::to_string_pretty(&res).unwrap());
+            }
+            Err(e) => {
+                eprintln!("[zk_host] VERIFY FAILED: {}", e);
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+
+    if args.iter().any(|a| a == "--rollup") {
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buf)
+            .expect("failed to read stdin");
+        let rollup: TickRollupJson = serde_json::from_str(&buf).expect("invalid rollup JSON");
+        match run_rollup(rollup) {
+            Ok(res) => {
+                println!("{}", serde_json::to_string_pretty(&res).unwrap());
+            }
+            Err(e) => {
+                eprintln!("[zk_host] ROLLUP FAILED: {}", e);
                 std::process::exit(1);
             }
         }

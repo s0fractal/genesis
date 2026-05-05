@@ -42,7 +42,9 @@ export interface PlasmidPayload {
     | "TRANSLATION_POLICY_CORROBORATION"
     | "TRANSLATION_POLICY_REPLAY_DIGEST"
     | "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST"
-    | "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST";
+    | "TRANSLATION_POLICY_REPLAY_DIGEST_DIGEST_FORENSIC_REPLAY_DIGEST"
+    | "ZK_PROOF_EVENT"
+    | "ZK_ROLLUP_EVENT";
   parentHash?: number;
   recursionDepth: number;
   maxRecursion: number;
@@ -58,6 +60,8 @@ export interface PlasmidPayload {
   attractors?: AttractorEntry[]; // Snapshot of attractor field (DIPOLE only)
   qPhase?: number; // Topology q_phase at time of mitosis (DIPOLE only)
   receiptHash?: string; // Pre-computed FNV-1a child hash (DIPOLE only)
+  proofBundle?: import("./zk_prover_bridge.ts").ZKProofBundle; // Era 1040: SP1 STARK Proof
+  rollupState?: Uint8Array; // Era 2060: The full PhaseAgent array corresponding to a rollup proof
   // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
   oracleName?: CanonicalOracle; // The oracle casting this vote (claude/gpt/...)
   oracleReasoning?: string; // Optional human-readable reasoning trace (≤256 chars)
@@ -221,11 +225,17 @@ export class Libp2pMesh {
             this.handleSyncBinMessage(evt.detail.from.toString(), new Uint8Array(evt.detail.data));
         } else if (evt.detail.topic === 'v2-state') {
             this.handleStateMessage(evt.detail.from.toString(), evt.detail.data.buffer as ArrayBuffer);
+        } else if (evt.detail.topic === 'v2-zk-proof') {
+            this.handleZKProofMessage(evt.detail.from.toString(), evt.detail.data);
+        } else if (evt.detail.topic === 'v2-zk-rollup') {
+            this.handleZKRollupMessage(evt.detail.from.toString(), evt.detail.data);
         }
     });
 
     this.node.services.pubsub.subscribe('v2-sync-bin');
     this.node.services.pubsub.subscribe('v2-state');
+    this.node.services.pubsub.subscribe('v2-zk-proof');
+    this.node.services.pubsub.subscribe('v2-zk-rollup');
 
     await this.node.start();
     console.log(`[LIBP2P-MESH] Libp2p node started.`);
@@ -439,6 +449,20 @@ export class Libp2pMesh {
   }
 
   public enqueuePlasmid(plasmid: PlasmidPayload) {
+    if (plasmid.semanticType === 'ZK_PROOF_EVENT') {
+        const payload = JSON.stringify(plasmid.proofBundle);
+        this.node.services.pubsub.publish("v2-zk-proof", new TextEncoder().encode(payload));
+        return;
+    }
+    if (plasmid.semanticType === 'ZK_ROLLUP_EVENT') {
+        const payload = JSON.stringify({
+            proofBundle: plasmid.proofBundle,
+            rollupState: plasmid.rollupState ? Array.from(plasmid.rollupState) : null
+        });
+        this.node.services.pubsub.publish("v2-zk-rollup", new TextEncoder().encode(payload));
+        return;
+    }
+
     if (plasmid.recursionDepth >= plasmid.maxRecursion) {
       console.warn(`[V2-MESH] Plasmid recursion depth exceeded, dropping.`);
       return;
@@ -509,6 +533,38 @@ export class Libp2pMesh {
       h = Math.imul(h, 0x0100_0193) >>> 0;
     }
     return h >>> 0;
+  }
+
+  private async handleZKProofMessage(fromPeer: string, data: Uint8Array) {
+    try {
+        const str = new TextDecoder().decode(data);
+        const bundle = JSON.parse(str);
+        if (!bundle || !bundle.receiptHash) return;
+
+        globalThis.dispatchEvent(new CustomEvent("zkProofReceived", {
+            detail: { peerId: fromPeer, bundle }
+        }));
+    } catch (e) {
+        console.warn(`[V2-MESH] Failed to parse ZK proof from ${fromPeer}`);
+    }
+  }
+
+  private async handleZKRollupMessage(fromPeer: string, data: Uint8Array) {
+    try {
+        const str = new TextDecoder().decode(data);
+        const payload = JSON.parse(str);
+        if (!payload || !payload.proofBundle) return;
+
+        globalThis.dispatchEvent(new CustomEvent("zkRollupReceived", {
+            detail: { 
+                peerId: fromPeer, 
+                bundle: payload.proofBundle, 
+                rollupState: payload.rollupState ? new Uint8Array(payload.rollupState) : null 
+            }
+        }));
+    } catch (e) {
+        console.warn(`[V2-MESH] Failed to parse ZK rollup from ${fromPeer}`);
+    }
   }
 
   private handleProposal(plasmid: PlasmidPayload, fromPeer: string) {
