@@ -82,9 +82,26 @@ async function processSenateQueue() {
     
     while(senateEvaluationQueue.length > 0) {
         const data = senateEvaluationQueue.shift();
-        const { hash, description, proposingOracle, evalOracle, imageUrl } = data;
+        const { hash, description, proposingOracle, evalOracle, imageUrl, snapshotHash, goldenTrace } = data;
         
         console.log(`[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`);
+
+        // Era 1070: Multi-Modal Snapshot Cryptographic Verification
+        if (imageUrl && snapshotHash && goldenTrace) {
+            const computedHash = fastHash(imageUrl + goldenTrace);
+            if (computedHash !== snapshotHash) {
+                console.warn(`[ORACLE WORKER] ❌ Cryptographic vision signature mismatch for ${evalOracle.toUpperCase()}. Rejecting!`);
+                self.postMessage({ 
+                    type: 'SENATE_VOTE', 
+                    hash, 
+                    stance: 'NAY', 
+                    reasoning: 'Cryptographic vision signature mismatch. Proposal rejected.', 
+                    oracle: evalOracle 
+                });
+                continue; // Skip the heavy LLM inference
+            }
+        }
+
         const prompt = `
 Task: You are the ${evalOracle.toUpperCase()} Oracle in the OMEGA-64 Senate.
 The oracle '${proposingOracle.toUpperCase()}' has proposed the following vision:

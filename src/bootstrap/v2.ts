@@ -68,7 +68,23 @@ declare global {
             boolean | TranslationPolicyTelemetryEventOptionsInput;
     }
 }
-function captureTorusVisuals(canvas: HTMLCanvasElement): string | null {
+const FNV64_OFFSET_BASIS = 0xcbf29ce484222325n;
+const FNV64_PRIME = 0x100000001b3n;
+
+function fastHash(str: string): string {
+    let hash = FNV64_OFFSET_BASIS;
+    for (let i = 0; i < str.length; i++) {
+        hash ^= BigInt(str.charCodeAt(i));
+        hash = BigInt.asUintN(64, hash * FNV64_PRIME);
+    }
+    return hash.toString(16);
+}
+
+function toHexString(bytes: Uint8Array): string {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function captureTorusVisuals(canvas: HTMLCanvasElement, engine: OmegaV2Engine): { url: string, hash: string, trace: string } | null {
     try {
         const offscreen = document.createElement("canvas");
         offscreen.width = 512;
@@ -76,7 +92,10 @@ function captureTorusVisuals(canvas: HTMLCanvasElement): string | null {
         const ctx = offscreen.getContext("2d");
         if (ctx) {
             ctx.drawImage(canvas, 0, 0, 512, 512);
-            return offscreen.toDataURL("image/jpeg", 0.7);
+            const url = offscreen.toDataURL("image/jpeg", 0.7);
+            const trace = toHexString(engine.getGenesisEntropy());
+            const hash = fastHash(url + trace);
+            return { url, hash, trace };
         }
     } catch (e) {
         console.warn("[V2] Failed to capture visual snapshot:", e);
@@ -340,15 +359,19 @@ export async function bootstrapV2() {
                     if (oracleWorker) {
                         for (const [evalOracle, _] of visions) {
                             if (evalOracle !== oracle) {
-                                const imageUrl = captureTorusVisuals(canvas);
-                                oracleWorker.postMessage({ 
-                                    type: 'SENATE_EVALUATE', 
-                                    hash, 
-                                    description: vision, 
-                                    proposingOracle: oracle, 
-                                    evalOracle,
-                                    imageUrl
-                                });
+                                const snapshot = captureTorusVisuals(canvas, engine);
+                                if (snapshot) {
+                                    oracleWorker.postMessage({ 
+                                        type: 'SENATE_EVALUATE', 
+                                        hash, 
+                                        description: vision, 
+                                        proposingOracle: oracle, 
+                                        evalOracle,
+                                        imageUrl: snapshot.url,
+                                        snapshotHash: snapshot.hash,
+                                        goldenTrace: snapshot.trace
+                                    });
+                                }
                             }
                         }
                     }
@@ -726,17 +749,22 @@ ${debateMd || "(no recorded arguments)"}
 
                     // Era 11000: Synchronize LLM Oracle Telemetry natively
                     if (oracleWorker) {
-                        oracleWorker.postMessage({
-                            type: 'SYNC_TELEMETRY',
-                            globalEnergyPool: 1000000,
-                            currentEntropy: 5.0, // Fixed default for V2 metrics
-                            count: activeCount,
-                            totalPopulation: activeCount,
-                            macroSeason: Math.floor(frameCount / 3600) % 4,
-                            currentSeasonName: "V2_AWAKENING",
-                            mycelialContext: "The bare-metal V2 runtime is operating linearly.",
-                            structuralImage: captureTorusVisuals(canvas),
-                        });
+                        const snapshot = captureTorusVisuals(canvas, engine);
+                        if (snapshot) {
+                            oracleWorker.postMessage({
+                                type: 'SYNC_TELEMETRY',
+                                globalEnergyPool: 1000000,
+                                currentEntropy: 5.0, // Fixed default for V2 metrics
+                                count: activeCount,
+                                totalPopulation: activeCount,
+                                macroSeason: Math.floor(frameCount / 3600) % 4,
+                                currentSeasonName: "V2_AWAKENING",
+                                mycelialContext: "The bare-metal V2 runtime is operating linearly.",
+                                structuralImage: snapshot.url,
+                                snapshotHash: snapshot.hash,
+                                goldenTrace: snapshot.trace
+                            });
+                        }
                     }
 
                     isReadingGPU = false;
