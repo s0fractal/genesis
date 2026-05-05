@@ -52,7 +52,13 @@ export class SemanticCoupler {
         const y = (hashBytes[2] ^ hashBytes[3]) % 256;
         
         // 4. Energy at death determines the magnitude of the semantic perturbation
-        const energy = Math.min((event.energy_at_death || 100) * 2, 60000);
+        // Era 2060: Epigenetic Thermodynamics of Death (Rare genomes release more energy)
+        const engine = this.injector as any;
+        const bias = engine.getEpigeneticBias ? engine.getEpigeneticBias(event.genome % 32) : 1;
+        const total = engine.getEpigeneticTotal ? engine.getEpigeneticTotal() : 1;
+        const rarityMultiplier = 1.0 + (1.0 - (bias / Math.max(1, total))) * 10.0;
+        
+        const energy = Math.min((event.energy_at_death || 100) * 2 * rarityMultiplier, 60000);
         const radius = (hashBytes[5] & 0x0F) + 2; // Tighter radius for compost
         
         // 5. Phase shift aligned with the moment of death

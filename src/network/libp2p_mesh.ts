@@ -279,6 +279,11 @@ export class Libp2pMesh {
   }
 
   private handleSyncBinMessage(peerId: string, eventData: Uint8Array) {
+    // Era 2060: Absolute Immune Quarantine (OSI L4 Hardware Drop)
+    // We don't even parse bytes from quarantined peers.
+    if ((this as any).investigator?.isQuarantined?.(peerId) || (this as any).livenessAggregator?.isQuarantined?.(peerId)) {
+        return; 
+    }
     const frame = frameFromBytes(eventData);
     if (!frame) return;
     const packet = parseV2SyncFrame(frame);
@@ -598,7 +603,8 @@ export class Libp2pMesh {
       nays: new Set(),
       accepted: false,
       proposedAt: Date.now(),
-    });
+      proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
+    } as any);
     // Mirror into WASM Senate state.
     const propose = this.engine.wasm?.exports.v2_senate_propose as
       | CallableFunction
@@ -642,6 +648,17 @@ export class Libp2pMesh {
     
     // Determine resonance weight
     let weight = 10; // Default peer weight
+    
+    // Era 2060: Relativistic Senate (Hyperbolic Time Curvature)
+    // Old laws petrify and lose weight the further away they are in Bitcoin blocks (tau).
+    const currentTau = (this.engine as any).getAnchorTotalBlocks?.() ?? 0;
+    const proposedTau = (record as any).proposedAtTau ?? currentTau;
+    const tauDiff = Math.abs(currentTau - proposedTau);
+    const curvaturePenalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
+    
+    weight = Math.max(0, weight - curvaturePenalty);
+    
+    if (weight === 0) return; // Vote has petrified into dust
     if (this.livenessAggregator) {
         // Try to get score from aggregator snapshot
         const rec = this.livenessAggregator.snapshot().find(s => s.spore_id === fromPeer);

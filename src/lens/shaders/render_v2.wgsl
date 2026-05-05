@@ -48,6 +48,26 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
         return out;
     }
 
+    // Era 2060: Steganographic Oracle Vision
+    if (instance_idx == 0u) {
+        // Render a cryptographic square at the bottom left
+        let quad_pos_dot = array<vec2<f32>, 6>(
+            vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0), vec2<f32>(-1.0,  1.0),
+            vec2<f32>(-1.0,  1.0), vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
+        );
+        let pos = quad_pos_dot[vertex_idx];
+        out.position = vec4<f32>(-0.95 + (pos.x * 0.02), -0.95 + (pos.y * 0.02), 0.0, 1.0);
+        out.uv = pos;
+        
+        // Encode absolute_tick into RGB
+        let tick = signals.absolute_tick;
+        let r_enc = f32((tick >> 16u) & 0xFFu) / 255.0;
+        let g_enc = f32((tick >> 8u) & 0xFFu) / 255.0;
+        let b_enc = f32(tick & 0xFFu) / 255.0;
+        out.color = vec4<f32>(r_enc, g_enc, b_enc, 2.0); // alpha 2.0 triggers bypass
+        return out;
+    }
+
     let agent = agents[instance_idx];
     
     // ERA 3000: Dark Matter Filtering
@@ -139,6 +159,11 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Era 2060: Steganographic Oracle Vision (Pure pixel bypass)
+    if (in.color.a > 1.5) {
+        return vec4<f32>(in.color.rgb, 1.0);
+    }
+
     // Elegant exponential SDF (Signed Distance Field) for soft organic cell membranes
     let dist = dot(in.uv, in.uv);
     if (dist > 1.0) {

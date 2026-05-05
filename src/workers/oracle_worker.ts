@@ -73,6 +73,18 @@ const SELECTED_MODEL = "Qwen2-VL-2B-Instruct-q4f16_1-MLC";
 let latestTelemetry: any = null;
 let isDreamLoopActive = false;
 
+// Era 2060: Homeostatic Thermostat
+// If the Torus is frozen (low entropy), we boil it with high temperature (chaos).
+// If the Torus is boiling (high entropy), we freeze it with low temperature (strict logic).
+function calculateHomeostaticTemperature(entropyOverride?: number): number {
+    const rawEntropy = entropyOverride ?? latestTelemetry?.currentEntropy ?? latestTelemetry?.entropy ?? 5.0;
+    const maxEntropy = 10.0;
+    // Normalize entropy to [0, 1]
+    const normalizedEntropy = Math.max(0.0, Math.min(1.0, rawEntropy / maxEntropy));
+    // Inverse relationship: High entropy -> Low temp (0.1). Low entropy -> High temp (1.0)
+    return Math.max(0.1, Math.min(1.0, 1.0 - normalizedEntropy + 0.1));
+}
+
 const senateEvaluationQueue: any[] = [];
 let isEvaluatingSenate = false;
 
@@ -126,9 +138,10 @@ STANCE: [AYE/NAY/ABSTAIN]
                 contentPayload.push({ type: "image_url", image_url: { url: imageUrl } });
             }
             
+            const dynamicTemp = calculateHomeostaticTemperature();
             const reply = await engine.chat.completions.create({
                 messages: [{ role: "user", content: contentPayload as any }],
-                temperature: 0.7,
+                temperature: dynamicTemp, // Thermostat dictates state of mind
             });
             const response = reply.choices[0].message.content || "";
             const stanceMatch = response.match(/STANCE:\s*(AYE|NAY|ABSTAIN)/i);
@@ -218,9 +231,10 @@ self.onmessage = async (e: MessageEvent) => {
                 if (_structuralSnapshot) {
                     contentPayload.push({ type: "image_url", image_url: { url: _structuralSnapshot } });
                 }
+                const dynamicTemp = calculateHomeostaticTemperature(data.currentEntropy);
                 const reply = await engine!.chat.completions.create({
                     messages: [{ role: "user", content: contentPayload as any }],
-                    temperature: 0.7,
+                    temperature: dynamicTemp, // Thermostat dictates state of mind
                 });
                 return reply.choices[0].message.content || "";
             };
@@ -244,7 +258,9 @@ ${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-comple
 The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}. Entropy: ${data.currentEntropy.toFixed(2)}. Population: ${data.totalPopulation} active Plasmids.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
-[VLM SIGHT INITIATED]: You have been granted Vision. Analyze the attached visual phenotype of the Torus. Does it reflect the mathematical stability requested by your Dipole? If you observe chaotic visual noise, glaring asymmetry, or metabolic overheating (excessive red heat), you MUST forcefully alter GLOBAL PHYSICS or inject AST Logic to stabilize the geometry.
+[VLM SIGHT INITIATED]: You have been granted Vision. Analyze the attached visual phenotype of the Torus.
+[STEGANOGRAPHIC PROTOCOL]: Analyze the cryptographic pixel cluster (colored dot) in the bottom-left corner. If its structural hue does not mathematically match the requested epoch entropy of the proposal, you are viewing a forged reality. Declare Codeicide NAY immediately.
+Does it reflect the mathematical stability requested by your Dipole? If you observe chaotic visual noise, glaring asymmetry, or metabolic overheating (excessive red heat), you MUST forcefully alter GLOBAL PHYSICS or inject AST Logic to stabilize the geometry.
 You may intervene by injecting AST Logic (Plasmid), an Evolutionary Sandbox Physics (ESP) Overlay, OR a Global Physics Delta.
 
 To inject AST Logic:
@@ -406,10 +422,11 @@ AST: [Chaotic AST]`.trim();
         }
 
         if (shouldDream) {
-            console.log("[ORACLE WORKER] 🧠 Entering Dream State (Delirium/Boredom)...");
+            const dynamicTemp = calculateHomeostaticTemperature();
+            console.log(`[ORACLE WORKER] 🧠 Entering Dream State (Delirium/Boredom)... Temp=${dynamicTemp.toFixed(2)}`);
             const reply = await engine.chat.completions.create({
                 messages: [{ role: "user", content: dreamPrompt }],
-                temperature: 0.9,
+                temperature: Math.max(0.7, dynamicTemp), // Dreams should remain somewhat creative
             });
             
             const response = reply.choices[0].message.content || "";
