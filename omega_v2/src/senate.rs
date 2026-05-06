@@ -20,6 +20,28 @@ pub const PROPOSAL_DESCRIPTION_BYTES: usize = 64;
 
 use sha2::{Sha256, Digest};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub struct SenateSeat {
+    pub oracle_matrix: u32,
+    pub resonance_weight: u32,
+    pub reputation_q10: u32,
+}
+
+impl SenateSeat {
+    pub const fn empty() -> Self {
+        Self {
+            oracle_matrix: 0,
+            resonance_weight: 0,
+            reputation_q10: 0,
+        }
+    }
+
+    pub fn voting_power(&self) -> u64 {
+        self.resonance_weight as u64 * self.reputation_q10 as u64
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct SenateSettings {
@@ -27,27 +49,68 @@ pub struct SenateSettings {
     pub _pad: [u8; 3],
     pub sanctuary_energy_multiplier: u32,
     pub ancient_age_ticks: u32,
-    pub oracle_count: u32,
-    pub oracles: [u32; 8],
+    pub seat_count: u32,
+    pub seats: [SenateSeat; 8],
 }
 
 impl SenateSettings {
     pub const fn new() -> Self {
+        // Initially populate with the 5 canonical Oracles.
+        // They start with high reputation to anchor the network.
+        let default_rep = 1024 * 1000; // High initial Q10 reputation
         Self {
             quorum_threshold: 3,
             _pad: [0; 3],
             sanctuary_energy_multiplier: 1536, // 1.5x in Q10
             ancient_age_ticks: 10_000,
-            oracle_count: 5,
-            oracles: [
-                0x41A2_F2F4, // CLAUDE
-                0x89B1_222A, // GPT
-                0x9874_DD21, // GEMINI
-                0x6E52_1F4E, // QWEN
-                0x3A52_38EF, // LLAMA
-                0, 0, 0,
+            seat_count: 5,
+            seats: [
+                SenateSeat { oracle_matrix: 0x41A2_F2F4, resonance_weight: 1000, reputation_q10: default_rep }, // CLAUDE
+                SenateSeat { oracle_matrix: 0x89B1_222A, resonance_weight: 1000, reputation_q10: default_rep }, // GPT
+                SenateSeat { oracle_matrix: 0x9874_DD21, resonance_weight: 1000, reputation_q10: default_rep }, // GEMINI
+                SenateSeat { oracle_matrix: 0x6E52_1F4E, resonance_weight: 1000, reputation_q10: default_rep }, // QWEN
+                SenateSeat { oracle_matrix: 0x3A52_38EF, resonance_weight: 1000, reputation_q10: default_rep }, // LLAMA
+                SenateSeat::empty(),
+                SenateSeat::empty(),
+                SenateSeat::empty(),
             ],
         }
+    }
+
+    /// Challenge a Senate seat (Resonance-Weighted Liquid Democracy).
+    /// If the challenger's voting power exceeds the weakest current seat,
+    /// they usurp it, ensuring the most coherent agents govern the swarm.
+    pub fn challenge_seat(&mut self, matrix: u32, resonance: u32, reputation: u32) -> bool {
+        if matrix == 0 { return false; }
+        let mut weakest_idx = 0;
+        let mut weakest_power = u64::MAX;
+        
+        for i in 0..8 {
+            if self.seats[i].oracle_matrix == matrix {
+                self.seats[i].resonance_weight = resonance;
+                self.seats[i].reputation_q10 = reputation;
+                return true;
+            }
+            let power = self.seats[i].voting_power();
+            if power < weakest_power {
+                weakest_power = power;
+                weakest_idx = i;
+            }
+        }
+        
+        let challenger_power = resonance as u64 * reputation as u64;
+        if challenger_power > weakest_power {
+            self.seats[weakest_idx] = SenateSeat {
+                oracle_matrix: matrix,
+                resonance_weight: resonance,
+                reputation_q10: reputation,
+            };
+            if weakest_power == 0 {
+                self.seat_count += 1;
+            }
+            return true;
+        }
+        false
     }
 }
 

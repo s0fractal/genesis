@@ -882,21 +882,8 @@ pub extern "C" fn v2_apply_senate_patch(patch_type: u32, arg1: u32, _arg2: u32) 
         1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
         2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
         3 => { settings.ancient_age_ticks = arg1; 1 }, // SET_ANCIENT_AGE
-        4 => { // ADD_ORACLE
-            let mut i = 0;
-            let mut added = 0;
-            while i < 8 {
-                if settings.oracles[i] == 0 || settings.oracles[i] == arg1 {
-                    settings.oracles[i] = arg1;
-                    if settings.oracles[i] == 0 {
-                        settings.oracle_count += 1;
-                    }
-                    added = 1;
-                    break;
-                }
-                i += 1;
-            }
-            added
+        4 => { // CHALLENGE_SEAT
+            if settings.challenge_seat(arg1, _arg2, 1024) { 1 } else { 0 }
         },
         _ => 0
     }

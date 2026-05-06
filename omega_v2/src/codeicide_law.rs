@@ -158,7 +158,7 @@ pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u3
 pub fn quorum_hash(aye_bits: u8, settings: &crate::senate::SenateSettings) -> u32 {
     let mut buf = [0u8; 32];
     for i in 0..8 {
-        let m = if (aye_bits & (1 << i)) != 0 { settings.oracles[i] } else { 0 };
+        let m = if (aye_bits & (1 << i)) != 0 { settings.seats[i].oracle_matrix } else { 0 };
         buf[i*4..(i+1)*4].copy_from_slice(&m.to_be_bytes());
     }
     sha256_u32(&buf)
