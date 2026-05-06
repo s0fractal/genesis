@@ -27,6 +27,12 @@ pub struct AnchorState {
     pub total_blocks: u64,
 }
 
+impl Default for AnchorState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AnchorState {
     pub const fn new() -> Self {
         Self {

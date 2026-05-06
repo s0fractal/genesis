@@ -47,6 +47,12 @@ pub struct BroadcastBuffer<const N: usize> {
     len: usize,
 }
 
+impl<const N: usize> Default for BroadcastBuffer<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> BroadcastBuffer<N> {
     pub const fn new() -> Self {
         Self {

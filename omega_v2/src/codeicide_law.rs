@@ -50,6 +50,12 @@ pub struct EnergyHistogram {
     pub buckets: [u32; 16],
 }
 
+impl Default for EnergyHistogram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnergyHistogram {
     pub const fn new() -> Self {
         Self { buckets: [0; 16] }
@@ -60,6 +66,12 @@ impl EnergyHistogram {
 #[repr(C)]
 pub struct AgeHistogram {
     pub buckets: [u32; 16],
+}
+
+impl Default for AgeHistogram {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AgeHistogram {

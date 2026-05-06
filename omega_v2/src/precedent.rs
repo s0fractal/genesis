@@ -30,6 +30,12 @@ pub struct PrecedentLedger {
     pub head: u32,
 }
 
+impl Default for PrecedentLedger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PrecedentLedger {
     pub const fn new() -> Self {
         Self {

@@ -144,11 +144,7 @@ impl ResilienceSnapshot {
 /// two relays observing the same mesh disagree by > THRESHOLD_Q16,
 /// something has split the network.
 pub fn redundancy_rate_diff_q16(a: &ResilienceSnapshot, b: &ResilienceSnapshot) -> u32 {
-    if a.redundancy_rate_q16 >= b.redundancy_rate_q16 {
-        a.redundancy_rate_q16 - b.redundancy_rate_q16
-    } else {
-        b.redundancy_rate_q16 - a.redundancy_rate_q16
-    }
+    a.redundancy_rate_q16.abs_diff(b.redundancy_rate_q16)
 }
 
 /// Threshold above which two relays' measurements indicate a partition.

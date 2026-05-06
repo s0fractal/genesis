@@ -96,6 +96,12 @@ pub struct DebateLedger {
     pub entries: [DebateEntry; DEBATE_LEDGER_CAPACITY],
 }
 
+impl Default for DebateLedger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebateLedger {
     pub const fn new() -> Self {
         Self {

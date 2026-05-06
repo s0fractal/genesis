@@ -38,6 +38,12 @@ pub struct BitcoinBlockOracle {
     pub target_heights: [u32; 6],
 }
 
+impl Default for BitcoinBlockOracle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitcoinBlockOracle {
     pub const fn new() -> Self {
         let mut hashes = [[0u8; 32]; 6];

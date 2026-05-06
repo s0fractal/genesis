@@ -120,13 +120,13 @@ pub fn q20_round(x: i32) -> i32 {
 
 #[inline(always)]
 pub fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
-    let index = (to_theta as u32 + 256 - from_theta as u32) % 256;
+    let index = (to_theta + 256 - from_theta) % 256;
     SINE_LUT[index as usize]
 }
 
 #[inline(always)]
 pub fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
-    let index = (to_theta as u32 + 256 - from_theta as u32 + 64) % 256;
+    let index = (to_theta + 256 - from_theta + 64) % 256;
     SINE_LUT[index as usize]
 }
 

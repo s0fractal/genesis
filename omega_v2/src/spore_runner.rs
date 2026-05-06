@@ -290,7 +290,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
             }
         }
         // Compute number of 4-hash chunks (at least 1, even when empty).
-        let total = if take == 0 { 1 } else { (take + 3) / 4 };
+        let total = if take == 0 { 1 } else { take.div_ceil(4) };
         if total > 0xFF { return false; }
 
         let mut buf = [0u8; 64 * SPORE_FRAME_BYTES];
@@ -382,6 +382,12 @@ pub struct LoopbackDriver {
     /// Bytes pending to be read by the local side (written by peer).
     rx_buf: [u8; 256],
     rx_len: usize,
+}
+
+impl Default for LoopbackDriver {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LoopbackDriver {

@@ -78,6 +78,12 @@ pub struct MitosisLog {
     pub entries: [MitosisReceipt; MITOSIS_LOG_CAPACITY],
 }
 
+impl Default for MitosisLog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MitosisLog {
     pub const fn new() -> Self {
         Self {

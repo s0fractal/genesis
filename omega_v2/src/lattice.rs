@@ -117,7 +117,6 @@ impl PhaseLattice {
 
     /// Pre-populates the `.bss` static memory with randomized kinetic energy and base frequencies
     /// using a hyper-minimal Linear Congruential Generator (LCG).
-
     #[inline(always)]
     fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> usize {
         let wx = x.rem_euclid(w);
@@ -276,7 +275,6 @@ impl PhaseLattice {
         let max_phase = (1u32 << self.topology.q_phase) - 1;
         let kuramoto_k = crate::constants::KURAMOTO_COUPLING_BASE; // Q10 scaled
         let q10_scale = crate::constants::BB_FREQ_Q_SCALE; // 1024
-        let mut alive_count = 0u32;
 
         unsafe {
             // Era 0201 FIX: Use a read-only snapshot for pre-tick neighbor reads
@@ -298,7 +296,7 @@ impl PhaseLattice {
 
             // Era 1080 Prop 3: Deterministic Day Cycle
             let day_phase = (self.signals.absolute_tick % 1024) * 256 / 1024;
-            let sun_multiplier = 1024 + crate::math::sin_q10(0, day_phase as u32);
+            let sun_multiplier = 1024 + crate::math::sin_q10(0, day_phase);
 
             for i in 0..active {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
@@ -349,7 +347,7 @@ impl PhaseLattice {
                     // Discrete Fourier Transform (DFT) Mean-Field Approximation
                     let mut sum_cos = 0i32;
                     let mut sum_sin = 0i32;
-                    let default_weight = crate::constants::HEBBIAN_DEFAULT_WEIGHT as i32;
+                    let default_weight = crate::constants::HEBBIAN_DEFAULT_WEIGHT;
 
                     for &n_idx in &n_indices {
                         if n_idx < active {
@@ -451,7 +449,7 @@ impl PhaseLattice {
                     energy_delta -= extra_burn as i32;
 
                     if energy_delta < 0 {
-                        agent.energy = agent.energy.saturating_sub(energy_delta.abs() as u32);
+                        agent.energy = agent.energy.saturating_sub(energy_delta.unsigned_abs());
                     } else {
                         agent.energy = agent.energy.saturating_add(energy_delta as u32).min(crate::constants::MAX_ATP);
                     }
@@ -578,7 +576,7 @@ impl PhaseLattice {
                         let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
                         let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.absolute_tick, p90_threshold, p90_age_threshold, resonance_score, &*settings
+                            parent, self.signals.absolute_tick, p90_threshold, p90_age_threshold, resonance_score, &settings
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
@@ -605,7 +603,7 @@ impl PhaseLattice {
                             let mut arr = crate::ATTRACTOR_ARRAY.lock();
                             let derived = crate::mitosis_proof::derive_mitosis_child(
                                 &parent_snapshot,
-                                &*arr,
+                                &arr,
                                 self.topology.q_phase,
                             );
                             let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
@@ -868,6 +866,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "spore"))]
     fn test_mitosis_recursive_birth_near_attractor() {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();

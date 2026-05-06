@@ -72,6 +72,12 @@ pub struct AttractorArray {
     pub data: [AttractorMatrix; 4],
 }
 
+impl Default for AttractorArray {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AttractorArray {
     pub const fn new() -> Self {
         Self {

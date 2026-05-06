@@ -441,6 +441,7 @@ impl SporeFrame {
     /// Era 1420: Pack a kind string (up to 4 ASCII chars) into a u32.
     /// Mirrors JS `packKindTag` byte-for-byte. Truncates longer
     /// strings; pads shorter ones with zeros (in the LSBs).
+    #[allow(clippy::needless_range_loop)]
     pub fn pack_kind_tag(kind: &[u8]) -> u32 {
         let mut v: u32 = 0;
         let n = if kind.len() > 4 { 4 } else { kind.len() };

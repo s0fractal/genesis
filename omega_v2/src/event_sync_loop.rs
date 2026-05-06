@@ -94,6 +94,12 @@ pub struct EventDeltaAccumulator<const C: usize> {
     corrupted: bool,
 }
 
+impl<const C: usize> Default for EventDeltaAccumulator<C> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const C: usize> EventDeltaAccumulator<C> {
     pub const fn new() -> Self {
         Self {
@@ -253,11 +259,10 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
     for i in 0..delta.entry_count {
         let e = &delta.entries[i];
         for existing in sink.entries() {
-            if existing.event_hash == e.event_hash {
-                if existing.kind() != e.kind() {
+            if existing.event_hash == e.event_hash
+                && existing.kind() != e.kind() {
                     return ApplyOutcome::Collision;
                 }
-            }
         }
     }
     // Phase 2: count what's new vs idempotent.
@@ -389,6 +394,12 @@ pub struct HashListAccumulator<const C: usize> {
     total: u8,
     armed: bool,
     corrupted: bool,
+}
+
+impl<const C: usize> Default for HashListAccumulator<C> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<const C: usize> HashListAccumulator<C> {

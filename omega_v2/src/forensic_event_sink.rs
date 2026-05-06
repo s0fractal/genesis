@@ -98,6 +98,12 @@ pub struct ForensicEventSink<const N: usize> {
     live_tail_chain_hash: u32,
 }
 
+impl<const N: usize> Default for ForensicEventSink<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> ForensicEventSink<N> {
     pub const fn new() -> Self {
         Self {

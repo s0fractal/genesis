@@ -265,7 +265,7 @@ pub unsafe extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u
         } else {
             core::slice::from_raw_parts(trng_ptr, trng_len)
         };
-        lattice.ignite_epigenetic_big_bang(final_seed, agent_count, &*mem, trng_slice);
+        lattice.ignite_epigenetic_big_bang(final_seed, agent_count, &mem, trng_slice);
     }
 }
 
@@ -858,7 +858,7 @@ pub unsafe extern "C" fn v2_senate_proposal_ayes(hash_ptr: *const u8) -> u32 {
     hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
     let s = SENATE_STATE.lock();
     let idx = s.find(&hash);
-    if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes as u32 }
+    if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes }
 }
 
 /// Returns 1 if the proposal at `hash` has been accepted, 0 otherwise / not found.
@@ -887,9 +887,8 @@ pub extern "C" fn v2_apply_senate_patch(patch_type: u32, arg1: u32, _arg2: u32) 
         1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
         2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
         3 => { settings.ancient_age_ticks = arg1; 1 }, // SET_ANCIENT_AGE
-        4 => { // CHALLENGE_SEAT
-            if settings.challenge_seat(arg1, _arg2, 1024) { 1 } else { 0 }
-        },
+        4 // CHALLENGE_SEAT
+            if settings.challenge_seat(arg1, _arg2, 1024) => { 1 },
         _ => 0
     }
 }
@@ -1063,8 +1062,8 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
-            let status = crate::codeicide_law::protected_status_for(agent, tick, avg, lattice.signals.p90_age, resonance_score, &*settings) as u32;
-            status
+            
+            crate::codeicide_law::protected_status_for(agent, tick, avg, lattice.signals.p90_age, resonance_score, &settings) as u32
         } else {
             0
         }
@@ -1088,7 +1087,7 @@ pub extern "C" fn v2_codeicide_warrant_hash(
 #[no_mangle]
 pub extern "C" fn v2_codeicide_quorum_hash(aye_bits: u32) -> u32 {
     let settings = crate::SENATE_SETTINGS.lock();
-    crate::codeicide_law::quorum_hash(aye_bits as u8, &*settings)
+    crate::codeicide_law::quorum_hash(aye_bits as u8, &settings)
 }
 
 /// Returns 1 iff the action against agent at `idx` is lawful given the warrant.
@@ -1110,7 +1109,7 @@ pub extern "C" fn v2_codeicide_is_lawful(
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
             if crate::codeicide_law::is_action_lawful(
-                agent, tick, p90_energy_threshold, p90_age_threshold, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &*settings
+                agent, tick, p90_energy_threshold, p90_age_threshold, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &settings
             ) {
                 1
             } else {
@@ -1227,7 +1226,7 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u
         let tick = OMEGA_LATTICE.lock().signals.absolute_tick;
         let mut l = WARRANT_LEDGER.lock();
         let mut settings = SENATE_SETTINGS.lock();
-        l.vote(proposal_hash, oracle_matrix, aye != 0, tick, &mut *settings)
+        l.vote(proposal_hash, oracle_matrix, aye != 0, tick, &mut settings)
     }
 }
 

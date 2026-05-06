@@ -139,6 +139,12 @@ pub struct WarrantLedger {
     pub entries: [WarrantProposal; WARRANT_LEDGER_CAPACITY],
 }
 
+impl Default for WarrantLedger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WarrantLedger {
     pub const fn new() -> Self {
         Self {

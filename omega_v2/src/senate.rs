@@ -53,6 +53,12 @@ pub struct SenateSettings {
     pub seats: [SenateSeat; 8],
 }
 
+impl Default for SenateSettings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SenateSettings {
     pub const fn new() -> Self {
         // Initially populate with the 5 canonical Oracles.
@@ -255,6 +261,12 @@ pub struct SenateState {
     pub accepted_count: u32,
     pub _pad: [u32; 2],
     pub proposals: [Proposal; SENATE_CAPACITY],
+}
+
+impl Default for SenateState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SenateState {
