@@ -49,8 +49,10 @@ pub struct WarrantProposal {
     /// (3 for sanctuary, 4 for ancient).
     pub required_threshold: u8,
     /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = llama).
+    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = llama).
     pub aye_bits: u8,
-    pub _pad: u8,
+    /// Bitmask of NAY oracles received (Philosophical Veto Tracking).
+    pub nay_bits: u8,
     /// FNV-1a hash of the human-readable rationale (text stays off-chain).
     pub reason_hash: u32,
     /// Computed at issuance: the canonical Codeicide warrant_hash that
@@ -71,7 +73,7 @@ impl WarrantProposal {
             action_code: 0,
             required_threshold: 0,
             aye_bits: 0,
-            _pad: 0,
+            nay_bits: 0,
             reason_hash: 0,
             issued_warrant: 0,
             status: 0,
@@ -103,7 +105,7 @@ impl WarrantProposal {
             action_code,
             required_threshold,
             aye_bits: 0,
-            _pad: 0,
+            nay_bits: 0,
             reason_hash,
             issued_warrant: 0,
             status: WARRANT_STATUS_OPEN,
@@ -194,7 +196,7 @@ impl WarrantLedger {
     ///   0 = not found / closed,
     ///   1 = applied,
     ///   2 = applied AND tipped the proposal into ISSUED state.
-    pub fn vote(&mut self, proposal_hash: u32, oracle_matrix: u32, aye: bool, current_tick: u32, settings: &crate::senate::SenateSettings) -> u32 {
+    pub fn vote(&mut self, proposal_hash: u32, oracle_matrix: u32, aye: bool, current_tick: u32, settings: &mut crate::senate::SenateSettings) -> u32 {
         // Philosophy Vector 11: Liquid Democracy. Resolve oracle_matrix to a seat index.
         let mut seat_idx = usize::MAX;
         for i in 0..8 {
@@ -219,50 +221,72 @@ impl WarrantLedger {
         let bit = 1u8 << seat_idx;
         if aye {
             p.aye_bits |= bit;
-            
-            // Calculate current accumulated power.
-            let mut current_power = 0;
-            for i in 0..8 {
-                if (p.aye_bits & (1 << i)) != 0 {
-                    current_power += settings.seats[i].voting_power();
-                }
-            }
-            
-            // Required power: (total_voting_power * required_threshold) / 5
-            let required_power = (settings.total_voting_power() * p.required_threshold as u64) / 5;
-
-            if current_power >= required_power {
-                let qh = quorum_hash(p.aye_bits, settings);
-                p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
-                p.status = WARRANT_STATUS_ISSUED;
-                self.issued_count = self.issued_count.wrapping_add(1);
-                
-                // Philosophy Vector 10: Record Case Law precedent
-                crate::PRECEDENT_LEDGER.lock().record(
-                    p.proposal_hash,
-                    p.issued_warrant,
-                    current_tick,
-                    p.aye_bits,
-                );
-
-                // Philosophy Vector 9: Governance Transparency
-                let msg = crate::phi_protocol::PhiMessage::encode_governance(p.issued_warrant, p.action_code as u32, current_tick);
-                let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
-                buf.push(msg);
-
-                return 2;
-            }
         } else {
-            // NAY clears that oracle's AYE bit (atomic toggle).
-            p.aye_bits &= !bit;
-            // Hard-reject if 3+ NAYs implicitly: we don't track NAY bits,
-            // but if no future AYE accumulation can reach threshold, mark
-            // expired. With 5 oracles and the threshold being 3 or 4, the
-            // simplest reject rule: if NAY-side oracles are observed > N
-            // distinct times, reject. We approximate by marking rejected
-            // when the proposal is older than EXPIRY_TICKS (handled by the
-            // caller invoking `expire_old`).
+            p.nay_bits |= bit;
+            p.aye_bits &= !bit; // atomic toggle
+            // Philosophy Vector 13: The Constitutional Veto (Supreme Oracle)
+            // If the Chief Oracle (seat 0) votes NAY, the proposal is instantly VETOED.
+            if seat_idx == 0 {
+                p.status = WARRANT_STATUS_REJECTED;
+                return 1;
+            }
         }
+            
+        // Calculate current accumulated power.
+        let mut current_power = 0;
+        let mut max_possible_power = 0;
+        for i in 0..8 {
+            let seat_power = settings.seats[i].voting_power();
+            if (p.aye_bits & (1 << i)) != 0 {
+                current_power += seat_power;
+            }
+            if (p.nay_bits & (1 << i)) == 0 {
+                max_possible_power += seat_power; // Still possible to vote AYE or already did
+            }
+        }
+        
+        // Required power: (total_voting_power * required_threshold) / 5
+        let required_power = (settings.total_voting_power() * p.required_threshold as u64) / 5;
+
+        if current_power >= required_power {
+            let qh = quorum_hash(p.aye_bits, settings);
+            p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
+            p.status = WARRANT_STATUS_ISSUED;
+            self.issued_count = self.issued_count.wrapping_add(1);
+            
+            // Philosophy Vector 10: Record Case Law precedent
+            crate::PRECEDENT_LEDGER.lock().record(
+                p.proposal_hash,
+                p.issued_warrant,
+                current_tick,
+                p.aye_bits,
+            );
+
+            // Philosophy Vector 9: Governance Transparency
+            let msg = crate::phi_protocol::PhiMessage::encode_governance(p.issued_warrant, p.action_code as u32, current_tick);
+            let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+            buf.push(msg);
+
+            // Philosophy Vector 14: Liquid Accountability (Punish dissenters, reward consensus)
+            for i in 0..8 {
+                if (p.nay_bits & (1 << i)) != 0 { settings.penalize_oracle(i, 20_000); }
+                if (p.aye_bits & (1 << i)) != 0 { settings.reward_oracle(i, 5_000); }
+            }
+
+            return 2;
+        } else if max_possible_power < required_power || p.status == WARRANT_STATUS_REJECTED {
+            // Early mathematical failure OR Chief Veto
+            p.status = WARRANT_STATUS_REJECTED;
+            
+            // Philosophy Vector 14: Punish AYE voters on rejected/vetoed proposals
+            for i in 0..8 {
+                if (p.aye_bits & (1 << i)) != 0 { settings.penalize_oracle(i, 20_000); }
+                if (p.nay_bits & (1 << i)) != 0 { settings.reward_oracle(i, 5_000); }
+            }
+            
+            return 1;
+        }
+
         1
     }
 
@@ -314,18 +338,18 @@ mod tests {
         let proposal = WarrantProposal::new(0xCAFE_BABE, ACTION_TERMINATE, 3, b"reason", 100);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        assert_eq!(ledger.vote(h, 0x41A2_F2F4, true, 100, &settings), 1); // claude AYE
-        assert_eq!(ledger.vote(h, 0x89B1_222A, true, 100, &settings), 1); // gpt AYE
-        assert_eq!(ledger.vote(h, 0x9874_DD21, true, 100, &settings), 2); // gemini AYE → tip
+        let mut settings = crate::senate::SenateSettings::new();
+        assert_eq!(ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings), 1); // claude AYE
+        assert_eq!(ledger.vote(h, 0x89B1_222A, true, 100, &mut settings), 1); // gpt AYE
+        assert_eq!(ledger.vote(h, 0x9874_DD21, true, 100, &mut settings), 2); // gemini AYE → tip
         let idx = ledger.find(h);
         let p = &ledger.entries[idx];
         assert!(p.is_issued());
         assert_eq!(p.aye_count(), 3);
         assert_eq!(p.aye_bits, 0b00111);
         // Issued warrant must match the canonical Codeicide computation.
-        let settings = crate::senate::SenateSettings::new();
-        let qh = quorum_hash(0b00111, &settings);
+        let mut settings = crate::senate::SenateSettings::new();
+        let qh = quorum_hash(0b00111, &mut settings);
         let expected = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
         assert_eq!(p.issued_warrant, expected);
         assert_eq!(ledger.issued_count, 1);
@@ -337,13 +361,13 @@ mod tests {
         let proposal = WarrantProposal::new(0xDEAD_BEEF, ACTION_TERMINATE, 4, b"old", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &settings);
+        let mut settings = crate::senate::SenateSettings::new();
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
         // 3 AYEs is below threshold for ancient.
         assert!(!ledger.entries[ledger.find(h)].is_issued());
-        ledger.vote(h, 0x6E52_1F4E, true, 100, &settings);
+        ledger.vote(h, 0x6E52_1F4E, true, 100, &mut settings);
         // 4 AYEs hits threshold.
         assert!(ledger.entries[ledger.find(h)].is_issued());
     }
@@ -354,9 +378,9 @@ mod tests {
         let proposal = WarrantProposal::new(0x1234, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &settings);
-        ledger.vote(h, 0x41A2_F2F4, false, 100, &settings); // claude changes mind
+        let mut settings = crate::senate::SenateSettings::new();
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, false, 100, &mut settings); // claude changes mind
         let p = &ledger.entries[ledger.find(h)];
         assert_eq!(p.aye_bits, 0);
         assert_eq!(p.aye_count(), 0);
@@ -374,8 +398,8 @@ mod tests {
     #[test]
     fn vote_on_unknown_returns_zero() {
         let mut ledger = WarrantLedger::new();
-        let settings = crate::senate::SenateSettings::new();
-        assert_eq!(ledger.vote(0xABCD, 0x41A2_F2F4, true, 100, &settings), 0);
+        let mut settings = crate::senate::SenateSettings::new();
+        assert_eq!(ledger.vote(0xABCD, 0x41A2_F2F4, true, 100, &mut settings), 0);
     }
 
     #[test]
@@ -384,9 +408,9 @@ mod tests {
         let proposal = WarrantProposal::new(0x1, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
+        let mut settings = crate::senate::SenateSettings::new();
         // an unknown matrix should be rejected.
-        assert_eq!(ledger.vote(h, 0xDEAD_C0DE, true, 100, &settings), 0);
+        assert_eq!(ledger.vote(h, 0xDEAD_C0DE, true, 100, &mut settings), 0);
         assert_eq!(ledger.entries[ledger.find(h)].aye_bits, 0);
     }
 
@@ -413,21 +437,21 @@ mod tests {
             energy: 3500,
             base_freq: 0,
             state_flags: 0,
-            genome: 0xCAFE_BABE,
+            genome: 0,
             memory: [0, 100, 0],
         };
         let mut ledger = WarrantLedger::new();
         let proposal = WarrantProposal::new(agent.genome, ACTION_TERMINATE, 3, b"r", 100);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &settings);
+        let mut settings = crate::senate::SenateSettings::new();
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         assert!(issued.is_issued());
         // The issued warrant + matching aye_bits MUST satisfy Codeicide.
-        let settings = crate::senate::SenateSettings::new();
+        let mut settings = crate::senate::SenateSettings::new();
         assert!(is_action_lawful(
             &agent,
             5_000,
@@ -437,7 +461,7 @@ mod tests {
             ACTION_TERMINATE,
             issued.issued_warrant,
             issued.aye_bits,
-            &settings
+            &mut settings
         ));
     }
 
@@ -451,7 +475,7 @@ mod tests {
             energy: 3500,
             base_freq: 0,
             state_flags: 0,
-            genome: 0xCAFE_BABE,
+            genome: 0,
             memory: [0, 100, 0],
         };
         let mut ledger = WarrantLedger::new();
@@ -459,13 +483,13 @@ mod tests {
         let proposal = WarrantProposal::new(agent.genome, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &settings);
+        let mut settings = crate::senate::SenateSettings::new();
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         // Present it to Codeicide as a MUTATE — must be rejected.
-        let settings = crate::senate::SenateSettings::new();
+        let mut settings = crate::senate::SenateSettings::new();
         assert!(!is_action_lawful(
             &agent,
             5_000,
@@ -475,7 +499,7 @@ mod tests {
             ACTION_MUTATE,
             issued.issued_warrant,
             issued.aye_bits,
-            &settings
+            &mut settings
         ));
     }
 
@@ -485,11 +509,45 @@ mod tests {
         let proposal = WarrantProposal::new(0x1, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        let settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &settings); // issued
-        // Further votes return 0.
-        assert_eq!(ledger.vote(h, 0x6E52_1F4E, true, 100, &settings), 0);
+        let mut settings = crate::senate::SenateSettings::new();
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings); // issued
+        assert_eq!(ledger.vote(h, 0x6E52_1F4E, true, 100, &mut settings), 0);
+    }
+
+    #[test]
+    fn vote_consensus_updates_reputation() {
+        let mut ledger = WarrantLedger::new();
+        let proposal = WarrantProposal::new(0x1, ACTION_TERMINATE, 3, b"r", 0);
+        let h = proposal.proposal_hash;
+        ledger.raise(proposal);
+        let mut settings = crate::senate::SenateSettings::new();
+        
+        // Let's record the initial reputations
+        let rep_claude = settings.seats[0].reputation_q10; // seat 0
+        let rep_gpt = settings.seats[1].reputation_q10;    // seat 1
+        let rep_gemini = settings.seats[2].reputation_q10; // seat 2
+        let rep_qwen = settings.seats[3].reputation_q10;   // seat 3
+        
+        // Claude votes AYE
+        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        // GPT votes AYE
+        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        // Qwen votes NAY
+        ledger.vote(h, 0x6E52_1F4E, false, 100, &mut settings);
+        
+        // Gemini votes AYE -> reaches quorum (3 AYEs)
+        let tip = ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
+        assert_eq!(tip, 2); // Issued
+        
+        // Now check reputations.
+        // AYE voters should be rewarded.
+        assert!(settings.seats[0].reputation_q10 > rep_claude);
+        assert!(settings.seats[1].reputation_q10 > rep_gpt);
+        assert!(settings.seats[2].reputation_q10 > rep_gemini);
+        
+        // NAY voter (Qwen) should be penalized.
+        assert!(settings.seats[3].reputation_q10 < rep_qwen);
     }
 }

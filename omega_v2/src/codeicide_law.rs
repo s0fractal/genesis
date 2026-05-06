@@ -111,9 +111,11 @@ pub fn protected_status_for(
     if agent.energy < threshold {
         return STATUS_UNPROTECTED;
     }
-    // Philosophy Vector 9: Rite of Passage (Sanctuary)
-    // Must be positively resonant and have sufficient evolutionary complexity
-    if resonance_score == 0 || agent.genome.count_ones() <= 16 {
+    // Philosophy Vector 9/13: Rite of Passage (Sanctuary)
+    // Must be positively resonant and demonstrate Philosophical Alignment via Proof-of-Work
+    const GENESIS_ANCHOR_HASH: u32 = 0x549A_6307;
+    let pow_hash = crate::math::xorshift32_once(agent.genome ^ GENESIS_ANCHOR_HASH);
+    if resonance_score == 0 || pow_hash > 0x1FFFFFFF {
         return STATUS_UNPROTECTED;
     }
 
@@ -216,7 +218,7 @@ mod tests {
             energy: 3500, // > SANCTUARY_ENERGY_THRESHOLD
             base_freq: 7,
             state_flags: 0,
-            genome: 0xCAFE_BABE,
+            genome: 0,
             memory: [0, 100, 0], // memory[1] = birth_tick
         }
     }

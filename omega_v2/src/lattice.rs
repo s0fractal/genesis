@@ -224,6 +224,8 @@ impl PhaseLattice {
         self.signals.dirty_flags = 0;
         
         let mut total_system_energy = 0u64;
+        let mut alive_count = 0;
+        let mut new_high_water_mark = 0;
         
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
             self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
@@ -446,6 +448,7 @@ impl PhaseLattice {
                 if agent.energy > 0 && agent.state_flags & 0x01 == 0 {
                     total_system_energy = total_system_energy.wrapping_add(agent.energy as u64);
                     alive_count += 1;
+                    new_high_water_mark = i + 1; // Track highest alive index
                 }
 
                 // Compost event: agent died this tick
@@ -467,7 +470,7 @@ impl PhaseLattice {
         }
         
         self.signals.total_energy = total_system_energy as u32;
-        self.signals.active_agent_count = alive_count;
+        self.signals.active_agent_count = new_high_water_mark as u32;
         
         // Philosophy Vector 10: Global Energy Audit (ZK-verifiable)
         // Ensure no energy hyperinflation exists in the system.

@@ -159,7 +159,7 @@ pub fn tick_physics(&mut self) {
 
 ## 5. Рекомендації (Резонансні правки)
 
-### P0 — Повна пульсація атракторів
+### [x] P0 — Повна пульсація атракторів
 Оновити `drift_contribution` для врахування `pulse_freq` та `absolute_tick`:
 
 ```rust
@@ -176,7 +176,7 @@ pub fn drift_contribution(&self, agent_phase: u32, absolute_tick: u32, topology:
 }
 ```
 
-### P0 — Conservation Law для Resonance
+### [x] P0 — Conservation Law для Resonance
 Зробити resonance **energy-neutral**:
 
 ```rust
@@ -196,7 +196,7 @@ if agent.phase.is_multiple_of(RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
 }
 ```
 
-### P1 — Повний Moore Neighborhood (8 сусідів)
+### [x] P1 — Повний Moore Neighborhood (8 сусідів)
 ```rust
 let n_indices = [
     wrap_index_2d(cx - 1, cy - 1, w, h),
@@ -212,7 +212,7 @@ let n_indices = [
 
 Coupling denominator змінити з `6 * Q10_SCALE` на `8 * Q10_SCALE`.
 
-### P1 — Coevolutionary Species Matrix
+### [x] P1 — Red Queen's Race (Adaptive Species Advantage)
 Замінити фіксовану матрицю на **генотип-залежну**:
 
 ```rust
@@ -225,7 +225,7 @@ pub fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
 }
 ```
 
-### P2 — Adaptive Time-Stepping (Sub-stepping)
+### [x] P2 — Adaptive Time-Stepping (Sub-stepping)
 ```rust
 pub fn tick_physics(&mut self) {
     let max_freq = self.find_max_base_freq();
@@ -244,7 +244,7 @@ let max_allowed_freq = Q20_SCALE / 2; // Nyquist limit
 agent.base_freq = agent.base_freq.clamp(-max_allowed_freq, max_allowed_freq);
 ```
 
-### P2 — Global Energy Audit (ZK-verifiable)
+### [x] P2 — Global Energy Audit (ZK-verifiable)
 Додати до ZK-VM перевірку:
 ```rust
 // Invariant: total_energy + total_entropy_released == constant (modulo external inputs)

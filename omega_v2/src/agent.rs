@@ -59,13 +59,19 @@ impl PhaseAgentMinimal {
 /// Returns 0 if neutral.
 pub fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
     if a_genome == b_genome { return 0; }
-    let diff = (a_genome ^ b_genome).count_ones();
-    if diff > 16 {
-        1
-    } else if diff < 8 {
-        -1
-    } else {
+    
+    // Philosophy Vector 13: Cryptographic Co-Adaptation (Red Queen's Race)
+    // Asymmetric cyclic food web based on GF(2) mixing and ring distance
+    let ha = crate::math::xorshift32_once(a_genome);
+    let hb = crate::math::xorshift32_once(b_genome);
+    let delta = ha.wrapping_sub(hb);
+    
+    if delta == 0 {
         0
+    } else if delta < 0x80000000 {
+        1 // a is ahead of b in the ring (a steals from b)
+    } else {
+        -1 // b is ahead of a (b steals from a)
     }
 }
 

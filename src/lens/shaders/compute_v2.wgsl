@@ -176,13 +176,21 @@ fn deterministic_atan2(y: i32, x: i32, q_phase: u32) -> u32 {
 // Era 0218: Circular Food Web
 fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
     if (a_genome == b_genome) { return 0i; }
-    let diff = countOneBits(a_genome ^ b_genome);
-    if (diff > 16u) {
-        return 1i;
-    } else if (diff < 8u) {
-        return -1i;
-    }
-    return 0i;
+    
+    // Inline xorshift32 for A
+    var ha = a_genome;
+    if (ha == 0u) { ha = 0x12345678u; }
+    ha = ha ^ (ha << 13u); ha = ha ^ (ha >> 17u); ha = ha ^ (ha << 5u);
+    
+    // Inline xorshift32 for B
+    var hb = b_genome;
+    if (hb == 0u) { hb = 0x12345678u; }
+    hb = hb ^ (hb << 13u); hb = hb ^ (hb >> 17u); hb = hb ^ (hb << 5u);
+    
+    let delta = ha - hb;
+    if (delta == 0u) { return 0i; }
+    if (delta < 0x80000000u) { return 1i; }
+    return -1i;
 }
 
 @compute @workgroup_size(64)

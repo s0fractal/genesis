@@ -152,7 +152,7 @@ let _status = codeicide_law::protected_status_for(
 
 ## 5. Рекомендації (Резонансні правки)
 
-### P0 — Liquid Democracy для Сенату
+### [x] P0 — Liquid Democracy для Сенату
 Замінити фіксовані місця на **resonance-weighted delegation**:
 
 ```rust
@@ -171,7 +171,7 @@ pub struct SenateSeat {
 - Дозволяє новим моделям "заробити" місце
 - Робить governance **fluid**, не **frozen**
 
-### P0 — Percentile-Based Thresholds
+### [x] P0 — Percentile-Based Thresholds
 Замінити фіксовані thresholds на **адаптивні**:
 
 ```rust
@@ -189,7 +189,7 @@ pub fn sanctuary_threshold(histogram: &EnergyHistogram) -> u32 {
 - Threshold **адаптується** до умов екосистеми
 - Неможливо "зігнатися" до fixed number
 
-### P1 — Rite of Passage для SANCTUARY
+### [x] P1 — Rite of Passage для SANCTUARY
 Додати **акт приєднання** до захисту:
 
 ```rust
@@ -211,7 +211,7 @@ pub fn request_sanctuary(agent: &mut PhaseAgentMinimal, lattice: &PhaseLattice) 
 }
 ```
 
-### P1 — Precedent System (Case Law)
+### [x] P1 — Precedent System (Case Law)
 ```rust
 pub struct SenatePrecedent {
     pub proposal_hash: u64,
@@ -230,7 +230,7 @@ pub struct PrecedentLedger {
 При голосуванні Сенат може посилатися на precedent:
 > "Proposal X схожий на Proposal Y (Era 1030), який був відхилений через порушення Invariant 5."
 
-### P1 — Governance Transparency через φ-протокол
+### [x] P1 — Governance Transparency через φ-протокол
 Всі Senate decisions публікуються як φ-messages:
 ```rust
 let governance_message = PhiMessage::encode_governance(
@@ -247,7 +247,7 @@ buf.push(governance_message);
 - **Верифікованою** (ZK-proof на vote counting)
 - **Незмінною** (append-only через Bitcoin anchor)
 
-### P2 — Multi-Sig для Protocol Changes
+### [x] P2 — Multi-Sig для Protocol Changes
 ```rust
 // Зміна L0-L6 потребує:
 // 1. 4/5 Senate Warrant

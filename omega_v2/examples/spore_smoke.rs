@@ -107,10 +107,10 @@ fn main() {
     println!("warrant_proposal_hash       = 0x{:08x}", phash);
     all_ok &= phash == 0x0B09_9CF9;
     ledger.raise(prop);
-    let settings = omega_v2::senate::SenateSettings::new();
-    ledger.vote(phash, 0x41A2_F2F4, true, 100, &settings);
-    ledger.vote(phash, 0x89B1_222A, true, 100, &settings);
-    let tip = ledger.vote(phash, 0x9874_DD21, true, 100, &settings);
+    let mut settings = omega_v2::senate::SenateSettings::new();
+    ledger.vote(phash, 0x41A2_F2F4, true, 100, &mut settings);
+    ledger.vote(phash, 0x89B1_222A, true, 100, &mut settings);
+    let tip = ledger.vote(phash, 0x9874_DD21, true, 100, &mut settings);
     println!("warrant_issuance_tip_code   = {} (expect 2 = ISSUED)", tip);
     all_ok &= tip == 2;
 

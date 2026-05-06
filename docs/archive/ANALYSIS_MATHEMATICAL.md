@@ -117,7 +117,7 @@ agent.energy = (agent.energy as u64 + dipole_bonus as u64).min(MAX_ATP as u64) a
 
 ## 5. Рекомендації (Резонансні правки)
 
-### P0 — Формалізація біологічних thresholds
+### [x] P0 — Формалізація біологічних thresholds
 Вивести всі thresholds з `MAX_ATP`, `Q20_SCALE`, `topology.q_phase`:
 
 ```rust
@@ -138,7 +138,7 @@ pub fn resonance_replenish(burn: u32) -> u32 {
 }
 ```
 
-### P0 — Sakaguchi-Kuramoto Alpha Derivation
+### [x] P0 — Sakaguchi-Kuramoto Alpha Derivation
 Замінити magic 38 на похідну від золотого кута:
 
 ```rust
@@ -152,7 +152,7 @@ pub fn resonance_replenish(burn: u32) -> u32 {
 // а не глобальну константу, для configurable regimes.
 ```
 
-### P1 — Conservation Law для Resonance
+### [x] P1 — Conservation Law для Resonance
 Зробити resonance replenish **energy-neutral**:
 
 ```rust
@@ -160,7 +160,7 @@ pub fn resonance_replenish(burn: u32) -> u32 {
 // Це означає: агент не отримує «free energy», а «відкладає» частину burn
 ```
 
-### P1 — Tick-Based Seasons
+### [x] P1 — Tick-Based Seasons
 ```typescript
 // Замість:
 const season = Math.floor(frameCount / 3600) % 4;
@@ -168,7 +168,7 @@ const season = Math.floor(frameCount / 3600) % 4;
 const season = Math.floor(signals.absolute_tick / 3600) % 4;
 ```
 
-### P2 — Mutation Spectral Test
+### [x] P2 — Mutation Spectral Test
 Додати тест, який перевіряє Hamming distance distribution MUTATION_LUT:
 
 ```rust

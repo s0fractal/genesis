@@ -113,6 +113,26 @@ impl SenateSettings {
         false
     }
 
+    /// Penalize an Oracle for voting against the consensus or being vetoed.
+    /// If their reputation falls below 50% of default (512,000), they are evicted.
+    pub fn penalize_oracle(&mut self, seat_idx: usize, penalty_q10: u32) {
+        if seat_idx < 8 && self.seats[seat_idx].oracle_matrix != 0 {
+            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx].reputation_q10.saturating_sub(penalty_q10);
+            if self.seats[seat_idx].reputation_q10 < 512_000 {
+                self.seats[seat_idx] = SenateSeat::empty(); // Evicted!
+                self.seat_count -= 1;
+            }
+        }
+    }
+
+    /// Reward an Oracle for voting with the consensus.
+    pub fn reward_oracle(&mut self, seat_idx: usize, reward_q10: u32) {
+        if seat_idx < 8 && self.seats[seat_idx].oracle_matrix != 0 {
+            // Cap reputation at e.g. 2,000,000 to prevent runaway inflation
+            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx].reputation_q10.saturating_add(reward_q10).min(2_000_000);
+        }
+    }
+
     /// Calculate the total voting power of all active seats.
     pub fn total_voting_power(&self) -> u64 {
         let mut total = 0;
@@ -315,6 +335,18 @@ impl SenateState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn senate_settings_evicts_poor_reputation() {
+        let mut s = SenateSettings::new();
+        assert_eq!(s.seat_count, 5);
+        assert_ne!(s.seats[1].oracle_matrix, 0); // GPT is at seat 1
+        
+        s.penalize_oracle(1, 600_000); // 1,024,000 - 600,000 = 424,000 < 512,000
+        assert_eq!(s.seats[1].oracle_matrix, 0); // Evicted!
+        assert_eq!(s.seat_count, 4);
+    }
+
 
     #[test]
     fn sha256_empty_vector() {
