@@ -3,7 +3,7 @@
 // Guarantees CPU-GPU parity for Golden Trace consensus.
 //
 // Physics: 1D toroidal chain, Kuramoto sin_q10 coupling, metabolic burn,
-// resonance replenish, ping-pong double-buffering.
+// physics loop: 32-byte layout, integer-only sine LUT, no floating point.
 
 struct PhaseTopology {
     q_phase: u32,
@@ -344,9 +344,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         // Philosophy Vector 10: Thermodynamic Conservation
-        // Era 2080: Agents can no longer generate energy out of thin air simply by holding a resonant phase.
-        // Dipole resonance bonus REMOVED. Energy is strictly zero-sum except for solar input.
-
+        // Era 2080: Energy is strictly zero-sum except for solar input.
         agent.phase = new_phase;
         agent.energy = new_energy;
         if (new_energy == 0u) {

@@ -7,6 +7,7 @@ import {
     SPORE_FRAME_MAGIC,
     buildHeartbeat,
     buildWarrantVote,
+    buildLawTelemetry,
     findSync,
     frameFromBytes,
     frameToBytes,
@@ -80,6 +81,21 @@ Deno.test("spore frame: cross-language CRC anchor", async () => {
     assertEquals(bytes[1], 0x46);
     assertEquals(bytes[2], FRAME_TYPE_WARRANT_VOTE);
     assertEquals(bytes[3], 0); // claude
+});
+
+Deno.test("spore frame: law telemetry round-trips", async () => {
+    // 18 is FRAME_TYPE_LAW_TELEMETRY
+    const f = buildLawTelemetry(1, 0xAAAA, 0xBBBB, 0xCCCC, 7, 42);
+    const bytes = frameToBytes(f);
+    const parsed = frameFromBytes(bytes);
+    assert(parsed !== null);
+    assertEquals(parsed!.frameType, 18);
+    assertEquals(parsed!.oracleBit, 1);
+    assertEquals(parsed!.proposalOrTarget, 0xAAAA);
+    assertEquals(parsed!.payloadA, 0xBBBB);
+    assertEquals(parsed!.payloadB, 0xCCCC);
+    assertEquals(parsed!.payloadC, 7);
+    assertEquals(parsed!.tick, 42);
 });
 
 Deno.test("spore frame: magic constant is 'OF'", async () => {

@@ -3,6 +3,7 @@
 // output to Rust tick_physics() across multiple ticks, topologies, and attractors.
 
 import { assertEquals } from "jsr:@std/assert";
+const DEBUG_WGSL_PARITY = Deno.env.get("DEBUG_WGSL_PARITY") === "1";
 const computeToroidalSrc = await Deno.readTextFile("src/lens/shaders/compute_toroidal.wgsl");
 
 // Skip if WebGPU is unavailable (CI/headless environments).
@@ -114,14 +115,18 @@ if (gpuAvailable) {
                 });
 
                 device.queue.writeBuffer(topologyBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset, 32);
-                let topHex = "";
-                for(let k=0; k<32; k++) topHex += uniformBytes[k].toString(16).padStart(2, "0") + " ";
-                console.log(`[DEBUG] Hex dump of topologyBuf upload: ${topHex}`);
-                console.log(`[DEBUG] SINE_LUT[0]=${sineLutBytes[0]} SINE_LUT[64]=${sineLutBytes[64]}`);
+                if (DEBUG_WGSL_PARITY) {
+                    let topHex = "";
+                    for(let k=0; k<32; k++) topHex += uniformBytes[k].toString(16).padStart(2, "0") + " ";
+                    console.log(`[DEBUG] Hex dump of topologyBuf upload: ${topHex}`);
+                    console.log(`[DEBUG] SINE_LUT[0]=${sineLutBytes[0]} SINE_LUT[64]=${sineLutBytes[64]}`);
+                }
                 device.queue.writeBuffer(signalsBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
-                let agentHex = "";
-                for(let k=0; k<32; k++) agentHex += gpuAgentBytes[k].toString(16).padStart(2, "0") + " ";
-                console.log(`[DEBUG] Hex dump of gpuAgentBytes upload: ${agentHex}`);
+                if (DEBUG_WGSL_PARITY) {
+                    let agentHex = "";
+                    for(let k=0; k<32; k++) agentHex += gpuAgentBytes[k].toString(16).padStart(2, "0") + " ";
+                    console.log(`[DEBUG] Hex dump of gpuAgentBytes upload: ${agentHex}`);
+                }
                 device.queue.writeBuffer(agentsInBuf, 0, gpuAgentBytes.buffer, gpuAgentBytes.byteOffset, gpuAgentBytes.byteLength);
                 device.queue.writeBuffer(sineLutBuf, 0, sineLutBytes.buffer, sineLutBytes.byteOffset, sineLutBytes.byteLength);
                 device.queue.writeBuffer(attractorBuf, 0, attractorBytes.buffer, attractorBytes.byteOffset, attractorBytes.byteLength);
@@ -175,7 +180,7 @@ if (gpuAvailable) {
                     // console.log(`[DEBUG] Hex dump of signalsBuf upload: ${hex}`);
                     // console.log(`[DEBUG] uniform absolute_tick=${sigDataBefore.getUint32(4, true)} active=${sigDataBefore.getUint32(8, true)} total_energy=${sigDataBefore.getUint32(24, true)}`);
                     // Log input state before tick 4
-                    if (i === 3) {
+                    if (DEBUG_WGSL_PARITY && i === 3) {
                         const a0 = new DataView(agentBytes.buffer, agentBytes.byteOffset, 32);
                         console.log(`[TICK4 INPUT] Agent 0: phase=${a0.getUint32(0,true)} energy=${a0.getUint32(4,true)} mem=[${a0.getUint32(20,true)},${a0.getUint32(24,true)},${a0.getUint32(28,true)}]`);
                     }

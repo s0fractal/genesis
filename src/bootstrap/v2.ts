@@ -484,10 +484,13 @@ ${debateMd || "(no recorded arguments)"}
             const postEntropy = engine.getTotalEntropyLow32();
             const entropyDelta = (postEntropy - preEntropy) >>> 0;
 
+            const ptrs = engine.getMemoryPointers();
+            const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
+
+
             // Broadcast LawTelemetry at 1Hz
             if (frameCount % 60 === 0) {
                 const lawHash = engine.getLawHash();
-                const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
                 const frame = buildLawTelemetry(
                     1, // witnessKind = 1 (WASM)
                     lawHash,
@@ -500,9 +503,11 @@ ${debateMd || "(no recorded arguments)"}
 
                 // Era 2100: Substrate Court - Submit WASM Testimony
                 court.submitTestimony({
-                    witnessKind: WITNESS_WASM,
+                    substrate: "wasm",
+                    source: "wasm-memory",
                     lawHash: lawHash,
-                    stateHash: postStateHash,
+                    preStateHash: preStateHash,
+                    postStateHash: postStateHash,
                     entropyDelta: entropyDelta,
                     tick: absoluteTick,
                 });
@@ -510,9 +515,11 @@ ${debateMd || "(no recorded arguments)"}
                 // Era 2100: Async request for WebGPU Testimony
                 renderer.readStateFromGPUAndHash().then((gpuResult) => {
                     court.submitTestimony({
-                        witnessKind: WITNESS_WEBGPU,
+                        substrate: "webgpu",
+                        source: "gpu-readback",
                         lawHash: lawHash, // WebGPU uses the same law for now
-                        stateHash: gpuResult.goldenTraceNum, // GPU state hash
+                        preStateHash: preStateHash, // Usually readback happens after, so pre is approximated
+                        postStateHash: gpuResult.goldenTraceNum, // GPU state hash
                         entropyDelta: entropyDelta,
                         tick: absoluteTick,
                     });
@@ -530,7 +537,7 @@ ${debateMd || "(no recorded arguments)"}
                         const { hash, stance, reasoning, oracle } = data;
                         const aye = stance === "AYE";
                         mesh.castOracleVote(oracle, hash, aye, reasoning);
-                        mesh.recordOracleDebate(oracle, hash, stance.toLowerCase() as any, reasoning, Date.now() & 0xFFFFFFFF);
+                        mesh.recordOracleDebate(oracle, hash, stance.toLowerCase() as any, reasoning, Date.now() & 0xFFFFFFFF); // localObservedAtMs
                         console.log(`[LIVE DEBATE] ${oracle.toUpperCase()} voted ${stance} on 0x${hash.toString(16)}: "${reasoning}"`);
                     } else if (data.type === 'SUCCESS') {
                         setHudStat("c", "ORACLE", "LLaMa-3 Synthesized AST.");
@@ -560,8 +567,6 @@ ${debateMd || "(no recorded arguments)"}
                 };
             }
 
-            const ptrs = engine.getMemoryPointers();
-            const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
 

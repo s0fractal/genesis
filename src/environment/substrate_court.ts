@@ -10,26 +10,32 @@ export const WITNESS_WEBGPU = 0;
 export const WITNESS_WASM = 1;
 export const WITNESS_SP1 = 2;
 
-export interface Testimony {
-    witnessKind: number;
+export type WitnessSubstrate = "webgpu" | "wasm" | "sp1";
+export type WitnessSource = "gpu-readback" | "wasm-memory" | "zk-proof";
+
+export interface StateWitness {
+    substrate: WitnessSubstrate;
+    source: WitnessSource;
     lawHash: number;
-    stateHash: number;
+    preStateHash: number;
+    postStateHash: number;
     entropyDelta: number;
     tick: number;
 }
 
 export class SubstrateCourt {
-    private testimonies = new Map<number, Map<number, Testimony>>(); // tick -> (witnessKind -> Testimony)
-    private pendingArbitrations = new Set<number>();
+    private testimonies = new Map<number, Map<WitnessSubstrate, StateWitness>>(); // tick -> (substrate -> StateWitness)
+    private pendingArbitrations = new Map<number, number>(); // tick -> timeout id
     
     // Substrates that have failed arbitration and are temporarily isolated
-    public isolatedSubstrates = new Set<number>();
+    public isolatedSubstrates = new Set<WitnessSubstrate>();
+    public quarantineReceipts = new Set<string>(); // Store isolation receipts
 
     constructor() {}
 
     /** Submit a testimony from a substrate for a specific absolute tick. */
-    public submitTestimony(testimony: Testimony): void {
-        if (this.isolatedSubstrates.has(testimony.witnessKind)) {
+    public submitTestimony(testimony: StateWitness): void {
+        if (this.isolatedSubstrates.has(testimony.substrate)) {
             return; // Ignore testimony from isolated/distrusted substrates
         }
 
@@ -38,7 +44,7 @@ export class SubstrateCourt {
         }
 
         const tickRecords = this.testimonies.get(testimony.tick)!;
-        tickRecords.set(testimony.witnessKind, testimony);
+        tickRecords.set(testimony.substrate, testimony);
 
         this.checkConsensus(testimony.tick);
     }
@@ -47,14 +53,15 @@ export class SubstrateCourt {
     private checkConsensus(tick: number): void {
         const records = this.testimonies.get(tick)!;
         
-        const gpu = records.get(WITNESS_WEBGPU);
-        const wasm = records.get(WITNESS_WASM);
+        const gpu = records.get("webgpu");
+        const wasm = records.get("wasm");
         
         if (gpu && wasm) {
-            if (gpu.stateHash !== wasm.stateHash || gpu.lawHash !== wasm.lawHash) {
+            if (gpu.postStateHash !== wasm.postStateHash || gpu.lawHash !== wasm.lawHash) {
                 // Drift detected! Trigger ZK arbitration if not already pending
                 if (!this.pendingArbitrations.has(tick)) {
-                    this.pendingArbitrations.add(tick);
+                    const timeoutId = setTimeout(() => this.handleArbitrationTimeout(tick), 5000);
+                    this.pendingArbitrations.set(tick, timeoutId as unknown as number);
                     this.requestArbitration(tick, gpu, wasm);
                 }
             } else {
@@ -65,32 +72,45 @@ export class SubstrateCourt {
     }
 
     /** Mock trigger for SP1 to arbitrate the divergent tick. */
-    private requestArbitration(tick: number, gpu: Testimony, wasm: Testimony): void {
+    private requestArbitration(tick: number, gpu: StateWitness, wasm: StateWitness): void {
         // In a real implementation, this dispatches a block to the SP1 prover
         // For now, we simulate the arrival of an SP1 testimony.
     }
 
+    private handleArbitrationTimeout(tick: number): void {
+        if (this.pendingArbitrations.has(tick)) {
+            console.warn(`[SubstrateCourt] Arbitration timeout for tick ${tick}.`);
+            // Add a quarantine receipt and drop the pending state
+            this.quarantineReceipts.add(`timeout_tick_${tick}`);
+            this.pendingArbitrations.delete(tick);
+        }
+    }
+
     /** Process the definitive STARK proof testimony and punish the drifting substrate. */
-    public resolveArbitration(arbiterTestimony: Testimony): void {
-        if (arbiterTestimony.witnessKind !== WITNESS_SP1) return;
+    public resolveArbitration(arbiterTestimony: StateWitness): void {
+        if (arbiterTestimony.substrate !== "sp1") return;
 
         const tick = arbiterTestimony.tick;
         if (!this.pendingArbitrations.has(tick)) return;
 
+        clearTimeout(this.pendingArbitrations.get(tick));
+        
         const records = this.testimonies.get(tick);
         if (!records) return;
 
-        const gpu = records.get(WITNESS_WEBGPU);
-        const wasm = records.get(WITNESS_WASM);
+        const gpu = records.get("webgpu");
+        const wasm = records.get("wasm");
 
-        if (gpu && (gpu.stateHash !== arbiterTestimony.stateHash || gpu.lawHash !== arbiterTestimony.lawHash)) {
+        if (gpu && (gpu.postStateHash !== arbiterTestimony.postStateHash || gpu.lawHash !== arbiterTestimony.lawHash)) {
             console.warn(`[SubstrateCourt] WebGPU drift convicted at tick ${tick}. Isolating substrate.`);
-            this.isolatedSubstrates.add(WITNESS_WEBGPU);
+            this.isolatedSubstrates.add("webgpu");
+            this.quarantineReceipts.add(`convicted_webgpu_tick_${tick}`);
         }
 
-        if (wasm && (wasm.stateHash !== arbiterTestimony.stateHash || wasm.lawHash !== arbiterTestimony.lawHash)) {
+        if (wasm && (wasm.postStateHash !== arbiterTestimony.postStateHash || wasm.lawHash !== arbiterTestimony.lawHash)) {
             console.warn(`[SubstrateCourt] WASM drift convicted at tick ${tick}. Isolating substrate.`);
-            this.isolatedSubstrates.add(WITNESS_WASM);
+            this.isolatedSubstrates.add("wasm");
+            this.quarantineReceipts.add(`convicted_wasm_tick_${tick}`);
         }
 
         this.pendingArbitrations.delete(tick);

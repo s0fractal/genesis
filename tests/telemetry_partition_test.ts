@@ -1,21 +1,25 @@
 import { assertEquals, assert } from "jsr:@std/assert";
-import { SubstrateCourt, WITNESS_WEBGPU, WITNESS_WASM, WITNESS_SP1 } from "../src/environment/substrate_court.ts";
+import { SubstrateCourt } from "../src/environment/substrate_court.ts";
 
 Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
     const court = new SubstrateCourt();
 
     // Tick 1: Perfect consensus
     court.submitTestimony({
-        witnessKind: WITNESS_WEBGPU,
+        substrate: "webgpu",
+        source: "gpu-readback",
         lawHash: 0xAAAA,
-        stateHash: 0xBBBB,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xBBBB,
         entropyDelta: 10,
         tick: 1,
     });
     court.submitTestimony({
-        witnessKind: WITNESS_WASM,
+        substrate: "wasm",
+        source: "wasm-memory",
         lawHash: 0xAAAA,
-        stateHash: 0xBBBB,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xBBBB,
         entropyDelta: 10,
         tick: 1,
     });
@@ -24,16 +28,20 @@ Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
 
     // Tick 2: Drift detected (WebGPU deviates)
     court.submitTestimony({
-        witnessKind: WITNESS_WEBGPU,
+        substrate: "webgpu",
+        source: "gpu-readback",
         lawHash: 0xAAAA,
-        stateHash: 0xDEAD, // Drift!
+        preStateHash: 0xBBBB,
+        postStateHash: 0xDEAD, // Drift!
         entropyDelta: 10,
         tick: 2,
     });
     court.submitTestimony({
-        witnessKind: WITNESS_WASM,
+        substrate: "wasm",
+        source: "wasm-memory",
         lawHash: 0xAAAA,
-        stateHash: 0xBBBB,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xBBBB,
         entropyDelta: 10,
         tick: 2,
     });
@@ -43,22 +51,26 @@ Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
 
     // Tick 2: SP1 Arbitration arrives, siding with WASM
     court.resolveArbitration({
-        witnessKind: WITNESS_SP1,
+        substrate: "sp1",
+        source: "zk-proof",
         lawHash: 0xAAAA,
-        stateHash: 0xBBBB,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xBBBB,
         entropyDelta: 10,
         tick: 2,
     });
 
     // WebGPU should now be isolated
-    assert(court.isolatedSubstrates.has(WITNESS_WEBGPU));
-    assert(!court.isolatedSubstrates.has(WITNESS_WASM));
+    assert(court.isolatedSubstrates.has("webgpu"));
+    assert(!court.isolatedSubstrates.has("wasm"));
 
     // Tick 3: Testimony from isolated substrate is ignored
     court.submitTestimony({
-        witnessKind: WITNESS_WEBGPU,
+        substrate: "webgpu",
+        source: "gpu-readback",
         lawHash: 0xCCCC,
-        stateHash: 0xDDDD,
+        preStateHash: 0xDDDD,
+        postStateHash: 0xDDDD,
         entropyDelta: 0,
         tick: 3,
     });

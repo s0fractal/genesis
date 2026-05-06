@@ -63,23 +63,10 @@ export class PhaseV2Renderer {
 
         const commandEncoder = this.device.createCommandEncoder();
         
-        let computePipeline: GPUComputePipeline;
-        let computeBindGroup: GPUBindGroup;
-        
-        if (this.pipelines.useToroidalShader) {
-            computePipeline = this.pipelines.toroidalComputePipeline;
-            computeBindGroup = this.buffers.agentsPingPong === 0
-                ? this.pipelines.computeBindGroupToroidalA
-                : this.pipelines.computeBindGroupToroidalB;
-        } else {
-            this.device.queue.writeBuffer(this.buffers.intentBuffer, 0, stablePtrs.uniformBytes, 64, 128);
-            commandEncoder.clearBuffer(this.buffers.newMeanFieldBuffer);
-            
-            computePipeline = this.pipelines.computePipeline;
-            computeBindGroup = this.buffers.agentsPingPong === 0
-                ? this.pipelines.computeBindGroupV2A
-                : this.pipelines.computeBindGroupV2B;
-        }
+        const computePipeline = this.pipelines.toroidalComputePipeline;
+        const computeBindGroup = this.buffers.agentsPingPong === 0
+            ? this.pipelines.computeBindGroupToroidalA
+            : this.pipelines.computeBindGroupToroidalB;
         
         const renderBindGroup = this.buffers.agentsPingPong === 0
             ? this.pipelines.renderBindGroupB 
@@ -95,10 +82,7 @@ export class PhaseV2Renderer {
         if (dispatchSize > 0) { passEncoder.dispatchWorkgroups(dispatchSize); }
         passEncoder.end();
         
-        // Map global vector
-        if (!this.pipelines.useToroidalShader && dispatchSize > 0) {
-            commandEncoder.copyBufferToBuffer(this.buffers.newMeanFieldBuffer, 0, this.buffers.oldMeanFieldBuffer, 0, 8);
-        }
+        // Pass completed
         
         // Ping-pong: swap source/target
         this.buffers.agentsPingPong = 1 - this.buffers.agentsPingPong;

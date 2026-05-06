@@ -98,7 +98,7 @@ export interface SenateProposalRecord {
   ayesWeight: number; // Era 1070+: Resonance-weighted
   naysWeight: number;
   accepted: boolean;
-  proposedAt: number;
+  localObservedAtMs: number; // non-consensus metadata
   // Era 1060: oracle-attributed votes (peer-id-independent).
   oracleAyes?: Set<CanonicalOracle>;
   oracleNays?: Set<CanonicalOracle>;
@@ -615,7 +615,7 @@ export class Libp2pMesh {
       ayes: new Set([fromPeer]),
       nays: new Set(),
       accepted: false,
-      proposedAt: Date.now(),
+      localObservedAtMs: Date.now(),
       proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
     } as any);
     // Mirror into WASM Senate state.
@@ -828,7 +828,7 @@ export class Libp2pMesh {
             oracleAyes: record.oracleAyes?.size ?? 0,
             oracleNays: record.oracleNays?.size ?? 0,
             acceptedVia: path,
-            proposedAt: record.proposedAt,
+            localObservedAtMs: record.localObservedAtMs || Date.now(),
           },
         }),
       );
@@ -922,7 +922,7 @@ export class Libp2pMesh {
       ayesWeight: 0,
       naysWeight: 0,
       accepted: false,
-      proposedAt: Date.now(),
+      localObservedAtMs: Date.now(),
     });
     // Broadcast PROPOSAL plasmid.
     this.enqueuePlasmid({
@@ -1039,7 +1039,7 @@ export class Libp2pMesh {
           ayeOracles,
           nayOracles: [...(record.oracleNays ?? [])],
           debate: reasoningSnapshot,
-          acceptedAt: Date.now(),
+          localObservedAtMs: Date.now(),
         },
       }),
     );
