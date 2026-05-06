@@ -42,8 +42,12 @@ impl AttractorMatrix {
     /// Computes phase drift contribution for a given agent phase.
     /// Returns signed Q10 drift scaled by pulse amplitude.
     /// Formula: sin_q10(agent_phase, matrix_phase) * pulse_amp / Q10_SCALE
-    pub fn drift_contribution(&self, agent_phase: u32, _topology: &crate::topology::PhaseTopology) -> i32 {
-        let sin = crate::math::sin_q10(agent_phase, self.matrix);
+    pub fn drift_contribution(&self, agent_phase: u32, absolute_tick: u32, _topology: &crate::topology::PhaseTopology) -> i32 {
+        // Pulsing phase: ωt (scaled by Q10)
+        let pulse_phase = ((absolute_tick as u64 * self.pulse_freq as u64) / 1024) as u32;
+        // Attractor's instantaneous phase = matrix + ωt
+        let attractor_phase = self.matrix.wrapping_add(pulse_phase);
+        let sin = crate::math::sin_q10(agent_phase, attractor_phase);
         (sin * (self.pulse_amp as i32)) / 1024
     }
 }
@@ -145,7 +149,7 @@ mod tests {
     fn test_drift_contribution_zero_amp() {
         let m = AttractorMatrix::new(0xFFFFFFFF, 0, 100, 0);
         let topology = crate::topology::PhaseTopology::new(7, 7, 6, 20);
-        let drift = m.drift_contribution(0, &topology);
+        let drift = m.drift_contribution(0, 0, &topology);
         assert_eq!(drift, 0, "Zero amp should produce zero drift");
     }
 
@@ -153,7 +157,7 @@ mod tests {
     fn test_drift_contribution_non_zero() {
         let m = AttractorMatrix::new(0xFFFFFFFF, 0, 100, 1024);
         let topology = crate::topology::PhaseTopology::new(7, 7, 6, 20);
-        let drift = m.drift_contribution(0, &topology);
+        let drift = m.drift_contribution(0, 0, &topology);
         println!("drift={} for matrix=0xFFFFFFFF, agent_phase=0, q_phase=7", drift);
         // sin_q10 for phase diff = 0 - (0xFF & 0x7F = 0x7F = 127)
         // get_sin(127) should be near 1024, drift = 1024 * 1024 / 1024 = 1024

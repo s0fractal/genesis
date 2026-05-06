@@ -1217,8 +1217,9 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32)
         return 0;
     }
     unsafe {
+        let tick = OMEGA_LATTICE.lock().signals.absolute_tick;
         let mut l = WARRANT_LEDGER.lock();
-        l.vote(proposal_hash, oracle_bit as u8, aye != 0)
+        l.vote(proposal_hash, oracle_bit as u8, aye != 0, tick)
     }
 }
 

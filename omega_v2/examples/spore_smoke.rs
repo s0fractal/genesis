@@ -107,9 +107,9 @@ fn main() {
     println!("warrant_proposal_hash       = 0x{:08x}", phash);
     all_ok &= phash == 0x0B09_9CF9;
     ledger.raise(prop);
-    ledger.vote(phash, 0, true);
-    ledger.vote(phash, 1, true);
-    let tip = ledger.vote(phash, 2, true);
+    ledger.vote(phash, 0, true, 100);
+    ledger.vote(phash, 1, true, 100);
+    let tip = ledger.vote(phash, 2, true, 100);
     println!("warrant_issuance_tip_code   = {} (expect 2 = ISSUED)", tip);
     all_ok &= tip == 2;
 

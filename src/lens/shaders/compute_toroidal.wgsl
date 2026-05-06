@@ -91,12 +91,12 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
 }
 
 // Era 0218: Circular Food Web
-fn species_advantage(a: u32, b: u32) -> i32 {
-    if (a == b) { return 0i; }
-    let diff = (a - b) & 0x7Fu;
-    if (diff > 0u && diff <= 8u) {
+fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
+    if (a_genome == b_genome) { return 0i; }
+    let diff = countOneBits(a_genome ^ b_genome);
+    if (diff > 16u) {
         return 1i;
-    } else if (diff >= 120u && diff <= 127u) {
+    } else if (diff < 8u) {
         return -1i;
     }
     return 0i;
@@ -144,17 +144,20 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cx = i32(index) % w;
         let cy = i32(index) / w;
         
-        let n_indices = array<u32, 6>(
+        let n_indices = array<u32, 8>(
+            wrap_index_2d(cx - 1, cy - 1, w, h),
+            wrap_index_2d(cx, cy - 1, w, h),
+            wrap_index_2d(cx + 1, cy - 1, w, h),
             wrap_index_2d(cx - 1, cy, w, h),
             wrap_index_2d(cx + 1, cy, w, h),
-            wrap_index_2d(cx, cy - 1, w, h),
+            wrap_index_2d(cx - 1, cy + 1, w, h),
             wrap_index_2d(cx, cy + 1, w, h),
-            wrap_index_2d(cx + 1, cy - 1, w, h),
-            wrap_index_2d(cx - 1, cy + 1, w, h)
+            wrap_index_2d(cx + 1, cy + 1, w, h)
         );
 
-        let left_idx = select(n_indices[0], 0u, n_indices[0] >= active_count);
-        let right_idx = select(n_indices[1], 0u, n_indices[1] >= active_count);
+        // Left is index 3 (cx-1, cy), Right is index 4 (cx+1, cy)
+        let left_idx = select(n_indices[3], 0u, n_indices[3] >= active_count);
+        let right_idx = select(n_indices[4], 0u, n_indices[4] >= active_count);
 
         let left = agents_in[left_idx];
         let right = agents_in[right_idx];
@@ -182,21 +185,22 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         weight_left = clamp(weight_left + (cos_left * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
         weight_right = clamp(weight_right + (cos_right * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
 
-        // --- 2. 6-Neighbor Kuramoto Q10 coupling ---
+        // --- 2. 8-Neighbor Kuramoto Q10 coupling ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         
         // Era 2060: Photonic Substrate Readiness (DFT Mean-Field Approximation)
         var sum_cos: i32 = 0i;
         var sum_sin: i32 = 0i;
 
-        for (var i = 0u; i < 6u; i = i + 1u) {
-            let n_idx = n_indices[i];
-            if (n_idx < active_count) {
-                let n = agents_in[n_idx];
-                if (n.energy > 0u) {
-                    let n_ortho = (n.memory_y >> 16u) & 0xFFu;
-                    var d_ortho: u32 = 0u;
-                    if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
+        if (active_count > 8u) {
+            for (var i = 0u; i < 8u; i = i + 1u) {
+                let n_idx = n_indices[i];
+                if (n_idx < active_count) {
+                    let n = agents_in[n_idx];
+                    if (n.energy > 0u) {
+                        let n_ortho = (n.memory_y >> 16u) & 0xFFu;
+                        var d_ortho: u32 = 0u;
+                        if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
                     let n_phase = (n.phase + d_ortho * 4u) & max_phase_mask;
 
                     sum_cos += cos_q10(0u, n_phase) * HEBBIAN_DEFAULT_WEIGHT;
@@ -211,7 +215,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let sum_sin_norm = sum_sin / HEBBIAN_DEFAULT_WEIGHT;
         let sum_cos_norm = sum_cos / HEBBIAN_DEFAULT_WEIGHT;
         let total_coupling = (sum_sin_norm * agent_cos - sum_cos_norm * agent_sin) / 1024i;
-        let coupling = (total_coupling * k) / (6i * Q10_SCALE);
+        let coupling = (total_coupling * k) / (8i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
@@ -241,19 +245,17 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Era 0218: Species Specialization (Predator-Prey)
-        let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
 
         var energy_delta: i32 = -i32(burn);
         let steal = 5i; // PREDATOR_ENERGY_STEAL
         var energy_diffusion: i32 = 0i;
 
-        for (var i = 0u; i < 6u; i = i + 1u) {
+        for (var i = 0u; i < 8u; i = i + 1u) {
             let n_idx = n_indices[i];
             if (n_idx < active_count) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
-                    let n_species = (n.state_flags >> 1u) & 0x7Fu;
-                    let adv = species_advantage(agent_species, n_species);
+                    let adv = species_advantage(agent.genome, n.genome);
                     if (adv == 1i) { energy_delta += steal; }
                     else if (adv == -1i) { energy_delta -= steal; }
                     

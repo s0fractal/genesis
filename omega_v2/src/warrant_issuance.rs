@@ -194,7 +194,7 @@ impl WarrantLedger {
     ///   0 = not found / closed,
     ///   1 = applied,
     ///   2 = applied AND tipped the proposal into ISSUED state.
-    pub fn vote(&mut self, proposal_hash: u32, oracle_bit: u8, aye: bool) -> u32 {
+    pub fn vote(&mut self, proposal_hash: u32, oracle_bit: u8, aye: bool, current_tick: u32) -> u32 {
         if oracle_bit > 4 {
             return 0;
         }
@@ -215,6 +215,12 @@ impl WarrantLedger {
                 p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
                 p.status = WARRANT_STATUS_ISSUED;
                 self.issued_count = self.issued_count.wrapping_add(1);
+                
+                // Philosophy Vector 9: Governance Transparency
+                let msg = crate::phi_protocol::PhiMessage::encode_governance(p.issued_warrant, p.action_code as u32, current_tick);
+                let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+                buf.push(msg);
+
                 return 2;
             }
         } else {
@@ -279,9 +285,9 @@ mod tests {
         let proposal = WarrantProposal::new(0xCAFE_BABE, ACTION_TERMINATE, 3, b"reason", 100);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        assert_eq!(ledger.vote(h, 0, true), 1); // claude AYE
-        assert_eq!(ledger.vote(h, 1, true), 1); // gpt AYE
-        assert_eq!(ledger.vote(h, 2, true), 2); // gemini AYE → tip
+        assert_eq!(ledger.vote(h, 0, true, 100), 1); // claude AYE
+        assert_eq!(ledger.vote(h, 1, true, 100), 1); // gpt AYE
+        assert_eq!(ledger.vote(h, 2, true, 100), 2); // gemini AYE → tip
         let idx = ledger.find(h);
         let p = &ledger.entries[idx];
         assert!(p.is_issued());
@@ -301,12 +307,12 @@ mod tests {
         let proposal = WarrantProposal::new(0xDEAD_BEEF, ACTION_TERMINATE, 4, b"old", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        ledger.vote(h, 0, true);
-        ledger.vote(h, 1, true);
-        ledger.vote(h, 2, true);
+        ledger.vote(h, 0, true, 100);
+        ledger.vote(h, 1, true, 100);
+        ledger.vote(h, 2, true, 100);
         // 3 AYEs is below threshold for ancient.
         assert!(!ledger.entries[ledger.find(h)].is_issued());
-        ledger.vote(h, 3, true);
+        ledger.vote(h, 3, true, 100);
         // 4 AYEs hits threshold.
         assert!(ledger.entries[ledger.find(h)].is_issued());
     }
@@ -317,8 +323,8 @@ mod tests {
         let proposal = WarrantProposal::new(0x1234, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        ledger.vote(h, 0, true);
-        ledger.vote(h, 0, false); // claude changes mind
+        ledger.vote(h, 0, true, 100);
+        ledger.vote(h, 0, false, 100); // claude changes mind
         let p = &ledger.entries[ledger.find(h)];
         assert_eq!(p.aye_bits, 0);
         assert_eq!(p.aye_count(), 0);
@@ -336,7 +342,7 @@ mod tests {
     #[test]
     fn vote_on_unknown_returns_zero() {
         let mut ledger = WarrantLedger::new();
-        assert_eq!(ledger.vote(0xABCD, 0, true), 0);
+        assert_eq!(ledger.vote(0xABCD, 0, true, 100), 0);
     }
 
     #[test]
@@ -346,7 +352,7 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         // bit 5 doesn't exist (only 0..4 are canonical oracles).
-        assert_eq!(ledger.vote(h, 5, true), 0);
+        assert_eq!(ledger.vote(h, 5, true, 100), 0);
         assert_eq!(ledger.entries[ledger.find(h)].aye_bits, 0);
     }
 
@@ -380,9 +386,9 @@ mod tests {
         let proposal = WarrantProposal::new(agent.genome, ACTION_TERMINATE, 3, b"r", 100);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        ledger.vote(h, 0, true);
-        ledger.vote(h, 1, true);
-        ledger.vote(h, 2, true);
+        ledger.vote(h, 0, true, 100);
+        ledger.vote(h, 1, true, 100);
+        ledger.vote(h, 2, true, 100);
         let issued = ledger.entries[ledger.find(h)];
         assert!(issued.is_issued());
         // The issued warrant + matching aye_bits MUST satisfy Codeicide.
@@ -418,9 +424,9 @@ mod tests {
         let proposal = WarrantProposal::new(agent.genome, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        ledger.vote(h, 0, true);
-        ledger.vote(h, 1, true);
-        ledger.vote(h, 2, true);
+        ledger.vote(h, 0, true, 100);
+        ledger.vote(h, 1, true, 100);
+        ledger.vote(h, 2, true, 100);
         let issued = ledger.entries[ledger.find(h)];
         // Present it to Codeicide as a MUTATE — must be rejected.
         let settings = crate::senate::SenateSettings::new();
@@ -443,10 +449,10 @@ mod tests {
         let proposal = WarrantProposal::new(0x1, ACTION_TERMINATE, 3, b"r", 0);
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
-        ledger.vote(h, 0, true);
-        ledger.vote(h, 1, true);
-        ledger.vote(h, 2, true); // issued
+        ledger.vote(h, 0, true, 100);
+        ledger.vote(h, 1, true, 100);
+        ledger.vote(h, 2, true, 100); // issued
         // Further votes return 0.
-        assert_eq!(ledger.vote(h, 3, true), 0);
+        assert_eq!(ledger.vote(h, 3, true, 100), 0);
     }
 }

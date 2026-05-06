@@ -38,7 +38,8 @@ impl PhaseAddress {
         let social = (agent.genome >> 8) & 0xFF;
         let personal = agent.genome & 0xFF;
         let micro = agent.memory[0] & 0xFF;
-        let ortho = agent.memory[1] & 0xFF;
+        // Era 2080: Ortho deviation lives in upper 8 bits of memory[1] to separate from Hebbian weight
+        let ortho = (agent.memory[1] >> 16) & 0xFF;
         Self {
             raw: (consensus << 24) | (social << 16) | (personal << 8) | micro,
             ortho_deviation: ortho as u8,

@@ -14,6 +14,7 @@ pub const PHI_MSG_HEARTBEAT: u8 = 0;   // Golden Trace + absolute_tick
 pub const PHI_MSG_COMPOST: u8 = 1;     // Агент помер → його genome йде в compost
 pub const PHI_MSG_INTENT: u8 = 2;      // Інтент як φ (не координати)
 pub const PHI_MSG_DELTA: u8 = 3;       // Delta snapshot broadcast
+pub const PHI_MSG_GOVERNANCE: u8 = 4;  // Повідомлення Сенату (verdict)
 
 /// Уніфіковане φ-повідомлення.
 /// 16 байтів — ідеально для zero-copy у SharedArrayBuffer.
@@ -35,6 +36,7 @@ pub struct PhiMessage {
     ///   COMPOST:   agent_id (u64)
     ///   INTENT:    intent_id (u32) | op_mode (u32)
     ///   DELTA:     delta_count (u32) | reserved (u32)
+    ///   GOVERNANCE:verdict (u32) | anchor (u32)
     pub payload: u64,
 }
 
@@ -78,6 +80,12 @@ impl PhiMessage {
         Self::new(PHI_MSG_DELTA, 0, 0, 0xFFFF0000 | delta_count, payload)
     }
 
+    /// Кодує повідомлення Сенату.
+    pub fn encode_governance(anchor: u32, verdict: u32, tick: u32) -> Self {
+        let payload = ((verdict as u64) << 32) | (anchor as u64);
+        Self::new(PHI_MSG_GOVERNANCE, 0, tick, 0xFFFFFFFF, payload)
+    }
+
     /// Декодує heartbeat payload → (trace, tick)
     pub fn decode_heartbeat(&self) -> Option<(u32, u32)> {
         if self.msg_type != PHI_MSG_HEARTBEAT { return None; }
@@ -108,6 +116,14 @@ impl PhiMessage {
         let count = self.payload as u32;
         let tick = (self.payload >> 32) as u32;
         Some((count, tick))
+    }
+
+    /// Декодує governance payload → (anchor, verdict)
+    pub fn decode_governance(&self) -> Option<(u32, u32)> {
+        if self.msg_type != PHI_MSG_GOVERNANCE { return None; }
+        let anchor = self.payload as u32;
+        let verdict = (self.payload >> 32) as u32;
+        Some((anchor, verdict))
     }
 }
 
@@ -260,6 +276,17 @@ mod tests {
         let msg = PhiMessage::encode_heartbeat(0, 0, 0);
         assert!(msg.decode_compost().is_none());
         assert!(msg.decode_intent().is_none());
+        assert!(msg.decode_governance().is_none());
+    }
+
+    #[test]
+    fn test_message_governance_decode() {
+        let msg = PhiMessage::encode_governance(0x12345678, 1, 42);
+        assert_eq!(msg.msg_type, PHI_MSG_GOVERNANCE);
+        assert_eq!(msg.phi, 42);
+        let (anchor, verdict) = msg.decode_governance().unwrap();
+        assert_eq!(anchor, 0x12345678);
+        assert_eq!(verdict, 1);
     }
 
     #[test]

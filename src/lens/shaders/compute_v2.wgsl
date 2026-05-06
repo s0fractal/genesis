@@ -174,12 +174,12 @@ fn deterministic_atan2(y: i32, x: i32, q_phase: u32) -> u32 {
 }
 
 // Era 0218: Circular Food Web
-fn species_advantage(a: u32, b: u32) -> i32 {
-    if (a == b) { return 0i; }
-    let diff = (a - b) & 0x7Fu;
-    if (diff > 0u && diff <= 8u) {
+fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
+    if (a_genome == b_genome) { return 0i; }
+    let diff = countOneBits(a_genome ^ b_genome);
+    if (diff > 16u) {
         return 1i;
-    } else if (diff >= 120u && diff <= 127u) {
+    } else if (diff < 8u) {
         return -1i;
     }
     return 0i;
@@ -227,14 +227,16 @@ fn compute_main(
             let cx = i32(index) % w;
             let cy = i32(index) / w;
             
-            // 6-neighbor hex grid (axial-like or shifted)
-            let n_indices = array<u32, 6>(
+            // 8-neighbor Moore grid
+            let n_indices = array<u32, 8>(
+                wrap_index_2d(cx - 1, cy - 1, w, h),
+                wrap_index_2d(cx, cy - 1, w, h),
+                wrap_index_2d(cx + 1, cy - 1, w, h),
                 wrap_index_2d(cx - 1, cy, w, h),
                 wrap_index_2d(cx + 1, cy, w, h),
-                wrap_index_2d(cx, cy - 1, w, h),
+                wrap_index_2d(cx - 1, cy + 1, w, h),
                 wrap_index_2d(cx, cy + 1, w, h),
-                wrap_index_2d(cx + 1, cy - 1, w, h),
-                wrap_index_2d(cx - 1, cy + 1, w, h)
+                wrap_index_2d(cx + 1, cy + 1, w, h)
             );
     
     // 2. ERA 4000: Compute Target Phase Using Global Order Parameter (Mean Field)
@@ -336,7 +338,7 @@ fn compute_main(
         // Calibrated force: reduced to 800 to account for 6 neighbors instead of 4
         let chr_force = 800i; 
         
-        for (var i = 0u; i < 6u; i++) {
+        for (var i = 0u; i < 8u; i++) {
             let n_idx = n_indices[i];
             if (n_idx >= signals.active_agent_count) { continue; }
             let n = agents_in[n_idx];
@@ -415,19 +417,17 @@ fn compute_main(
     var metabolic_delta: i32 = -i32(burn); // Entropy (Base Burn)
     
     // Era 0218/1070: Species Specialization & Energy Diffusion
-    let agent_species = (agent.state_flags >> 1u) & 0x7Fu;
     let steal = 5i; // PREDATOR_ENERGY_STEAL
     var energy_diffusion: i32 = 0i;
     
-    if (signals.active_agent_count > 6u) {
-        for (var i = 0u; i < 6u; i++) {
+    if (signals.active_agent_count > 8u) {
+        for (var i = 0u; i < 8u; i++) {
             // Guard against out-of-bounds if topology shrinks suddenly
             let n_idx = n_indices[i];
             if (n_idx < signals.active_agent_count) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
-                    let n_species = (n.state_flags >> 1u) & 0x7Fu;
-                    let adv = species_advantage(agent_species, n_species);
+                    let adv = species_advantage(agent.genome, n.genome);
                     if (adv == 1i) { metabolic_delta += steal; }
                     else if (adv == -1i) { metabolic_delta -= steal; }
                     
@@ -491,7 +491,7 @@ fn compute_main(
             let my_dist = phase_dist(agent.phase, target_p, max_phase_mask);
             var lose_packet = false;
             
-            for (var i = 0u; i < 6u; i++) {
+            for (var i = 0u; i < 8u; i++) {
                 let n_idx = n_indices[i];
                 if (n_idx >= signals.active_agent_count) { continue; }
                 let n_opt = agents_in[n_idx];
@@ -541,7 +541,7 @@ fn compute_main(
         } else {
             // Receptive Empty Cell. Poll neighbors for incoming Gradient Pull.
             var best_gradient = 0i;
-            for (var i = 0u; i < 6u; i++) {
+            for (var i = 0u; i < 8u; i++) {
                 let n_idx = n_indices[i];
                 if (n_idx >= signals.active_agent_count) { continue; }
                 let n_opt = agents_in[n_idx];

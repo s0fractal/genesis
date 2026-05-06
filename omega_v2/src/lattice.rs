@@ -272,12 +272,14 @@ impl PhaseLattice {
                     let cy = (i as i32) / w;
 
                     let n_indices = [
+                        Self::wrap_index_2d(cx - 1, cy - 1, w, h),
+                        Self::wrap_index_2d(cx, cy - 1, w, h),
+                        Self::wrap_index_2d(cx + 1, cy - 1, w, h),
                         Self::wrap_index_2d(cx - 1, cy, w, h),
                         Self::wrap_index_2d(cx + 1, cy, w, h),
-                        Self::wrap_index_2d(cx, cy - 1, w, h),
-                        Self::wrap_index_2d(cx, cy + 1, w, h),
-                        Self::wrap_index_2d(cx + 1, cy - 1, w, h),
                         Self::wrap_index_2d(cx - 1, cy + 1, w, h),
+                        Self::wrap_index_2d(cx, cy + 1, w, h),
+                        Self::wrap_index_2d(cx + 1, cy + 1, w, h),
                     ];
                     
                     // We map left to n_indices[0] and right to n_indices[1] for legacy Hebbian
@@ -354,10 +356,6 @@ impl PhaseLattice {
                     let burn = base_burn.saturating_sub(resilience_reduction).max(1);
 
                     // Era 0218: Species Specialization (Predator-Prey)
-                    let agent_species = (agent.state_flags >> 1) & 0x7F;
-                    let _left_species = (left.state_flags >> 1) & 0x7F;
-                    let _right_species = (right.state_flags >> 1) & 0x7F;
-
                     let mut energy_delta = -(burn as i32);
                     let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
                     let mut energy_diffusion = 0i32;
@@ -366,8 +364,7 @@ impl PhaseLattice {
                         if n_idx < active {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
-                                let n_species = (n.state_flags >> 1) & 0x7F;
-                                let adv = crate::agent::species_advantage(agent_species, n_species);
+                                let adv = crate::agent::species_advantage(agent.genome, n.genome);
                                 if adv == 1 { energy_delta += steal; }
                                 else if adv == -1 { energy_delta -= steal; }
                                 
@@ -426,12 +423,15 @@ impl PhaseLattice {
                         let arr = &*self.attractors_ptr;
                         let attractor_count = core::cmp::min(arr.count, 4) as usize;
                         for j in 0..attractor_count {
-                            attractor_drift += arr.data[j].drift_contribution(agent.phase, &self.topology);
+                            attractor_drift += arr.data[j].drift_contribution(agent.phase, self.signals.absolute_tick, &self.topology);
                         }
                     }
 
                     // Phase drift: base_freq + coupling + attractor field, accelerated by time dilation
-                    let drift = (agent.base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
+                    // Adaptive Time-Stepping: Nyquist clamping for base_freq
+                    let max_freq = (max_phase / 2) as i32;
+                    let clamped_base_freq = agent.base_freq.clamp(-max_freq, max_freq);
+                    let drift = (clamped_base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
                     // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
@@ -946,12 +946,12 @@ mod tests {
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.active_agent_count = 1;
         agents[0].phase = 100;
-        agents[0].base_freq = 1 << 20; // 1.0 in Q20
+        agents[0].base_freq = 10;
         agents[0].energy = 1000;
         let before = agents[0].phase;
         lattice.tick_physics();
-        // Drift = base_freq + coupling = 1048576 + 0
-        let expected = before.wrapping_add((1 << 20) as u32) & lattice.topology.phase_mask();
+        // Drift = base_freq + coupling = 10 + 0
+        let expected = before.wrapping_add(10) & lattice.topology.phase_mask();
         assert_eq!(agents[0].phase, expected, "Phase should drift by base_freq (mod phase_mask)");
     }
 
@@ -1243,17 +1243,17 @@ mod debug_tests {
         let burn = base_burn.saturating_sub(resilience_reduction).max(1);
         
         let n_energies = vec![1045i32, 881, 1001, 1058, 601, 383];
-        let n_species = vec![62u32, 103, 17, 30, 100, 123];
+        let n_genomes = [100, 200, 300, 400, 500, 600];
         
         let agent_energy = 250i32;
-        let agent_species = 82u32;
+        let agent_genome = 82u32;
         
         let mut energy_delta = -(burn as i32);
         let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
         let mut energy_diffusion = 0i32;
         
         for i in 0..6 {
-            let adv = crate::agent::species_advantage(agent_species, n_species[i]);
+            let adv = crate::agent::species_advantage(agent_genome, n_genomes[i]);
             if adv == 1 { energy_delta += steal; }
             else if adv == -1 { energy_delta -= steal; }
             

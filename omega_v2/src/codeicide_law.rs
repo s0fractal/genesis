@@ -28,7 +28,6 @@
 
 use crate::agent::PhaseAgentMinimal;
 use crate::crypto::sha256_u32;
-use crate::constants::ANCIENT_AGE_TICKS;
 
 /// Action codes that warrants must specify.
 /// 1 = mutation request, 2 = termination request, 3 = forced relocation.
@@ -112,8 +111,9 @@ pub fn protected_status_for(
     if agent.energy < threshold {
         return STATUS_UNPROTECTED;
     }
-    // Prop 5: Must have high resonance (e.g. > 80% of max, or just > 800/1024)
-    if resonance_score < 800 {
+    // Philosophy Vector 9: Rite of Passage (Sanctuary)
+    // Must be positively resonant and have sufficient evolutionary complexity
+    if resonance_score == 0 || agent.genome.count_ones() <= 16 {
         return STATUS_UNPROTECTED;
     }
 

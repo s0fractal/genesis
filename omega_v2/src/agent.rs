@@ -57,12 +57,12 @@ impl PhaseAgentMinimal {
 /// Returns 1 if `a` is a predator of `b` (steals ATP).
 /// Returns -1 if `a` is prey to `b` (loses ATP).
 /// Returns 0 if neutral.
-pub fn species_advantage(a: u32, b: u32) -> i32 {
-    if a == b { return 0; }
-    let diff = a.wrapping_sub(b) & 0x7F;
-    if diff > 0 && diff <= 8 {
+pub fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
+    if a_genome == b_genome { return 0; }
+    let diff = (a_genome ^ b_genome).count_ones();
+    if diff > 16 {
         1
-    } else if diff >= 120 && diff <= 127 {
+    } else if diff < 8 {
         -1
     } else {
         0
