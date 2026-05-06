@@ -111,9 +111,9 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         q_radial: 6,
         q_math: 20,
         weather_multiplier: 1024,
+        alpha: 64,
         _pad1: 0,
         _pad2: 0,
-        _pad3: 0,
     },
     signals: SignalStore {
         dirty_flags: 0,
@@ -1221,14 +1221,12 @@ pub unsafe extern "C" fn v2_warrant_raise(
 /// Returns 0=miss/closed, 1=applied, 2=ISSUED.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_bit: u32, aye: u32) -> u32 {
-    if oracle_bit > 4 {
-        return 0;
-    }
+pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u32) -> u32 {
     unsafe {
         let tick = OMEGA_LATTICE.lock().signals.absolute_tick;
         let mut l = WARRANT_LEDGER.lock();
-        l.vote(proposal_hash, oracle_bit as u8, aye != 0, tick)
+        let settings = SENATE_SETTINGS.lock();
+        l.vote(proposal_hash, oracle_matrix, aye != 0, tick, &*settings)
     }
 }
 

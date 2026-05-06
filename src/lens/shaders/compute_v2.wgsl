@@ -8,9 +8,9 @@ struct PhaseTopology {
     q_radial: u32,
     q_math: u32,
     weather_multiplier: u32,
+    alpha: i32,
     _pad1: u32,
     _pad2: u32,
-    _pad3: u32,
 }
 
 struct SignalStore {

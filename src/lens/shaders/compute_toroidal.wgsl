@@ -11,9 +11,9 @@ struct PhaseTopology {
     q_radial: u32,
     q_math: u32,
     weather_multiplier: u32,
+    alpha: i32,
     _pad1: u32,
     _pad2: u32,
-    _pad3: u32,
 }
 
 struct SignalStore {
@@ -209,8 +209,10 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
         }
         
-        let agent_cos = cos_q10(0u, agent.phase);
-        let agent_sin = sin_q10(0u, agent.phase);
+        let max_phase_mask = (1u << topology.q_phase) - 1u;
+        let agent_phase_shifted = u32(i32(agent.phase) + topology.alpha) & max_phase_mask;
+        let agent_cos = cos_q10(0u, agent_phase_shifted);
+        let agent_sin = sin_q10(0u, agent_phase_shifted);
         
         let sum_sin_norm = sum_sin / HEBBIAN_DEFAULT_WEIGHT;
         let sum_cos_norm = sum_cos / HEBBIAN_DEFAULT_WEIGHT;

@@ -37,7 +37,6 @@ export const CONSTANTS = {
 
     // Kuramoto Thermodynamics (Q10 Format)
     KURAMOTO_COUPLING_BASE: { type: "i32", expr: "MATH_Q_SCALE" }, 
-    KURAMOTO_SAKAGUCHI_ALPHA: { type: "i32", expr: "MATH_Q_SCALE / 27" }, 
     KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", expr: "MATH_Q_SCALE / 2" }, 
     KURAMOTO_COUPLING_ANTIPODE: { type: "i32", expr: "(MATH_Q_SCALE * 7) / 20" }, 
     KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", expr: "MATH_Q_SCALE * 3" }, 

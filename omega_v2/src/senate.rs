@@ -112,6 +112,22 @@ impl SenateSettings {
         }
         false
     }
+
+    /// Calculate the total voting power of all active seats.
+    pub fn total_voting_power(&self) -> u64 {
+        let mut total = 0;
+        let mut i = 0;
+        while i < 8 {
+            total += self.seats[i].voting_power();
+            i += 1;
+        }
+        total
+    }
+
+    /// Calculate the quorum required for a warrant to be issued (e.g. > 50% power).
+    pub fn quorum_power(&self) -> u64 {
+        (self.total_voting_power() / 2) + 1
+    }
 }
 
 
