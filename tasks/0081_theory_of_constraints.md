@@ -1,3 +1,17 @@
+---
+task_id: "0081_theory_of_constraints"
+idea_id: "legacy-0081_theory_of_constraints"
+state: "ORGAN"
+origin:
+  substrate: "local"
+  uri: "tasks/0081_theory_of_constraints.md"
+phase_vector:
+  consensus: 0
+  kinematics: 0
+  codeicide: 0
+warrant_required: false
+---
+
 # 🌌 OMEGA-64: Теорія Обмежень & Бюджету Ресурсів (Theory of Constraints)
 
 ## 1. Абсолютні Ліміти Апаратного Забезпечення (Hardware Ceilings)

@@ -1,3 +1,17 @@
+---
+task_id: "0084_v2_migration_status"
+idea_id: "legacy-0084_v2_migration_status"
+state: "ORGAN"
+origin:
+  substrate: "local"
+  uri: "tasks/0084_v2_migration_status.md"
+phase_vector:
+  consensus: 0
+  kinematics: 0
+  codeicide: 0
+warrant_required: false
+---
+
 # 🚀 OMEGA-64: V2 Migration Status (omega_next)
 
 Цей документ фіксує прогрес розгалуження (Side-by-Side) Ери 920-960. Ми не ламаємо `v42.1.0`, натомість будуємо ідеально вирівняний, `no_std` фундамент паралельно.
