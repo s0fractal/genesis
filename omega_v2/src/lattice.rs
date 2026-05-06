@@ -578,7 +578,9 @@ impl PhaseLattice {
                             let mut derived = parent_snapshot;
                             derived.energy = crate::constants::MITOSIS_COST / 2;
                             derived.phase = derived.phase.wrapping_add(128) & ((1 << self.topology.q_phase) - 1);
-                            derived.genome ^= 1;
+                            let seed = crate::math::xorshift32_once(parent_snapshot.genome);
+                            let index = (seed & 0xFF) as usize;
+                            derived.genome ^= crate::math::MUTATION_LUT[index];
                             let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
                             *child = derived;
                         }

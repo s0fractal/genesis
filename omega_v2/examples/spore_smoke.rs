@@ -96,7 +96,7 @@ fn main() {
         genome: 0xCAFE_BABE,
         memory: [0, 100, 0],
     };
-    let lawful = is_action_lawful(&protected, 5_000, 1000, 1000, ACTION_TERMINATE, w, 0b00111, &settings);
+    let lawful = is_action_lawful(&protected, 5_000, 1000, 0, 1000, ACTION_TERMINATE, w, 0b00111, &settings);
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;
 

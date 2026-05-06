@@ -23,9 +23,9 @@ fn anchor_no_attractors_phase() {
     let p = anchor_parent();
     let c = derive_mitosis_child(&p, &AttractorArray::new(), 7);
     assert_eq!(c.phase, 128);
-    assert_eq!(c.energy, 1006);
+    assert_eq!(c.energy, 1020);
     assert_eq!(c.base_freq, 7);
-    assert_eq!(c.state_flags, 180); // Era 0219: 90 species << 1
+    assert_eq!(c.state_flags, 56); // Era 0219: species << 1
 }
 
 #[test]
@@ -33,8 +33,9 @@ fn anchor_no_attractors_receipt() {
     let p = anchor_parent();
     let c = derive_mitosis_child(&p, &AttractorArray::new(), 7);
     let h = child_receipt_hash(&c);
+    let h = child_receipt_hash(&c);
     assert_ne!(h, [0; 32]);
-    assert_eq!(c.genome, 3549459802);
+    assert_eq!(c.genome, 3271474076);
     assert_eq!(c.memory, [0xDEAD_BEEF, 1, 2]);
 }
 

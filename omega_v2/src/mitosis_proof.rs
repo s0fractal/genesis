@@ -79,7 +79,9 @@ pub fn derive_mitosis_child(
             ^ ((parent.memory[2] as u64) << 32)
             ^ (parent.energy as u64);
         let mut_seed = crate::math::xorshift64_once(epigenetic_base);
-        let mask = mut_seed as u32;
+        // Use the lower 8 bits of mut_seed to look up a biologically plausible mutation mask
+        let index = (mut_seed & 0xFF) as usize;
+        let mask = crate::math::MUTATION_LUT[index];
         (
             parent.genome ^ mask,
             parent.memory[0],
@@ -184,7 +186,8 @@ mod tests {
             ^ ((p.memory[1] as u64) << 16)
             ^ ((p.memory[2] as u64) << 32)
             ^ (p.energy as u64);
-        let expected_mask = crate::math::xorshift64_once(epigenetic_base) as u32;
+        let expected_mut_seed = crate::math::xorshift64_once(epigenetic_base);
+        let expected_mask = crate::math::MUTATION_LUT[(expected_mut_seed & 0xFF) as usize];
         // The genome has the mask applied, but also species bits embedded?
         // Actually, derive_mitosis_child sets genome = p.genome ^ mask.
         // The state_flags has the species bits, not the genome!
