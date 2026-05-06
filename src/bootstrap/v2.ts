@@ -513,6 +513,7 @@ ${debateMd || "(no recorded arguments)"}
             }
 
             const ptrs = engine.getMemoryPointers();
+            const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
 
@@ -649,7 +650,7 @@ ${debateMd || "(no recorded arguments)"}
                                 currentEntropy: 5.0, // Fixed default for V2 metrics
                                 count: activeCount,
                                 totalPopulation: activeCount,
-                                macroSeason: Math.floor(frameCount / 3600) % 4,
+                                macroSeason: Math.floor(absoluteTick / 3600) % 4,
                                 currentSeasonName: "V2_AWAKENING",
                                 mycelialContext: "The bare-metal V2 runtime is operating linearly.",
                                 structuralImage: snapshot.url,

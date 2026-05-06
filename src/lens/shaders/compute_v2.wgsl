@@ -465,8 +465,8 @@ fn compute_main(
     metabolic_delta += i32(burn) - i32(final_burn);
 
     // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
-    if (new_phase % 64u == 0u) {
-        metabolic_delta += i32(final_burn * 64u); 
+    if (new_phase % RESONANCE_PHASE_MODULUS == 0u) {
+        metabolic_delta += i32(final_burn * RESONANCE_PHASE_MODULUS); 
     }
     
     let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;

@@ -300,4 +300,19 @@ mod tests {
         // -x, +y -> 64..128
         assert!(atan2_fast(1000, -1000) >= 64 && atan2_fast(1000, -1000) <= 128);
     }
+
+    #[test]
+    fn test_mutation_lut_hamming_distance() {
+        let mut dist = [0u32; 33];
+        for i in 0..256 {
+            let bits = crate::math::MUTATION_LUT[i].count_ones();
+            dist[bits as usize] += 1;
+        }
+        // BigBang expectation
+        assert_eq!(dist[0], 1, "Expected exactly 1 zero-mutation mask");
+        assert!(dist[1] >= 32, "Expected at least 32 single-bit mutations");
+        
+        let sum: u32 = dist.iter().sum();
+        assert_eq!(sum, 256, "Total distribution must sum to 256");
+    }
 }
