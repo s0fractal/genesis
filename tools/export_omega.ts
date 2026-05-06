@@ -24,6 +24,9 @@ const EXCLUDE_DIRS = [
   /archive/,
   /tasks/,
   /generated/,
+  /src\/ui/,
+  /src\/sdk/,
+  /src\/bootstrap\/dom\.ts/,
 ];
 
 async function main() {
@@ -40,13 +43,19 @@ async function main() {
     } FULL EXPORT | ERA: ${ERA}\n`,
   );
   chunks.push(
-    `This document contains the full architecture of the Genesis Spore.\n\n---\n`,
+    `This document contains the core architecture of the Genesis Spore. Tests, UI, and generated files are stripped to maximize cognitive density.\n\n---\n`,
   );
 
   const addFile = async (path: string) => {
     try {
-      const content = await Deno.readTextFile(path);
+      let content = await Deno.readTextFile(path);
       const ext = path.split(".").pop() || "text";
+
+      // CRITICAL NOISE REDUCTION: Strip inline Rust tests
+      if (ext === "rs" && content.includes("#[cfg(test)]")) {
+        content = content.split("#[cfg(test)]")[0].trimEnd() + "\n// [TESTS STRIPPED FOR COGNITIVE DENSITY]\n";
+      }
+
       const block = `## \`${path}\`\n\`\`\`${ext}\n${content}\n\`\`\`\n`;
 
       chunks.push(block);
@@ -59,17 +68,10 @@ async function main() {
   // Root essentials
   await addFile("README.md");
   await addFile("ROADMAP.md");
-  await addFile("package.json");
-  await addFile("tools/export_omega.ts");
-  await addFile("index.html");
-  await addFile("vite.config.ts");
   
-  // SSoT Proof Allowlist
-  await addFile("tools/build_ssot.ts");
+  // SSoT Proof Allowlist (Only the source, not the generated outputs)
   await addFile("src/ontology/genesis_ssot.ts");
-  await addFile("src/shared/generated_constants.ts");
-  await addFile("omega_v2/src/constants.rs");
-  await addFile("src/lens/shaders/generated_constants.wgsl");
+
   // Walk TS Source
   console.log("\nSweeping src/ ...");
   for await (
