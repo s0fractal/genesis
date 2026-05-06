@@ -33,14 +33,15 @@ pub fn evaluate_poeuw_trace(
         let set_bits = agent.genome.count_ones();
         let metabolic_burn = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
         
-        let mut new_energy = agent.energy as i32 - metabolic_burn as i32;
-        
-        // 2. Cosmic Resonance: 1/64 chance to replenish ATP if the agent aligns to harmonic phase zero
+        // 2. Cosmic Resonance: reduces ATP burn if the agent aligns to harmonic phase zero
         // (A synthetic proxy for Kuramoto topological alignment)
-        if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) {
-            let dipole_bonus = metabolic_burn * crate::constants::RESONANCE_PHASE_MODULUS;
-            new_energy += dipole_bonus as i32;
-        }
+        let resonance_credit = if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) {
+            metabolic_burn / 2
+        } else {
+            0
+        };
+        let net_burn = metabolic_burn.saturating_sub(resonance_credit).max(1);
+        let mut new_energy = agent.energy as i32 - net_burn as i32;
 
         if new_energy <= 0 {
             agent.energy = 0;
@@ -197,10 +198,10 @@ mod tests {
             0x0000_0001, // low burn
             0,           // no phase movement
             0,           // no stressors
-            100,
+            50,
         );
-        // Burn = 1 per tick. Resonance = +64 per tick.
-        // Net = +63 per tick. Should cap at MAX_ATP = 4096.
-        assert_eq!(energy, crate::constants::MAX_ATP, "Agent should cap at MAX_ATP with continuous resonance");
+        // Burn = 1 per tick. Resonance reduces it, but net_burn.max(1) means 1 per tick minimum.
+        // Net = -1 per tick. After 50 ticks from 4096 -> 4046.
+        assert_eq!(energy, crate::constants::MAX_ATP - 50, "Agent energy should decay slowly even with continuous resonance");
     }
 }

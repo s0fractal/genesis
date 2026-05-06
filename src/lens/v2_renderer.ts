@@ -41,7 +41,7 @@ export class PhaseV2Renderer {
         this.readback = new RendererReadback(this.device, this.engine);
     }
 
-    public setComputeMode(mode: 'v2' | 'toroidal') {
+    public setComputeMode(mode: 'toroidal') {
         this.pipelines.setComputeMode(mode, this.buffers);
     }
 
