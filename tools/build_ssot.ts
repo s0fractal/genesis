@@ -27,7 +27,7 @@ for (const [key, obj] of Object.entries(CONSTANTS)) {
                 expr = expr.replace(new RegExp("\\b" + k + "\\b", "g"), (v as any).value.toString());
             }
         }
-        value = eval(expr);
+        value = Math.trunc(eval(expr));
         (CONSTANTS as any)[key].value = value;
     }
 

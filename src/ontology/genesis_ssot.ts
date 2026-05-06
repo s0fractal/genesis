@@ -36,16 +36,16 @@ export const CONSTANTS = {
     PHASE_FOSSILIZATION_PULSE_TICKS: { type: "i32", value: 24 },
 
     // Kuramoto Thermodynamics (Q10 Format)
-    KURAMOTO_COUPLING_BASE: { type: "i32", value: 1024 }, 
-    KURAMOTO_SAKAGUCHI_ALPHA: { type: "i32", value: 38 }, 
-    KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", value: 512 }, 
-    KURAMOTO_COUPLING_ANTIPODE: { type: "i32", value: 358 }, 
-    KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", value: 3072 }, 
-    KURAMOTO_COHERENCE_THRESHOLD_HIGH: { type: "i32", value: 4301 }, 
-    KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: { type: "i32", value: 614 }, 
-    KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: { type: "i32", value: 942 }, 
-    KURAMOTO_COUPLING_PLASMID: { type: "i32", value: 768 }, 
-    KURAMOTO_PLASMID_DIFFUSION_RATE: { type: "i32", value: 51 },
+    KURAMOTO_COUPLING_BASE: { type: "i32", expr: "MATH_Q_SCALE" }, 
+    KURAMOTO_SAKAGUCHI_ALPHA: { type: "i32", expr: "MATH_Q_SCALE / 27" }, 
+    KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", expr: "MATH_Q_SCALE / 2" }, 
+    KURAMOTO_COUPLING_ANTIPODE: { type: "i32", expr: "(MATH_Q_SCALE * 7) / 20" }, 
+    KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", expr: "MATH_Q_SCALE * 3" }, 
+    KURAMOTO_COHERENCE_THRESHOLD_HIGH: { type: "i32", expr: "(MATH_Q_SCALE * 42) / 10" }, 
+    KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 6) / 10" }, 
+    KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 92) / 100" }, 
+    KURAMOTO_COUPLING_PLASMID: { type: "i32", expr: "(MATH_Q_SCALE * 3) / 4" }, 
+    KURAMOTO_PLASMID_DIFFUSION_RATE: { type: "i32", expr: "MATH_Q_SCALE / 20" },
 
     // Evolutionary Parameters
     MUTATION_BASE_COST: { type: "i32", value: 50 },
@@ -62,20 +62,20 @@ export const CONSTANTS = {
 
     // Tissue and Morphological Hardening
     TISSUE_MORPHOLOGICAL_HYSTERESIS: { type: "i32", value: 5 },
-    TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", value: 154 },
+    TISSUE_MORPHOLOGICAL_DELTA_MIN: { type: "i32", expr: "(MATH_Q_SCALE * 15) / 100" },
 
     // === Biological Economy ===
-    BIOLOGY_SOMATIC_ALPHA: { type: "i32", value: 1536 },
-    BIOLOGY_SOMATIC_DECAY_RATE: { type: "i32", value: 51 },
+    BIOLOGY_SOMATIC_ALPHA: { type: "i32", expr: "(MATH_Q_SCALE * 3) / 2" },
+    BIOLOGY_SOMATIC_DECAY_RATE: { type: "i32", expr: "MATH_Q_SCALE / 20" },
     BIOLOGY_SOMATIC_BASE_COST: { type: "i32", value: 5 },
     BIOLOGY_EXTINCTION_THRESHOLD: { type: "i32", value: 0 },
 
     // === Adaptive Phase Biology (Phase 12) ===
-    BIOLOGY_APA_LEARNING_RATE: { type: "i32", value: 51 }, // 0.05 * 1024
-    BIOLOGY_APA_MEMORY_GAIN: { type: "i32", value: 102 }, // 0.1 * 1024
+    BIOLOGY_APA_LEARNING_RATE: { type: "i32", expr: "MATH_Q_SCALE / 20" }, // 0.05 * MATH_Q_SCALE
+    BIOLOGY_APA_MEMORY_GAIN: { type: "i32", expr: "MATH_Q_SCALE / 10" }, // 0.1 * MATH_Q_SCALE
     BIOLOGY_APA_DECISION_COST: { type: "i32", value: 2 },
-    BIOLOGY_APA_COHERENCE_REWARD: { type: "i32", value: 614 }, // 0.6 * 1024
-    BIOLOGY_APA_MEMORY_DECAY: { type: "i32", value: 1023 }, // 0.999 * 1024
+    BIOLOGY_APA_COHERENCE_REWARD: { type: "i32", expr: "(MATH_Q_SCALE * 6) / 10" }, // 0.6 * MATH_Q_SCALE
+    BIOLOGY_APA_MEMORY_DECAY: { type: "i32", expr: "MATH_Q_SCALE - 1" }, // 0.999 * MATH_Q_SCALE
 
     // === ADA Relativity & Recovery ===
     ADA_HODLER_BRAKE: { type: "i32", value: 972 },
@@ -135,8 +135,8 @@ export const CONSTANTS = {
     STRESSOR_MODULUS: { type: "u32", value: 100 },
     HOMEOSTASIS_Q_SHIFT: { type: "u32", value: 10 },
     PHASE_DRIFT_Q_SHIFT: { type: "u32", value: 20 },
-    HEBBIAN_DEFAULT_WEIGHT: { type: "i32", value: 1024 },
-    HEBBIAN_MAX_WEIGHT: { type: "i32", value: 4096 },
+    HEBBIAN_DEFAULT_WEIGHT: { type: "i32", expr: "MATH_Q_SCALE" },
+    HEBBIAN_MAX_WEIGHT: { type: "i32", expr: "MATH_Q_SCALE * 4" },
     DELTA_PHASE_DIVISOR: { type: "u32", value: 8 },
     Q16_FACTOR_SANCTUARY: { type: "u32", value: 40000 },
     SANCTUARY_ENERGY_THRESHOLD: { type: "u32", expr: "(MAX_ATP * Q16_FACTOR_SANCTUARY) >> 16" },
