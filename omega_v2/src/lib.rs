@@ -1062,12 +1062,13 @@ pub extern "C" fn v2_codeicide_is_lawful(
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.absolute_tick;
-            let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
+            let p90_energy_threshold = lattice.signals.p90_energy;
+            let p90_age_threshold = lattice.signals.p90_age;
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
             if crate::codeicide_law::is_action_lawful(
-                agent, tick, avg, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &*settings
+                agent, tick, p90_energy_threshold, p90_age_threshold, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &*settings
             ) {
                 1
             } else {

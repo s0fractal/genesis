@@ -30,8 +30,11 @@ pub struct SignalStore {
     
     // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
     pub total_energy: u32,
+    pub p90_energy: u32,
+    pub p90_age: u32,
     pub _pad2: u32, // Explicit 4-byte padding for u64 alignment
     pub total_entropy_released: u64,
+    pub _pad3: u64, // Explicit 8-byte padding to align total size to 48 bytes
 }
 
 #[repr(C)]
@@ -68,8 +71,11 @@ impl PhaseLattice {
                 active_agent_count: 0,
                 max_cells: 0,
                 total_energy: 0,
+                p90_energy: 0,
+                p90_age: 0,
                 _pad2: 0,
                 total_entropy_released: 0,
+                _pad3: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
@@ -461,22 +467,39 @@ impl PhaseLattice {
         let mut next_dead_idx = 0;
         let mut replications = 0;
         let mut hist = crate::codeicide_law::EnergyHistogram::new();
+        let mut age_hist = crate::codeicide_law::AgeHistogram::new();
         let mut sum_energy = 0u64;
         
         unsafe {
             let active = self.signals.active_agent_count as usize;
-            // Pass 1: Build the EnergyHistogram and sum energy
+            // Pass 1: Build the Histograms and sum energy
             for i in 0..active {
                 let parent = &*self.minimal_agents_ptr.add(i);
                 if parent.energy > 0 {
                     sum_energy += parent.energy as u64;
                     let bucket = core::cmp::min(parent.energy >> 8, 15) as usize;
                     hist.buckets[bucket] += 1;
+                    
+                    let age = self.signals.absolute_tick.saturating_sub(parent.memory[1]);
+                    let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
+                    let age_bucket = (age / bucket_size).min(15) as usize;
+                    age_hist.buckets[age_bucket] += 1;
                 }
             }
             
             let p90_threshold = crate::codeicide_law::p90_energy(&hist, self.signals.active_agent_count);
+            self.signals.p90_energy = p90_threshold;
             
+            let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
+            let p90_age_threshold = crate::codeicide_law::p90_age(&age_hist, self.signals.active_agent_count, bucket_size);
+            self.signals.p90_age = p90_age_threshold;
+        }
+        
+        let p90_threshold = self.signals.p90_energy;
+        let p90_age_threshold = self.signals.p90_age;
+        
+        unsafe {
+            let active = self.signals.active_agent_count as usize;
             // Pass 2: Mitosis sweep
             for i in 0..active {
                 let parent = &mut *self.minimal_agents_ptr.add(i);
@@ -499,7 +522,7 @@ impl PhaseLattice {
                         let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
                         let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.absolute_tick, p90_threshold, resonance_score, &*settings
+                            parent, self.signals.absolute_tick, p90_threshold, p90_age_threshold, resonance_score, &*settings
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.

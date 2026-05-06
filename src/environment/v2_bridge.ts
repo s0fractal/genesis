@@ -9,7 +9,13 @@
 import { measureHardwareEnvironment, QTopology } from "./environmental_vector.ts";
 
 const PHASE_AGENT_MINIMAL_BYTES = 32;
-const LATTICE_UNIFORM_SIZE = 192;
+// LATTICE_UNIFORM_SIZE is composed of: PhaseTopology (48) + SignalStore (48) + Intents (128) = 224 bytes.
+// Wait, 48 + 48 + 128 = 224.
+// Let's re-verify: PhaseTopology is 48 bytes. SignalStore is 48 bytes.
+// Wait, earlier I calculated PhaseTopology was 32 bytes?
+// Let's check: q_phase, q_sectors, q_radial, q_math, weather_multiplier, _pad1, _pad2, _pad3 = 8 * 4 = 32 bytes.
+// Yes! 32 + 48 + 128 = 208.
+const LATTICE_UNIFORM_SIZE = 208;
 const DELTA_BUFFER_BYTES = 6400 * 16;
 const ATTRACTOR_ARRAY_BYTES = 80;
 const MITOSIS_LOG_HEADER = 16;

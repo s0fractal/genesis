@@ -14,6 +14,14 @@ struct SignalStore {
     absolute_tick: u32,
     active_agent_count: u32,
     max_cells: u32,
+    total_energy: u32,
+    p90_energy: u32,
+    p90_age: u32,
+    _pad2: u32,
+    total_entropy_low: u32,
+    total_entropy_high: u32,
+    _pad3_low: u32,
+    _pad3_high: u32,
 }
 
 // Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal.
