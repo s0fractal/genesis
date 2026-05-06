@@ -1,4 +1,5 @@
 import { configureCanvas, DOM, setInputMode, tickFps, setHudStat } from "./dom.ts";
+import { SubstrateCourt, WITNESS_WASM, WITNESS_WEBGPU } from "../environment/substrate_court.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
 import { verifyGenesisInscription } from "../network/bitcoin_anchor.ts";
@@ -464,6 +465,9 @@ ${debateMd || "(no recorded arguments)"}
         
 
 
+        // Era 2100: Substrate Court
+        const court = new SubstrateCourt();
+
         const loop = () => {
             tickFps();
             
@@ -485,7 +489,7 @@ ${debateMd || "(no recorded arguments)"}
                 const lawHash = engine.getLawHash();
                 const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
                 const frame = buildLawTelemetry(
-                    1, // witnessKind = 1 (WGSL / TS bridge)
+                    1, // witnessKind = 1 (WASM)
                     lawHash,
                     preStateHash,
                     postStateHash,
@@ -493,6 +497,26 @@ ${debateMd || "(no recorded arguments)"}
                     absoluteTick
                 );
                 mesh.enqueueBinaryFrame(frame);
+
+                // Era 2100: Substrate Court - Submit WASM Testimony
+                court.submitTestimony({
+                    witnessKind: WITNESS_WASM,
+                    lawHash: lawHash,
+                    stateHash: postStateHash,
+                    entropyDelta: entropyDelta,
+                    tick: absoluteTick,
+                });
+
+                // Era 2100: Async request for WebGPU Testimony
+                renderer.readStateFromGPUAndHash().then((gpuResult) => {
+                    court.submitTestimony({
+                        witnessKind: WITNESS_WEBGPU,
+                        lawHash: lawHash, // WebGPU uses the same law for now
+                        stateHash: gpuResult.goldenTraceNum, // GPU state hash
+                        entropyDelta: entropyDelta,
+                        tick: absoluteTick,
+                    });
+                }).catch(e => console.error("[SubstrateCourt] GPU testimony failed", e));
             }
             
             // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)            // Era 11000: Initial Oracle Whisper Hook

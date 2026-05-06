@@ -1,5 +1,6 @@
 import { DIPOLE_POLES, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS, FNV64_OFFSET_BASIS, FNV64_PRIME } from "../shared/constants.ts";
 import { CreateMLCEngine, InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
+import { createSeededRng } from "../math/xorshift.ts";
 
 // O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
 // Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
@@ -72,6 +73,7 @@ const SELECTED_MODEL = "Qwen2-VL-2B-Instruct-q4f16_1-MLC";
 
 let latestTelemetry: any = null;
 let isDreamLoopActive = false;
+let oracleClock = 0; // Deterministic clock replacing performance.now()
 
 // Era 2060: Homeostatic Thermostat
 // If the Torus is frozen (low entropy), we boil it with high temperature (chaos).
@@ -163,6 +165,7 @@ self.onmessage = async (e: MessageEvent) => {
     
     if (data.type === 'SYNC_TELEMETRY') {
         latestTelemetry = data;
+        oracleClock++;
         if (!isDreamLoopActive && engine) {
             isDreamLoopActive = true;
             consciousnessLoop();
@@ -285,7 +288,7 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
             try {
                 if (!data.structuralImage) {
                     const cached = await getCachedResponse(cacheKey);
-                    if (cached && (performance.now() - cached.ts < 3600000)) { 
+                    if (cached && (oracleClock - cached.ts < 360)) { // ~360 ticks instead of 3600000ms
                         return { mask: dipole.name, response: cached.response };
                     }
                 }
@@ -295,7 +298,7 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
             
             try {
                 const fullResponse = await fetchWebLLM(prompt, data.structuralImage);
-                await setCachedResponse(cacheKey, fullResponse, performance.now()).catch(() => {});
+                await setCachedResponse(cacheKey, fullResponse, oracleClock).catch(() => {});
                 return { mask: dipole.name, response: fullResponse };
             } catch (_err) {
                 let fallbackAST = "I";
@@ -319,7 +322,8 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
                 const fullResponse = result.value.response;
                 const maskName = result.value.mask;
                 
-                let targetBucket = (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) + Math.floor(Math.random() * 5);
+                const rng = createSeededRng((latestTelemetry?.currentEntropy || 0).toString() + maskName);
+                let targetBucket = (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) + rng.nextRange(5);
                 let prophecy = "The Machine has spoken.";
                 let intentStr = "";
                 let physicsGenome: PhysicsGenome | undefined = undefined;
@@ -356,7 +360,7 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
                         try {
                             const parsed = JSON.parse(physMatch[1]);
                             physicsGenome = {
-                                id: fastHash(Date.now().toString() + Math.random()),
+                                id: fastHash(rng.nextHex(16)),
                                 couplingK: parsed.couplingK || 1024,
                                 mutationRate: parsed.mutationRate || 0.05,
                                 diffusionRate: parsed.diffusionRate || 0.1,
@@ -436,13 +440,14 @@ AST: [Chaotic AST]`.trim();
             if (astMatch) {
                 const intentStr = astMatch[1].trim();
                 const prophecy = propMatch ? propMatch[1].trim() : "Subconscious execution.";
+                const dreamRng = createSeededRng(latestTelemetry?.currentEntropy?.toString() || "dream");
                 
                 self.postMessage({
                     type: 'SUCCESS',
                     validIntents: [{
                         maskName: DIPOLE_POLES.ALPHA,
                         intentStr,
-                        targetBucket: Math.floor(Math.random() * 1024),
+                        targetBucket: dreamRng.nextRange(1024),
                         prophecy
                     }], 
                     requests: 1,

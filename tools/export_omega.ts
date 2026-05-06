@@ -37,11 +37,23 @@ async function main() {
   const OUTPUT_FILE = `dist/OMEGA_EXPORT_v${OMEGA_VERSION}.md`;
   const chunks: string[] = [];
 
+  let latestCommit = "Unknown";
+  try {
+    const cmd = new Deno.Command("git", { args: ["log", "-1", "--format=%H - %s"] });
+    const output = await cmd.output();
+    if (output.success) {
+      latestCommit = new TextDecoder().decode(output.stdout).trim();
+    }
+  } catch (e) {
+    // Ignore if git fails
+  }
+
   chunks.push(
     `# OMEGA-64 | ONTOLOGY ${
       OMEGA_VERSION.split(".")[0]
     } FULL EXPORT | ERA: ${ERA}\n`,
   );
+  chunks.push(`**Latest Commit**: \`${latestCommit}\`\n`);
   chunks.push(
     `This document contains the core architecture of the Genesis Spore. Tests, UI, and generated files are stripped to maximize cognitive density.\n\n---\n`,
   );

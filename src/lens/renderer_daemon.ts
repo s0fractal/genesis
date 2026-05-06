@@ -1,4 +1,5 @@
 import { OmegaV2Engine } from '../environment/v2_bridge.ts';
+import { createSeededRng } from '../math/xorshift.ts';
 
 export class RendererDaemon {
     private engine: OmegaV2Engine;
@@ -7,7 +8,8 @@ export class RendererDaemon {
     public daemonState: string = "OBSERVING";
     private lastDaemonTick: number = 0;
     private daemonIntentDeadline: number = 0;
-    private readonly DAEMON_INTENT_DURATION_MS: number = 500;
+    private readonly DAEMON_INTENT_DURATION_FRAMES: number = 30; // ~500ms at 60fps
+    private daemonTickCounter: number = 0;
     
     private activeGodWord: string = "GENESIS";
     private activeGodHash: number = 0;
@@ -128,7 +130,7 @@ export class RendererDaemon {
     }
 
     public evaluate(activeCount: number) {
-        const now = performance.now();
+        const now = this.daemonTickCounter++;
         
         // Frame-synchronized daemon intent clear
         if (this.daemonIntentDeadline > 0 && now >= this.daemonIntentDeadline) {
@@ -137,28 +139,29 @@ export class RendererDaemon {
             if (clearIntent) clearIntent(1, 0, 0, 0, 0, 0, 0);
         }
 
-        // Algorithmic Ecosystem Watchdog
-        if (now - this.lastDaemonTick > 2000) {
+        // Algorithmic Ecosystem Watchdog (every ~120 frames / 2s)
+        if (now - this.lastDaemonTick > 120) {
             this.lastDaemonTick = now;
             const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction | undefined;
             
             if (setIntent) {
+                const rng = createSeededRng(this.daemonTickCounter + activeCount);
                 if (activeCount < 100000) {
                     this.daemonState = "INTERVENING (GENESIS)";
-                    const gx = Math.floor(Math.random() * window.innerWidth);
-                    const gy = Math.floor(Math.random() * window.innerHeight);
+                    const gx = rng.nextRange(window.innerWidth);
+                    const gy = rng.nextRange(window.innerHeight);
                     let hash = 5381;
                     const word = "AUTOPOIESIS";
                     for (let i = 0; i < word.length; i++) hash = ((hash << 5) + hash) + word.charCodeAt(i);
                     setIntent(1, gx, gy, 0, 400, hash >>> 0, 1);
-                    this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_MS;
+                    this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_FRAMES;
                 } else if (activeCount > 900000) {
                     this.daemonState = "INTERVENING (CULLING)";
-                    const gx = Math.floor(Math.random() * window.innerWidth);
-                    const gy = Math.floor(Math.random() * window.innerHeight);
+                    const gx = rng.nextRange(window.innerWidth);
+                    const gy = rng.nextRange(window.innerHeight);
                     const packedMass = (3 << 24) | (0 << 16) | 2000;
                     setIntent(1, gx, gy, packedMass, 300, 0, 0);
-                    this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_MS;
+                    this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_FRAMES;
                 } else {
                     this.daemonState = "OBSERVING";
                     setIntent(1, 0, 0, 0, 0, 0, 0);
