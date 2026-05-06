@@ -126,8 +126,12 @@ export class OmegaV2Engine {
         } else {
             const exportBigBang = instance.exports.v2_ignite_big_bang as CallableFunction;
             if (exportBigBang && this.currentTopology) {
-                exportBigBang(Math.floor(Math.random() * 1000000), this.currentTopology.maxAllocatedAgents);
-                console.log(`🎆 [V2-BRIDGE] The Big Bang was ignited.`);
+                // Era 2080: Deterministic Boot Seed from Genesis Entropy
+                const entropyBytes = this.getGenesisEntropy();
+                const seedView = new DataView(entropyBytes.buffer, entropyBytes.byteOffset, 4);
+                const seed = seedView.getUint32(0, true) ^ this.currentTopology.maxAllocatedAgents;
+                exportBigBang(seed, this.currentTopology.maxAllocatedAgents);
+                console.log(`🎆 [V2-BRIDGE] The Big Bang was ignited with deterministic seed 0x${seed.toString(16)}.`);
             }
         }
     }
@@ -423,5 +427,26 @@ export class OmegaV2Engine {
             // Overwrite attractor with new amplitude
             setAttractor(i, matrix, inverse, pulseFreq, newAmp);
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // ERA 2090: Commutative LawHash Telemetry
+    // -----------------------------------------------------------------------
+
+    public getLawHash(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_calculate_law_hash as CallableFunction)() as number;
+    }
+
+    public getStateHash(): number {
+        if (!this.wasmInstance) return 0;
+        return (this.wasmInstance.exports.v2_calculate_state_hash as CallableFunction)() as number;
+    }
+
+    public getTotalEntropyLow32(): number {
+        if (!this.cachedPointers) return 0;
+        // SignalStore is at offset 32. total_entropy_released (u64) is at offset 16 within SignalStore.
+        // So offset is 48. We read the lower 32 bits.
+        return new Uint32Array(this.cachedPointers.uniformBytes.buffer, this.cachedPointers.uniformBytes.byteOffset + 48, 1)[0];
     }
 }

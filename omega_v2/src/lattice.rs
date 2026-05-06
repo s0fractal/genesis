@@ -217,19 +217,54 @@ impl PhaseLattice {
         }
     }
 
+    /// Era 2090: Calculates the state hash of all active agents' core state
+    /// (phase, energy, base_freq, genome, memory). Used for Commutative LawHash Telemetry.
+    /// Uses zero-copy memory mapping to avoid allocations.
+    pub fn calculate_state_hash(&self) -> u32 {
+        if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
+            return crate::crypto::sha256_u32(&[]);
+        }
+        unsafe {
+            let active = self.signals.active_agent_count as usize;
+            let bytes = core::slice::from_raw_parts(self.minimal_agents_ptr as *const u8, active * 32);
+            crate::crypto::sha256_u32(bytes)
+        }
+    }
+
     /// The Hot Path Physics Loop
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
         self.signals.absolute_tick = self.signals.absolute_tick.wrapping_add(1);
         
         let mut total_system_energy = 0u64;
-        let mut alive_count = 0;
+        let mut _alive_count = 0;
         let mut new_high_water_mark = 0usize;
         
+        // REACTIVE RECONCILIATION
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
+            // Apply Darwinian culling: agents beyond new capacity are killed
+            let new_max = self.topology.max_geometry_cells(
+                1, // harmonics (simplified)
+                1  // tau_depth (simplified)
+            ) as u32;
+            if self.signals.active_agent_count > new_max {
+                self.signals.active_agent_count = new_max;
+            }
             self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
         }
+
         if (self.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT) != 0 {
+            // Cosmic entropy: apply global phase shift from Bitcoin anchor
+            unsafe {
+                if !self.minimal_agents_ptr.is_null() {
+                    let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
+                    for i in 0..self.signals.active_agent_count as usize {
+                        let agent = &mut *self.minimal_agents_ptr.add(i);
+                        let max_phase = (1u32 << self.topology.q_phase) - 1;
+                        agent.phase = agent.phase.wrapping_add(global_phi) & max_phase;
+                    }
+                }
+            }
             self.signals.dirty_flags &= !SIGNAL_CONSENSUS_SHIFT;
         }
         
@@ -448,7 +483,7 @@ impl PhaseLattice {
 
                 if agent.energy > 0 && agent.state_flags & 0x01 == 0 {
                     total_system_energy = total_system_energy.wrapping_add(agent.energy as u64);
-                    alive_count += 1;
+                    _alive_count += 1;
                     new_high_water_mark = i + 1; // Track highest alive index
                 }
 
@@ -475,36 +510,9 @@ impl PhaseLattice {
         
         // Philosophy Vector 10: Global Energy Audit (ZK-verifiable)
         // Ensure no energy hyperinflation exists in the system.
-        assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
+        assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * _alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
 
-        // REACTIVE RECONCILIATION
-        if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
-            // Apply Darwinian culling: agents beyond new capacity are killed
-            let new_max = self.topology.max_geometry_cells(
-                1, // harmonics (simplified)
-                1  // tau_depth (simplified)
-            ) as u32;
-            if self.signals.active_agent_count > new_max {
-                self.signals.active_agent_count = new_max;
-            }
-            self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
-        }
-
-        if (self.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT) != 0 {
-            // Cosmic entropy: apply global phase shift from Bitcoin anchor
-            unsafe {
-                let mut anchor = crate::PHI_ANCHOR_CHAIN.lock();
-                let global_phi = anchor.global_phi();
-                let active = self.signals.active_agent_count as usize;
-                for i in 0..active {
-                    let agent = &mut *self.minimal_agents_ptr.add(i);
-                    agent.phase = agent.phase.wrapping_add(global_phi) & max_phase;
-                }
-            }
-            self.signals.dirty_flags &= !SIGNAL_CONSENSUS_SHIFT;
-        }
     }
-
     /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
     /// Finds thriving cells (>MITOSIS_THRESHOLD ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
     pub fn darwinian_mitosis(&mut self) -> u32 {
@@ -1352,7 +1360,7 @@ fn test_debug_agent0() {
     
     lattice.tick_physics();
     
-    let a0 = agents[0];
+    let _a0 = agents[0];
     // println!("AFTER: A0 phase: {}, energy: {}, base_freq: {}", a0.phase, a0.energy, a0.base_freq);
     // println!("DEBUG: coupling={}, stress={}, dilation={}", a0.memory[0] as i32, a0.memory[1], a0.memory[2]);
 }

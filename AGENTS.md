@@ -380,3 +380,11 @@ pub struct SignalStore {
 exposes the Era 2050 recursion cap as a pure diagnostic formatter. Next work
 should publish that diagnostic through an existing read-only telemetry/global
 surface, not add another quorum layer.
+
+---
+
+## 11. Companion Protocols
+
+- **Analysis Protocol:** [docs/HOW-TO/ANALIZE.md](docs/HOW-TO/ANALIZE.md)
+- **Action Protocol:** [docs/HOW-TO/ACT.md](docs/HOW-TO/ACT.md)
+- **Idea Lifecycle:** [docs/HOW-TO/IDEA_LIFECYCLE.md](docs/HOW-TO/IDEA_LIFECYCLE.md)

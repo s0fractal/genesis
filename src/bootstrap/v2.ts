@@ -11,6 +11,7 @@ import { ZKProverBridge } from "../network/zk_prover_bridge.ts";
 import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import { PhiBridge } from "../network/phi_bridge.ts";
+import { buildLawTelemetry } from "../network/spore_frame.ts";
 // Translation Policy bloat removed (Era 2070 Consolidation)
 
 let oracleWorker: Worker | null = null;
@@ -466,9 +467,32 @@ ${debateMd || "(no recorded arguments)"}
         const loop = () => {
             tickFps();
             
+            // Era 2090: Commutative LawHash Telemetry
+            const preStateHash = engine.getStateHash();
+            const preEntropy = engine.getTotalEntropyLow32();
+
             // Halt Local Thermodynamics if reconstructing from a peer Snapshot
             if (!mesh.isSyncFrozen) {
                 renderer.tick();
+            }
+
+            const postStateHash = engine.getStateHash();
+            const postEntropy = engine.getTotalEntropyLow32();
+            const entropyDelta = (postEntropy - preEntropy) >>> 0;
+
+            // Broadcast LawTelemetry at 1Hz
+            if (frameCount % 60 === 0) {
+                const lawHash = engine.getLawHash();
+                const absoluteTick = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 4, 1)[0];
+                const frame = buildLawTelemetry(
+                    1, // witnessKind = 1 (WGSL / TS bridge)
+                    lawHash,
+                    preStateHash,
+                    postStateHash,
+                    entropyDelta,
+                    absoluteTick
+                );
+                mesh.enqueueBinaryFrame(frame);
             }
             
             // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)            // Era 11000: Initial Oracle Whisper Hook

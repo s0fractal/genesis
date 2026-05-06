@@ -20,10 +20,10 @@ const CONFIGS = [
     { topology: 7, attractors: 4, ticks: 8 },
     { topology: 7, attractors: 0, ticks: 4 }, // DEBUG: no-attractor baseline
     { topology: 7, attractors: 4, ticks: 3 }, // DEBUG: attractor 3-tick check
-    { topology: 8, attractors: 4, ticks: 1 },
-    { topology: 8, attractors: 4, ticks: 8 },
-    { topology: 8, attractors: 4, ticks: 16 },
-    { topology: 8, attractors: 4, ticks: 32 },
+    { topology: 7, attractors: 4, ticks: 1 },
+    { topology: 7, attractors: 4, ticks: 8 },
+    { topology: 7, attractors: 4, ticks: 16 },
+    { topology: 7, attractors: 4, ticks: 32 },
 ];
 
 if (gpuAvailable) {

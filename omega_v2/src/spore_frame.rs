@@ -112,6 +112,15 @@ pub const FRAME_TYPE_LORA_LONG_RANGE: u8 = 15;
 /// Era 2060: Zero-Copy Binary Plasmids
 pub const FRAME_TYPE_ATTRACTOR: u8 = 16;
 pub const FRAME_TYPE_PROPOSAL: u8 = 17;
+/// Era 2090: Commutative LawHash Telemetry.
+/// Layout in SporeFrame payload slots:
+///   proposal_or_target = law_hash (truncated digest of physical constants)
+///   payload_a          = pre_state_hash (FNV-1a or SHA-256 of active agents before tick)
+///   payload_b          = post_state_hash (after tick)
+///   payload_c          = entropy_delta (total_entropy_released diff)
+///   tick               = tick
+///   oracle_bit         = witness_kind (0=Rust, 1=WGSL, 2=SP1, 3=Spore)
+pub const FRAME_TYPE_LAW_TELEMETRY: u8 = 18;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
 /// and the typed view without copying.
@@ -159,6 +168,27 @@ impl SporeFrame {
         f.oracle_bit = oracle_bit;
         f.proposal_or_target = proposal_hash;
         f.payload_a = if aye { 1 } else { 0 };
+        f.tick = tick;
+        f.crc32 = f.compute_crc();
+        f
+    }
+
+    /// Era 2090: Build a LAW_TELEMETRY frame broadcasting the results of a physical tick.
+    pub fn law_telemetry(
+        witness_kind: u8,
+        law_hash: u32,
+        pre_state_hash: u32,
+        post_state_hash: u32,
+        entropy_delta: u32,
+        tick: u32,
+    ) -> Self {
+        let mut f = Self::empty();
+        f.frame_type = FRAME_TYPE_LAW_TELEMETRY;
+        f.oracle_bit = witness_kind;
+        f.proposal_or_target = law_hash;
+        f.payload_a = pre_state_hash;
+        f.payload_b = post_state_hash;
+        f.payload_c = entropy_delta;
         f.tick = tick;
         f.crc32 = f.compute_crc();
         f
@@ -614,6 +644,8 @@ mod tests {
         assert_eq!(FRAME_TYPE_V2_SYNC, 13);
         assert_eq!(FRAME_TYPE_BLE_MESH_BROADCAST, 14);
         assert_eq!(FRAME_TYPE_LORA_LONG_RANGE, 15);
+        assert_eq!(FRAME_TYPE_PROPOSAL, 17);
+        assert_eq!(FRAME_TYPE_LAW_TELEMETRY, 18);
     }
 
     #[test]
@@ -626,6 +658,20 @@ mod tests {
         assert_eq!(parsed.proposal_or_target, 0xCAFE_BABE);
         assert_eq!(parsed.oracle_bit, 2);
         assert_eq!(parsed.payload_a, 1); // aye = true
+        assert_eq!(parsed.tick, 100);
+    }
+
+    #[test]
+    fn law_telemetry_round_trips() {
+        let f = SporeFrame::law_telemetry(0, 0x1111, 0x2222, 0x3333, 42, 100);
+        let bytes = f.as_bytes();
+        let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
+        assert_eq!(parsed.frame_type, FRAME_TYPE_LAW_TELEMETRY);
+        assert_eq!(parsed.oracle_bit, 0);
+        assert_eq!(parsed.proposal_or_target, 0x1111);
+        assert_eq!(parsed.payload_a, 0x2222);
+        assert_eq!(parsed.payload_b, 0x3333);
+        assert_eq!(parsed.payload_c, 42);
         assert_eq!(parsed.tick, 100);
     }
 

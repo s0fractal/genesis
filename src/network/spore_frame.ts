@@ -28,6 +28,7 @@ export const FRAME_TYPE_BLE_MESH_BROADCAST = 14;
 export const FRAME_TYPE_LORA_LONG_RANGE = 15;
 export const FRAME_TYPE_ATTRACTOR = 16;
 export const FRAME_TYPE_PROPOSAL = 17;
+export const FRAME_TYPE_LAW_TELEMETRY = 18;
 
 export interface SporeFrame {
     magic: number;
@@ -298,6 +299,27 @@ export function buildProposal(
     f.payloadA = inverse >>> 0;
     f.payloadB = pulseFreq >>> 0;
     f.payloadC = pulseAmp >>> 0;
+    f.crc32 = computeFrameCrc(f);
+    return f;
+}
+
+/** Era 2090: Build a LAW_TELEMETRY frame broadcasting the results of a physical tick. */
+export function buildLawTelemetry(
+    witnessKind: number,
+    lawHash: number,
+    preStateHash: number,
+    postStateHash: number,
+    entropyDelta: number,
+    tick: number,
+): SporeFrame {
+    const f = emptyFrame();
+    f.frameType = FRAME_TYPE_LAW_TELEMETRY;
+    f.oracleBit = witnessKind & 0xFF;
+    f.proposalOrTarget = lawHash >>> 0;
+    f.payloadA = preStateHash >>> 0;
+    f.payloadB = postStateHash >>> 0;
+    f.payloadC = entropyDelta >>> 0;
+    f.tick = tick >>> 0;
     f.crc32 = computeFrameCrc(f);
     return f;
 }

@@ -18,6 +18,7 @@ pub mod topology;
 pub mod math;
 pub mod agent;
 pub mod lattice;
+pub mod law_hash;
 pub mod pouw;
 pub mod epigenetics;
 pub mod anchor;
@@ -1283,6 +1284,18 @@ pub unsafe extern "C" fn v2_debate_reasoning_hash(ptr: *const u8, len: u32) -> u
     let n = if len > 256 { 256 } else { len } as usize;
     let bytes = unsafe { core::slice::from_raw_parts(ptr, n) };
     crate::crypto::sha256_u32(bytes)
+}
+
+#[no_mangle]
+pub extern "C" fn v2_calculate_state_hash() -> u32 {
+    let lattice = OMEGA_LATTICE.lock();
+    lattice.calculate_state_hash()
+}
+
+#[no_mangle]
+pub extern "C" fn v2_calculate_law_hash() -> u32 {
+    let lattice = OMEGA_LATTICE.lock();
+    crate::law_hash::calculate_law_hash(&lattice.topology)
 }
 
 #[cfg(test)]
