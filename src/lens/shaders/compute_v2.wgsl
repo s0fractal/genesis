@@ -18,12 +18,12 @@ struct SignalStore {
     absolute_tick: u32,
     active_agent_count: u32,
     max_cells: u32,
+    total_entropy_low: u32,
+    total_entropy_high: u32,
     total_energy: u32,
     p90_energy: u32,
     p90_age: u32,
     _pad2: u32,
-    total_entropy_low: u32,
-    total_entropy_high: u32,
     _pad3_low: u32,
     _pad3_high: u32,
 }
@@ -373,7 +373,11 @@ fn compute_main(
     var attractor_drift: i32 = 0i;
     for (var i = 0u; i < attractor_array.count; i = i + 1u) {
         let a = attractor_array.data[i];
-        let sin_val = deterministic_sin(agent.phase - a.matrix, topology.q_phase);
+        let t_sec = signals.absolute_tick / 1024u;
+        let t_rem = signals.absolute_tick % 1024u;
+        let pulse_phase = (t_sec * a.pulse_freq) + ((t_rem * a.pulse_freq) / 1024u);
+        let attractor_phase = (a.matrix + pulse_phase) & max_phase_mask;
+        let sin_val = deterministic_sin(agent.phase - attractor_phase, topology.q_phase);
         attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
     }
     

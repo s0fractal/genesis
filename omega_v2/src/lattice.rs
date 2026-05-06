@@ -437,13 +437,10 @@ impl PhaseLattice {
                     let drift = (clamped_base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
-                    // Philosophy Vector 10: Thermodynamic Conservation of Resonance (80% efficiency recycling)
-                    if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                        let total_burn_estimate = final_burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
-                        let dipole_bonus = (total_burn_estimate as u64 * 52428) >> 16; // 80% in Q16
-                        agent.energy = (agent.energy as u64 + dipole_bonus)
-                            .min(crate::constants::MAX_ATP as u64) as u32;
-                    }
+                    // Philosophy Vector 10/12: Thermodynamic Conservation
+                    // The 'Free Energy' resonance replenish exploit has been removed.
+                    // Agents can no longer generate energy out of thin air simply by holding a resonant phase.
+                    // Future implementation will draw from ambient ATP (total_entropy_released).
                 }
 
                 if agent.energy > 0 && agent.state_flags & 0x01 == 0 {
