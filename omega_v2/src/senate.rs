@@ -77,6 +77,15 @@ impl SenateSettings {
         }
     }
 
+    /// Dynamically compute the quorum based on network topology (seat count).
+    /// Uses log2 scaling: ceil(log2(seat_count + 1)). Min 3, Max 8.
+    pub fn update_quorum(&mut self) {
+        let n = self.seat_count;
+        self.quorum_threshold = if n == 0 { 0 } else {
+            (32 - n.leading_zeros()).min(8).max(3) as u8
+        };
+    }
+
     /// Challenge a Senate seat (Resonance-Weighted Liquid Democracy).
     /// If the challenger's voting power exceeds the weakest current seat,
     /// they usurp it, ensuring the most coherent agents govern the swarm.
@@ -107,6 +116,7 @@ impl SenateSettings {
             };
             if weakest_power == 0 {
                 self.seat_count += 1;
+                self.update_quorum();
             }
             return true;
         }
@@ -121,6 +131,7 @@ impl SenateSettings {
             if self.seats[seat_idx].reputation_q10 < 512_000 {
                 self.seats[seat_idx] = SenateSeat::empty(); // Evicted!
                 self.seat_count -= 1;
+                self.update_quorum();
             }
         }
     }
