@@ -464,9 +464,11 @@ fn compute_main(
     // Adjust metabolic delta for the tissue efficiency discount
     metabolic_delta += i32(burn) - i32(final_burn);
 
-    // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
+    // Philosophy Vector 10: Thermodynamic Conservation of Resonance (80% efficiency recycling)
     if (new_phase % RESONANCE_PHASE_MODULUS == 0u) {
-        metabolic_delta += i32(final_burn * RESONANCE_PHASE_MODULUS); 
+        let total_burn_estimate = final_burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS;
+        let dipole_bonus = (total_burn_estimate * 52428u) >> 16u; // 80% in Q16
+        metabolic_delta += i32(dipole_bonus); 
     }
     
     let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;

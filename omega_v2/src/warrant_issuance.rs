@@ -216,6 +216,14 @@ impl WarrantLedger {
                 p.status = WARRANT_STATUS_ISSUED;
                 self.issued_count = self.issued_count.wrapping_add(1);
                 
+                // Philosophy Vector 10: Record Case Law precedent
+                crate::PRECEDENT_LEDGER.lock().record(
+                    p.proposal_hash,
+                    p.issued_warrant,
+                    current_tick,
+                    p.aye_bits,
+                );
+
                 // Philosophy Vector 9: Governance Transparency
                 let msg = crate::phi_protocol::PhiMessage::encode_governance(p.issued_warrant, p.action_code as u32, current_tick);
                 let mut buf = crate::PHI_MESSAGE_BUFFER.lock();

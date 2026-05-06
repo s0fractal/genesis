@@ -322,8 +322,11 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
+        // Philosophy Vector 10: Thermodynamic Conservation of Resonance (80% efficiency recycling)
         if (new_phase % RESONANCE_PHASE_MODULUS == 0u && new_energy > 0u) {
-            new_energy = new_energy + (final_burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS);
+            let total_burn_estimate = final_burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS;
+            let dipole_bonus = (total_burn_estimate * 52428u) >> 16u; // 80% in Q16
+            new_energy = new_energy + dipole_bonus;
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 

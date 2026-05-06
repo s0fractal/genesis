@@ -27,13 +27,12 @@ pub struct SignalStore {
     pub absolute_tick: u32,
     pub active_agent_count: u32,
     pub max_cells: u32,
-    
-    // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
+    pub total_entropy_released: u64,
+    /// Philosophy Vector 10: Global Energy Audit
     pub total_energy: u32,
     pub p90_energy: u32,
     pub p90_age: u32,
     pub _pad2: u32, // Explicit 4-byte padding for u64 alignment
-    pub total_entropy_released: u64,
     pub _pad3: u64, // Explicit 8-byte padding to align total size to 48 bytes
 }
 
@@ -70,11 +69,11 @@ impl PhaseLattice {
                 absolute_tick: 0,
                 active_agent_count: 0,
                 max_cells: 0,
+                total_entropy_released: 0,
                 total_energy: 0,
                 p90_energy: 0,
                 p90_age: 0,
                 _pad2: 0,
-                total_entropy_released: 0,
                 _pad3: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
@@ -221,9 +220,11 @@ impl PhaseLattice {
     /// The Hot Path Physics Loop
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
-        self.signals.absolute_tick += 1;
+        self.signals.absolute_tick = self.signals.absolute_tick.wrapping_add(1);
+        self.signals.dirty_flags = 0;
         
-        // REACTIVE RECONCILIATION: always clear dirty flags, even if no agents
+        let mut total_system_energy = 0u64;
+        
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
             self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
         }
@@ -239,6 +240,7 @@ impl PhaseLattice {
         let max_phase = (1u32 << self.topology.q_phase) - 1;
         let kuramoto_k = crate::constants::KURAMOTO_COUPLING_BASE; // Q10 scaled
         let q10_scale = crate::constants::BB_FREQ_Q_SCALE; // 1024
+        let mut alive_count = 0u32;
 
         unsafe {
             // Era 0201 FIX: Use a read-only snapshot for pre-tick neighbor reads
@@ -434,12 +436,18 @@ impl PhaseLattice {
                     let drift = (clamped_base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
-                    // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
+                    // Philosophy Vector 10: Thermodynamic Conservation of Resonance (80% efficiency recycling)
                     if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                        let dipole_bonus = final_burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
-                        agent.energy = (agent.energy as u64 + dipole_bonus as u64)
+                        let total_burn_estimate = final_burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
+                        let dipole_bonus = (total_burn_estimate as u64 * 52428) >> 16; // 80% in Q16
+                        agent.energy = (agent.energy as u64 + dipole_bonus)
                             .min(crate::constants::MAX_ATP as u64) as u32;
                     }
+                }
+
+                if agent.energy > 0 && agent.state_flags & 0x01 == 0 {
+                    total_system_energy = total_system_energy.wrapping_add(agent.energy as u64);
+                    alive_count += 1;
                 }
 
                 // Compost event: agent died this tick
@@ -460,6 +468,13 @@ impl PhaseLattice {
             }
         }
         
+        self.signals.total_energy = total_system_energy as u32;
+        self.signals.active_agent_count = alive_count;
+        
+        // Philosophy Vector 10: Global Energy Audit (ZK-verifiable)
+        // Ensure no energy hyperinflation exists in the system.
+        assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
+
         // REACTIVE RECONCILIATION
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
             // Apply Darwinian culling: agents beyond new capacity are killed

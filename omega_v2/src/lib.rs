@@ -33,6 +33,7 @@ pub mod genesis_inscription;
 #[cfg(not(feature = "spore"))] pub mod cross_model_debate;
 #[cfg(not(feature = "spore"))] pub mod codeicide_law;
 #[cfg(not(feature = "spore"))] pub mod warrant_issuance;
+pub mod precedent;
 pub mod spore_frame;
 pub mod spore_routing;
 pub mod resilience_snapshot;
@@ -167,6 +168,9 @@ pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::syn
 
 #[cfg(not(feature = "spore"))]
 pub static SENATE_SETTINGS: crate::sync::Spinlock<senate::SenateSettings> = crate::sync::Spinlock::new(senate::SenateSettings::new());
+
+/// Era 1100: Global Precedent Ledger.
+pub static PRECEDENT_LEDGER: crate::sync::Spinlock<precedent::PrecedentLedger> = crate::sync::Spinlock::new(precedent::PrecedentLedger::new());
 
 
 /// Era 1040 Phase 2: Global Mitosis Receipt Log.
@@ -917,6 +921,11 @@ pub extern "C" fn v2_senate_accepted_count() -> u32 {
         let mut s = SENATE_STATE.lock();
         s.accepted_count
     }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_get_precedent_ledger_ptr() -> *const u8 {
+    crate::PRECEDENT_LEDGER.lock().cases.as_ptr() as *const u8
 }
 
 // ------------------------------------------------------------------------------
