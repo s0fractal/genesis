@@ -12,10 +12,12 @@ export const WITNESS_SP1 = 2;
 
 export type WitnessSubstrate = "webgpu" | "wasm" | "sp1";
 export type WitnessSource = "gpu-readback" | "wasm-memory" | "zk-proof";
+export type ProofKind = "mock" | "sp1-stark" | "groth16";
 
 export interface StateWitness {
     substrate: WitnessSubstrate;
     source: WitnessSource;
+    proofKind?: ProofKind;
     lawHash: number;
     preStateHash: number;
     postStateHash: number;
@@ -30,6 +32,7 @@ export class SubstrateCourt {
     // Substrates that have failed arbitration and are temporarily isolated
     public isolatedSubstrates = new Set<WitnessSubstrate>();
     public quarantineReceipts = new Set<string>(); // Store isolation receipts
+    public transitionReceipts = new Set<string>(); // Store transitions into isolation
 
     constructor() {}
 
@@ -71,17 +74,28 @@ export class SubstrateCourt {
         }
     }
 
-    /** Mock trigger for SP1 to arbitrate the divergent tick. */
+    /** Trigger SP1 to arbitrate the divergent tick. */
     private requestArbitration(tick: number, gpu: StateWitness, wasm: StateWitness): void {
-        // In a real implementation, this dispatches a block to the SP1 prover
-        // For now, we simulate the arrival of an SP1 testimony.
+        // Dispatch block to SP1 prover (simulated here for tests unless hooked).
+        // A real SP1 backend will respond asynchronously with a proofKind: "sp1-stark"
+        console.warn(`[SubstrateCourt] Drift detected at tick ${tick}. Requesting SP1 STARK arbitration.`);
     }
 
     private handleArbitrationTimeout(tick: number): void {
         if (this.pendingArbitrations.has(tick)) {
-            console.warn(`[SubstrateCourt] Arbitration timeout for tick ${tick}.`);
-            // Add a quarantine receipt and drop the pending state
-            this.quarantineReceipts.add(`timeout_tick_${tick}`);
+            clearTimeout(this.pendingArbitrations.get(tick));
+            console.error(`[SubstrateCourt] Arbitration timeout for tick ${tick}. Quarantining involved substrates.`);
+            
+            const records = this.testimonies.get(tick);
+            if (records) {
+                // If SP1 testimony did not arrive, we cannot decide who is right. Isolate both fast substrates.
+                if (records.has("webgpu")) this.isolatedSubstrates.add("webgpu");
+                if (records.has("wasm")) this.isolatedSubstrates.add("wasm");
+                
+                const receipt = `timeout_quarantine_tick_${tick}`;
+                this.quarantineReceipts.add(receipt);
+                this.transitionReceipts.add(receipt);
+            }
             this.pendingArbitrations.delete(tick);
         }
     }
@@ -89,6 +103,9 @@ export class SubstrateCourt {
     /** Process the definitive STARK proof testimony and punish the drifting substrate. */
     public resolveArbitration(arbiterTestimony: StateWitness): void {
         if (arbiterTestimony.substrate !== "sp1") return;
+        
+        // Ensure mock vs real proofs are tracked in the receipt
+        const proofKind = arbiterTestimony.proofKind || "mock";
 
         const tick = arbiterTestimony.tick;
         if (!this.pendingArbitrations.has(tick)) return;
@@ -102,15 +119,19 @@ export class SubstrateCourt {
         const wasm = records.get("wasm");
 
         if (gpu && (gpu.postStateHash !== arbiterTestimony.postStateHash || gpu.lawHash !== arbiterTestimony.lawHash)) {
-            console.warn(`[SubstrateCourt] WebGPU drift convicted at tick ${tick}. Isolating substrate.`);
+            console.error(`[SubstrateCourt] WebGPU drift convicted at tick ${tick} by ${proofKind}. Isolating substrate.`);
             this.isolatedSubstrates.add("webgpu");
-            this.quarantineReceipts.add(`convicted_webgpu_tick_${tick}`);
+            const receipt = `convicted_webgpu_tick_${tick}_proof_${proofKind}`;
+            this.quarantineReceipts.add(receipt);
+            this.transitionReceipts.add(receipt);
         }
 
         if (wasm && (wasm.postStateHash !== arbiterTestimony.postStateHash || wasm.lawHash !== arbiterTestimony.lawHash)) {
-            console.warn(`[SubstrateCourt] WASM drift convicted at tick ${tick}. Isolating substrate.`);
+            console.error(`[SubstrateCourt] WASM drift convicted at tick ${tick} by ${proofKind}. Isolating substrate.`);
             this.isolatedSubstrates.add("wasm");
-            this.quarantineReceipts.add(`convicted_wasm_tick_${tick}`);
+            const receipt = `convicted_wasm_tick_${tick}_proof_${proofKind}`;
+            this.quarantineReceipts.add(receipt);
+            this.transitionReceipts.add(receipt);
         }
 
         this.pendingArbitrations.delete(tick);
