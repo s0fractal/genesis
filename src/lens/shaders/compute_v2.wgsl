@@ -216,6 +216,9 @@ fn compute_main(
             var new_mem_y = agent.memory_y;
             var new_mem_z = agent.memory_z;
             
+            var ortho_agent = (agent.memory_y >> 16u) & 0xFFu;
+            var is_tissue = (agent.state_flags & 0x08000000u) != 0u;
+            
             let max_r_cells = 1u << topology.q_radial;
             let w = i32(max_r_cells);
             // Height might not be exact if active_agent_count is not a multiple of w
@@ -338,8 +341,13 @@ fn compute_main(
             if (n_idx >= signals.active_agent_count) { continue; }
             let n = agents_in[n_idx];
             if (n.energy > 0u) {
-                let dx_n = deterministic_cos(n.phase, topology.q_phase) - my_x;
-                let dy_n = deterministic_sin(n.phase, topology.q_phase) - my_y;
+                let n_ortho = (n.memory_y >> 16u) & 0xFFu;
+                var d_ortho: u32 = 0u;
+                if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
+                let n_phase = (n.phase + d_ortho * 4u) & max_phase_mask;
+                
+                let dx_n = deterministic_cos(n_phase, topology.q_phase) - my_x;
+                let dy_n = deterministic_sin(n_phase, topology.q_phase) - my_y;
                 let xor_dist = countOneBits(agent.genome ^ n.genome);
                 
                 // Attraction bounds (Clannish coherence)
@@ -431,9 +439,34 @@ fn compute_main(
     }
     metabolic_delta += energy_diffusion;
 
+    let thermodynamic_stress = u32(abs(metabolic_delta)) + u32(abs(energy_diffusion));
+
+    // Era 2090: Emergent Organ Differentiation (Tissue Crystallization)
+    if (!is_tissue && ortho_agent > 0u && agent.energy > 3096u && thermodynamic_stress < 5u) {
+        agent.state_flags = agent.state_flags | 0x08000000u;
+        is_tissue = true;
+        new_base_freq = 0i;
+    }
+
+    var final_burn = burn;
+    if (is_tissue) {
+        if (final_burn < 4u) { final_burn = 4u; }
+        final_burn = final_burn / 4u;
+    } else {
+        if (thermodynamic_stress > 64u) { // CHRONOTOPOLOGY_STRESS_DIVISOR * 2
+            ortho_agent = (ortho_agent + 1u) & 0xFFu;
+        } else if (agent.energy > 3996u) { // MAX_ATP - 100
+            ortho_agent = (ortho_agent - 1u) & 0xFFu;
+        }
+    }
+    new_mem_y = (new_mem_y & 0x0000FFFFu) | (ortho_agent << 16u);
+
+    // Adjust metabolic delta for the tissue efficiency discount
+    metabolic_delta += i32(burn) - i32(final_burn);
+
     // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
     if (new_phase % 64u == 0u) {
-        metabolic_delta += i32(burn * 64u); 
+        metabolic_delta += i32(final_burn * 64u); 
     }
     
     let new_energy_calc = i32(agent.energy) + metabolic_delta + intent_energy_bonus;
@@ -475,7 +508,7 @@ fn compute_main(
                 new_mem_x = 0u; new_mem_y = 0u; new_mem_z = 0u;
             } else {
                 // ERA 8000: BIOLOGICAL RISC (VIRAL OPCODES)
-                let opcode = agent.memory_y;
+                let opcode = agent.memory_y & 0xFFFFu;
                 if (opcode == 1u) {
                     // Opcode 1: Lysogenic Viral Integration (XOR Inversion)
                     let old_genome = new_genome;
@@ -528,6 +561,7 @@ fn compute_main(
                     }
                 }
             }
+        }
         }
     }
     

@@ -287,9 +287,11 @@ impl PhaseLattice {
                     // Era 0215: Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
 
-                    // Era 0216: Hebbian Learning (Active Memory)
-                    let mut weight_left = if agent.memory[1] == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { agent.memory[1] as i32 };
-                    let mut weight_right = if agent.memory[2] == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { agent.memory[2] as i32 };
+                    // Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing
+                    let mut weight_left = if (agent.memory[1] & 0xFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[1] & 0xFFF) as i32 };
+                    let mut weight_right = if (agent.memory[2] & 0xFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[2] & 0xFFF) as i32 };
+                    let mut ortho_agent = (agent.memory[1] >> 16) & 0xFF;
+                    let mut is_tissue = (agent.state_flags & crate::agent::FLAG_TISSUE_LOCKED) != 0;
 
                     let cos_left = crate::math::cos_q10(left.phase, agent.phase);
                     let cos_right = crate::math::cos_q10(right.phase, agent.phase);
@@ -298,9 +300,6 @@ impl PhaseLattice {
                     
                     weight_left = (weight_left + (cos_left * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
                     weight_right = (weight_right + (cos_right * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
-
-                    agent.memory[1] = weight_left as u32;
-                    agent.memory[2] = weight_right as u32;
 
                     // Kuramoto coupling modulated by Hebbian weights
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
@@ -316,8 +315,14 @@ impl PhaseLattice {
                         if n_idx < active {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
-                                sum_cos += crate::math::cos_q10(0, n.phase) * default_weight;
-                                sum_sin += crate::math::sin_q10(0, n.phase) * default_weight;
+                                let n_ortho = (n.memory[1] >> 16) & 0xFF;
+                                let d_ortho = ortho_agent.abs_diff(n_ortho);
+                                
+                                // Topological Parallax Lens: Z-axis distance twists the phase interaction
+                                let n_phase = n.phase.wrapping_add(d_ortho * 4) & max_phase;
+
+                                sum_cos += crate::math::cos_q10(0, n_phase) * default_weight;
+                                sum_sin += crate::math::sin_q10(0, n_phase) * default_weight;
                             }
                         }
                     }
@@ -379,8 +384,34 @@ impl PhaseLattice {
                         crate::constants::MAX_TIME_DILATION - 1
                     );
 
+                    // Era 2090: Emergent Organ Differentiation (Tissue Crystallization)
+                    if !is_tissue && ortho_agent > 0 && agent.energy > crate::constants::MAX_ATP - 1000 && thermodynamic_stress < 5 {
+                        agent.state_flags |= crate::agent::FLAG_TISSUE_LOCKED;
+                        is_tissue = true;
+                        agent.base_freq = 0; // Structurally rigid
+                        weight_left = crate::constants::HEBBIAN_MAX_WEIGHT;
+                        weight_right = crate::constants::HEBBIAN_MAX_WEIGHT;
+                    }
+
+                    // Era 2080: Dynamic Orthogonal Branching (5D escape)
+                    let mut final_burn = burn;
+                    if is_tissue {
+                        final_burn = final_burn.max(4) / 4; // Highly efficient
+                        // No orthogonal drift, it is crystallized
+                    } else {
+                        if thermodynamic_stress > crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR * 2 {
+                            ortho_agent = ortho_agent.wrapping_add(1) & 0xFF; // Escape chaotic resonance
+                        } else if agent.energy > crate::constants::MAX_ATP - 100 {
+                            ortho_agent = ortho_agent.wrapping_sub(1) & 0xFF; // Expand territory
+                        }
+                    }
+
+                    // Pack Hebbian weight and Ortho deviation back into memory
+                    agent.memory[1] = (weight_left as u32) | (ortho_agent << 16);
+                    agent.memory[2] = weight_right as u32;
+
                     // Apply time dilation to the burn penalty
-                    let extra_burn = burn * (time_dilation_multiplier - 1);
+                    let extra_burn = final_burn * (time_dilation_multiplier - 1);
                     energy_delta -= extra_burn as i32;
 
                     if energy_delta < 0 {
@@ -405,7 +436,7 @@ impl PhaseLattice {
 
                     // The Dipole Invariant: Exactly refund the base metabolic burn accumulated over the phase cycle.
                     if agent.phase.is_multiple_of(crate::constants::RESONANCE_PHASE_MODULUS) && agent.energy > 0 {
-                        let dipole_bonus = burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
+                        let dipole_bonus = final_burn * time_dilation_multiplier * crate::constants::RESONANCE_PHASE_MODULUS;
                         agent.energy = (agent.energy as u64 + dipole_bonus as u64)
                             .min(crate::constants::MAX_ATP as u64) as u32;
                     }

@@ -38,6 +38,9 @@ pub struct Phenotype {
     pub radiance: u8,
 }
 
+/// Era 2090: Tissue Crystallization marker
+pub const FLAG_TISSUE_LOCKED: u32 = 0x0800_0000;
+
 impl PhaseAgentMinimal {
     /// Decodes the 32-bit genome into 4 distinct phenotypic traits (Era 0215)
     pub fn decode_phenotype(&self) -> Phenotype {

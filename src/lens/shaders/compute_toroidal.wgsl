@@ -166,11 +166,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let p_resilience = (genome >> 16u) & 0xFFu;
         let p_radiance = (genome >> 24u) & 0xFFu;
 
-        // --- Era 0216: Hebbian Learning (Active Memory) ---
+        // --- Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing ---
         var weight_left: i32 = HEBBIAN_DEFAULT_WEIGHT;
-        if (agent.memory_y != 0u) { weight_left = i32(agent.memory_y); }
+        if ((agent.memory_y & 0xFFFu) != 0u) { weight_left = i32(agent.memory_y & 0xFFFu); }
         var weight_right: i32 = HEBBIAN_DEFAULT_WEIGHT;
-        if (agent.memory_z != 0u) { weight_right = i32(agent.memory_z); }
+        if ((agent.memory_z & 0xFFFu) != 0u) { weight_right = i32(agent.memory_z & 0xFFFu); }
+        var ortho_agent: u32 = (agent.memory_y >> 16u) & 0xFFu;
+        var is_tissue: bool = (agent.state_flags & 0x08000000u) != 0u;
 
         let cos_left = cos_q10(left.phase, agent.phase);
         let cos_right = cos_q10(right.phase, agent.phase);
@@ -179,9 +181,6 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         
         weight_left = clamp(weight_left + (cos_left * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
         weight_right = clamp(weight_right + (cos_right * neuroplasticity) / 1024i, 0i, HEBBIAN_MAX_WEIGHT);
-
-        agent.memory_y = u32(weight_left);
-        agent.memory_z = u32(weight_right);
 
         // --- 2. 6-Neighbor Kuramoto Q10 coupling ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
@@ -195,8 +194,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (n_idx < active_count) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
-                    sum_cos += cos_q10(0u, n.phase) * HEBBIAN_DEFAULT_WEIGHT;
-                    sum_sin += sin_q10(0u, n.phase) * HEBBIAN_DEFAULT_WEIGHT;
+                    let n_ortho = (n.memory_y >> 16u) & 0xFFu;
+                    var d_ortho: u32 = 0u;
+                    if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
+                    let n_phase = (n.phase + d_ortho * 4u) & max_phase_mask;
+
+                    sum_cos += cos_q10(0u, n_phase) * HEBBIAN_DEFAULT_WEIGHT;
+                    sum_sin += sin_q10(0u, n_phase) * HEBBIAN_DEFAULT_WEIGHT;
                 }
             }
         }
@@ -266,7 +270,33 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             time_dilation_multiplier = MAX_TIME_DILATION;
         }
 
-        let extra_burn = burn * (time_dilation_multiplier - 1u);
+        // Era 2090: Emergent Organ Differentiation (Tissue Crystallization)
+        if (!is_tissue && ortho_agent > 0u && agent.energy > MAX_ATP - 1000u && thermodynamic_stress < 5u) {
+            agent.state_flags = agent.state_flags | 0x08000000u;
+            is_tissue = true;
+            agent.base_freq = 0i;
+            weight_left = HEBBIAN_MAX_WEIGHT;
+            weight_right = HEBBIAN_MAX_WEIGHT;
+        }
+
+        // Era 2080: Dynamic Orthogonal Branching (5D escape)
+        var final_burn: u32 = burn;
+        if (is_tissue) {
+            if (final_burn < 4u) { final_burn = 4u; }
+            final_burn = final_burn / 4u;
+        } else {
+            if (thermodynamic_stress > CHRONOTOPOLOGY_STRESS_DIVISOR * 2u) {
+                ortho_agent = (ortho_agent + 1u) & 0xFFu; // Escape chaotic resonance
+            } else if (agent.energy > MAX_ATP - 100u) {
+                ortho_agent = (ortho_agent - 1u) & 0xFFu; // Expand territory
+            }
+        }
+
+        // Pack Hebbian weight and Ortho deviation back into memory
+        agent.memory_y = u32(weight_left) | (ortho_agent << 16u);
+        agent.memory_z = u32(weight_right);
+
+        let extra_burn = final_burn * (time_dilation_multiplier - 1u);
         energy_delta -= i32(extra_burn);
 
         var new_energy: u32 = 0u;
@@ -291,7 +321,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         if (new_phase % RESONANCE_PHASE_MODULUS == 0u && new_energy > 0u) {
-            new_energy = new_energy + (burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS);
+            new_energy = new_energy + (final_burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS);
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 
