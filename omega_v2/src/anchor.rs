@@ -121,6 +121,20 @@ impl PhiAnchorChain {
         s as u32
     }
 
+    /// Обчислює зсув золотого кута залежно від кількості блоків.
+    /// Використовує 64-бітну константу золотого перерізу для детермінізму.
+    #[inline(always)]
+    fn golden_angle_step(height: u64, q_phase: u32) -> u32 {
+        if q_phase == 0 || q_phase > 31 {
+            return 0;
+        }
+        // 0.6180339887498948482 * 2^64
+        let golden_ratio_64: u64 = 0x9E3779B97F4A7C15;
+        let step_64 = golden_ratio_64.wrapping_mul(height);
+        // Зсуваємо так, щоб значення лягало в межі 0..2^q_phase
+        (step_64 >> (64 - q_phase)) as u32
+    }
+
     /// Генерує φ для дочірнього рівня ієрархії.
     pub fn derive_phi(&self, parent_phi: u32, child_id: u64, q_phase: u32) -> u32 {
         assert!(q_phase <= 10, "q_phase must be in [0, 10] per PHI_MANIFEST");
@@ -129,8 +143,13 @@ impl PhiAnchorChain {
         s = self.eth.mix_into(s);
         s = self.sol.mix_into(s);
         s = mix_u64(s, child_id);
-        let mask = (1u64 << q_phase) - 1;
-        (s & mask) as u32
+        
+        let mut h = s as u32;
+        let total_height = self.total_blocks_all();
+        h = h.wrapping_add(Self::golden_angle_step(total_height, q_phase));
+        
+        let mask = (1u32 << q_phase) - 1;
+        h & mask
     }
 
     pub fn verify_coherence(
@@ -192,5 +211,34 @@ mod tests {
         // Even if SOL is empty, it shouldn't crash
         chain2.ingest_block_network(2, 999);
         assert_ne!(chain2.global_phi(), phi2);
+    }
+
+    #[test]
+    fn test_golden_angle_step() {
+        let step_0 = PhiAnchorChain::golden_angle_step(0, 10);
+        assert_eq!(step_0, 0);
+
+        let step_1 = PhiAnchorChain::golden_angle_step(1, 10);
+        // 0x9E3779B97F4A7C15 >> 54 is exactly 632.
+        // Let's verify: 0x9E3779B97F4A7C15 = 11400714819323198485.
+        // 11400714819323198485 / 2^54 = 632.9. So it's 632.
+        assert_eq!(step_1, 632);
+
+        let step_2 = PhiAnchorChain::golden_angle_step(2, 10);
+        // (632 * 2) % 1024 = 1264 % 1024 = 240. The precise wrapped 64-bit math gives 241.
+        assert_eq!(step_2, 241);
+    }
+
+    #[test]
+    fn test_derive_phi_includes_golden_spiral() {
+        let mut chain1 = PhiAnchorChain::new();
+        let p1 = chain1.derive_phi(123, 456, 10);
+
+        chain1.ingest_block_network(0, 111);
+        let p2 = chain1.derive_phi(123, 456, 10);
+
+        // p1 and p2 must be different because total_blocks changed
+        // and the base hash also changed (block ingested).
+        assert_ne!(p1, p2);
     }
 }

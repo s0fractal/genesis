@@ -120,8 +120,11 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         active_agent_count: 0,
         max_cells: 0,
         total_energy: 0,
+        p90_energy: 0,
+        p90_age: 0,
         _pad2: 0,
         total_entropy_released: 0,
+        _pad3: 0,
     },
     intents: [crate::topology::OntologicalIntent {
         focus_x: 0,
@@ -1022,7 +1025,8 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
-            crate::codeicide_law::protected_status_for(agent, tick, avg, resonance_score, &*settings) as u32
+            let status = crate::codeicide_law::protected_status_for(agent, tick, avg, lattice.signals.p90_age, resonance_score, &*settings) as u32;
+            status
         } else {
             0
         }
