@@ -159,9 +159,9 @@ pub fn main() {
                 q_radial,
                 q_math,
                 weather_multiplier,
+                alpha: 0,
                 _pad1: 0,
                 _pad2: 0,
-                _pad3: 0,
             };
 
             let active_count = sp1_zkvm::io::read::<u32>();

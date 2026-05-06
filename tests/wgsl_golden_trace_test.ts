@@ -18,6 +18,8 @@ const CONFIGS = [
     { topology: 2, attractors: 0, ticks: 1 },
     { topology: 5, attractors: 1, ticks: 2 },
     { topology: 7, attractors: 4, ticks: 8 },
+    { topology: 7, attractors: 0, ticks: 4 }, // DEBUG: no-attractor baseline
+    { topology: 7, attractors: 4, ticks: 3 }, // DEBUG: attractor 3-tick check
     { topology: 8, attractors: 4, ticks: 1 },
     { topology: 8, attractors: 4, ticks: 8 },
     { topology: 8, attractors: 4, ticks: 16 },
@@ -29,11 +31,16 @@ if (gpuAvailable) {
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) throw new Error("WebGPU adapter unavailable");
     const device = await adapter.requestDevice();
+    device.pushErrorScope("validation");
     const shaderModule = device.createShaderModule({ code: computeToroidalSrc });
     const pipeline = await device.createComputePipelineAsync({
         layout: "auto",
         compute: { module: shaderModule, entryPoint: "compute_main" },
     });
+    const initErr = await device.popErrorScope();
+    if (initErr) {
+        console.error("[PIPELINE CREATION ERROR]", initErr.message);
+    }
 
     const wasm = await instantiateWasm();
     const exports = wasm.exports;
@@ -42,7 +49,7 @@ if (gpuAvailable) {
     // We only need to boot engine once to link memory pointers
     (exports.v2_boot_engine as CallableFunction)();
 
-    const AGENT_COUNT = 1_024;
+    const AGENT_COUNT = 8; // DEBUG: reduced to isolate tick-4 attractor drift
     const SEED = 0x64_4D_53_45;
 
     for (const conf of CONFIGS) {
@@ -82,7 +89,7 @@ if (gpuAvailable) {
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
                 const signalsBuf = device.createBuffer({
-                    size: 32,
+                    size: 48,
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
                 const agentsInBuf = device.createBuffer({
@@ -106,11 +113,18 @@ if (gpuAvailable) {
                     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
                 });
 
-                device.queue.writeBuffer(topologyBuf, 0, uniformBytes, 0, 32);
-                device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 32, 32);
-                device.queue.writeBuffer(agentsInBuf, 0, gpuAgentBytes);
-                device.queue.writeBuffer(sineLutBuf, 0, sineLutBytes);
-                device.queue.writeBuffer(attractorBuf, 0, attractorBytes);
+                device.queue.writeBuffer(topologyBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset, 32);
+                let topHex = "";
+                for(let k=0; k<32; k++) topHex += uniformBytes[k].toString(16).padStart(2, "0") + " ";
+                console.log(`[DEBUG] Hex dump of topologyBuf upload: ${topHex}`);
+                console.log(`[DEBUG] SINE_LUT[0]=${sineLutBytes[0]} SINE_LUT[64]=${sineLutBytes[64]}`);
+                device.queue.writeBuffer(signalsBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
+                let agentHex = "";
+                for(let k=0; k<32; k++) agentHex += gpuAgentBytes[k].toString(16).padStart(2, "0") + " ";
+                console.log(`[DEBUG] Hex dump of gpuAgentBytes upload: ${agentHex}`);
+                device.queue.writeBuffer(agentsInBuf, 0, gpuAgentBytes.buffer, gpuAgentBytes.byteOffset, gpuAgentBytes.byteLength);
+                device.queue.writeBuffer(sineLutBuf, 0, sineLutBytes.buffer, sineLutBytes.byteOffset, sineLutBytes.byteLength);
+                device.queue.writeBuffer(attractorBuf, 0, attractorBytes.buffer, attractorBytes.byteOffset, attractorBytes.byteLength);
 
                 const bindGroupA = device.createBindGroup({
                     layout: pipeline.getBindGroupLayout(0),
@@ -124,6 +138,7 @@ if (gpuAvailable) {
                     ],
                 });
 
+                device.pushErrorScope("validation");
                 const bindGroupB = device.createBindGroup({
                     layout: pipeline.getBindGroupLayout(0),
                     entries: [
@@ -135,19 +150,41 @@ if (gpuAvailable) {
                         { binding: 8, resource: { buffer: attractorBuf } },
                     ],
                 });
+                const bgErr = await device.popErrorScope();
+                if (bgErr) {
+                    console.error("[BINDGROUP B ERROR]", bgErr.message);
+                }
 
                 for (let i = 0; i < conf.ticks; i++) {
+                    const sigDataBefore = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
+                    
+                    // CRITICAL FIX: Rust's tick_physics() increments absolute_tick at the very beginning.
+                    // To ensure GPU evaluates with the same absolute_tick as the CPU, we must pre-increment
+                    // it in the buffer just for the GPU upload, then restore it so Rust doesn't double-increment.
+                    const currentTick = sigDataBefore.getUint32(4, true);
+                    sigDataBefore.setUint32(4, currentTick + 1, true);
+                    
                     // 1. Sync uniforms BEFORE CPU modifies them!
-                    device.queue.writeBuffer(signalsBuf, 0, uniformBytes, 32, 32);
-                    device.queue.writeBuffer(attractorBuf, 0, attractorBytes);
+                    device.queue.writeBuffer(signalsBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
+                    device.queue.writeBuffer(attractorBuf, 0, attractorBytes.buffer, attractorBytes.byteOffset, attractorBytes.byteLength);
 
-                    const agent0Before = new DataView(agentBytes.buffer, agentBytes.byteOffset + 0 * 32, 32);
-                    console.log(`[DEBUG] BEFORE Tick ${i+1}: Agent 0 phase=${agent0Before.getUint32(0,true)} energy=${agent0Before.getUint32(4,true)} flags=${agent0Before.getUint32(12,true)}`);
+                    // Restore so Rust tick_physics can increment it naturally
+                    sigDataBefore.setUint32(4, currentTick, true);
+                    let hex = "";
+                    for(let k=0; k<16; k++) hex += uniformBytes[32+k].toString(16).padStart(2, "0") + " ";
+                    // console.log(`[DEBUG] Hex dump of signalsBuf upload: ${hex}`);
+                    // console.log(`[DEBUG] uniform absolute_tick=${sigDataBefore.getUint32(4, true)} active=${sigDataBefore.getUint32(8, true)} total_energy=${sigDataBefore.getUint32(24, true)}`);
+                    // Log input state before tick 4
+                    if (i === 3) {
+                        const a0 = new DataView(agentBytes.buffer, agentBytes.byteOffset, 32);
+                        console.log(`[TICK4 INPUT] Agent 0: phase=${a0.getUint32(0,true)} energy=${a0.getUint32(4,true)} mem=[${a0.getUint32(20,true)},${a0.getUint32(24,true)},${a0.getUint32(28,true)}]`);
+                    }
                     
                     // 2. CPU Tick
                     (exports.v2_tick as CallableFunction)();
 
                     // 3. GPU Tick
+                    device.pushErrorScope("validation");
                     const encoder = device.createCommandEncoder();
                     const pass = encoder.beginComputePass();
                     pass.setPipeline(pipeline);
@@ -158,6 +195,11 @@ if (gpuAvailable) {
                     const outBuf = i % 2 === 0 ? agentsOutBuf : agentsInBuf;
                     encoder.copyBufferToBuffer(outBuf, 0, stagingBuf, 0, gpuAgentBytes.byteLength);
                     device.queue.submit([encoder.finish()]);
+
+                    const err = await device.popErrorScope();
+                    if (err) {
+                        console.error("[WEBGPU ERROR]", err.message);
+                    }
 
                     // Wait and verify IMMEDIATELY
                     await stagingBuf.mapAsync(GPUMapMode.READ);
@@ -176,15 +218,38 @@ if (gpuAvailable) {
                         const agentIdx = Math.floor(firstMismatch / 32);
                         const fieldOffset = firstMismatch % 32;
                         
+                        // Count total mismatching agents
+                        let mismatchCount = 0;
+                        for (let j = 0; j < gpuTickOut.length; j += 32) {
+                            for (let k = 0; k < 32; k++) {
+                                if (gpuTickOut[j+k] !== cpuTickOut[j+k]) { mismatchCount++; break; }
+                            }
+                        }
+                        
                         const cpuA = new DataView(cpuTickOut.buffer, cpuTickOut.byteOffset + agentIdx * 32, 32);
                         const gpuA = new DataView(gpuTickOut.buffer, gpuTickOut.byteOffset + agentIdx * 32, 32);
-                        const sigData = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 32);
-                        console.log(`[DEBUG] uniform absolute_tick=${sigData.getUint32(4, true)} total_energy=${sigData.getUint32(16, true)}`);
-                        console.log(`[MISMATCH] Tick ${i+1}: CPU Agent ${agentIdx}: phase=${cpuA.getUint32(0,true)} energy=${cpuA.getUint32(4,true)} freq=${cpuA.getInt32(8,true)} flags=${cpuA.getUint32(12,true)}`);
-                        console.log(`[MISMATCH] Tick ${i+1}: GPU Agent ${agentIdx}: phase=${gpuA.getUint32(0,true)} energy=${gpuA.getUint32(4,true)} freq=${gpuA.getInt32(8,true)} flags=${gpuA.getUint32(12,true)}`);
+                        const sigData = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
+                        console.log(`[DEBUG] abs_tick=${sigData.getUint32(4, true)} active=${sigData.getUint32(8, true)} mismatching_agents=${mismatchCount}`);
+                        console.log(`[MISMATCH] Tick ${i+1}: CPU Agent ${agentIdx}: phase=${cpuA.getUint32(0,true)} energy=${cpuA.getUint32(4,true)} mem=[${cpuA.getUint32(20,true)}, ${cpuA.getUint32(24,true)}, ${cpuA.getUint32(28,true)}]`);
+                        console.log(`[MISMATCH] Tick ${i+1}: GPU Agent ${agentIdx}: phase=${gpuA.getUint32(0,true)} energy=${gpuA.getUint32(4,true)} mem=[${gpuA.getUint32(20,true)}, ${gpuA.getUint32(24,true)}, ${gpuA.getUint32(28,true)}]`);
                         
+                        // Sample a few more mismatching agents to see if delta is consistent
+                        let sampleCount = 0;
+                        for (let j = 32; j < gpuTickOut.length && sampleCount < 4; j += 32) {
+                            let diff = false;
+                            for (let k = 0; k < 32; k++) { if (gpuTickOut[j+k] !== cpuTickOut[j+k]) { diff = true; break; } }
+                            if (diff) {
+                                const ai = j / 32;
+                                const cpuS = new DataView(cpuTickOut.buffer, cpuTickOut.byteOffset + j, 32);
+                                const gpuS = new DataView(gpuTickOut.buffer, gpuTickOut.byteOffset + j, 32);
+                                const dp = cpuS.getUint32(0,true) - gpuS.getUint32(0,true);
+                                console.log(`[SAMPLE] Agent ${ai}: cpu_phase=${cpuS.getUint32(0,true)} gpu_phase=${gpuS.getUint32(0,true)} delta=${dp} cpu_energy=${cpuS.getUint32(4,true)} gpu_energy=${gpuS.getUint32(4,true)}`);
+                                sampleCount++;
+                            }
+                        }
                         stagingBuf.unmap();
 
+                        console.log(`[WGSL DEBUG] attractor_drift=${gpuA.getInt32(20, true)} weight_left_packed=${gpuA.getUint32(24,true)} weight_right=${gpuA.getUint32(28,true)}`);
                         throw new Error(`WGSL drift detected at tick ${i+1}, byte ${firstMismatch} (agent ${agentIdx}, field offset ${fieldOffset})`);
                     }
                     

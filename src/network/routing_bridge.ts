@@ -81,7 +81,7 @@ export class PhaseRouter {
         const fn = this.exports.v2_route_hyperbolic_distance_3d;
         if (!fn) {
             const baseDist = PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
-            const tauDiff = Math.abs(tauA - tauB);
+            const tauDiff = Math.min(Math.abs(tauA - tauB), 64);
             const penalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
             return baseDist + penalty;
         }

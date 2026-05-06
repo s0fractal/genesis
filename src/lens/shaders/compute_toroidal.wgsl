@@ -179,9 +179,9 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing ---
         var weight_left: i32 = HEBBIAN_DEFAULT_WEIGHT;
-        if ((agent.memory_y & 0xFFFu) != 0u) { weight_left = i32(agent.memory_y & 0xFFFu); }
+        if ((agent.memory_y & 0xFFFFu) != 0u) { weight_left = i32(agent.memory_y & 0xFFFFu); }
         var weight_right: i32 = HEBBIAN_DEFAULT_WEIGHT;
-        if ((agent.memory_z & 0xFFFu) != 0u) { weight_right = i32(agent.memory_z & 0xFFFu); }
+        if ((agent.memory_z & 0xFFFFu) != 0u) { weight_right = i32(agent.memory_z & 0xFFFFu); }
         var ortho_agent: u32 = (agent.memory_y >> 16u) & 0xFFu;
         var is_tissue: bool = (agent.state_flags & 0x08000000u) != 0u;
 
@@ -197,35 +197,38 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         
         // Era 2060: Photonic Substrate Readiness (DFT Mean-Field Approximation)
+        // NOTE: No active_count guard — Rust has none either. Must iterate all 8 neighbors unconditionally.
+        // NOTE: We accumulate WITHOUT * HEBBIAN_DEFAULT_WEIGHT to avoid dual-truncation divergence from Rust's i64 path.
+        // Rust: sum * HEBBIAN_DEFAULT_WEIGHT → divide by (Q10_SCALE * HEBBIAN_DEFAULT_WEIGHT) = identical to sum / Q10_SCALE.
+        // Max accumulator = 8 * 1024 = 8192. Product with agent_cos ≤ 8192 * 1024 = 8_388_608 < i32_max. ✓
         var sum_cos: i32 = 0i;
         var sum_sin: i32 = 0i;
 
-        if (active_count > 8u) {
-            for (var i = 0u; i < 8u; i = i + 1u) {
-                let n_idx = n_indices[i];
-                if (n_idx < active_count) {
-                    let n = agents_in[n_idx];
-                    if (n.energy > 0u) {
-                        let n_ortho = (n.memory_y >> 16u) & 0xFFu;
-                        var d_ortho: u32 = 0u;
-                        if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
+        for (var i = 0u; i < 8u; i = i + 1u) {
+            let n_idx = n_indices[i];
+            if (n_idx < active_count) {
+                let n = agents_in[n_idx];
+                if (n.energy > 0u) {
+                    let n_ortho = (n.memory_y >> 16u) & 0xFFu;
+                    var d_ortho: u32 = 0u;
+                    if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
                     let n_phase = (n.phase + d_ortho * 4u) & max_phase_mask;
 
-                    sum_cos += cos_q10(0u, n_phase) * HEBBIAN_DEFAULT_WEIGHT;
-                    sum_sin += sin_q10(0u, n_phase) * HEBBIAN_DEFAULT_WEIGHT;
+                    sum_cos += cos_q10(0u, n_phase);
+                    sum_sin += sin_q10(0u, n_phase);
                 }
             }
         }
-        
-        let max_phase_mask = (1u << topology.q_phase) - 1u;
-        let agent_phase_shifted = u32(i32(agent.phase) + topology.alpha) & max_phase_mask;
+
+        // Sakaguchi-Kuramoto phase lag (alpha). Match Rust: wrapping_add(alpha as u32).
+        let agent_phase_shifted = (agent.phase + u32(topology.alpha)) & max_phase_mask;
         let agent_cos = cos_q10(0u, agent_phase_shifted);
         let agent_sin = sin_q10(0u, agent_phase_shifted);
         
-        let sum_sin_norm = sum_sin / HEBBIAN_DEFAULT_WEIGHT;
-        let sum_cos_norm = sum_cos / HEBBIAN_DEFAULT_WEIGHT;
-        let total_coupling = (sum_sin_norm * agent_cos - sum_cos_norm * agent_sin) / 1024i;
-        let coupling = (total_coupling * k) / (8i * Q10_SCALE);
+        // Exact match of Rust i64 path: (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE
+        // (HEBBIAN_DEFAULT_WEIGHT factors cancel out, leaving single division)
+        let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE;
+        let coupling = (total_coupling * k) / (6i * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
@@ -305,6 +308,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Pack Hebbian weight and Ortho deviation back into memory
+        agent.memory_x = u32(coupling);
         agent.memory_y = u32(weight_left) | (ortho_agent << 16u);
         agent.memory_z = u32(weight_right);
 
@@ -327,22 +331,21 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let t_sec = signals.absolute_tick / 1024u;
             let t_rem = signals.absolute_tick % 1024u;
             let pulse_phase = (t_sec * a.pulse_freq) + ((t_rem * a.pulse_freq) / 1024u);
-            let attractor_phase = (a.matrix + pulse_phase) & max_phase_mask;
-            let index = (attractor_phase - agent.phase) & 0xFFu;
+            let attractor_phase = a.matrix + pulse_phase; // No mask — Rust uses wrapping_add without topology mask
+            let index = (attractor_phase - agent.phase) & 0xFFu; // Full u32 subtraction → lower 8 bits = LUT index
             let sin_val = sine_lut[index];
             attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
         }
-        let drift = (agent.base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
+        // Adaptive Time-Stepping: Nyquist clamping for base_freq (matches Rust lattice.rs line 438-440)
+        let max_freq = i32(max_phase_mask / 2u);
+        let clamped_base_freq = clamp(agent.base_freq, -max_freq, max_freq);
+        let drift = (clamped_base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
-        // Philosophy Vector 10: Thermodynamic Conservation of Resonance (80% efficiency recycling)
-        if (new_phase % RESONANCE_PHASE_MODULUS == 0u && new_energy > 0u) {
-            let total_burn_estimate = final_burn * time_dilation_multiplier * RESONANCE_PHASE_MODULUS;
-            let dipole_bonus = (total_burn_estimate * 52428u) >> 16u; // 80% in Q16
-            new_energy = new_energy + dipole_bonus;
-            if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
-        }
+        // Philosophy Vector 10: Thermodynamic Conservation
+        // Era 2080: Agents can no longer generate energy out of thin air simply by holding a resonant phase.
+        // Dipole resonance bonus REMOVED. Energy is strictly zero-sum except for solar input.
 
         agent.phase = new_phase;
         agent.energy = new_energy;

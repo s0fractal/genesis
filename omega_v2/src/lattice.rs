@@ -221,11 +221,10 @@ impl PhaseLattice {
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
         self.signals.absolute_tick = self.signals.absolute_tick.wrapping_add(1);
-        self.signals.dirty_flags = 0;
         
         let mut total_system_energy = 0u64;
         let mut alive_count = 0;
-        let mut new_high_water_mark = 0;
+        let mut new_high_water_mark = 0usize;
         
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
             self.signals.dirty_flags &= !SIGNAL_TOPOLOGY_CHANGED;
@@ -286,16 +285,16 @@ impl PhaseLattice {
                         Self::wrap_index_2d(cx + 1, cy + 1, w, h),
                     ];
                     
-                    // We map left to n_indices[0] and right to n_indices[1] for legacy Hebbian
-                    let left = &*snapshot.add(if n_indices[0] < active { n_indices[0] } else { 0 });
-                    let right = &*snapshot.add(if n_indices[1] < active { n_indices[1] } else { 0 });
+                    // We map left to n_indices[3] and right to n_indices[4] to match WGSL (cx-1, cx+1)
+                    let left = &*snapshot.add(if n_indices[3] < active { n_indices[3] } else { 0 });
+                    let right = &*snapshot.add(if n_indices[4] < active { n_indices[4] } else { 0 });
 
                     // Era 0215: Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
 
                     // Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing
-                    let mut weight_left = if (agent.memory[1] & 0xFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[1] & 0xFFF) as i32 };
-                    let mut weight_right = if (agent.memory[2] & 0xFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[2] & 0xFFF) as i32 };
+                    let mut weight_left = if (agent.memory[1] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[1] & 0xFFFF) as i32 };
+                    let mut weight_right = if (agent.memory[2] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[2] & 0xFFFF) as i32 };
                     let mut ortho_agent = (agent.memory[1] >> 16) & 0xFF;
                     let mut is_tissue = (agent.state_flags & crate::agent::FLAG_TISSUE_LOCKED) != 0;
 
@@ -421,6 +420,8 @@ impl PhaseLattice {
                     } else {
                         agent.energy = agent.energy.saturating_add(energy_delta as u32).min(crate::constants::MAX_ATP);
                     }
+
+                    agent.memory[0] = coupling as u32;
 
                     let mut attractor_drift = 0i32;
                     #[cfg(not(feature = "spore"))]
@@ -1302,4 +1303,56 @@ mod debug_tests {
             
         // We don't strictly assert final_energy because it's a moving target during debugging
     }
+}
+
+#[test]
+fn test_debug_agent0() {
+    let mut lattice = PhaseLattice {
+        topology: crate::topology::PhaseTopology {
+            q_phase: 7,
+            q_sectors: 2,
+            q_radial: 3,
+            q_math: 20,
+            weather_multiplier: 1024,
+            alpha: 64,
+            _pad1: 0,
+            _pad2: 0,
+        },
+        signals: crate::lattice::SignalStore {
+            dirty_flags: 0,
+            absolute_tick: 0,
+            active_agent_count: 0,
+            max_cells: 0,
+            total_energy: 0,
+            p90_energy: 0,
+            p90_age: 0,
+            _pad2: 0,
+            total_entropy_released: 0,
+            _pad3: 0,
+        },
+        intents: [crate::topology::OntologicalIntent::empty(); 4],
+        smart_agents_ptr: core::ptr::null_mut(),
+        minimal_agents_ptr: core::ptr::null_mut(),
+        tick_snapshot_ptr: core::ptr::null_mut(),
+        #[cfg(not(feature = "spore"))]
+        attractors_ptr: core::ptr::null(),
+        active_agent_count: 0,
+    };
+    
+    let mut agents = vec![crate::agent::PhaseAgentMinimal::default(); 1024];
+    lattice.minimal_agents_ptr = agents.as_mut_ptr();
+    
+    let mut snapshot = vec![crate::agent::PhaseAgentMinimal::default(); 1024];
+    lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
+
+    lattice.ignite_big_bang(0x644D5345, 1024);
+    
+    let a0 = agents[0];
+    println!("BEFORE: A0 phase: {}, energy: {}, base_freq: {}", a0.phase, a0.energy, a0.base_freq);
+    
+    lattice.tick_physics();
+    
+    let a0 = agents[0];
+    // println!("AFTER: A0 phase: {}, energy: {}, base_freq: {}", a0.phase, a0.energy, a0.base_freq);
+    // println!("DEBUG: coupling={}, stress={}, dilation={}", a0.memory[0] as i32, a0.memory[1], a0.memory[2]);
 }

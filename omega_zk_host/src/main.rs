@@ -330,10 +330,10 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
         q_sectors: 1,
         q_radial: 1,
         q_math: 0,
-        weather_multiplier: 1,
+        weather_multiplier: 1024,
+        alpha: 0,
         _pad1: 0,
         _pad2: 0,
-        _pad3: 0,
     };
 
     let mut snapshot = Vec::new();

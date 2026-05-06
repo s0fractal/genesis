@@ -252,7 +252,7 @@ pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32, trng_ptr: *const u8, trng_len: usize) {
+pub unsafe extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32, trng_ptr: *const u8, trng_len: usize) {
     let ge = crate::bitcoin_oracle::get_genesis_entropy();
     let ge_u32 = u32::from_le_bytes([ge[0], ge[1], ge[2], ge[3]]);
     let final_seed = seed ^ ge_u32;
@@ -269,7 +269,7 @@ pub extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32, trn
 }
 
 #[no_mangle]
-pub extern "C" fn v2_get_genesis_entropy(out_ptr: *mut u8) {
+pub unsafe extern "C" fn v2_get_genesis_entropy(out_ptr: *mut u8) {
     let ge = crate::bitcoin_oracle::get_genesis_entropy();
     unsafe {
         core::ptr::copy_nonoverlapping(ge.as_ptr(), out_ptr, 32);
