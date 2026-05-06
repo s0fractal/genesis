@@ -4,12 +4,15 @@
 // type-safe TypeScript API. All math is integer-only and deterministic.
 
 export interface WasmExports {
-    v2_route_address_from_agent?: (index: number) => number;
-    v2_route_hyperbolic_distance?: (a: number, b: number) => number;
-    v2_route_hyperbolic_distance_toroidal?: (a: number, b: number) => number;
-    v2_route_hyperbolic_distance_3d?: (a: number, tau_a: number, b: number, tau_b: number) => number;
-    v2_route_taylor_step?: (src: number, dst: number, maxStep: number) => number;
-    v2_route_taylor_step_curvature?: (src: number, dst: number, maxStep: number, curv: number) => number;
+    v2_route_address_from_agent_raw?: (index: number) => number;
+    v2_route_address_from_agent_ortho?: (index: number) => number;
+    v2_route_hyperbolic_distance?: (a_raw: number, a_ortho: number, b_raw: number, b_ortho: number) => number;
+    v2_route_hyperbolic_distance_toroidal?: (a_raw: number, a_ortho: number, b_raw: number, b_ortho: number) => number;
+    v2_route_hyperbolic_distance_3d?: (a_raw: number, a_ortho: number, tau_a: number, b_raw: number, b_ortho: number, tau_b: number) => number;
+    v2_route_taylor_step_raw?: (src_raw: number, src_ortho: number, dst_raw: number, dst_ortho: number, maxStep: number) => number;
+    v2_route_taylor_step_ortho?: (src_raw: number, src_ortho: number, dst_raw: number, dst_ortho: number, maxStep: number) => number;
+    v2_route_taylor_step_curvature_raw?: (src_raw: number, src_ortho: number, dst_raw: number, dst_ortho: number, maxStep: number, curv_raw: number, curv_ortho: number) => number;
+    v2_route_taylor_step_curvature_ortho?: (src_raw: number, src_ortho: number, dst_raw: number, dst_ortho: number, maxStep: number, curv_raw: number, curv_ortho: number) => number;
     v2_validate_dipole?: (matrix: number, inverse: number) => number;
     v2_set_attractor?: (index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number) => void;
     v2_clear_attractors?: () => void;
@@ -24,10 +27,15 @@ export interface WasmExports {
 }
 
 /**
- * 32-bit hierarchical phase address.
- * Layout: [consensus:8 | social:8 | personal:8 | micro:8]
+ * 32-bit hierarchical phase address + 8-bit orthogonal deviation.
+ * Layout: [consensus:8 | social:8 | personal:8 | micro:8] + ortho:8
  */
-export type PhaseAddress = number;
+export type PhaseAddress = {
+    raw: number;
+    ortho: number;
+};
+
+export const NULL_ADDRESS: PhaseAddress = { raw: 0, ortho: 0 };
 
 export class PhaseRouter {
     constructor(private wasm: WebAssembly.Instance | null) {}
@@ -41,9 +49,10 @@ export class PhaseRouter {
      * Returns 0 if the WASM module is not loaded or the index is out of bounds.
      */
     addressFromAgent(index: number): PhaseAddress {
-        const fn = this.exports.v2_route_address_from_agent;
-        if (!fn) return 0;
-        return fn(index);
+        const fnRaw = this.exports.v2_route_address_from_agent_raw;
+        const fnOrtho = this.exports.v2_route_address_from_agent_ortho;
+        if (!fnRaw || !fnOrtho) return NULL_ADDRESS;
+        return { raw: fnRaw(index), ortho: fnOrtho(index) };
     }
 
     /**
@@ -53,7 +62,7 @@ export class PhaseRouter {
     hyperbolicDistance(a: PhaseAddress, b: PhaseAddress): number {
         const fn = this.exports.v2_route_hyperbolic_distance;
         if (!fn) return PhaseRouter.hyperbolicDistanceStatic(a, b);
-        return fn(a, b);
+        return fn(a.raw, a.ortho, b.raw, b.ortho);
     }
 
     /**
@@ -62,7 +71,7 @@ export class PhaseRouter {
     hyperbolicDistanceToroidal(a: PhaseAddress, b: PhaseAddress): number {
         const fn = this.exports.v2_route_hyperbolic_distance_toroidal;
         if (!fn) return PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
-        return fn(a, b);
+        return fn(a.raw, a.ortho, b.raw, b.ortho);
     }
 
     /**
@@ -76,7 +85,7 @@ export class PhaseRouter {
             const penalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
             return baseDist + penalty;
         }
-        return fn(a, tauA, b, tauB);
+        return fn(a.raw, a.ortho, tauA, b.raw, b.ortho, tauB);
     }
 
     /**
@@ -104,7 +113,8 @@ export class PhaseRouter {
         const ds = Math.abs(da.social - db.social);
         const dp = Math.abs(da.personal - db.personal);
         const dm = Math.abs(da.micro - db.micro);
-        return dc * 8 + ds * 4 + dp * 2 + dm;
+        const do_ = Math.abs(da.ortho - db.ortho);
+        return dc * 8 + ds * 4 + dp * 2 + dm + do_ * 16;
     }
 
     /**
@@ -119,7 +129,8 @@ export class PhaseRouter {
         const ds = Math.abs(da.social - db.social);
         const dp = Math.abs(da.personal - db.personal);
         const dm = Math.abs(da.micro - db.micro);
-        return dc * 8 + ds * 4 + dp * 2 + dm;
+        const do_ = Math.abs(da.ortho - db.ortho);
+        return dc * 8 + ds * 4 + dp * 2 + dm + do_ * 16;
     }
 
     /**
@@ -144,9 +155,13 @@ export class PhaseRouter {
      * First-order Taylor step from `src` toward `dst`, clamped to `maxStep` per level.
      */
     taylorStep(src: PhaseAddress, dst: PhaseAddress, maxStep: number): PhaseAddress {
-        const fn = this.exports.v2_route_taylor_step;
-        if (!fn) return src;
-        return fn(src, dst, maxStep);
+        const fnRaw = this.exports.v2_route_taylor_step_raw;
+        const fnOrtho = this.exports.v2_route_taylor_step_ortho;
+        if (!fnRaw || !fnOrtho) return src;
+        return { 
+            raw: fnRaw(src.raw, src.ortho, dst.raw, dst.ortho, maxStep), 
+            ortho: fnOrtho(src.raw, src.ortho, dst.raw, dst.ortho, maxStep) 
+        };
     }
 
     /**
@@ -158,9 +173,13 @@ export class PhaseRouter {
         maxStep: number,
         curv: PhaseAddress,
     ): PhaseAddress {
-        const fn = this.exports.v2_route_taylor_step_curvature;
-        if (!fn) return src;
-        return fn(src, dst, maxStep, curv);
+        const fnRaw = this.exports.v2_route_taylor_step_curvature_raw;
+        const fnOrtho = this.exports.v2_route_taylor_step_curvature_ortho;
+        if (!fnRaw || !fnOrtho) return src;
+        return {
+            raw: fnRaw(src.raw, src.ortho, dst.raw, dst.ortho, maxStep, curv.raw, curv.ortho),
+            ortho: fnOrtho(src.raw, src.ortho, dst.raw, dst.ortho, maxStep, curv.raw, curv.ortho)
+        };
     }
 
     /**
@@ -193,12 +212,14 @@ export class PhaseRouter {
         social: number;
         personal: number;
         micro: number;
+        ortho: number;
     } {
         return {
-            consensus: (addr >>> 24) & 0xFF,
-            social: (addr >>> 16) & 0xFF,
-            personal: (addr >>> 8) & 0xFF,
-            micro: addr & 0xFF,
+            consensus: (addr.raw >>> 24) & 0xFF,
+            social: (addr.raw >>> 16) & 0xFF,
+            personal: (addr.raw >>> 8) & 0xFF,
+            micro: addr.raw & 0xFF,
+            ortho: addr.ortho & 0xFF,
         };
     }
 
@@ -210,10 +231,12 @@ export class PhaseRouter {
         social: number,
         personal: number,
         micro: number,
+        ortho: number = 0,
     ): PhaseAddress {
-        return ((consensus & 0xFF) << 24) |
+        const raw = ((consensus & 0xFF) << 24) |
             ((social & 0xFF) << 16) |
             ((personal & 0xFF) << 8) |
             (micro & 0xFF);
+        return { raw: raw >>> 0, ortho: ortho & 0xFF };
     }
 }

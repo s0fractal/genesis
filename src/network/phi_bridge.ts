@@ -1,4 +1,4 @@
-import { MeshBroadcaster } from "./libp2p_mesh.ts";
+import { Libp2pMesh } from "./libp2p_mesh.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 
 /**
@@ -27,7 +27,7 @@ export interface OmegaReceipt {
  * and the OMEGA-64 (Physical) Substrate.
  */
 export class PhiBridge {
-    private mesh: MeshBroadcaster | null = null;
+    private mesh: Libp2pMesh | null = null;
     private engine: OmegaV2Engine;
     private receiptListeners: ((receipt: OmegaReceipt) => void)[] = [];
 
@@ -35,7 +35,7 @@ export class PhiBridge {
         this.engine = engine;
     }
 
-    public attachMesh(mesh: MeshBroadcaster) {
+    public attachMesh(mesh: Libp2pMesh) {
         this.mesh = mesh;
     }
 

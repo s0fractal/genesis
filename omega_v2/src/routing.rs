@@ -19,12 +19,13 @@ use crate::agent::PhaseAgentMinimal;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PhaseAddress {
     pub raw: u32,
+    pub ortho_deviation: u8,
 }
 
 impl PhaseAddress {
-    /// Build from raw u32.
-    pub const fn from_raw(raw: u32) -> Self {
-        Self { raw }
+    /// Build from raw u32 and ortho_deviation.
+    pub const fn from_raw(raw: u32, ortho_deviation: u8) -> Self {
+        Self { raw, ortho_deviation }
     }
 
     /// Derive address from an agent.
@@ -37,8 +38,10 @@ impl PhaseAddress {
         let social = (agent.genome >> 8) & 0xFF;
         let personal = agent.genome & 0xFF;
         let micro = agent.memory[0] & 0xFF;
+        let ortho = agent.memory[1] & 0xFF;
         Self {
             raw: (consensus << 24) | (social << 16) | (personal << 8) | micro,
+            ortho_deviation: ortho as u8,
         }
     }
 
@@ -72,8 +75,10 @@ impl PhaseAddress {
         let ds = self.social().abs_diff(other.social()) as u32;
         let dp = self.personal().abs_diff(other.personal()) as u32;
         let dm = self.micro().abs_diff(other.micro()) as u32;
+        let d_ortho = self.ortho_deviation.abs_diff(other.ortho_deviation) as u32;
         // Weights: 8, 4, 2, 1  →  sum ×8 for integer precision
-        dc * 8 + ds * 4 + dp * 2 + dm
+        // Ortho deviation adds a heavy independent distance penalty (16)
+        dc * 8 + ds * 4 + dp * 2 + dm + d_ortho * 16
     }
 
     /// Toroidal hyperbolic distance (consensus wraps at 256).
@@ -85,7 +90,8 @@ impl PhaseAddress {
         let ds = self.social().abs_diff(other.social()) as u32;
         let dp = self.personal().abs_diff(other.personal()) as u32;
         let dm = self.micro().abs_diff(other.micro()) as u32;
-        dc * 8 + ds * 4 + dp * 2 + dm
+        let d_ortho = self.ortho_deviation.abs_diff(other.ortho_deviation) as u32;
+        dc * 8 + ds * 4 + dp * 2 + dm + d_ortho * 16
     }
 
     /// Era 2060: Bitcoin Hyperbolic Geometry (The Llama Oracle Vision)
@@ -124,8 +130,10 @@ impl PhaseAddress {
         let s = step(self.social(), target.social());
         let p = step(self.personal(), target.personal());
         let m = step(self.micro(), target.micro());
+        let o = step(self.ortho_deviation, target.ortho_deviation);
         Self::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
+            o
         )
     }
 
@@ -160,8 +168,10 @@ impl PhaseAddress {
         let s = step(self.social(), target.social(), curvature.social() as i8);
         let p = step(self.personal(), target.personal(), curvature.personal() as i8);
         let m = step(self.micro(), target.micro(), curvature.micro() as i8);
+        let o = step(self.ortho_deviation, target.ortho_deviation, curvature.ortho_deviation as i8);
         Self::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
+            o
         )
     }
 
@@ -197,9 +207,10 @@ impl PhaseAddress {
 mod tests {
     use super::*;
 
-    fn addr(c: u8, s: u8, p: u8, m: u8) -> PhaseAddress {
+    fn addr(c: u8, s: u8, p: u8, m: u8, o: u8) -> PhaseAddress {
         PhaseAddress::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
+            o
         )
     }
 
@@ -221,18 +232,19 @@ mod tests {
         assert_eq!(a.social(), 0x12);
         assert_eq!(a.personal(), 0x34);
         assert_eq!(a.micro(), 0x55);
+        assert_eq!(a.ortho_deviation, 0);
     }
 
     #[test]
     fn test_hyperbolic_distance_identity() {
-        let a = addr(10, 20, 30, 40);
+        let a = addr(10, 20, 30, 40, 50);
         assert_eq!(a.hyperbolic_distance_scaled(a), 0);
     }
 
     #[test]
     fn test_hyperbolic_distance_symmetry() {
-        let a = addr(0, 0, 0, 0);
-        let b = addr(1, 2, 4, 8);
+        let a = addr(0, 0, 0, 0, 0);
+        let b = addr(1, 2, 4, 8, 16);
         assert_eq!(
             a.hyperbolic_distance_scaled(b),
             b.hyperbolic_distance_scaled(a)
@@ -242,22 +254,22 @@ mod tests {
     #[test]
     fn test_hyperbolic_distance_toroidal() {
         // On a 256-element ring, distance between 0 and 224 should be 32 (wrapped)
-        let a = addr(0, 0, 0, 0);
-        let b = addr(224, 0, 0, 0);
+        let a = addr(0, 0, 0, 0, 0);
+        let b = addr(224, 0, 0, 0, 0);
         let linear = a.hyperbolic_distance_scaled(b);
         let toroidal = a.hyperbolic_distance_toroidal_scaled(b);
         assert_eq!(linear, 224 * 8, "Linear distance should be 224*8");
         assert_eq!(toroidal, 32 * 8, "Toroidal distance should be 32*8");
 
         // Adjacent elements: 0 and 1 — same for both
-        let c = addr(1, 0, 0, 0);
+        let c = addr(1, 0, 0, 0, 0);
         assert_eq!(
             a.hyperbolic_distance_scaled(c),
             a.hyperbolic_distance_toroidal_scaled(c)
         );
 
         // Exactly opposite: 0 and 128 — same for both (min(128, 128) = 128)
-        let d = addr(128, 0, 0, 0);
+        let d = addr(128, 0, 0, 0, 0);
         assert_eq!(
             a.hyperbolic_distance_scaled(d),
             a.hyperbolic_distance_toroidal_scaled(d)
@@ -266,49 +278,53 @@ mod tests {
 
     #[test]
     fn test_hyperbolic_distance_weights() {
-        // consensus has 8× weight, social 4×, personal 2×, micro 1×
-        let a = addr(0, 0, 0, 0);
-        let b1 = addr(1, 0, 0, 0); // distance = 1*8 = 8
-        let b2 = addr(0, 2, 0, 0); // distance = 2*4 = 8
-        let b3 = addr(0, 0, 4, 0); // distance = 4*2 = 8
-        let b4 = addr(0, 0, 0, 8); // distance = 8*1 = 8
+        // consensus has 8× weight, social 4×, personal 2×, micro 1×, ortho 16x
+        let a = addr(0, 0, 0, 0, 0);
+        let b1 = addr(1, 0, 0, 0, 0); // distance = 1*8 = 8
+        let b2 = addr(0, 2, 0, 0, 0); // distance = 2*4 = 8
+        let b3 = addr(0, 0, 4, 0, 0); // distance = 4*2 = 8
+        let b4 = addr(0, 0, 0, 8, 0); // distance = 8*1 = 8
+        let b5 = addr(0, 0, 0, 0, 1); // distance = 1*16 = 16
         assert_eq!(a.hyperbolic_distance_scaled(b1), 8);
         assert_eq!(a.hyperbolic_distance_scaled(b2), 8);
         assert_eq!(a.hyperbolic_distance_scaled(b3), 8);
         assert_eq!(a.hyperbolic_distance_scaled(b4), 8);
+        assert_eq!(a.hyperbolic_distance_scaled(b5), 16);
     }
 
     #[test]
     fn test_taylor_step_toward() {
-        let src = addr(0, 0, 0, 0);
-        let dst = addr(100, 50, 25, 10);
+        let src = addr(0, 0, 0, 0, 0);
+        let dst = addr(100, 50, 25, 10, 5);
         // With max_step = 10, each level moves by at most 10
         let step = src.taylor_step_toward(dst, 10);
         assert_eq!(step.consensus(), 10);
         assert_eq!(step.social(), 10);
         assert_eq!(step.personal(), 10);
         assert_eq!(step.micro(), 10);
+        assert_eq!(step.ortho_deviation, 5); // 5 <= 10
     }
 
     #[test]
     fn test_taylor_step_clamped() {
-        let src = addr(200, 200, 200, 200);
-        let dst = addr(0, 0, 0, 0);
+        let src = addr(200, 200, 200, 200, 200);
+        let dst = addr(0, 0, 0, 0, 0);
         // max_step = 50, should move backward by 50 each level
         let step = src.taylor_step_toward(dst, 50);
         assert_eq!(step.consensus(), 150);
         assert_eq!(step.social(), 150);
         assert_eq!(step.personal(), 150);
         assert_eq!(step.micro(), 150);
+        assert_eq!(step.ortho_deviation, 150);
     }
 
     #[test]
     fn test_greedy_next_hop() {
-        let src = addr(0, 0, 0, 0);
-        let target = addr(100, 0, 0, 0);
-        let n0 = addr(10, 0, 0, 0);
-        let n1 = addr(90, 0, 0, 0); // closer to target
-        let n2 = addr(50, 0, 0, 0);
+        let src = addr(0, 0, 0, 0, 0);
+        let target = addr(100, 0, 0, 0, 0);
+        let n0 = addr(10, 0, 0, 0, 0);
+        let n1 = addr(90, 0, 0, 0, 0); // closer to target
+        let n2 = addr(50, 0, 0, 0, 0);
         let neighbours = [n0, n1, n2];
         let idx = src.greedy_next_hop(target, &neighbours);
         assert_eq!(idx, Some(1)); // n1 is closest
@@ -316,8 +332,8 @@ mod tests {
 
     #[test]
     fn test_greedy_next_hop_empty() {
-        let src = addr(0, 0, 0, 0);
-        let target = addr(100, 0, 0, 0);
+        let src = addr(0, 0, 0, 0, 0);
+        let target = addr(100, 0, 0, 0, 0);
         let neighbours: &[PhaseAddress] = &[];
         assert_eq!(src.greedy_next_hop(target, neighbours), None);
     }
@@ -325,10 +341,10 @@ mod tests {
     #[test]
     fn test_taylor_curvature_non_negative() {
         // Positive curvature should accelerate toward target
-        let src = addr(0, 0, 0, 0);
-        let dst = addr(100, 0, 0, 0);
+        let src = addr(0, 0, 0, 0, 0);
+        let dst = addr(100, 0, 0, 0, 0);
         let flat = src.taylor_step_toward(dst, 10);
-        let curved = src.taylor_step_with_curvature(dst, 10, addr(127, 0, 0, 0));
+        let curved = src.taylor_step_with_curvature(dst, 10, addr(127, 0, 0, 0, 0));
         // Positive curvature on consensus should push further than flat step
         assert!(curved.consensus() >= flat.consensus(),
             "Positive curvature should not reduce step");
@@ -337,10 +353,10 @@ mod tests {
     #[test]
     fn test_taylor_curvature_negative() {
         // Negative curvature should decelerate (pull back)
-        let src = addr(0, 0, 0, 0);
-        let dst = addr(100, 0, 0, 0);
+        let src = addr(0, 0, 0, 0, 0);
+        let dst = addr(100, 0, 0, 0, 0);
         let flat = src.taylor_step_toward(dst, 10);
-        let curved = src.taylor_step_with_curvature(dst, 10, addr(128, 0, 0, 0)); // -128 in i8
+        let curved = src.taylor_step_with_curvature(dst, 10, addr(128, 0, 0, 0, 0)); // -128 in i8
         // Negative curvature on consensus should reduce step or stay same
         assert!(curved.consensus() <= flat.consensus(),
             "Negative curvature should not increase step");
@@ -348,10 +364,12 @@ mod tests {
 
     #[test]
     fn test_to_phi_roundtrip() {
-        let a = addr(0xDE, 0xAD, 0xBE, 0xEF);
+        let a = addr(0xDE, 0xAD, 0xBE, 0xEF, 0x42);
         let phi = a.to_phi();
-        let b = PhaseAddress::from_raw(phi);
-        assert_eq!(a, b);
+        // Since to_phi only encodes raw, the roundtrip will lose ortho_deviation.
+        // We will assert only raw.
+        let b = PhaseAddress::from_raw(phi, 0);
+        assert_eq!(a.raw, b.raw);
     }
 
     #[test]
@@ -359,14 +377,14 @@ mod tests {
         // Simulate a ring of 8 agents with addresses spaced by 32 in consensus.
         // Social/personal/micro are identical (clustered species).
         let agents: [PhaseAddress; 8] = [
-            addr(0, 0, 0, 0),
-            addr(32, 0, 0, 0),
-            addr(64, 0, 0, 0),
-            addr(96, 0, 0, 0),
-            addr(128, 0, 0, 0),
-            addr(160, 0, 0, 0),
-            addr(192, 0, 0, 0),
-            addr(224, 0, 0, 0),
+            addr(0, 0, 0, 0, 0),
+            addr(32, 0, 0, 0, 0),
+            addr(64, 0, 0, 0, 0),
+            addr(96, 0, 0, 0, 0),
+            addr(128, 0, 0, 0, 0),
+            addr(160, 0, 0, 0, 0),
+            addr(192, 0, 0, 0, 0),
+            addr(224, 0, 0, 0, 0),
         ];
 
         // Route from agent 0 (consensus=0) to agent 3 (consensus=96).

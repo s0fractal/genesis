@@ -232,7 +232,7 @@ export function buildQuorumVerdict(
 /** Era 2060: Zero-Copy Binary RPC. Packs v2-sync state into a SporeFrame. */
 export function buildV2SyncFrame(
     x: number, y: number, m: number, r: number, g: number, o: number,
-    ta: number, gt: number, hc: number, mh: number
+    ta: number, ta_ortho: number, gt: number, gt_ortho: number, hc: number, mh: number
 ): SporeFrame {
     const f = emptyFrame();
     f.frameType = FRAME_TYPE_V2_SYNC;
@@ -257,8 +257,8 @@ export function buildV2SyncFrame(
     // tick: gt (golden trace)
     f.tick = gt >>> 0;
     
-    // reserved: [hc:8 | mh:8 | 0:16]
-    f.reserved = (((hc & 0xFF) << 24) | ((mh & 0xFF) << 16)) >>> 0;
+    // reserved: [hc:8 | mh:8 | ta_ortho:8 | gt_ortho:8]
+    f.reserved = (((hc & 0xFF) << 24) | ((mh & 0xFF) << 16) | ((ta_ortho & 0xFF) << 8) | (gt_ortho & 0xFF)) >>> 0;
     
     f.crc32 = computeFrameCrc(f);
     return f;
@@ -313,7 +313,9 @@ export function parseV2SyncFrame(f: SporeFrame) {
         g: f.payloadB,
         o: f.payloadC,
         ta: f.proposalOrTarget,
+        ta_ortho: (f.reserved >>> 8) & 0xFF,
         gt: f.tick,
+        gt_ortho: f.reserved & 0xFF,
         hc: (f.reserved >>> 24) & 0xFF,
         mh: (f.reserved >>> 16) & 0xFF,
     };

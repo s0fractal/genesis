@@ -137,9 +137,9 @@ export async function bootstrapV2() {
         // Era 1000: Initialize Phase Router before mesh so it can be wired into P2P
         const router = new PhaseRouter(engine.wasm);
         const addr0 = router.addressFromAgent(0);
-        if (addr0 !== 0) {
+        if (addr0.raw !== 0) {
             const decoded = PhaseRouter.decode(addr0);
-            console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro}`);
+            console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro} ortho=${decoded.ortho}`);
         }
 
         // Era 2080: PhiBridge Substrate

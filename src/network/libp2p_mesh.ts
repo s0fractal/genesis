@@ -5,7 +5,7 @@
 // that previously imported this file now uses a canonical inline FNV-1a
 // reference instead (Era 0199 fix).
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
-import { PhaseRouter } from "./routing_bridge.ts";
+import { PhaseRouter, PhaseAddress, NULL_ADDRESS } from "./routing_bridge.ts";
 import {
   AgentMinimal,
   AttractorEntry,
@@ -50,6 +50,10 @@ export interface PlasmidPayload {
   voteAye?: boolean; // VOTE plasmids only
   // Era 2060: Bitcoin Hyperbolic Geometry (Time Curvature)
   tau?: number; // The Bitcoin block height (Golden Trace state) when this plasmid was forged
+  gt?: number; // sender's PhaseAddress raw
+  gt_ortho?: number; // sender's PhaseAddress ortho
+  ta?: number; // target's PhaseAddress raw
+  ta_ortho?: number; // target's PhaseAddress ortho
   // Era 1040: ZK-Notarized Mutations (mitosis proof)
   parent?: AgentMinimal; // Parent agent at time of mitosis (DIPOLE only)
   claimedChild?: AgentMinimal; // Claimed child to verify (DIPOLE only)
@@ -120,10 +124,10 @@ export class Libp2pMesh {
   private engine: OmegaV2Engine;
 
   private peerSlots: Map<string, number> = new Map();
-  private peerAddresses: Map<string, number> = new Map();
+  private peerAddresses: Map<string, PhaseAddress> = new Map();
   private nextSlot = 1;
   private router: PhaseRouter | null = null;
-  private selfAddress: number = 0;
+  private selfAddress: PhaseAddress = { raw: 0, ortho: 0 };
 
   public isSyncFrozen: boolean = false;
   private overwriteCallback: (snapshot: Uint8Array) => void;
@@ -270,8 +274,8 @@ export class Libp2pMesh {
     globalThis.dispatchEvent(new CustomEvent("meshPeerJoined", { detail: { peerId } }));
     
     this.refreshSelfAddress();
-    if (this.selfAddress !== 0) {
-      const handshake = JSON.stringify({ t: "V2_HANDSHAKE", addr: this.selfAddress });
+    if (this.selfAddress.raw !== 0) {
+      const handshake = JSON.stringify({ t: "V2_HANDSHAKE", addr: this.selfAddress.raw, addr_ortho: this.selfAddress.ortho });
       this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(handshake));
     }
   }
@@ -347,20 +351,20 @@ export class Libp2pMesh {
     }
 
     // Passive Phase Routing (Era 2060: 3D Poincaré Disk Model)
-    if (packet.ta !== undefined && this.router && this.selfAddress !== 0) {
+    if (packet.ta !== undefined && this.router && this.selfAddress.raw !== 0) {
       let hopCount = packet.hc;
       const maxHops = packet.mh;
       if (hopCount >= maxHops) return;
       
-      const targetAddr = packet.ta;
-      const senderAddr = this.peerAddresses.get(peerId) ?? 0;
+      const senderAddr = { raw: packet.ta, ortho: packet.ta_ortho ?? 0 }; // ta holds the sender's address in broadcasts!
+      const targetAddr = { raw: 0, ortho: 0 }; // Broadcast to everyone
       
       const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
-      const tauSender = packet.gt ?? 0;
+      const tauSender = packet.gt ?? 0; // gt is the golden trace tick
       const tauTarget = tauSelf; // Assuming target is in the present
 
       const distSelf = this.router.hyperbolicDistanceToroidal3D(this.selfAddress, tauSelf, targetAddr, tauTarget);
-      const distSender = senderAddr !== 0
+      const distSender = senderAddr.raw !== 0
         ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
         : Number.MAX_SAFE_INTEGER;
         
@@ -1173,8 +1177,10 @@ export class Libp2pMesh {
         this.__lastLocalIntent.r,
         this.__lastLocalIntent.g || 0,
         this.__lastLocalIntent.op || 0,
-        this.selfAddress,
+        this.selfAddress.raw,
+        this.selfAddress.ortho,
         this.latestGoldenTraceNum,
+        0, // gt_ortho
         0, // hopCount
         8  // maxHops
     );

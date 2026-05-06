@@ -656,9 +656,16 @@ use routing::PhaseAddress;
 #[cfg(not(feature = "spore"))] use senate::Proposal;
 
 /// Derive a PhaseAddress from the agent at `index`.
-/// Returns 0 if the index is out of bounds or the lattice is not booted.
+/// Returns raw address in lower 32 bits, and ortho_deviation via an out pointer if needed.
+/// However, JS needs both. We will pack it into a `u64` for FFI! Wait, we said we can't use `u64`.
+/// Let's change the FFI to return `u32` (raw) and store `ortho_deviation` in a thread-local static?
+/// No, we can return a 64-bit float! 
+/// Wait! Let's just return a `u64`. Modern Chrome (V8) CAN receive `BigInt` from WASM if the JS `WebAssembly.Instance.exports` method is called.
+/// Wait, `lib.rs` doesn't export `BigInt`.
+/// Let's use two methods: `v2_route_address_from_agent_raw(index: u32) -> u32`
+/// and `v2_route_address_from_agent_ortho(index: u32) -> u32`
 #[no_mangle]
-pub extern "C" fn v2_route_address_from_agent(index: u32) -> u32 {
+pub extern "C" fn v2_route_address_from_agent_raw(index: u32) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(index) {
@@ -669,51 +676,85 @@ pub extern "C" fn v2_route_address_from_agent(index: u32) -> u32 {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn v2_route_address_from_agent_ortho(index: u32) -> u32 {
+    unsafe {
+        let mut lattice = OMEGA_LATTICE.lock();
+        if let Some(agent) = lattice.get_agent(index) {
+            PhaseAddress::from_agent(agent, lattice.topology.q_phase).ortho_deviation as u32
+        } else {
+            0
+        }
+    }
+}
+
 /// Hyperbolic distance between two PhaseAddresses (scaled ×8).
 /// Divide by 8 to get the true distance.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, b_raw: u32) -> u32 {
-    let a = PhaseAddress::from_raw(a_raw);
-    let b = PhaseAddress::from_raw(b_raw);
+pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, a_ortho: u32, b_raw: u32, b_ortho: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
+    let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_scaled(b)
 }
 
 /// Toroidal hyperbolic distance (consensus wraps at 256). Scaled ×8.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, b_raw: u32) -> u32 {
-    let a = PhaseAddress::from_raw(a_raw);
-    let b = PhaseAddress::from_raw(b_raw);
+pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, a_ortho: u32, b_raw: u32, b_ortho: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
+    let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_toroidal_scaled(b)
 }
 
 /// Era 2060: 3D Toroidal hyperbolic distance with Time (Z-axis). Scaled ×8.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, tau_a: u32, b_raw: u32, tau_b: u32) -> u32 {
-    let a = PhaseAddress::from_raw(a_raw);
-    let b = PhaseAddress::from_raw(b_raw);
+pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, a_ortho: u32, tau_a: u32, b_raw: u32, b_ortho: u32, tau_b: u32) -> u32 {
+    let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
+    let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_toroidal_3d_scaled(tau_a, b, tau_b)
 }
 
-/// First-order Taylor step from `src_raw` toward `dst_raw`, clamped to `max_step` per level.
+// We split taylor step returns into two calls as well.
+// But we can just return `u64`? WebAssembly natively supports multiple return values, but `extern "C"` does not mapping well without pointers.
+// Let's use `v2_route_taylor_step_raw` and `v2_route_taylor_step_ortho`.
+
 #[no_mangle]
-pub extern "C" fn v2_route_taylor_step(src_raw: u32, dst_raw: u32, max_step: u8) -> u32 {
-    let src = PhaseAddress::from_raw(src_raw);
-    let dst = PhaseAddress::from_raw(dst_raw);
+pub extern "C" fn v2_route_taylor_step_raw(src_raw: u32, src_ortho: u32, dst_raw: u32, dst_ortho: u32, max_step: u8) -> u32 {
+    let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
+    let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
     src.taylor_step_toward(dst, max_step).raw
 }
 
-/// Second-order Taylor step with curvature vector `curv_raw` (Q7 signed per byte).
 #[no_mangle]
-pub extern "C" fn v2_route_taylor_step_curvature(
-    src_raw: u32,
-    dst_raw: u32,
+pub extern "C" fn v2_route_taylor_step_ortho(src_raw: u32, src_ortho: u32, dst_raw: u32, dst_ortho: u32, max_step: u8) -> u32 {
+    let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
+    let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
+    src.taylor_step_toward(dst, max_step).ortho_deviation as u32
+}
+
+#[no_mangle]
+pub extern "C" fn v2_route_taylor_step_curvature_raw(
+    src_raw: u32, src_ortho: u32,
+    dst_raw: u32, dst_ortho: u32,
     max_step: u8,
-    curv_raw: u32,
+    curv_raw: u32, curv_ortho: u32,
 ) -> u32 {
-    let src = PhaseAddress::from_raw(src_raw);
-    let dst = PhaseAddress::from_raw(dst_raw);
-    let curv = PhaseAddress::from_raw(curv_raw);
+    let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
+    let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
+    let curv = PhaseAddress::from_raw(curv_raw, curv_ortho as u8);
     src.taylor_step_with_curvature(dst, max_step, curv).raw
+}
+
+#[no_mangle]
+pub extern "C" fn v2_route_taylor_step_curvature_ortho(
+    src_raw: u32, src_ortho: u32,
+    dst_raw: u32, dst_ortho: u32,
+    max_step: u8,
+    curv_raw: u32, curv_ortho: u32,
+) -> u32 {
+    let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
+    let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
+    let curv = PhaseAddress::from_raw(curv_raw, curv_ortho as u8);
+    src.taylor_step_with_curvature(dst, max_step, curv).ortho_deviation as u32
 }
 
 // ------------------------------------------------------------------------------

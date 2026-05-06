@@ -1,4 +1,3 @@
-import type { SemanticCoupler } from "../ontology/semantic_layer.ts";
 
 export let frames = 0;
 export let lastTime = performance.now();
@@ -55,7 +54,7 @@ export function configureCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
-export function wireSemanticInput(coupler: SemanticCoupler, placeholder: string) {
+export function wireSemanticInput(coupler: any, placeholder: string) {
   const input = document.getElementById("semantic-input") as HTMLInputElement;
   const button = document.getElementById("semantic-submit") as HTMLButtonElement;
   input.placeholder = placeholder;
