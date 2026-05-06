@@ -452,7 +452,7 @@ impl PhaseLattice {
     }
 
     /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
-    /// Finds thriving cells (>2000 ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
+    /// Finds thriving cells (>MITOSIS_THRESHOLD ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
     pub fn darwinian_mitosis(&mut self) -> u32 {
         if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
             return 0;
@@ -1102,7 +1102,7 @@ mod tests {
         for i in 0..agent_count {
             agents[i].phase = (i * 7) as u32;
             agents[i].energy = 500 + ((i * 3) % 3000) as u32;
-            agents[i].base_freq = ((i as i32 * 1000) % 4000) - 2000;
+            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP) % crate::constants::BB_FREQ_RANGE as i32) - crate::constants::BB_FREQ_OFFSET;
         }
         let start = std::time::Instant::now();
         for _ in 0..10 {
@@ -1125,7 +1125,7 @@ mod tests {
         for i in 0..agent_count {
             agents[i].phase = (i * 7) as u32;
             agents[i].energy = 500 + ((i * 3) % 3000) as u32;
-            agents[i].base_freq = ((i as i32 * 1000) % 4000) - 2000;
+            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP) % crate::constants::BB_FREQ_RANGE as i32) - crate::constants::BB_FREQ_OFFSET;
         }
         let start = std::time::Instant::now();
         lattice.tick_physics();

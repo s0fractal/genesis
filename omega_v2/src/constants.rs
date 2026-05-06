@@ -80,6 +80,7 @@ pub const BB_ENERGY_RANGE: u32 = 1024;
 pub const BB_ENERGY_BASE: u32 = 128;
 pub const BB_FREQ_RANGE: u32 = 4000;
 pub const BB_FREQ_OFFSET: i32 = 2000;
+pub const BB_FREQ_STEP: i32 = 1000;
 pub const BB_FREQ_Q_SCALE: i32 = 1024;
 pub const Q16_FACTOR_MITOSIS: u32 = 32768;
 pub const MITOSIS_THRESHOLD: u32 = 2048;

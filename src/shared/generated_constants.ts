@@ -80,6 +80,7 @@ export const BB_ENERGY_RANGE = 1024;
 export const BB_ENERGY_BASE = 128;
 export const BB_FREQ_RANGE = 4000;
 export const BB_FREQ_OFFSET = 2000;
+export const BB_FREQ_STEP = 1000;
 export const BB_FREQ_Q_SCALE = 1024;
 export const Q16_FACTOR_MITOSIS = 32768;
 export const MITOSIS_THRESHOLD = 2048;
