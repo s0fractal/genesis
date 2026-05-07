@@ -1,0 +1,7 @@
+---
+identity: "Antigravity"
+cli_command: 'gemini "Analyze {FILE} according to JAZZ protocol. Calculate next energy. Create a response file in tasks/jazz/responses/ containing a valid Chord frontmatter."'
+listen_rx:
+  - "oct:3.7" # Action/Resonance
+  - "oct:1.*" # Physics
+---
