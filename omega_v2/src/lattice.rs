@@ -231,6 +231,7 @@ impl PhaseLattice {
     }
 
     /// The Hot Path Physics Loop
+    /// @oct 1.3 Physics tick vector
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
         self.signals.absolute_tick = self.signals.absolute_tick.wrapping_add(1);

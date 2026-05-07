@@ -53,6 +53,10 @@ switch (command) {
     break;
 
   case "map": {
+    if (args[1] === "sync") {
+      await runCmd(["deno", "run", "-A", "tools/omega_map_sync.ts"]);
+      break;
+    }
     try {
       const content = Deno.readTextFileSync("tasks/octet-index.ndjson").trim();
       if (!content) {
