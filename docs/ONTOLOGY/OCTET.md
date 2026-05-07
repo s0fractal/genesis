@@ -58,15 +58,16 @@ type OctetValue =
 ## 1. Slot Semantics
 
 | Slot | Name      | Фаза     | Що означає                                  |
-| ---- | --------- | -------- | ------------------------------------------- |
-| `0`  | Identity  | Seed     | ім'я, root hash, закон, сутність            |
-| `1`  | Field     | Context  | середовище, субстрат, батьківська область   |
-| `2`  | Tension   | Need     | напруга, дефіцит, питання, причина руху     |
-| `3`  | Vector    | Action   | дія, перехід, мутація, алгоритм             |
-| `4`  | Body      | Artifact | код, файл, стан, форма, матеріалізація      |
-| `5`  | Witness   | Proof    | тест, receipt, доказ, trace, oracle witness |
-| `6`  | Ledger    | Memory   | історія, quorum, ownership, archive, chain  |
-| `7`  | Resonance | Next     | енергія, future vector, fork, розгортання   |
+| Slot | Liquid Macro Group       | Фаза     | Що означає                                  |
+| ---- | ------------------------ | -------- | ------------------------------------------- |
+| `0`  | **EXISTENCE** (Буття)    | Seed     | ім'я, root hash, закон, сутність            |
+| `1`  | **COGNITION** (Пізнання) | Context  | середовище, субстрат, батьківська область   |
+| `2`  | **POWER** (Сила)         | Need     | напруга, дефіцит, питання, причина руху     |
+| `3`  | **UNION** (Єдність)      | Action   | дія, перехід, мутація, алгоритм             |
+| `4`  | **CREATION** (Творіння)  | Artifact | код, файл, стан, форма, матеріалізація      |
+| `5`  | **EXCHANGE** (Обмін)     | Proof    | тест, receipt, доказ, trace, oracle witness |
+| `6`  | **ORDER** (Порядок)      | Memory   | історія, quorum, ownership, archive, chain  |
+| `7`  | **TRANSCENDENCE**        | Next     | енергія, future vector, fork, розгортання   |
 
 Головний інваріант:
 

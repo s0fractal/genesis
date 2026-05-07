@@ -61,16 +61,16 @@ Human alias may use:
 
 ## 1. Top-Level Sectors
 
-| Address | Sector              | Canonical role                                        |
-| ------- | ------------------- | ----------------------------------------------------- |
-| `oct:0` | Identity / Frozen   | Genesis law, identity, frozen boundary                |
-| `oct:1` | Physics / Substrate | kernel, agent memory, tick, substrate physics         |
-| `oct:2` | Topology / Routing  | addresses, routing, neighborhood, mesh geometry       |
-| `oct:3` | Action / Runtime    | protocols, loops, P2P, execution flow                 |
-| `oct:4` | Body / Interface    | renderer, lens, UI, material artifacts                |
-| `oct:5` | Witness / Proof     | tests, ZK, golden traces, verification receipts       |
-| `oct:6` | Ledger / Memory     | tasks, archives, forensic records, governance memory  |
-| `oct:7` | Resonance / Future  | proposals, experiments, liquid boundary, next vectors |
+| Address | Liquid Macro Group       | Sector / Role                                         |
+| ------- | ------------------------ | ----------------------------------------------------- |
+| `oct:0` | **EXISTENCE** (Буття)    | Genesis law, identity, frozen boundary                |
+| `oct:1` | **COGNITION** (Пізнання) | kernel, agent memory, tick, substrate physics         |
+| `oct:2` | **POWER** (Сила)         | addresses, routing, neighborhood, mesh geometry       |
+| `oct:3` | **UNION** (Єдність)      | protocols, loops, P2P, execution flow                 |
+| `oct:4` | **CREATION** (Творіння)  | renderer, lens, UI, material artifacts                |
+| `oct:5` | **EXCHANGE** (Обмін)     | tests, ZK, golden traces, verification receipts       |
+| `oct:6` | **ORDER** (Порядок)      | tasks, archives, forensic records, governance memory  |
+| `oct:7` | **TRANSCENDENCE**        | proposals, experiments, liquid boundary, next vectors |
 
 Кожен сектор всередині себе знову має ті самі 8 слотів. Тому `oct:1.5` означає
 "witness/proof всередині physics", а `oct:6.7` означає "future vector всередині
