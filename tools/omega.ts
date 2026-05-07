@@ -25,6 +25,7 @@ if (args.length === 0) {
 Commands:
   test      - Run full verification (Rust core tests + Deno/WGSL parity tests)
   export    - Generate a snapshot of the current state via export_omega.ts
+  map       - Display the semantic Octet Address Map (NDJSON index)
   task      - (WIP) Task ontology management
   court     - (WIP) Inspect SubstrateCourt isolation receipts
   fmt       - Run cargo fmt and deno fmt
@@ -50,6 +51,29 @@ switch (command) {
     await runCmd(["cargo", "fmt"]);
     await runCmd(["deno", "fmt"]);
     break;
+
+  case "map": {
+    try {
+      const content = Deno.readTextFileSync("tasks/octet-index.ndjson").trim();
+      if (!content) {
+        console.log("Empty map.");
+        break;
+      }
+      console.log("%c🌌 OMEGA-64 Octet Address Map\n", "color: cyan; font-weight: bold");
+      const lines = content.split("\n");
+      for (const line of lines) {
+        const record = JSON.parse(line);
+        if (record.record_type === "node") {
+          const depthColor = record.depth === 1 ? "color: yellow; font-weight: bold" : "color: white";
+          console.log(`%c[${record.address}] ${record.title}`, depthColor);
+          console.log(`    Phase: ${record.phase} | Path: ${record.path}`);
+        }
+      }
+    } catch (e) {
+      console.error("%c[ERROR] Failed to read octet map. Ensure tasks/octet-index.ndjson exists.", "color: red");
+    }
+    break;
+  }
 
   case "task":
     console.log("Task management requires semantic payloads. To be implemented in Era 2110.");
