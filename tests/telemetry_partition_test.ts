@@ -77,3 +77,41 @@ Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
     
     // We can verify this internally if needed, but for now we just ensure it doesn't trigger new arbitrations
 });
+
+Deno.test("Era 2100: Substrate Court timeout arbitration", async () => {
+    const court = new SubstrateCourt();
+
+    // Tick 1: Drift detected (WebGPU deviates)
+    court.submitTestimony({
+        substrate: "webgpu",
+        source: "gpu-readback",
+        lawHash: 0xAAAA,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xDEAD,
+        entropyDelta: 10,
+        tick: 1,
+    });
+    court.submitTestimony({
+        substrate: "wasm",
+        source: "wasm-memory",
+        lawHash: 0xAAAA,
+        preStateHash: 0xBBBB,
+        postStateHash: 0xBBBB,
+        entropyDelta: 10,
+        tick: 1,
+    });
+
+    assertEquals(court.isolatedSubstrates.size, 0);
+
+    // Wait for arbitration timeout (5000ms internally, we'll invoke the private handler directly or mock timers in a real suite, but here we just wait or call it)
+    // For test stability without 5s delays, we will directly call the timeout handler if accessible, or we use fake time.
+    // Since handleArbitrationTimeout is private, we can cast to any to call it for testing:
+    (court as any).handleArbitrationTimeout(1);
+
+    // After timeout, both substrates should be isolated because SP1 did not arrive
+    assert(court.isolatedSubstrates.has("webgpu"));
+    assert(court.isolatedSubstrates.has("wasm"));
+
+    // Verify receipt was generated
+    assert(court.quarantineReceipts.has("timeout_quarantine_tick_1"));
+});

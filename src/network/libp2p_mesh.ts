@@ -99,6 +99,8 @@ export interface SenateProposalRecord {
   naysWeight: number;
   accepted: boolean;
   localObservedAtMs: number; // non-consensus metadata
+  proposedAtTau: number; // consensus ordering
+  proposedAtTick?: number; // micro consensus ordering
   // Era 1060: oracle-attributed votes (peer-id-independent).
   oracleAyes?: Set<CanonicalOracle>;
   oracleNays?: Set<CanonicalOracle>;
@@ -923,6 +925,7 @@ export class Libp2pMesh {
       naysWeight: 0,
       accepted: false,
       localObservedAtMs: Date.now(),
+      proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
     });
     // Broadcast PROPOSAL plasmid.
     this.enqueuePlasmid({

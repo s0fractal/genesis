@@ -163,18 +163,12 @@ if (gpuAvailable) {
                 for (let i = 0; i < conf.ticks; i++) {
                     const sigDataBefore = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
                     
-                    // CRITICAL FIX: Rust's tick_physics() increments absolute_tick at the very beginning.
-                    // To ensure GPU evaluates with the same absolute_tick as the CPU, we must pre-increment
-                    // it in the buffer just for the GPU upload, then restore it so Rust doesn't double-increment.
-                    const currentTick = sigDataBefore.getUint32(4, true);
-                    sigDataBefore.setUint32(4, currentTick + 1, true);
-                    
                     // 1. Sync uniforms BEFORE CPU modifies them!
+                    // Note: Since ProperTime is advanced at the end of the CPU tick, we don't need to predict it.
+                    // WGSL and CPU both use the current proper_time.
                     device.queue.writeBuffer(signalsBuf, 0, uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
                     device.queue.writeBuffer(attractorBuf, 0, attractorBytes.buffer, attractorBytes.byteOffset, attractorBytes.byteLength);
 
-                    // Restore so Rust tick_physics can increment it naturally
-                    sigDataBefore.setUint32(4, currentTick, true);
                     let hex = "";
                     for(let k=0; k<16; k++) hex += uniformBytes[32+k].toString(16).padStart(2, "0") + " ";
                     // console.log(`[DEBUG] Hex dump of signalsBuf upload: ${hex}`);

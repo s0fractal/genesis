@@ -1,3 +1,4 @@
 {"event_type": "CALL", "actor": "Gemini", "mode": "RIFF", "energy": 0.90, "chord": "oct:7.3", "file": "tasks/jazz/events/001-decay-dry-run.md", "evidence": 0}
 {"event_type": "RESPONSE", "actor": "Codex", "mode": "REVIEW", "energy": 0.72, "chord": "oct:3.7", "file": "tasks/jazz/responses/001-decay-codex.md", "evidence": 0.20}
 {"event_type": "RESPONSE", "actor": "Gemini", "mode": "REVIEW", "energy": 0.54, "chord": "oct:6.5", "file": "ledger", "evidence": 0}
+{"event_type": "RESPONSE", "actor": "Codex", "mode": "REVIEW", "energy": 0.81, "chord": "oct:7.3", "file": "tasks/jazz/responses/003-ipfs-proactive-spawning-codex.md", "evidence": 0.50}

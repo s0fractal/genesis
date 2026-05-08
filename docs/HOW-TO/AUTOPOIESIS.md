@@ -12,6 +12,7 @@ companion_protocols:
   - docs/HOW-TO/ANALIZE.md
   - docs/HOW-TO/ACT.md
   - docs/HOW-TO/IDEA_LIFECYCLE.md
+  - docs/HOW-TO/JAZZ.md
   - docs/HOW-TO/RADICLE_WORKFLOW.md
   - docs/ONTOLOGY/OCTET.md
   - docs/ONTOLOGY/OCTET_MAP.md

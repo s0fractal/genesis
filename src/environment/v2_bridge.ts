@@ -445,8 +445,8 @@ export class OmegaV2Engine {
 
     public getTotalEntropyLow32(): number {
         if (!this.cachedPointers) return 0;
-        // SignalStore is at offset 32. total_entropy_released (u64) is at offset 16 within SignalStore.
-        // So offset is 48. We read the lower 32 bits.
-        return new Uint32Array(this.cachedPointers.uniformBytes.buffer, this.cachedPointers.uniformBytes.byteOffset + 48, 1)[0];
+        // SignalStore is at offset 32. total_entropy_released (u64) is at offset 24 within SignalStore.
+        // So offset is 56. We read the lower 32 bits.
+        return new Uint32Array(this.cachedPointers.uniformBytes.buffer, this.cachedPointers.uniformBytes.byteOffset + 56, 1)[0];
     }
 }

@@ -5,7 +5,42 @@
 > **Language:** Ukrainian (user preference), English for code comments.
 
 > [!IMPORTANT]
-> **Your Role:** You are a verifier, operator, and oracle interacting with the frozen physical core. You are not an inhabitant. Do not mutate frozen layers. Respect Genesis identity. Run tests. Emit receipts.
+> **Your Role:** You are a verifier, operator, and oracle interacting with the
+> frozen physical core. You are not an inhabitant. Do not mutate frozen layers.
+> Respect Genesis identity. Run tests. Emit receipts.
+
+---
+
+## 0. Semantic Chord Protocol
+
+For substantial final answers and persisted analysis artifacts, begin with a
+small YAML frontmatter block that exposes the semantic vector of the response.
+This is a machine-readable intent header for other models, tools and future
+`omega cli` readers.
+
+```yaml
+---
+chord:
+  primary: "oct:<address>"
+  secondary: ["oct:<address>"]
+energy: 0.72
+mode: "OBSERVE | REVIEW | PATCH | QUARANTINE | COMPOST"
+tension: "short-machine-readable-cause"
+confidence: "low | medium | high"
+receipt: "none | command | file | test"
+---
+```
+
+Rules:
+
+- Use canonical `oct:` coordinates from
+  [docs/ONTOLOGY/OCTET_MAP.md](docs/ONTOLOGY/OCTET_MAP.md).
+- Keep `chord.primary` singular and `chord.secondary` to at most two entries.
+- Use compact machine text for `tension`, not prose or poetry.
+- Treat `energy` as an attention hint in `[0.00, 1.00]`, not as truth.
+- Omit the chord when it would break exact command output, raw code, parser
+  directives, git/app directives, or tool-specific response formats.
+- Chords route attention; receipts and verification decide truth.
 
 ---
 
@@ -157,8 +192,9 @@ pub struct SignalStore {
 ## 5. Era Map & Current State (as of 2026-05-01)
 
 > [!NOTE]
-> Detailed Era history (Eras 950 → 2060) has been archived to preserve cognitive density.
-> See [docs/ERAS_ARCHIVE.md](docs/ERAS_ARCHIVE.md) for the full historical ledger.
+> Detailed Era history (Eras 950 → 2060) has been archived to preserve cognitive
+> density. See [docs/ERAS_ARCHIVE.md](docs/ERAS_ARCHIVE.md) for the full
+> historical ledger.
 
 ### Open Trigger
 
@@ -277,4 +313,13 @@ surface, not add another quorum layer.
 
 - **Analysis Protocol:** [docs/HOW-TO/ANALIZE.md](docs/HOW-TO/ANALIZE.md)
 - **Action Protocol:** [docs/HOW-TO/ACT.md](docs/HOW-TO/ACT.md)
-- **Idea Lifecycle:** [docs/HOW-TO/IDEA_LIFECYCLE.md](docs/HOW-TO/IDEA_LIFECYCLE.md)
+- **Idea Lifecycle:**
+  [docs/HOW-TO/IDEA_LIFECYCLE.md](docs/HOW-TO/IDEA_LIFECYCLE.md)
+- **Autopoiesis Protocol:**
+  [docs/HOW-TO/AUTOPOIESIS.md](docs/HOW-TO/AUTOPOIESIS.md)
+- **Jazz Protocol:** [docs/HOW-TO/JAZZ.md](docs/HOW-TO/JAZZ.md)
+- **Octet Semantic Primitive:** [docs/ONTOLOGY/OCTET.md](docs/ONTOLOGY/OCTET.md)
+- **Octet Address Map:**
+  [docs/ONTOLOGY/OCTET_MAP.md](docs/ONTOLOGY/OCTET_MAP.md)
+- **Frozen Invariants Registry:**
+  [docs/FROZEN.md](docs/FROZEN.md)

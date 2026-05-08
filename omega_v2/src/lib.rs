@@ -17,6 +17,8 @@ pub mod crypto;
 pub mod topology;
 pub mod math;
 pub mod agent;
+pub mod chronotopology;
+pub mod thermodynamics;
 pub mod lattice;
 pub mod law_hash;
 pub mod pouw;
@@ -118,7 +120,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
     },
     signals: SignalStore {
         dirty_flags: 0,
-        absolute_tick: 0,
+        proper_time: crate::chronotopology::ProperTime::new(),
         active_agent_count: 0,
         max_cells: 0,
         total_energy: 0,
@@ -126,7 +128,6 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spi
         p90_age: 0,
         _pad2: 0,
         total_entropy_released: 0,
-        _pad3: 0,
     },
     intents: [crate::topology::OntologicalIntent {
         focus_x: 0,
@@ -291,7 +292,7 @@ pub extern "C" fn v2_reset_runtime_state() {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         lattice.signals.dirty_flags = 0;
-        lattice.signals.absolute_tick = 0;
+        lattice.signals.proper_time = crate::chronotopology::ProperTime::new();
         lattice.signals.active_agent_count = 0;
         lattice.intents = [crate::topology::OntologicalIntent::empty(); 4];
         
@@ -1057,7 +1058,7 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
-            let tick = lattice.signals.absolute_tick;
+            let tick = lattice.signals.proper_time.causal_ticks;
             let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
@@ -1102,7 +1103,7 @@ pub extern "C" fn v2_codeicide_is_lawful(
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
-            let tick = lattice.signals.absolute_tick;
+            let tick = lattice.signals.proper_time.causal_ticks;
             let p90_energy_threshold = lattice.signals.p90_energy;
             let p90_age_threshold = lattice.signals.p90_age;
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
@@ -1221,12 +1222,24 @@ pub unsafe extern "C" fn v2_warrant_raise(
 /// Returns 0=miss/closed, 1=applied, 2=ISSUED.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u32) -> u32 {
+pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u32, stake_q16: u32) -> u32 {
     unsafe {
-        let tick = OMEGA_LATTICE.lock().signals.absolute_tick;
+        let mut lattice = OMEGA_LATTICE.lock();
+        let tick = lattice.signals.proper_time.causal_ticks;
         let mut l = WARRANT_LEDGER.lock();
         let mut settings = SENATE_SETTINGS.lock();
-        l.vote(proposal_hash, oracle_matrix, aye != 0, tick, &mut settings)
+        let (status, delta) = l.vote(proposal_hash, oracle_matrix, aye != 0, stake_q16, tick, &mut settings);
+        
+        // Philosophy Vector 15: Thermodynamic Accounting (Staked Resonance)
+        if status != 0 {
+            // Returned energy is given back to the total pool (not added here because it was already removed from agent or hasn't left the system)
+            // Wait, since we slash it here, we add entropy and compost.
+            lattice.signals.total_entropy_released = lattice.signals.total_entropy_released.wrapping_add(delta.slashed_entropy as u64);
+            // In Era 2095 we don't have a direct compost_pool in lattice yet. We can just broadcast compost messages or store it.
+            // For now, we will add it to total_energy indirectly or ignore until next Era.
+        }
+        
+        status
     }
 }
 

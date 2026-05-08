@@ -24,7 +24,7 @@ pub struct DeltaItem {
 #[repr(C)]
 pub struct SignalStore {
     pub dirty_flags: u32,
-    pub absolute_tick: u32,
+    pub proper_time: crate::chronotopology::ProperTime,
     pub active_agent_count: u32,
     pub max_cells: u32,
     pub total_entropy_released: u64,
@@ -32,8 +32,7 @@ pub struct SignalStore {
     pub total_energy: u32,
     pub p90_energy: u32,
     pub p90_age: u32,
-    pub _pad2: u32, // Explicit 4-byte padding for u64 alignment
-    pub _pad3: u64, // Explicit 8-byte padding to align total size to 48 bytes
+    pub _pad2: u32, // Explicit 4-byte padding to align total size to 48 bytes
 }
 
 #[repr(C)]
@@ -66,7 +65,7 @@ impl PhaseLattice {
             topology,
             signals: SignalStore {
                 dirty_flags: 0,
-                absolute_tick: 0,
+                proper_time: crate::chronotopology::ProperTime::new(),
                 active_agent_count: 0,
                 max_cells: 0,
                 total_entropy_released: 0,
@@ -74,7 +73,6 @@ impl PhaseLattice {
                 p90_energy: 0,
                 p90_age: 0,
                 _pad2: 0,
-                _pad3: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
@@ -234,7 +232,7 @@ impl PhaseLattice {
     /// @oct 1.3 Physics tick vector
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
-        self.signals.absolute_tick = self.signals.absolute_tick.wrapping_add(1);
+        // ProperTime is advanced at the END of the tick, based on thermodynamic stress.
         
         let mut total_system_energy = 0u64;
         let mut _alive_count = 0;
@@ -296,7 +294,7 @@ impl PhaseLattice {
             metabolic_pressure = metabolic_pressure.clamp(512, 2048); // 0.5x to 2.0x
 
             // Era 1080 Prop 3: Deterministic Day Cycle
-            let day_phase = (self.signals.absolute_tick % 1024) * 256 / 1024;
+            let day_phase = (self.signals.proper_time.causal_ticks % 1024) * 256 / 1024;
             let sun_multiplier = 1024 + crate::math::sin_q10(0, day_phase);
 
             for i in 0..active {
@@ -463,7 +461,7 @@ impl PhaseLattice {
                         let arr = &*self.attractors_ptr;
                         let attractor_count = core::cmp::min(arr.count, 4) as usize;
                         for j in 0..attractor_count {
-                            attractor_drift += arr.data[j].drift_contribution(agent.phase, self.signals.absolute_tick, &self.topology);
+                            attractor_drift += arr.data[j].drift_contribution(agent.phase, self.signals.proper_time.causal_ticks, &self.topology);
                         }
                     }
 
@@ -507,6 +505,22 @@ impl PhaseLattice {
         self.signals.total_energy = total_system_energy as u32;
         self.signals.active_agent_count = new_high_water_mark as u32;
         
+        // --- CHRONOTOPOLOGY ---
+        // Advance subjective proper time based on global network stress.
+        // We estimate total stress from energy flow vs stable resting state.
+        let avg_energy = if new_high_water_mark > 0 {
+            total_system_energy as u32 / new_high_water_mark as u32
+        } else {
+            1000
+        };
+        let target_energy = 1000;
+        let stress = avg_energy.abs_diff(target_energy);
+        // Calculate entropy delta this tick
+        let prev_entropy = self.signals.proper_time.entropy_burned;
+        let entropy_delta = (self.signals.total_entropy_released as u32).saturating_sub(prev_entropy);
+        
+        self.signals.proper_time.advance(stress, entropy_delta);
+
         // Philosophy Vector 10: Global Energy Audit (ZK-verifiable)
         // Ensure no energy hyperinflation exists in the system.
         assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * _alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
@@ -535,7 +549,7 @@ impl PhaseLattice {
                     let bucket = core::cmp::min(parent.energy >> 8, 15) as usize;
                     hist.buckets[bucket] += 1;
                     
-                    let age = self.signals.absolute_tick.saturating_sub(parent.memory[1]);
+                    let age = self.signals.proper_time.causal_ticks.saturating_sub(parent.memory[1]);
                     let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
                     let age_bucket = (age / bucket_size).min(15) as usize;
                     age_hist.buckets[age_bucket] += 1;
@@ -577,7 +591,7 @@ impl PhaseLattice {
                         let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
                         let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.absolute_tick, p90_threshold, p90_age_threshold, resonance_score, &settings
+                            parent, self.signals.proper_time.causal_ticks, p90_threshold, p90_age_threshold, resonance_score, &settings
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
@@ -621,7 +635,7 @@ impl PhaseLattice {
                                 attractors: *arr,
                                 q_phase: self.topology.q_phase,
                                 receipt_hash: crate::mitosis_proof::child_receipt_hash(&derived),
-                                tick: self.signals.absolute_tick,
+                                tick: self.signals.proper_time.causal_ticks,
                                 entropy_delta,
                                 metabolic_cost: cost,
                             };
@@ -671,7 +685,7 @@ impl PhaseLattice {
         }
 
         // Φ-Маніфест: публікуємо heartbeat у phi buffer
-        let tick = self.signals.absolute_tick;
+        let tick = self.signals.proper_time.causal_ticks;
         let heartbeat = crate::phi_protocol::PhiMessage::encode_heartbeat(hash, tick, self.topology.q_phase as u8);
         unsafe {
             let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
@@ -821,14 +835,17 @@ mod tests {
     }
 
     #[test]
-    fn test_tick_physics_increments_absolute_tick() {
+    fn test_tick_physics_increments_proper_time() {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
-        assert_eq!(lattice.signals.absolute_tick, 0);
+        lattice.signals.active_agent_count = 1;
+        agents[0].energy = 1000;
+        assert_eq!(lattice.signals.proper_time.causal_ticks, 0);
         lattice.tick_physics();
-        assert_eq!(lattice.signals.absolute_tick, 1);
+        assert!(lattice.signals.proper_time.causal_ticks > 0);
+        let t1 = lattice.signals.proper_time.causal_ticks;
         lattice.tick_physics();
-        assert_eq!(lattice.signals.absolute_tick, 2);
+        assert!(lattice.signals.proper_time.causal_ticks > t1);
     }
 
     #[test]

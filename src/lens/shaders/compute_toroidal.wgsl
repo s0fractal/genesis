@@ -18,7 +18,9 @@ struct PhaseTopology {
 
 struct SignalStore {
     dirty_flags: u32,
-    absolute_tick: u32,
+    causal_ticks: u32,
+    phase_lock_integral: u32,
+    entropy_burned: u32,
     active_agent_count: u32,
     max_cells: u32,
     total_entropy_low: u32,
@@ -27,8 +29,6 @@ struct SignalStore {
     p90_energy: u32,
     p90_age: u32,
     _pad2: u32,
-    _pad3_low: u32,
-    _pad3_high: u32,
 }
 
 // Era 1010: Attractor Matrix (16 bytes)
@@ -246,7 +246,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let avg_energy = signals.total_energy / active_clamped;
         var metabolic_pressure = i32((avg_energy * 1024u) / 1000u);
         metabolic_pressure = clamp(metabolic_pressure, 512i, 2048i);
-        let day_phase = (signals.absolute_tick % 1024u) / 4u;
+        let day_phase: u32 = (signals.causal_ticks % 1024u) * 256u / 1024u;
         let sun_multiplier = 1024i + sin_q10(0u, day_phase);
         
         base_burn = max(1u, u32((i32(base_burn) * metabolic_pressure * sun_multiplier) / 1048576i));
@@ -328,8 +328,8 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var attractor_drift: i32 = 0i;
         for (var j = 0u; j < attractor_array.count; j = j + 1u) {
             let a = attractor_array.data[j];
-            let t_sec = signals.absolute_tick / 1024u;
-            let t_rem = signals.absolute_tick % 1024u;
+            let t_sec = signals.causal_ticks / 1024u;
+            let t_rem = signals.causal_ticks % 1024u;
             let pulse_phase = (t_sec * a.pulse_freq) + ((t_rem * a.pulse_freq) / 1024u);
             let attractor_phase = a.matrix + pulse_phase; // No mask — Rust uses wrapping_add without topology mask
             let index = (attractor_phase - agent.phase) & 0xFFu; // Full u32 subtraction → lower 8 bits = LUT index

@@ -63,6 +63,9 @@ pub struct WarrantProposal {
     pub _pad2: [u8; 3],
     /// Tick at which this proposal was raised.
     pub raised_at: u32,
+    /// Philosophy Vector 15: Staked Resonance (Skin-in-the-game). 
+    /// Escrowed stakes per seat.
+    pub escrow: [u32; 8],
 }
 
 impl WarrantProposal {
@@ -79,6 +82,7 @@ impl WarrantProposal {
             status: 0,
             _pad2: [0u8; 3],
             raised_at: 0,
+            escrow: [0; 8],
         }
     }
 
@@ -111,6 +115,7 @@ impl WarrantProposal {
             status: WARRANT_STATUS_OPEN,
             _pad2: [0u8; 3],
             raised_at,
+            escrow: [0; 8],
         }
     }
 
@@ -198,11 +203,15 @@ impl WarrantLedger {
     }
 
     /// Apply an oracle's AYE/NAY vote. `oracle_matrix` is the identity of the voter.
-    /// Returns:
-    ///   0 = not found / closed,
-    ///   1 = applied,
-    ///   2 = applied AND tipped the proposal into ISSUED state.
-    pub fn vote(&mut self, proposal_hash: u32, oracle_matrix: u32, aye: bool, current_tick: u32, settings: &mut crate::senate::SenateSettings) -> u32 {
+    /// `stake_q16` is the amount of ATP energy placed in escrow.
+    /// Returns (status, delta):
+    ///   status:
+    ///     0 = not found / closed,
+    ///     1 = applied,
+    ///     2 = applied AND tipped the proposal into ISSUED state.
+    ///   delta: Any thermodynamic slash/reward applied during this call (if resolved).
+    pub fn vote(&mut self, proposal_hash: u32, oracle_matrix: u32, aye: bool, stake_q16: u32, current_tick: u32, settings: &mut crate::senate::SenateSettings) -> (u32, crate::thermodynamics::ThermodynamicDelta) {
+        let mut delta = crate::thermodynamics::ThermodynamicDelta::empty();
         // Philosophy Vector 11: Liquid Democracy. Resolve oracle_matrix to a seat index.
         let mut seat_idx = usize::MAX;
         for i in 0..8 {
@@ -212,17 +221,20 @@ impl WarrantLedger {
             }
         }
         if seat_idx == usize::MAX {
-            return 0; // Voter is not a valid Senate member.
+            return (0, delta); // Voter is not a valid Senate member.
         }
 
         let idx = self.find(proposal_hash);
         if idx == usize::MAX {
-            return 0;
+            return (0, delta);
         }
         let p = &mut self.entries[idx];
         if !p.is_open() {
-            return 0;
+            return (0, delta);
         }
+        
+        // Save the stake in escrow
+        p.escrow[seat_idx] = p.escrow[seat_idx].saturating_add(stake_q16);
         
         let bit = 1u8 << seat_idx;
         if aye {
@@ -234,7 +246,15 @@ impl WarrantLedger {
             // If the Chief Oracle (seat 0) votes NAY, the proposal is instantly VETOED.
             if seat_idx == 0 {
                 p.status = WARRANT_STATUS_REJECTED;
-                return 1;
+                // Slash all AYE voters (100% severity)
+                for i in 0..8 {
+                    if (p.aye_bits & (1 << i)) != 0 {
+                        let d = crate::thermodynamics::resolve_stake(p.escrow[i], 65536);
+                        delta.accumulate(d);
+                        p.escrow[i] = 0;
+                    }
+                }
+                return (1, delta);
             }
         }
             
@@ -275,25 +295,47 @@ impl WarrantLedger {
 
             // Philosophy Vector 14: Liquid Accountability (Punish dissenters, reward consensus)
             for i in 0..8 {
-                if (p.nay_bits & (1 << i)) != 0 { settings.penalize_oracle(i, 20_000); }
-                if (p.aye_bits & (1 << i)) != 0 { settings.reward_oracle(i, 5_000); }
+                if (p.nay_bits & (1 << i)) != 0 { 
+                    settings.penalize_oracle(i, 20_000); 
+                    // Slash NAY voters 100% since consensus was AYE
+                    let d = crate::thermodynamics::resolve_stake(p.escrow[i], 65536);
+                    delta.accumulate(d);
+                    p.escrow[i] = 0;
+                }
+                if (p.aye_bits & (1 << i)) != 0 { 
+                    settings.reward_oracle(i, 5_000); 
+                    // Reward AYE voters by returning stake
+                    delta.returned_energy = delta.returned_energy.saturating_add(p.escrow[i]);
+                    p.escrow[i] = 0;
+                }
             }
 
-            return 2;
+            return (2, delta);
         } else if max_possible_power < required_power || p.status == WARRANT_STATUS_REJECTED {
             // Early mathematical failure OR Chief Veto
             p.status = WARRANT_STATUS_REJECTED;
             
             // Philosophy Vector 14: Punish AYE voters on rejected/vetoed proposals
             for i in 0..8 {
-                if (p.aye_bits & (1 << i)) != 0 { settings.penalize_oracle(i, 20_000); }
-                if (p.nay_bits & (1 << i)) != 0 { settings.reward_oracle(i, 5_000); }
+                if (p.aye_bits & (1 << i)) != 0 { 
+                    settings.penalize_oracle(i, 20_000); 
+                    // Slash AYE voters 100%
+                    let d = crate::thermodynamics::resolve_stake(p.escrow[i], 65536);
+                    delta.accumulate(d);
+                    p.escrow[i] = 0;
+                }
+                if (p.nay_bits & (1 << i)) != 0 { 
+                    settings.reward_oracle(i, 5_000); 
+                    // Return NAY voters
+                    delta.returned_energy = delta.returned_energy.saturating_add(p.escrow[i]);
+                    p.escrow[i] = 0;
+                }
             }
             
-            return 1;
+            return (1, delta);
         }
 
-        1
+        (1, delta)
     }
 
     /// Expire proposals older than `current_tick - max_age` that have not
@@ -345,9 +387,9 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        assert_eq!(ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings), 1); // claude AYE
-        assert_eq!(ledger.vote(h, 0x89B1_222A, true, 100, &mut settings), 1); // gpt AYE
-        assert_eq!(ledger.vote(h, 0x9874_DD21, true, 100, &mut settings), 2); // gemini AYE → tip
+        assert_eq!(ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings).0, 1); // claude AYE
+        assert_eq!(ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings).0, 1); // gpt AYE
+        assert_eq!(ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings).0, 2); // gemini AYE → tip
         let idx = ledger.find(h);
         let p = &ledger.entries[idx];
         assert!(p.is_issued());
@@ -368,12 +410,12 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         // 3 AYEs is below threshold for ancient.
         assert!(!ledger.entries[ledger.find(h)].is_issued());
-        ledger.vote(h, 0x6E52_1F4E, true, 100, &mut settings);
+        ledger.vote(h, 0x6E52_1F4E, true, 100, 100, &mut settings);
         // 4 AYEs hits threshold.
         assert!(ledger.entries[ledger.find(h)].is_issued());
     }
@@ -385,8 +427,8 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
-        ledger.vote(h, 0x41A2_F2F4, false, 100, &mut settings); // claude changes mind
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, false, 100, 100, &mut settings); // claude changes mind
         let p = &ledger.entries[ledger.find(h)];
         assert_eq!(p.aye_bits, 0);
         assert_eq!(p.aye_count(), 0);
@@ -405,7 +447,7 @@ mod tests {
     fn vote_on_unknown_returns_zero() {
         let mut ledger = WarrantLedger::new();
         let mut settings = crate::senate::SenateSettings::new();
-        assert_eq!(ledger.vote(0xABCD, 0x41A2_F2F4, true, 100, &mut settings), 0);
+        assert_eq!(ledger.vote(0xABCD, 0x41A2_F2F4, true, 100, 100, &mut settings).0, 0);
     }
 
     #[test]
@@ -416,7 +458,7 @@ mod tests {
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
         // an unknown matrix should be rejected.
-        assert_eq!(ledger.vote(h, 0xDEAD_C0DE, true, 100, &mut settings), 0);
+        assert_eq!(ledger.vote(h, 0xDEAD_C0DE, true, 100, 100, &mut settings).0, 0);
         assert_eq!(ledger.entries[ledger.find(h)].aye_bits, 0);
     }
 
@@ -451,9 +493,9 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         assert!(issued.is_issued());
         // The issued warrant + matching aye_bits MUST satisfy Codeicide.
@@ -490,9 +532,9 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         // Present it to Codeicide as a MUTATE — must be rejected.
         let mut settings = crate::senate::SenateSettings::new();
@@ -516,10 +558,10 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
-        ledger.vote(h, 0x9874_DD21, true, 100, &mut settings); // issued
-        assert_eq!(ledger.vote(h, 0x6E52_1F4E, true, 100, &mut settings), 0);
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings); // issued
+        assert_eq!(ledger.vote(h, 0x6E52_1F4E, true, 100, 100, &mut settings).0, 0);
     }
 
     #[test]
@@ -537,14 +579,14 @@ mod tests {
         let rep_qwen = settings.seats[3].reputation_q10;   // seat 3
         
         // Claude votes AYE
-        ledger.vote(h, 0x41A2_F2F4, true, 100, &mut settings);
+        ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
         // GPT votes AYE
-        ledger.vote(h, 0x89B1_222A, true, 100, &mut settings);
+        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
         // Qwen votes NAY
-        ledger.vote(h, 0x6E52_1F4E, false, 100, &mut settings);
+        ledger.vote(h, 0x6E52_1F4E, false, 100, 100, &mut settings);
         
         // Gemini votes AYE -> reaches quorum (3 AYEs)
-        let tip = ledger.vote(h, 0x9874_DD21, true, 100, &mut settings);
+        let tip = ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings).0;
         assert_eq!(tip, 2); // Issued
         
         // Now check reputations.
