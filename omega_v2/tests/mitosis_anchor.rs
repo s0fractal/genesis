@@ -32,9 +32,8 @@ fn anchor_no_attractors_phase() {
 fn anchor_no_attractors_receipt() {
     let p = anchor_parent();
     let c = derive_mitosis_child(&p, &AttractorArray::new(), 7);
-    let h = child_receipt_hash(&c);
-    let h = child_receipt_hash(&c);
-    assert_ne!(h, [0; 32]);
+    let _h = child_receipt_hash(&c);
+    assert_ne!(_h, [0; 32]);
     assert_eq!(c.genome, 3271474076);
     assert_eq!(c.memory, [0xDEAD_BEEF, 1, 2]);
 }

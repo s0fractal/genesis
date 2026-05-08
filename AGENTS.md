@@ -51,7 +51,7 @@ Rules:
 | Physics Kernel | Rust `#![no_std]` bare-metal WASM (`omega_v2`)   |
 | ZK Guest       | Rust SP1 ZK-VM (`omega_zk_guest`)                |
 | Renderer       | TypeScript + WebGPU (`src/lens/`)                |
-| P2P Mesh       | WebRTC DataChannels (`src/network/webrtc_v2.ts`) |
+| P2P Mesh       | WebRTC DataChannels (`src/network/libp2p_mesh.ts`) |
 | Tests          | `cargo test --workspace` + `deno test`           |
 | Bundler        | Vite                                             |
 
@@ -89,7 +89,7 @@ omega_v2/src/          # V2 no_std kernel (source of truth)
   phi_protocol.rs      # PhiMessage encode/decode
 
 src/network/
-  webrtc_v2.ts         # WebRTC mesh, plasmid routing, consensus tracking
+  libp2p_mesh.ts       # WebRTC mesh, plasmid routing, consensus tracking
   routing_bridge.ts    # PhaseRouter JS↔WASM FFI bridge
 
 src/lens/
@@ -285,7 +285,7 @@ pub struct SignalStore {
 
 ### Adding a new Plasmid semanticType
 
-1. Extend `PlasmidPayload.semanticType` union in `src/network/webrtc_v2.ts`.
+1. Extend `PlasmidPayload.semanticType` union in `src/network/libp2p_mesh.ts`.
 2. Add case to the `switch (plasmid.semanticType)` in `V2_SYNC` handler.
 3. Update `enqueuePlasmid` bounds / validation if needed.
 

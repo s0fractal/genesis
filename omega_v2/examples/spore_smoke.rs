@@ -19,7 +19,7 @@
 use omega_v2::codeicide_law::{
     is_action_lawful, quorum_hash, warrant_hash, ACTION_TERMINATE,
 };
-use omega_v2::genesis_inscription::{compute_genesis_hash_sha256, GenesisAnchors, GENESIS_HASH_LEGACY_V1_0};
+use omega_v2::genesis_inscription::{compute_genesis_hash_sha256, GenesisAnchors};
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
 use omega_v2::oracle_identity::{canonical_oracle_v1, oracle_matrix, ORACLE_SALT_V1};
 use omega_v2::crypto::sha256_u32;
