@@ -1,9 +1,9 @@
 {
   "tasks": {
     "start": "deno run -A tools/start_all.ts",
-    "test:unit": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk_rollup*",
-    "test:integration": "deno test --allow-read --allow-env --allow-sys=homedir --allow-run tests/*integration* tests/*smoke* tests/*zk_rollup*",
-    "test:fast": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk_rollup*"
+    "test:unit": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*",
+    "test:integration": "deno test --allow-read --allow-env --allow-sys=homedir --allow-run tests/*integration* tests/*smoke* tests/*zk*",
+    "test:fast": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*"
   },
   "compilerOptions": {
     "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
