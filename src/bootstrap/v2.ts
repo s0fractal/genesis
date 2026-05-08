@@ -14,6 +14,7 @@ import { childReceiptHash } from "../network/mitosis_proof.ts";
 import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import { PhiBridge } from "../network/phi_bridge.ts";
 import { buildLawTelemetry } from "../network/spore_frame.ts";
+import { CompostSynapse } from "../network/compost_synapse.ts";
 // Translation Policy bloat removed (Era 2070 Consolidation)
 
 let oracleWorker: Worker | null = null;
@@ -147,6 +148,9 @@ export async function bootstrapV2() {
 
         // Era 2080: PhiBridge Substrate
         const phiBridge = new PhiBridge(engine);
+        
+        // Era 2100: Vector 1 - Zero-Copy P2P Synapse for Thermodynamic Exhaust
+        const compostSynapse = new CompostSynapse("ws://127.0.0.1:8080");
 
         // Era 2100: Bitcoin Genesis Verification
         const genesisTxid = (window as any).__OMEGA_GENESIS_TXID__;
@@ -628,6 +632,10 @@ ${debateMd || "(no recorded arguments)"}
                         const { receipts, nowSeen } = drainMitosisLog(ptrs.mitosisLogBytes, lastMitosisSeen);
                         lastMitosisSeen = nowSeen;
                         for (const r of receipts) {
+                            
+                            // [Vector 1] Blast thermodynamic exhaust directly to Liquid!
+                            compostSynapse.emitCompost(r);
+
                             // Use the parent's memory[0] as the dipole matrix when the birth
                             // happened near an attractor; otherwise the parent's genome is
                             // the natural dipole carrier (with bitwise complement as inverse).
