@@ -3,7 +3,7 @@ import { PhaseAgentParser, SignalStoreParser } from "../src/sdk/phi_types.ts";
 import { calculateGoldenTrace, fnv1a } from "../src/sdk/phi_crypto.ts";
 
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
-    const bytes = await Deno.readFile("dist/v2/omega_v2_core.wasm");
+    const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
     const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
     return instance;
 }

@@ -94,9 +94,9 @@ export class SignalStoreParser {
     static parse(view: DataView, byteOffset: number): SignalStore {
         return {
             dirtyFlags: view.getUint32(byteOffset + 0, true),
-            absoluteTick: view.getUint32(byteOffset + 4, true),
-            activeAgentCount: view.getUint32(byteOffset + 8, true),
-            maxCells: view.getUint32(byteOffset + 12, true),
+            absoluteTick: view.getUint32(byteOffset + 4, true), // maps to proper_time.causal_ticks
+            activeAgentCount: view.getUint32(byteOffset + 16, true), // past ProperTime (4+12=16)
+            maxCells: view.getUint32(byteOffset + 20, true),
         };
     }
 }
