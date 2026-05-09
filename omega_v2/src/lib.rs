@@ -159,6 +159,9 @@ pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> = crate::
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
 pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync::Spinlock::new(ResonanceField::zero());
 
+/// Era N+2: Bitshift Thermodynamics Shared Memory
+/// A 65536-element torus representing the Q10 energy of up to 65536 concurrent phase entities.
+pub static METABOLIC_TORUS: crate::sync::Spinlock<[i16; 65536]> = crate::sync::Spinlock::new([0; 65536]);
 
 /// Era 1010: Global Attractor Array for GPU uniform buffer.
 #[cfg(not(feature = "spore"))]
@@ -362,6 +365,32 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
         lattice.generate_delta_snapshot(agents, snapshot, delta, MAX_DELTA_ITEMS)
     }
 }
+
+// -------------------------------------------------------------------------
+// ERA N+2: Bitshift Thermodynamics FFI
+// -------------------------------------------------------------------------
+
+#[no_mangle]
+pub extern "C" fn v2_metabolic_torus_ptr() -> *mut i16 {
+    unsafe { METABOLIC_TORUS.as_mut_ptr() as *mut i16 }
+}
+
+#[no_mangle]
+pub extern "C" fn v2_metabolic_tick(gini_q16: u32, top_10_threshold: i16) {
+    let mut torus = METABOLIC_TORUS.lock();
+    let is_high_inequality = gini_q16 > 26214; // > 0.4 in Q16
+    for e in torus.iter_mut() {
+        if *e <= 0 {
+            continue; // Dehydrated nodes skip decay here
+        }
+        let mut decay = if is_high_inequality { *e >> 9 } else { *e >> 10 };
+        if *e >= top_10_threshold {
+            decay += 20; // Monopoly tax
+        }
+        *e = (*e).saturating_sub(decay).max(-1024);
+    }
+}
+
 
 // -------------------------------------------------------------------------
 // ERA 950: Epigenetic FFI (Observer → Memory → Evolution)
