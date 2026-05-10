@@ -266,6 +266,13 @@ if (gpuAvailable) {
             },
         });
     }
+
+    Deno.test({
+        name: "wgsl: cleanup GPU device",
+        fn() {
+            device.destroy();
+        }
+    });
 } else {
     Deno.test({
         name: "wgsl: toroidal shader bit-exact parity [SKIPPED - NO WEBGPU]",
