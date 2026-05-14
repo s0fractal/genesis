@@ -1375,4 +1375,17 @@ mod tests {
         // HIGH-2: Adaptive thresholds must be non-zero
         assert!(crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR > 0, "Energy threshold would be zero");
     }
+
+    #[cfg(not(feature = "spore"))]
+    #[test]
+    fn test_senate_patch_unauthorized_rejection() {
+        use crate::v2_apply_senate_patch;
+        // Unauthorized caller (0xDEADBEEF is not a canonical oracle)
+        let result = v2_apply_senate_patch(0xDEADBEEF, 1, 50, 0);
+        assert_eq!(result, 0, "unauthorized caller must be rejected with 0");
+
+        // Zero caller must also be rejected
+        let result2 = v2_apply_senate_patch(0, 1, 50, 0);
+        assert_eq!(result2, 0, "zero caller must be rejected with 0");
+    }
 }

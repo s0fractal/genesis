@@ -318,10 +318,9 @@ impl<const M: usize> AutoPipeline<M> {
                     self.pending_request_started_ms = now_ms;
                     // Mark scheduler attempt — success/failure
                     // recorded when the response arrives.
-                    record_sync_attempt(
-                        find_slot_mut(&mut self.driver.peers, peer_id).unwrap(),
-                        now_ms,
-                    );
+                    if let Some(slot) = find_slot_mut(&mut self.driver.peers, peer_id) {
+                        record_sync_attempt(slot, now_ms);
+                    }
                 }
             }
         }

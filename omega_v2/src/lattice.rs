@@ -859,6 +859,55 @@ mod tests {
     }
 
     #[test]
+    fn test_birth_tick_age_invariant() {
+        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
+        lattice.minimal_agents_ptr = agents.as_mut_ptr();
+        // ignite_big_bang sets birth_tick[i] = causal_ticks for every live agent
+        lattice.ignite_big_bang(12345, 5);
+        let birth0 = {
+            let ticks = crate::BIRTH_TICKS.lock();
+            ticks[0]
+        };
+        let ticks_before = lattice.signals.proper_time.causal_ticks;
+        assert_eq!(birth0, ticks_before,
+            "birth tick must be set to causal_ticks at ignition");
+
+        // Tick physics 7 times → causal_ticks advances (amount depends on chronotopology dilation)
+        for _ in 0..7 { lattice.tick_physics(); }
+        let birth0_after = {
+            let ticks = crate::BIRTH_TICKS.lock();
+            ticks[0]
+        };
+        let age = lattice.signals.proper_time.causal_ticks.saturating_sub(birth0_after);
+        let elapsed = lattice.signals.proper_time.causal_ticks.saturating_sub(ticks_before);
+        assert_eq!(age, elapsed, "age must equal elapsed causal ticks since birth; birth tick must be immutable");
+
+        // Mitosis: child gets fresh birth tick at parent tick
+        // Use a minimal lattice so next_dead_idx is guaranteed to be 1
+        let (mut lattice2, mut agents2, _snapshot2, _deltas2) = make_lattice(2);
+        lattice2.minimal_agents_ptr = agents2.as_mut_ptr();
+        lattice2.signals.active_agent_count = 2;
+        lattice2.signals.proper_time.causal_ticks = 999;
+        agents2[0].energy = crate::constants::MITOSIS_THRESHOLD + 100;
+        agents2[1].energy = 0;
+        {
+            let mut ticks = crate::BIRTH_TICKS.lock();
+            ticks[0] = 100;
+            ticks[1] = 0;
+        }
+        let parent_tick = lattice2.signals.proper_time.causal_ticks;
+        let reps = lattice2.darwinian_mitosis();
+        assert_eq!(reps, 1, "mitosis must occur");
+        let child_birth = {
+            let ticks = crate::BIRTH_TICKS.lock();
+            ticks[1]
+        };
+        assert_eq!(child_birth, parent_tick,
+            "child birth tick must be set to causal_ticks at mitosis");
+        assert!(agents2[1].energy > 0, "child must be alive");
+    }
+
+    #[test]
     fn test_set_environment_sets_dirty_flag() {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();

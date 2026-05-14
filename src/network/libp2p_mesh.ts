@@ -617,7 +617,7 @@ export class Libp2pMesh {
       ayes: new Set([fromPeer]),
       nays: new Set(),
       accepted: false,
-      localObservedAtMs: Date.now(),
+      localObservedAtMs: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
       proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
     } as any);
     // Mirror into WASM Senate state.
@@ -834,7 +834,7 @@ export class Libp2pMesh {
             oracleAyes: record.oracleAyes?.size ?? 0,
             oracleNays: record.oracleNays?.size ?? 0,
             acceptedVia: path,
-            localObservedAtMs: record.localObservedAtMs || Date.now(),
+            localObservedAtMs: record.localObservedAtMs || 0,
           },
         }),
       );
@@ -928,7 +928,7 @@ export class Libp2pMesh {
       ayesWeight: 0,
       naysWeight: 0,
       accepted: false,
-      localObservedAtMs: Date.now(),
+      localObservedAtMs: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
       proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
     });
     // Broadcast PROPOSAL plasmid.

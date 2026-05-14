@@ -111,6 +111,32 @@ impl Default for PhaseAgentMinimal {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_species_advantage_zero_guard() {
+        // genome=0 must not collapse to zero-hash; both sides get 0x12345678
+        assert_eq!(species_advantage(0, 0), 0, "identical genomes are neutral");
+        let a_vs_b = species_advantage(0, 0xFF);
+        let b_vs_a = species_advantage(0xFF, 0);
+        assert_eq!(a_vs_b, -b_vs_a, "advantage must be antisymmetric");
+        // With zero-guard both get deterministic non-zero hash
+        assert_ne!(a_vs_b, 0, "zero-guarded genome must produce decisive advantage against non-zero");
+    }
+
+    #[test]
+    fn test_species_advantage_parity() {
+        // Same genome → neutral
+        assert_eq!(species_advantage(0xABCD, 0xABCD), 0);
+        // Antisymmetry
+        let a = species_advantage(0x1111, 0x2222);
+        let b = species_advantage(0x2222, 0x1111);
+        assert_eq!(a, -b);
+    }
+}
+
 impl Default for PhaseAgentSmart {
     fn default() -> Self {
         Self {

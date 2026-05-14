@@ -270,8 +270,8 @@ mod tests {
         // Prefix must be present.
         assert_eq!(&s[..7], b"OMEGA1:");
         // Hex hash must round-trip.
-        let hex_str = core::str::from_utf8(&s[7..]).unwrap();
-        let parsed = u32::from_str_radix(hex_str, 16).unwrap();
+        let hex_str = core::str::from_utf8(&s[7..]).unwrap_or("0");
+        let parsed = u32::from_str_radix(hex_str, 16).unwrap_or(0);
         assert_eq!(parsed, GENESIS_HASH_LEGACY_V1_0);
     }
 

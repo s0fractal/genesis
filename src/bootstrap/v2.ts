@@ -551,11 +551,19 @@ ${debateMd || "(no recorded arguments)"}
                             const intent = data.validIntents[0];
                             const setIntent = engine.wasm?.exports.v2_set_intent as CallableFunction;
                             if (setIntent) {
-                                const gx = Math.floor(Math.random() * window.innerWidth);
-                                const gy = Math.floor(Math.random() * window.innerHeight);
                                 let hash = 5381;
                                 const word = intent.intentStr;
                                 for (let i = 0; i < word.length; i++) hash = ((hash << 5) + hash) + word.charCodeAt(i);
+                                // Deterministic xorshift64* seeded from intent hash (OMEGA: no Math.random in any path)
+                                let rng = hash >>> 0;
+                                const xorshift64 = () => {
+                                    rng ^= (rng << 13) >>> 0;
+                                    rng ^= (rng >>> 7);
+                                    rng ^= (rng << 17) >>> 0;
+                                    return rng >>> 0;
+                                };
+                                const gx = xorshift64() % window.innerWidth;
+                                const gy = xorshift64() % window.innerHeight;
 
                                 setIntent(2, gx, gy, 0, 500, hash >>> 0, 1);
                                 setTimeout(() => { if (engine.wasm) setIntent(2, 0, 0, 0, 0, 0, 0); }, 1000);
