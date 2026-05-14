@@ -98,6 +98,11 @@ pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_
 /// Kept outside PhaseAgentMinimal to preserve 32-byte ABI alignment.
 pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([0u32; MAX_MINIMAL_AGENTS]);
 
+#[cfg(test)]
+/// Test-only global lock to serialize all tests that mutate `BIRTH_TICKS`.
+/// Prevents flaky cross-test races when `cargo test` runs unit tests in parallel threads.
+pub static BIRTH_TICKS_TEST_LOCK: crate::sync::Spinlock<()> = crate::sync::Spinlock::new(());
+
 pub const MAX_DELTA_ITEMS: usize = 6400; // Limits extreme mutations to ~100KB per UDP packet
 pub static DELTA_BUFFER: crate::sync::Spinlock<[crate::lattice::DeltaItem; MAX_DELTA_ITEMS]> = crate::sync::Spinlock::new([crate::lattice::DeltaItem {
     index: 0,

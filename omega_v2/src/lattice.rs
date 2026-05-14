@@ -153,6 +153,9 @@ impl PhaseLattice {
         let mut rng = crate::math::Xorshift64::new(root_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
 
+        #[cfg(test)]
+        let _birth_ticks_guard = crate::BIRTH_TICKS_TEST_LOCK.lock();
+
         unsafe {
             for i in 0..safe_population {
                 let agent_ptr = self.minimal_agents_ptr.add(i as usize);
@@ -194,6 +197,9 @@ impl PhaseLattice {
 
         let mut rng = crate::math::Xorshift64::new(final_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
+
+        #[cfg(test)]
+        let _birth_ticks_guard = crate::BIRTH_TICKS_TEST_LOCK.lock();
 
         unsafe {
             for i in 0..safe_population {
@@ -572,6 +578,9 @@ impl PhaseLattice {
 
         let p90_threshold = self.signals.p90_energy;
         let p90_age_threshold = self.signals.p90_age;
+
+        #[cfg(test)]
+        let _birth_ticks_guard = crate::BIRTH_TICKS_TEST_LOCK.lock();
 
         unsafe {
             let active = self.signals.active_agent_count as usize;
