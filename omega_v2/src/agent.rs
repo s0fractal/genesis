@@ -62,8 +62,8 @@ pub fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
 
     // Philosophy Cryptographic Co-Adaptation (Red Queen's Race)
     // Asymmetric cyclic food web based on GF(2) mixing and ring distance
-    let ha = crate::math::xorshift32_once(a_genome);
-    let hb = crate::math::xorshift32_once(b_genome);
+    let ha = if a_genome == 0 { 0x12345678 } else { crate::math::xorshift32_once(a_genome) };
+    let hb = if b_genome == 0 { 0x12345678 } else { crate::math::xorshift32_once(b_genome) };
     let delta = ha.wrapping_sub(hb);
 
     if delta == 0 {

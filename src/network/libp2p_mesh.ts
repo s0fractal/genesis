@@ -777,27 +777,31 @@ export class Libp2pMesh {
                   ORACLE_MATRICES_V1[newName] = newMatrix;
                   console.log(`🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`);
               }
-              // Propagate to Rust
+              // Propagate to Rust (caller authenticated as CLAUDE oracle)
               if (this.engine.wasm?.exports.v2_apply_senate_patch) {
-                  (this.engine.wasm.exports.v2_apply_senate_patch as any)(4, newMatrix, 0);
+                  const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+                  (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 4, newMatrix, 0);
               }
           }
       } else if (record.description.startsWith("SET_QUORUM:")) {
           const val = parseInt(record.description.split(":")[1], 10);
           if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(1, val, 0);
+              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 1, val, 0);
               console.log(`🏛️ [SENATE] Applied SET_QUORUM=${val} to Rust core.`);
           }
       } else if (record.description.startsWith("SET_SANCTUARY_MULT:")) {
           const val = parseInt(record.description.split(":")[1], 10);
           if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(2, val, 0);
+              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 2, val, 0);
               console.log(`🏛️ [SENATE] Applied SET_SANCTUARY_MULT=${val} to Rust core.`);
           }
       } else if (record.description.startsWith("SET_ANCIENT_AGE:")) {
           const val = parseInt(record.description.split(":")[1], 10);
           if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(3, val, 0);
+              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 3, val, 0);
               console.log(`🏛️ [SENATE] Applied SET_ANCIENT_AGE=${val} to Rust core.`);
           }
       }

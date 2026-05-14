@@ -35,9 +35,11 @@ export class NomosGate {
         // Mock ZK implementation for architecture scaffolding
         console.warn("[NomosGate] SP1 Verification explicitly mocked for Era 280 scaffolding.");
 
+        // STRICT: fail closed unless MOCK_ZK_VALID env flag is set.
+        // No proof is valid without cryptographic verification.
+        const mockEnabled = typeof Deno !== "undefined" && Deno.env.get("MOCK_ZK_VALID") === "1";
         let valid = false;
-        // A real proof is much larger, this simulates rejection of non-ZK packets
-        if (proof_bytes && proof_bytes.length >= 32) {
+        if (mockEnabled && proof_bytes && proof_bytes.length >= 32) {
             valid = true;
         }
 

@@ -170,6 +170,8 @@ impl PhaseLattice {
                     genome,
                     memory: [0, 0, 0],
                 };
+                let mut ticks = crate::BIRTH_TICKS.lock();
+                ticks[i as usize] = self.signals.proper_time.causal_ticks;
             }
         }
     }
@@ -210,6 +212,8 @@ impl PhaseLattice {
                     genome,
                     memory: [0, 0, 0],
                 };
+                let mut ticks = crate::BIRTH_TICKS.lock();
+                ticks[i as usize] = self.signals.proper_time.causal_ticks;
             }
         }
     }
@@ -549,7 +553,9 @@ impl PhaseLattice {
                     let bucket = core::cmp::min(parent.energy >> 8, 15) as usize;
                     hist.buckets[bucket] += 1;
 
-                    let age = self.signals.proper_time.causal_ticks.saturating_sub(parent.memory[1]);
+                    let birth_ticks = crate::BIRTH_TICKS.lock();
+                    let age = self.signals.proper_time.causal_ticks.saturating_sub(birth_ticks[i]);
+                    drop(birth_ticks);
                     let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
                     let age_bucket = (age / bucket_size).min(15) as usize;
                     age_hist.buckets[age_bucket] += 1;
@@ -623,6 +629,10 @@ impl PhaseLattice {
                             );
                             let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
                             *child = derived;
+                            {
+                                let mut ticks = crate::BIRTH_TICKS.lock();
+                                ticks[next_dead_idx as usize] = self.signals.proper_time.causal_ticks;
+                            }
 
                             let cost = crate::constants::MITOSIS_COST;
                             let entropy_delta = (derived.phase as i32).wrapping_sub(parent_snapshot.phase as i32);

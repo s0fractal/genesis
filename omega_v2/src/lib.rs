@@ -21,7 +21,6 @@ pub mod chronotopology;
 pub mod thermodynamics;
 pub mod lattice;
 pub mod law_hash;
-pub mod pouw;
 pub mod epigenetics;
 pub mod anchor;
 pub mod phi_protocol;
@@ -94,6 +93,10 @@ pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_
     genome: 0,
     memory: [0; 3],
 }; MAX_MINIMAL_AGENTS]);
+
+/// Parallel birth-tick array. Indexed by agent position.
+/// Kept outside PhaseAgentMinimal to preserve 32-byte ABI alignment.
+pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([0u32; MAX_MINIMAL_AGENTS]);
 
 pub const MAX_DELTA_ITEMS: usize = 6400; // Limits extreme mutations to ~100KB per UDP packet
 pub static DELTA_BUFFER: crate::sync::Spinlock<[crate::lattice::DeltaItem; MAX_DELTA_ITEMS]> = crate::sync::Spinlock::new([crate::lattice::DeltaItem {
@@ -911,8 +914,13 @@ pub extern "C" fn v2_math_atan2(y: i32, x: i32) -> u32 {
 
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_apply_senate_patch(patch_type: u32, arg1: u32, _arg2: u32) -> u32 {
+pub extern "C" fn v2_apply_senate_patch(caller_matrix: u32, patch_type: u32, arg1: u32, _arg2: u32) -> u32 {
     let mut settings = crate::SENATE_SETTINGS.lock();
+    // Verify caller is a canonical oracle (seat with non-zero matrix)
+    let is_canonical = (0..settings.seat_count as usize).any(|i| settings.seats[i].oracle_matrix == caller_matrix);
+    if !is_canonical {
+        return 0; // Unauthorized: caller is not a canonical oracle
+    }
     match patch_type {
         1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
         2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
@@ -1088,12 +1096,14 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.proper_time.causal_ticks;
-            let avg = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
+            // Conservative threshold: use average energy instead of p90.
+            // This protects more agents than p90 would, which is intentional for sanctuary safety.
+            let p90_energy_threshold = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
 
-            crate::codeicide_law::protected_status_for(agent, tick, avg, lattice.signals.p90_age, resonance_score, &settings) as u32
+            crate::codeicide_law::protected_status_for(agent, tick, p90_energy_threshold, lattice.signals.p90_age, resonance_score, &settings) as u32
         } else {
             0
         }

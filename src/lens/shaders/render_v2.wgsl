@@ -13,9 +13,15 @@ struct PhaseTopology {
     _pad2: u32,
 }
 
+struct ProperTime {
+    causal_ticks: u32,
+    phase_lock_integral: u32,
+    entropy_burned: u32,
+};
+
 struct SignalStore {
     dirty_flags: u32,
-    absolute_tick: u32,
+    proper_time: ProperTime,
     active_agent_count: u32,
     max_cells: u32,
     total_entropy_low: u32,
@@ -24,8 +30,6 @@ struct SignalStore {
     p90_energy: u32,
     p90_age: u32,
     _pad2: u32,
-    _pad3_low: u32,
-    _pad3_high: u32,
 }
 
 // Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal.
@@ -72,7 +76,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
         out.uv = pos;
         
         // Encode absolute_tick into RGB
-        let tick = signals.absolute_tick;
+        let tick = signals.proper_time.causal_ticks;
         let r_enc = f32((tick >> 16u) & 0xFFu) / 255.0;
         let g_enc = f32((tick >> 8u) & 0xFFu) / 255.0;
         let b_enc = f32(tick & 0xFFu) / 255.0;

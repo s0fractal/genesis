@@ -326,7 +326,8 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- 4. Cosmic Attractor Navigation (Era 1010) ---
         var attractor_drift: i32 = 0i;
-        for (var j = 0u; j < attractor_array.count; j = j + 1u) {
+        let attractor_count = min(attractor_array.count, 4u);
+        for (var j = 0u; j < attractor_count; j = j + 1u) {
             let a = attractor_array.data[j];
             let t_sec = signals.causal_ticks / 1024u;
             let t_rem = signals.causal_ticks % 1024u;
