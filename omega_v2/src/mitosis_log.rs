@@ -1,11 +1,11 @@
-// 🌌 OMEGA-64: Era 1040 Phase 2 — Mitosis Receipt Log
-//
+// Phase 2 — Mitosis Receipt Log
+
 // A static ring buffer that captures every birth event the lattice has
 // performed since boot. Each receipt holds enough information for ANY
 // downstream observer (peer node, ZK guest, RFC archivist) to independently
 // re-derive the child via mitosis_proof::derive_mitosis_child and verify
 // the receipt hash bit-for-bit.
-//
+
 // The log lives in static memory (no_std friendly) and is exposed via FFI
 // as a zero-copy pointer. JS reads it once per tick, packages the entries
 // into DIPOLE plasmids, and broadcasts them across the mesh.

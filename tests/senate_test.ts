@@ -1,4 +1,4 @@
-// Era 1030: Senate JS-side determinism + Era 1030 trigger logic.
+// Senate JS-side determinism + Era 1030 trigger logic.
 import { assertEquals, assert } from "jsr:@std/assert";
 
 // Mirror of the FNV-1a 32-bit hash that lives both in

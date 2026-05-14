@@ -33,7 +33,7 @@ impl<T> Spinlock<T> {
 
     #[cfg(not(target_has_atomic = "8"))]
     pub fn lock(&self) -> SpinlockGuard<'_, T> {
-        // No atomics available (e.g. thumbv6m, riscv32imc). 
+        // No atomics available (e.g. thumbv6m, riscv32imc).
         // Safe because these are single-core embedded targets without threads.
         SpinlockGuard { lock: self }
     }
@@ -52,7 +52,7 @@ pub struct SpinlockGuard<'a, T> {
 
 impl<T> core::ops::Deref for SpinlockGuard<'_, T> {
     type Target = T;
-    
+
     fn deref(&self) -> &T {
         unsafe { &*self.lock.data.get() }
     }

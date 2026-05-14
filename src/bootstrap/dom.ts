@@ -23,8 +23,8 @@ export const DOM = {
     replayTickSlider: document.getElementById("replay-tick") as HTMLInputElement | null,
     replayTickValue: document.getElementById("replay-tick-value") as HTMLSpanElement | null,
     replayCompareSelect: document.getElementById("replay-compare") as HTMLSelectElement | null,
-    
-    // O-58 Homeostasis Guard
+
+    // Homeostasis Guard
     hMarkerEntropy: document.getElementById("h-marker-entropy") as HTMLDivElement | null,
     hMarkerEnergy: document.getElementById("h-marker-energy") as HTMLDivElement | null,
     hEntropyVal: document.getElementById("h-entropy-val") as HTMLSpanElement | null,
@@ -34,7 +34,7 @@ export const DOM = {
     hApexVal: document.getElementById("h-apex-val") as HTMLSpanElement | null,
     hFluxVal: document.getElementById("h-flux-val") as HTMLSpanElement | null,
 
-    // O-59 Persistent State Controls
+    // Persistent State Controls
     btnSaveGenesis: document.getElementById("btn-save-genesis") as HTMLButtonElement | null,
     btnLoadGenesis: document.getElementById("btn-load-genesis") as HTMLButtonElement | null,
     btnConnectWallet: document.getElementById("btn-connect-wallet") as HTMLButtonElement | null,
@@ -71,8 +71,8 @@ export function wireSemanticInput(coupler: any, placeholder: string) {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") dispatchIntent();
   });
-  
-  // ZK-Wallet EVM Integration (Era 12000: Proof of Useful Work)
+
+  // ZK-Wallet EVM Integration
   if (DOM.btnConnectWallet) {
       DOM.btnConnectWallet.addEventListener("click", async () => {
           const ethWindow = globalThis as any;
@@ -127,9 +127,9 @@ export function setInputMode(target: "semantic" | "replay") {
 let lastDomUpdate = 0;
 
 export function updateHomeostasisHUD(
-    entropy: number, 
-    energy: number, 
-    kuramoto: number, 
+    entropy: number,
+    energy: number,
+    kuramoto: number,
     mutation: number,
     toposData?: {name: string, heat: number}[],
     apexData?: {hash: bigint, ast: string, energy: number, velocity: number}[],

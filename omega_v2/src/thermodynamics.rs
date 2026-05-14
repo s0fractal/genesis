@@ -1,5 +1,5 @@
-//! Thermodynamics: Staked Resonance and Entropy Accounting (Era 2095)
-//! 
+//! Thermodynamics: Staked Resonance and Entropy Accounting
+//!
 //! Implements "Skin-in-the-Game" staking for Oracles. Energy is not created;
 //! it is staked, and if consensus diverges, it is slashed into compost (reusable)
 //! and heat/entropy (Landauer burn).

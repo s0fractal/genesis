@@ -17,8 +17,8 @@ export interface NomosProof {
 
 export class NomosGate {
     /**
-     * Era 280: STARK Receipt Verification
-     * In a production environment, this calls into SP1 WASM Verifier bindings 
+     * STARK Receipt Verification
+     * In a production environment, this calls into SP1 WASM Verifier bindings
      * using the hardcoded verification key (vkey) of `omega_zk_guest`.
      */
     static verify_sp1_receipt(proof_bytes: string, public_values: any): NomosZKProof {
@@ -34,7 +34,7 @@ export class NomosGate {
 
         // Mock ZK implementation for architecture scaffolding
         console.warn("[NomosGate] SP1 Verification explicitly mocked for Era 280 scaffolding.");
-        
+
         let valid = false;
         // A real proof is much larger, this simulates rejection of non-ZK packets
         if (proof_bytes && proof_bytes.length >= 32) {
@@ -95,7 +95,7 @@ export class NomosGate {
         }
 
         // Base structural cost
-        gas_used += astStr.length * 2; 
+        gas_used += astStr.length * 2;
 
         if (gas_used > gas_limit) {
             valid = false;
@@ -110,7 +110,7 @@ export class NomosGate {
         for (let i = 0; i < payload.length; i++) {
             const char = payload.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash |= 0; 
+            hash |= 0;
         }
         return "0x" + Math.abs(hash).toString(16).padStart(8, '0');
     }

@@ -1,28 +1,28 @@
-// 🌌 OMEGA-64: Era 1460 — Convergence Driver (anchor-mismatch initiation)
-//
+// Convergence Driver (anchor-mismatch initiation)
+
 // Era 1450's `SporeRunner` records `last_peer_anchor` whenever an
 // `EVENT_HASH_LIST` frame arrives, but it never *acts* on a mismatch.
 // Era 1460 closes that loop with a small driver layer on top of the
 // runner that:
-//
-//   • Maintains a fixed `[PeerEntry; M]` table tracking each peer's
-//     most recent anchor + last-attempt tick.
-//   • On every tick: for each peer where `peer_anchor != local
-//     anchor` AND scheduler-allowed, ship a delta containing the
-//     spore's CURRENT events. The peer's apply path either
-//     idempotent-skips overlap or imports the missing portion;
-//     collision detection still applies.
-//   • Avoids storms via the same per-peer scheduler primitives
-//     Era 1430 ported (`PeerSyncSlot`, `should_sync_now`,
-//     `record_sync_*`).
-//
+
+// • Maintains a fixed `[PeerEntry; M]` table tracking each peer's
+// most recent anchor + last-attempt tick.
+// • On every tick: for each peer where `peer_anchor != local
+// anchor` AND scheduler-allowed, ship a delta containing the
+// spore's CURRENT events. The peer's apply path either
+// idempotent-skips overlap or imports the missing portion;
+// collision detection still applies.
+// • Avoids storms via the same per-peer scheduler primitives
+// Era 1430 ported (`PeerSyncSlot`, `should_sync_now`,
+// `record_sync_*`).
+
 // SIMPLE VERSION (this Era): the spore ships its FULL event set
 // rather than computing a precise set-difference, because that
 // requires the peer's full hash list (a separate request frame —
 // future work). Idempotent skip on the receiver makes this
 // correct, just less bandwidth-efficient. With sink capacities
 // in the dozens, this is acceptable.
-//
+
 // CONVERGENCE GUARANTEE: after each pair-wise exchange (A→B then
 // B→A), both anchors equal the union's anchor. Multi-peer
 // convergence happens via repeated pair-wise exchanges across
@@ -202,9 +202,9 @@ impl<const M: usize> ConvergenceDriver<M> {
     }
 }
 
-// --------------------------------------------------------------- //
-// AUTO-PIPELINE (Era 1490)                                        //
-// --------------------------------------------------------------- //
+
+// AUTO-PIPELINE
+
 
 /// Encapsulated state for the bandwidth-efficient HASH_REQUEST →
 /// HASH_RESPONSE → DIFF_SHIP dance. Wraps `ConvergenceDriver` with
@@ -244,13 +244,13 @@ impl<const M: usize> AutoPipeline<M> {
     }
 
     /// One pipeline tick. Order:
-    ///   1. Drain any completed peer hash list from the runner;
-    ///      if it matches our pending request_id, compute diff
-    ///      + ship missing entries.
-    ///   2. Time-out a stale pending request (driver records
-    ///      failure for that peer's slot).
-    ///   3. If no request is pending, pick the next target via
-    ///      `select_targets` and ship a HASH_REQUEST.
+    /// 1. Drain any completed peer hash list from the runner;
+    /// if it matches our pending request_id, compute diff
+    /// + ship missing entries.
+    /// 2. Time-out a stale pending request (driver records
+    /// failure for that peer's slot).
+    /// 3. If no request is pending, pick the next target via
+    /// `select_targets` and ship a HASH_REQUEST.
     pub fn step<D: WireDriver, const N: usize, const C: usize>(
         &mut self,
         runner: &mut SporeRunner<N, C>,
@@ -258,7 +258,7 @@ impl<const M: usize> AutoPipeline<M> {
         local_entries: &[ForensicEvent],
         now_ms: u32,
     ) {
-        // Phase 1: completed hash-list response?
+        // Step 1: completed hash-list response?
         if let Some(peer_hashes) = runner.take_peer_hashes() {
             if peer_hashes.request_id == self.pending_request_id
                 && self.pending_request_id != 0
@@ -297,7 +297,7 @@ impl<const M: usize> AutoPipeline<M> {
             }
         }
 
-        // Phase 2: timeout stale request.
+        // Step 2: timeout stale request.
         if self.pending_request_id != 0
             && now_ms.saturating_sub(self.pending_request_started_ms)
                 >= self.request_timeout_ms
@@ -305,7 +305,7 @@ impl<const M: usize> AutoPipeline<M> {
             self.fail_request(now_ms);
         }
 
-        // Phase 3: idle — pick next target and issue REQUEST.
+        // Step 3: idle — pick next target and issue REQUEST.
         if self.pending_request_id == 0 {
             let mut peers = [0u32; 1];
             let n = self.driver.select_targets(runner.anchor(), now_ms, &mut peers);
@@ -525,7 +525,7 @@ mod tests {
         assert_eq!(DRIVER_SCHEMA, "OMEGA-1460/v1");
     }
 
-    // --- Era 1490: AutoPipeline tests ---
+    // --- AutoPipeline tests ---
 
     /// Simple paired driver pattern reused from spore_runner tests.
     struct PD {
@@ -596,19 +596,19 @@ mod tests {
             mk_event(0x20, b"alrm"),
         ];
 
-        // Phase 1: A's pipeline issues HASH_REQUEST to B.
+        // Step 1: A's pipeline issues HASH_REQUEST to B.
         pipeline.step(&mut a, &mut da, &local, 100);
         assert!(pipeline.has_pending_request());
         da.deliver(&mut db);
 
-        // Phase 2: B receives REQUEST → answers automatically on its
+        // Step 2: B receives REQUEST → answers automatically on its
         // own step (simulating B's runner with no pipeline).
         b.step(&mut db, 200);
         assert_eq!(b.pending_hash_request_id, pipeline.pending_request_id);
         b.maybe_answer_pending_request(&mut db);
         db.deliver(&mut da);
 
-        // Phase 3: A's runner ingests the RESPONSE; pipeline picks it
+        // Step 3: A's runner ingests the RESPONSE; pipeline picks it
         // up on next step → computes diff → ships only 0x20.
         a.step(&mut da, 300);
         pipeline.step(&mut a, &mut da, &local, 400);

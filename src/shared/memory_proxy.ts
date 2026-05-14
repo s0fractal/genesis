@@ -42,7 +42,7 @@ export class WasmMemoryProxy {
         return arr;
     }
 
-    // Era 247: Safe Atomic Reader
+    // Safe Atomic Reader
     public atomicLoadU32(offsetBytes: number): number {
         const arr = this.getU32Array();
         return Atomics.load(arr, Math.floor(offsetBytes / 4));

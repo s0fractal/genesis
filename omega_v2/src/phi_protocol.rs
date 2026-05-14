@@ -32,11 +32,11 @@ pub struct PhiMessage {
     /// Енергія ρ повідомлення (вага при роутингу)
     pub energy: u32,
     /// Payload — інтерпретація залежить від msg_type:
-    ///   HEARTBEAT: absolute_tick (u32) | trace_hash (u32)
-    ///   COMPOST:   agent_id (u64)
-    ///   INTENT:    intent_id (u32) | op_mode (u32)
-    ///   DELTA:     delta_count (u32) | reserved (u32)
-    ///   GOVERNANCE:verdict (u32) | anchor (u32)
+    /// HEARTBEAT: absolute_tick (u32) | trace_hash (u32)
+    /// COMPOST:   agent_id (u64)
+    /// INTENT:    intent_id (u32) | op_mode (u32)
+    /// DELTA:     delta_count (u32) | reserved (u32)
+    /// GOVERNANCE:verdict (u32) | anchor (u32)
     pub payload: u64,
 }
 

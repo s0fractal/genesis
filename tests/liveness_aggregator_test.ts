@@ -1,4 +1,4 @@
-// Era 1120: LivenessAggregator behavioural tests.
+// LivenessAggregator behavioural tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import { LivenessAggregator } from "../src/network/liveness_aggregator.ts";
 import { GENESIS_HASH_LEGACY_V1_0 } from "../src/network/genesis_inscription.ts";

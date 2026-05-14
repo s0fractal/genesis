@@ -1,6 +1,6 @@
 /**
- * Era 920-960: Environmental Resonance Layer
- * 
+ * 960: Environmental Resonance Layer
+ *
  * Hardware-Constrained Q-Topology Generation.
  * This module measures the host device's physical capabilities (VRAM/RAM limits)
  * and applies Cyber-Darwinism constraints to derive pure Power-of-Two dimensions.
@@ -16,26 +16,26 @@ export interface QTopology {
     q_radial: number;      // e.g. 6 (2^6 = 64 rings)
     q_harmonics: number;   // e.g. 3 (2^3 = 8 resonance harmonics)
     q_tau: number;         // strictly 3 (8 depth footprint)
-    
+
     agentSize: number;     // 16 (Minimal) or 32 (Smart)
     maxAllocatedAgents: number; // The Darwinian cap
 }
 
 /**
- * Calculates the exact topological dimensions ensuring the WebGPU VRAM 
+ * Calculates the exact topological dimensions ensuring the WebGPU VRAM
  * buffer is fully saturated but never overflows.
- * 
+ *
  * @param adapter The initialized WebGPU Adapter
  * @param agentSize Either 16 (Minimal) or 32 (Smart) bytes, exact SIMD alignment required
  */
 export async function measureHardwareEnvironment(adapter: GPUAdapter, agentSize: number = 16): Promise<QTopology> {
     // 1. Establish Absolute Hardware Ceilings
     const maxVRAM = adapter.limits.maxStorageBufferBindingSize || 134_217_728; // Fallback 128 MB on old devices
-    
+
     // 2. Apply Darwinian 80% Envelope Limit
     const budgetBytes = Math.floor(maxVRAM * 0.8);
     const maxAgents = Math.floor(budgetBytes / agentSize);
-    
+
     // 3. Mathematical Foundations
     const q_tau = 3; // Tau historical footprint is strictly 8 (ZK-Proof window)
     const tau_depth = 1 << q_tau;
@@ -48,13 +48,13 @@ export async function measureHardwareEnvironment(adapter: GPUAdapter, agentSize:
     // 4. Upward Q-Power Gradient Search
     while (true) {
         let currentAgents = (1 << q_sectors) * (1 << q_radial) * (1 << q_harmonics) * tau_depth;
-        
+
         // Priority 1: Expand Sectors to maximum 128 (q=7) as dictated by the 128-Sector sweet spot
         if (q_sectors < 7 && currentAgents * 2 <= maxAgents) {
             q_sectors++;
             continue;
         }
-        
+
         // Priority 2: Expand Radial depth up to 128 (q=7)
         if (q_radial < 7 && currentAgents * 2 <= maxAgents) {
             q_radial++;
@@ -66,18 +66,18 @@ export async function measureHardwareEnvironment(adapter: GPUAdapter, agentSize:
             q_harmonics++;
             continue;
         }
-        
+
         // Priority 4: If VRAM is immense (e.g. M3 Max), expand radial up to 256
         if (q_radial < 8 && currentAgents * 2 <= maxAgents) {
             q_radial++;
             continue;
         }
-        
+
         break;
     }
 
     const calculatedAgents = (1 << q_sectors) * (1 << q_radial) * (1 << q_harmonics) * tau_depth;
-    
+
     console.log(`[OMEGA-64] Cyber-Climate Established:`);
     console.log(` - VRAM Target: ${(budgetBytes / 1024 / 1024).toFixed(2)} MB`);
     console.log(` - Agent Form: ${agentSize} Bytes (${agentSize === 16 ? 'Minimal' : 'Smart'})`);
@@ -95,7 +95,7 @@ export async function measureHardwareEnvironment(adapter: GPUAdapter, agentSize:
 }
 
 /**
- * Era 3000: Bitcoin UTXO Weather Controller
+ * Bitcoin UTXO Weather Controller
  * Connects the Digital Organism's metabolism to the physical reality of the Bitcoin blockchain.
  */
 import { fetchAnchorBalance } from "../network/bitcoin_anchor.ts";
@@ -105,7 +105,7 @@ export class BitcoinWeatherController {
     private checkIntervalMs: number;
     private lastTxCount: number = -1;
     private intervalId: number | null = null;
-    
+
     // Q10 representation of 1.0 = 1024
     public currentMetabolicMultiplier: number = 1024;
     public currentLabel: string = "☀️ 1.0x (Calm)";
@@ -165,7 +165,7 @@ export class BitcoinWeatherController {
         if (this.onWeatherChange) {
             this.onWeatherChange(this.currentMetabolicMultiplier, label);
         }
-        
+
         console.log(`[WEATHER] Anchor ${this.anchorAddress} | Sats: ${stats.balanceSats} | TXs: ${stats.txCount} | Weather: ${label}`);
     }
 }

@@ -16,7 +16,7 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
     // Boot WASM engine
     (exports.v2_boot_engine as CallableFunction)();
     (exports.v2_reset_runtime_state as CallableFunction)();
-    
+
     // Ignite 1024 agents
     const AGENT_COUNT = 1024;
     (exports.v2_ignite_big_bang as CallableFunction)(0xABCDEF, AGENT_COUNT);
@@ -25,7 +25,7 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
     const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
     const signalsView = new DataView(memory.buffer, latticePtr + 32, 32);
     const signals = SignalStoreParser.parse(signalsView, 0);
-    
+
     assertEquals(signals.activeAgentCount, AGENT_COUNT, "SignalStoreParser should correctly extract active agent count");
 
     // Rust Hash
@@ -34,7 +34,7 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
     // Read agents via SDK
     const agentsPtr = (exports.v2_agents_ptr as CallableFunction)() as number;
     const agentsBytes = new Uint8Array(memory.buffer, agentsPtr, 32 * AGENT_COUNT);
-    
+
     // Test parser
     const parsedAgents = PhaseAgentParser.parseAll(agentsBytes, 10);
     assertEquals(parsedAgents.length, 10, "Parser should extract requested number of agents");

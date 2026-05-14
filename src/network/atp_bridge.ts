@@ -74,11 +74,11 @@ export class MockATPBridge implements IATPBridge {
         if (current < amount) {
             throw new Error(`[ATP Bridge] Insufficient ATP balance for wallet ${wallet}. Needed: ${amount}`);
         }
-        
+
         this.balances.set(wallet, current - amount);
         const txHash = `0xburn_${Date.now()}_${morphologyHash.substring(0, 8)}`;
         this.validBurns.add(txHash);
-        
+
         console.log(`[ATP Bridge] Burned ${amount} ATP from ${wallet}. TX: ${txHash}`);
 
         return { txHash, atpAmount: amount, confirmed: true };
@@ -105,7 +105,7 @@ export class MockATPBridge implements IATPBridge {
     }
 }
 
-// Era 410: The authoritative On-Chain Bridge connecting the OMEGA-64 Mesh to the EVM Network
+// The authoritative On-Chain Bridge connecting the OMEGA-64 Mesh to the EVM Network
 const ATP_TOKEN_ADDRESS = "0x8A9E3cFE348eCc835bA8a49c6d3E3Ff55734A0a3"; // Base Sepolia Active Mock
 const ATP_ABI = [
     "function mint(address to, uint256 amount)",
@@ -130,7 +130,7 @@ export class EthersATPBridge implements IATPBridge {
 
     async mintATP(_proofBytes: string, _morphologyHash: string, walletAddress: string): Promise<ATPTransactionReceipt> {
         if (!this.wallet) throw new Error("Wallet not configured for EthersATPBridge");
-        
+
         // Era 410 Note: In reality, you don't call mint directly; you call the SP1 Verifier which calls mint.
         // We simulate the blockchain transaction wrapping here.
         try {
@@ -172,7 +172,7 @@ export class EthersATPBridge implements IATPBridge {
         try {
             const receipt = await this.provider.getTransactionReceipt(txHash);
             // receipt.status === 1 means success in the Ethereum EVM standard
-            return receipt !== null && receipt.status === 1; 
+            return receipt !== null && receipt.status === 1;
         } catch (_e) {
             return false;
         }
@@ -183,22 +183,22 @@ export class EthersATPBridge implements IATPBridge {
             try {
                 const block = await this.provider.getBlock(blockNumber);
                 if (!block || !block.hash) return;
-                
+
                 // Deterministic conversion of block hash to Q10 physics constants
                 const hex1 = block.hash.substring(HASH_SLICE_1_START, HASH_SLICE_1_END);
                 const hex2 = block.hash.substring(HASH_SLICE_2_START, HASH_SLICE_2_END);
-                
+
                 const val1 = parseInt(hex1, 16);
                 const val2 = parseInt(hex2, 16);
-                
+
                 // KURAMOTO_BASE (Q10 fixed-point, range [KURAMOTO_BASE_MIN, KURAMOTO_BASE_MIN + KURAMOTO_BASE_RANGE))
                 const kuramoto_base = KURAMOTO_BASE_MIN + (val1 % KURAMOTO_BASE_RANGE);
-                
+
                 // KURAMOTO_DIFFUSION (Q10 fixed-point, range [KURAMOTO_DIFF_MIN, KURAMOTO_DIFF_MIN + KURAMOTO_DIFF_RANGE))
                 const kuramoto_diffusion_rate = KURAMOTO_DIFF_MIN + (val2 % KURAMOTO_DIFF_RANGE);
-                
+
                 console.log(`[Cosmic Entropy] New Block ${blockNumber} | Hash: ${block.hash.substring(0, 10)}... | Base: ${kuramoto_base}, Diff: ${kuramoto_diffusion_rate}`);
-                
+
                 callback({ kuramoto_base, kuramoto_diffusion_rate, hash: block.hash });
             } catch (e) {
                 console.error("[Cosmic Entropy] Failed to fetch block hash", e);

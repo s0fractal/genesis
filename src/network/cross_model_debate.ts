@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1070 — Cross-Model Debate (JS layer)
-//
+// Cross-Model Debate (JS layer)
+
 // Pure-TS API to record cross-model debate arguments. The kernel
 // fingerprints the reasoning text (FNV-1a 32-bit) but stores it
 // off-chain; JS keeps the full text in a parallel map keyed by the

@@ -130,9 +130,9 @@ export class OrbitCamera {
         const eyeZ = this.targetZ + this.distance * cp * cy;
 
         // Construct View Matrix (LookAt)
-        mat4LookAt(this._viewMatrix, 
-            eyeX, eyeY, eyeZ, 
-            this.targetX, this.targetY, this.targetZ, 
+        mat4LookAt(this._viewMatrix,
+            eyeX, eyeY, eyeZ,
+            this.targetX, this.targetY, this.targetZ,
             0, 1, 0 // Up vector
         );
 
@@ -142,7 +142,7 @@ export class OrbitCamera {
     }
 }
 
-// Era 267: Spatial Indexing & Frustum
+// Spatial Indexing & Frustum
 export class Frustum {
     public planes: Float32Array[] = [];
 
@@ -227,15 +227,15 @@ export class TorusQuadNode {
         // Calculate 3D sphere bounds for this Torus quad
         const midSector = (minSector + maxSector) / 2;
         const midRho = (minRho + maxRho) / 2;
-        
+
         const angle = (midSector / totalSectors) * Math.PI * 2;
         const radius_t = (midRho + 1) / (totalRho + 1);
         const major_radius = 2.8 * radius_t;
-        
+
         this.boundsX = Math.cos(angle) * major_radius;
         this.boundsY = Math.sin(angle) * major_radius;
         this.boundsZ = 0.0; // Torus depth center
-        
+
         // Approximate spanning radius
         const spanSectors = ((maxSector - minSector) / totalSectors) * Math.PI * 2 * major_radius;
         const spanRho = ((maxRho - minRho) / totalRho) * 2.8;
@@ -247,12 +247,12 @@ export class TorusQuadNode {
         this.leaf = false;
         const midS = Math.floor((this.minSector + this.maxSector) / 2);
         const midR = Math.floor((this.minRho + this.maxRho) / 2);
-        
+
         this.children.push(new TorusQuadNode(this.minSector, midS, this.minRho, midR, totalSectors, totalRho));
         this.children.push(new TorusQuadNode(midS, this.maxSector, this.minRho, midR, totalSectors, totalRho));
         this.children.push(new TorusQuadNode(this.minSector, midS, midR, this.maxRho, totalSectors, totalRho));
         this.children.push(new TorusQuadNode(midS, this.maxSector, midR, this.maxRho, totalSectors, totalRho));
-        
+
         for(const child of this.children) child.subdivide(totalSectors, totalRho);
     }
 }
@@ -261,14 +261,14 @@ export class TorusQuadtree {
     public root: TorusQuadNode;
     public totalSectors: number;
     public totalRho: number;
-    
+
     constructor(sectors: number, radial_bins: number) {
         this.totalSectors = sectors;
         this.totalRho = radial_bins;
         this.root = new TorusQuadNode(0, sectors, 0, radial_bins, sectors, radial_bins);
         this.root.subdivide(sectors, radial_bins);
     }
-    
+
     public getVisibleLeaves(frustum: Frustum): TorusQuadNode[] {
         const visible: TorusQuadNode[] = [];
         const traverse = (node: TorusQuadNode) => {

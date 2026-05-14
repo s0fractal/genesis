@@ -1,4 +1,4 @@
-// Era 0204: Multi-tick WGSL Automated Test Harness
+// Multi-tick WGSL Automated Test Harness
 // Verifies that compute_toroidal.wgsl produces bit-for-bit identical
 // output to Rust tick_physics() across multiple ticks, topologies, and attractors.
 
@@ -162,7 +162,7 @@ if (gpuAvailable) {
 
                 for (let i = 0; i < conf.ticks; i++) {
                     const sigDataBefore = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
-                    
+
                     // 1. Sync uniforms BEFORE CPU modifies them!
                     // Note: Since ProperTime is advanced at the end of the CPU tick, we don't need to predict it.
                     // WGSL and CPU both use the current proper_time.
@@ -178,7 +178,7 @@ if (gpuAvailable) {
                         const a0 = new DataView(agentBytes.buffer, agentBytes.byteOffset, 32);
                         console.log(`[TICK4 INPUT] Agent 0: phase=${a0.getUint32(0,true)} energy=${a0.getUint32(4,true)} mem=[${a0.getUint32(20,true)},${a0.getUint32(24,true)},${a0.getUint32(28,true)}]`);
                     }
-                    
+
                     // 2. CPU Tick
                     (exports.v2_tick as CallableFunction)();
 
@@ -190,7 +190,7 @@ if (gpuAvailable) {
                     pass.setBindGroup(0, i % 2 === 0 ? bindGroupA : bindGroupB);
                     pass.dispatchWorkgroups(Math.ceil(AGENT_COUNT / 64));
                     pass.end();
-                    
+
                     const outBuf = i % 2 === 0 ? agentsOutBuf : agentsInBuf;
                     encoder.copyBufferToBuffer(outBuf, 0, stagingBuf, 0, gpuAgentBytes.byteLength);
                     device.queue.submit([encoder.finish()]);
@@ -204,7 +204,7 @@ if (gpuAvailable) {
                     await stagingBuf.mapAsync(GPUMapMode.READ);
                     const gpuTickOut = new Uint8Array(stagingBuf.getMappedRange());
                     const cpuTickOut = new Uint8Array(agentBytes);
-                    
+
                     let firstMismatch = -1;
                     for (let j = 0; j < gpuTickOut.length; j++) {
                         if (gpuTickOut[j] !== cpuTickOut[j]) {
@@ -212,11 +212,11 @@ if (gpuAvailable) {
                             break;
                         }
                     }
-                    
+
                     if (firstMismatch !== -1) {
                         const agentIdx = Math.floor(firstMismatch / 32);
                         const fieldOffset = firstMismatch % 32;
-                        
+
                         // Count total mismatching agents
                         let mismatchCount = 0;
                         for (let j = 0; j < gpuTickOut.length; j += 32) {
@@ -224,14 +224,14 @@ if (gpuAvailable) {
                                 if (gpuTickOut[j+k] !== cpuTickOut[j+k]) { mismatchCount++; break; }
                             }
                         }
-                        
+
                         const cpuA = new DataView(cpuTickOut.buffer, cpuTickOut.byteOffset + agentIdx * 32, 32);
                         const gpuA = new DataView(gpuTickOut.buffer, gpuTickOut.byteOffset + agentIdx * 32, 32);
                         const sigData = new DataView(uniformBytes.buffer, uniformBytes.byteOffset + 32, 48);
                         console.log(`[DEBUG] abs_tick=${sigData.getUint32(4, true)} active=${sigData.getUint32(8, true)} mismatching_agents=${mismatchCount}`);
                         console.log(`[MISMATCH] Tick ${i+1}: CPU Agent ${agentIdx}: phase=${cpuA.getUint32(0,true)} energy=${cpuA.getUint32(4,true)} mem=[${cpuA.getUint32(20,true)}, ${cpuA.getUint32(24,true)}, ${cpuA.getUint32(28,true)}]`);
                         console.log(`[MISMATCH] Tick ${i+1}: GPU Agent ${agentIdx}: phase=${gpuA.getUint32(0,true)} energy=${gpuA.getUint32(4,true)} mem=[${gpuA.getUint32(20,true)}, ${gpuA.getUint32(24,true)}, ${gpuA.getUint32(28,true)}]`);
-                        
+
                         // Sample a few more mismatching agents to see if delta is consistent
                         let sampleCount = 0;
                         for (let j = 32; j < gpuTickOut.length && sampleCount < 4; j += 32) {
@@ -251,7 +251,7 @@ if (gpuAvailable) {
                         console.log(`[WGSL DEBUG] attractor_drift=${gpuA.getInt32(20, true)} weight_left_packed=${gpuA.getUint32(24,true)} weight_right=${gpuA.getUint32(28,true)}`);
                         throw new Error(`WGSL drift detected at tick ${i+1}, byte ${firstMismatch} (agent ${agentIdx}, field offset ${fieldOffset})`);
                     }
-                    
+
                     stagingBuf.unmap();
                 }
 

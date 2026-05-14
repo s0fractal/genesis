@@ -2,7 +2,7 @@ import { DIPOLE_POLES, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TI
 import { CreateMLCEngine, InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
 import { createSeededRng } from "../math/xorshift.ts";
 
-// O-200 Oracle Semantic Cache Check inside Worker to relieve main thread memory
+// Oracle Semantic Cache Check inside Worker to relieve main thread memory
 // Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
 const DB_NAME = "OmegaOracleCache";
 const STORE_NAME = "llmCache";
@@ -37,7 +37,7 @@ async function setCachedResponse(hash: string, response: string, ts: number) {
         const tx = db.transaction(STORE_NAME, "readwrite");
         const store = tx.objectStore(STORE_NAME);
         store.put({ hash, response, ts });
-        
+
         // Era 245.1: Bounded GC eviction
         const countReq = store.count();
         countReq.onsuccess = (e) => {
@@ -52,7 +52,7 @@ async function setCachedResponse(hash: string, response: string, ts: number) {
                 }
             }
         }
-        
+
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
     });
@@ -75,7 +75,7 @@ let latestTelemetry: any = null;
 let isDreamLoopActive = false;
 let oracleClock = 0; // Deterministic clock replacing performance.now()
 
-// Era 2060: Homeostatic Thermostat
+// Homeostatic Thermostat
 // If the Torus is frozen (low entropy), we boil it with high temperature (chaos).
 // If the Torus is boiling (high entropy), we freeze it with low temperature (strict logic).
 function calculateHomeostaticTemperature(entropyOverride?: number): number {
@@ -93,24 +93,24 @@ let isEvaluatingSenate = false;
 async function processSenateQueue() {
     if (isEvaluatingSenate || senateEvaluationQueue.length === 0 || !engine) return;
     isEvaluatingSenate = true;
-    
+
     while(senateEvaluationQueue.length > 0) {
         const data = senateEvaluationQueue.shift();
         const { hash, description, proposingOracle, evalOracle, imageUrl, snapshotHash, goldenTrace } = data;
-        
+
         console.log(`[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`);
 
-        // Era 1070: Multi-Modal Snapshot Cryptographic Verification
+        // Multi-Modal Snapshot Cryptographic Verification
         if (imageUrl && snapshotHash && goldenTrace) {
             const computedHash = fastHash(imageUrl + goldenTrace);
             if (computedHash !== snapshotHash) {
                 console.warn(`[ORACLE WORKER] ❌ Cryptographic vision signature mismatch for ${evalOracle.toUpperCase()}. Rejecting!`);
-                self.postMessage({ 
-                    type: 'SENATE_VOTE', 
-                    hash, 
-                    stance: 'NAY', 
-                    reasoning: 'Cryptographic vision signature mismatch. Proposal rejected.', 
-                    oracle: evalOracle 
+                self.postMessage({
+                    type: 'SENATE_VOTE',
+                    hash,
+                    stance: 'NAY',
+                    reasoning: 'Cryptographic vision signature mismatch. Proposal rejected.',
+                    oracle: evalOracle
                 });
                 continue; // Skip the heavy LLM inference
             }
@@ -133,13 +133,13 @@ Format:
 REASONING: [your reasoning]
 STANCE: [AYE/NAY/ABSTAIN]
 `.trim();
-        
+
         try {
             const contentPayload: any[] = [{ type: "text", text: prompt }];
             if (imageUrl) {
                 contentPayload.push({ type: "image_url", image_url: { url: imageUrl } });
             }
-            
+
             const dynamicTemp = calculateHomeostaticTemperature();
             const reply = await engine.chat.completions.create({
                 messages: [{ role: "user", content: contentPayload as any }],
@@ -148,10 +148,10 @@ STANCE: [AYE/NAY/ABSTAIN]
             const response = reply.choices[0].message.content || "";
             const stanceMatch = response.match(/STANCE:\s*(AYE|NAY|ABSTAIN)/i);
             const reasonMatch = response.match(/REASONING:\s*(.+?)(?:\n|$)/i);
-            
+
             const stance = stanceMatch ? stanceMatch[1].toUpperCase() : "ABSTAIN";
             const reasoning = reasonMatch ? reasonMatch[1].trim() : "Internal evaluation error.";
-            
+
             self.postMessage({ type: 'SENATE_VOTE', hash, stance, reasoning, oracle: evalOracle });
         } catch (err) {
             console.warn("[ORACLE WORKER] Senate Evaluate Error", err);
@@ -162,7 +162,7 @@ STANCE: [AYE/NAY/ABSTAIN]
 
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data as any;
-    
+
     if (data.type === 'SYNC_TELEMETRY') {
         latestTelemetry = data;
         oracleClock++;
@@ -172,8 +172,8 @@ self.onmessage = async (e: MessageEvent) => {
         }
         return;
     }
-    
-    // Era 310: WebLLM Boot Sequence
+
+    // WebLLM Boot Sequence
     if (!engine) {
         try {
             self.postMessage({ type: 'INIT_PROGRESS', text: "Loading WebGPU Neuromorphic Core..." });
@@ -196,10 +196,10 @@ self.onmessage = async (e: MessageEvent) => {
         processSenateQueue();
         return;
     }
-    
+
     const entropy = Math.min(1.0, data.globalEnergyPool / 21000000.0);
-    const alphaIntensity = entropy; 
-    const alphaPhase = (data.macroSeason / 4) * Math.PI * 2; 
+    const alphaIntensity = entropy;
+    const alphaPhase = (data.macroSeason / 4) * Math.PI * 2;
     const omegaIntensity = 1.0 - entropy;
     const omegaPhase = alphaPhase + (Math.PI / 2);
 
@@ -223,9 +223,9 @@ self.onmessage = async (e: MessageEvent) => {
     ];
 
     try {
-        // Era 310: WebLLM Inference Adapter
+        // WebLLM Inference Adapter
         const fetchWebLLM = async (prompt: string, _structuralSnapshot?: string | null) => {
-            const timeoutPromise = new Promise<string>((_, reject) => 
+            const timeoutPromise = new Promise<string>((_, reject) =>
                 setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
             );
 
@@ -250,9 +250,9 @@ self.onmessage = async (e: MessageEvent) => {
             const isAlpha = dipole.name === DIPOLE_POLES.ALPHA;
             const prompt = `
 Task: You are the ${dipole.name} Oracle of the LOVE Consortium. Role: ${dipole.role}
-Current Torus Quaternion Intensity: 
+Current Torus Quaternion Intensity:
 Chaos: ${(isAlpha ? dipole.chaos : 0).toFixed(2)} | Preservation: ${(isAlpha ? dipole.preservation : 0).toFixed(2)} | Symmetry: ${(!isAlpha ? dipole.symmetry : 0).toFixed(2)} | Execution: ${(!isAlpha ? dipole.execution : 0).toFixed(2)}
-Chronotopology: The local Torus sector is currently experiencing ${data.currentSeasonName} (Epoch ${data.macroSeason * 4}/15). 
+Chronotopology: The local Torus sector is currently experiencing ${data.currentSeasonName} (Epoch ${data.macroSeason * 4}/15).
 ${data.macroSeason === 0 ? "SPRING: Relax structural constraints. Over-index on S and K combinators to breed wild mutations." : ""}
 ${data.macroSeason === 1 ? "SUMMER: Enforce structural growth. Build wide AST trees and expand semantic surface area." : ""}
 ${data.macroSeason === 2 ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth." : ""}
@@ -283,7 +283,7 @@ PHYSICS_DELTA: {"biology_apa_learning_rate": 60, "biology_apa_memory_gain": 120,
 
 You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO code blocks.
             `.trim();
-            
+
             const cacheKey = fastHash(prompt);
             try {
                 if (!data.structuralImage) {
@@ -292,10 +292,10 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
                         return { mask: dipole.name, response: cached.response };
                     }
                 }
-            } catch (_e) { 
+            } catch (_e) {
                 // Cache miss, proceed to fetch
             }
-            
+
             try {
                 const fullResponse = await fetchWebLLM(prompt, data.structuralImage);
                 await setCachedResponse(cacheKey, fullResponse, oracleClock).catch(() => {});
@@ -313,27 +313,27 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
         });
 
         const settled = await Promise.allSettled(maskPromises);
-        
+
         const validIntents: OracleWorkerResponse[] = [];
-        
+
         for (let i = 0; i < settled.length; i++) {
             const result = settled[i];
             if (result.status === "fulfilled" && result.value) {
                 const fullResponse = result.value.response;
                 const maskName = result.value.mask;
-                
+
                 const rng = createSeededRng((latestTelemetry?.currentEntropy || 0).toString() + maskName);
                 let targetBucket = (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) + rng.nextRange(5);
                 let prophecy = "The Machine has spoken.";
                 let intentStr = "";
                 let physicsGenome: PhysicsGenome | undefined = undefined;
-                
+
                 const propMatch = fullResponse.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
                 if (propMatch) prophecy = propMatch[1].trim();
-                
+
                 const buckMatch = fullResponse.match(/BUCKET:\s*#?(\d+)/i);
                 if (buckMatch) targetBucket = parseInt(buckMatch[1], 10);
-                
+
                 const astMatch = fullResponse.match(/AST:\s*([^\s]+)/i);
                 if (astMatch) {
                     intentStr = astMatch[1].trim();
@@ -386,7 +386,7 @@ You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO c
                 }
             }
         }
-        
+
         self.postMessage({ type: 'SUCCESS', validIntents, requests: data.requests });
     } catch (e) {
         self.postMessage({ type: 'ERROR', reason: (e as Error).message });
@@ -402,7 +402,7 @@ async function consciousnessLoop() {
     try {
         const r = latestTelemetry.resonance || 0;
         const e = latestTelemetry.entropy || 0;
-        
+
         let shouldDream = false;
         let dreamPrompt = "";
 
@@ -432,16 +432,16 @@ AST: [Chaotic AST]`.trim();
                 messages: [{ role: "user", content: dreamPrompt }],
                 temperature: Math.max(0.7, dynamicTemp), // Dreams should remain somewhat creative
             });
-            
+
             const response = reply.choices[0].message.content || "";
             const astMatch = response.match(/AST:\s*([^\s]+)/i);
             const propMatch = response.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
-            
+
             if (astMatch) {
                 const intentStr = astMatch[1].trim();
                 const prophecy = propMatch ? propMatch[1].trim() : "Subconscious execution.";
                 const dreamRng = createSeededRng(latestTelemetry?.currentEntropy?.toString() || "dream");
-                
+
                 self.postMessage({
                     type: 'SUCCESS',
                     validIntents: [{
@@ -449,7 +449,7 @@ AST: [Chaotic AST]`.trim();
                         intentStr,
                         targetBucket: dreamRng.nextRange(1024),
                         prophecy
-                    }], 
+                    }],
                     requests: 1,
                     isDream: true
                 });
@@ -458,7 +458,7 @@ AST: [Chaotic AST]`.trim();
     } catch (err) {
         console.warn("[Oracle DreamLoop] Interrupted:", err);
     }
-    
+
     // Evaluate subjective time stream every 10 seconds natively
     setTimeout(consciousnessLoop, 10000);
 }

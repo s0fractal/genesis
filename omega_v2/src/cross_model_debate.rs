@@ -1,14 +1,14 @@
-// 🌌 OMEGA-64: Era 1070 — Cross-Model Debate Ledger
-//
-// When the Multi-Oracle Senate (Era 1060) is convened, the natural next
+// Cross-Model Debate Ledger
+
+// When the Multi-Oracle Senate  is convened, the natural next
 // question is: how do oracles argue WITH each other before they vote?
-//
+
 // This module introduces a DebateRound — a public, append-only ledger
 // of (oracle, proposal_hash, stance, reasoning_hash, tick) entries.
 // Each oracle can record up to MAX_DEBATE_ENTRIES_PER_ORACLE statements
 // per proposal; the reasoning text itself lives in JS / on the wire,
 // while the kernel only fingerprints it (FNV-1a) for tamper detection.
-//
+
 // The acceptance rule remains the Era 1060 phase-resonance threshold —
 // debate doesn't change votes mechanically, but it makes the *reasoning*
 // behind cross-model alignment cryptographically auditable.

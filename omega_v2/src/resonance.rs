@@ -57,7 +57,6 @@ impl ResonanceField {
 
     /// Kuramoto order parameter r ∈ [0, 1] returned as Q10 (0..1024).
     /// r = |Σ ρ_i·e^(iφ_i)| / Σ ρ_i
-    ///
     /// # Invariants
     /// - Returns 0 if no living agents (total_energy == 0).
     /// - Returns 1024 if all agents are perfectly synchronized.

@@ -1,5 +1,5 @@
 //! Variable Agent Structure
-//! 
+//!
 //! OMEGA-64 dynamically saturates hardware using these Memory-Aligned structures.
 //! Minimum unit is 16 bytes for perfect GPU `vec4<u32>` alignment.
 
@@ -8,22 +8,22 @@
 pub struct PhaseAgentMinimal {
     /// High-precision Q20 or continuous integer mapping of the 0..255 phase.
     pub phase: u32,
-    
+
     /// ATP Energy limit constraints
     pub energy: u32,
-    
+
     /// Fundamental oscillator frequency `omega_i` (signed Q20)
     pub base_freq: i32,
-    
+
     /// Bitmask for status: [1: is_locked] [7: species] [24: reserved custom traits]
     pub state_flags: u32,
 
-    // ---- Neural Phase Extensions (Era 2000) ----
+    // ---- Neural Phase Extensions  ----
     /// Cellular Automata state vector or Species Genome
-    pub genome: u32,      
-    
+    pub genome: u32,
+
     /// 3-Dimensional payload for Gradient memory natively mapped avoiding WGSL padding faults
-    pub memory: [u32; 3], 
+    pub memory: [u32; 3],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,11 +38,11 @@ pub struct Phenotype {
     pub radiance: u8,
 }
 
-/// Era 2090: Tissue Crystallization marker
+/// Tissue Crystallization marker
 pub const FLAG_TISSUE_LOCKED: u32 = 0x0800_0000;
 
 impl PhaseAgentMinimal {
-    /// Decodes the 32-bit genome into 4 distinct phenotypic traits (Era 0215)
+    /// Decodes the 32-bit genome into 4 distinct phenotypic traits
     pub fn decode_phenotype(&self) -> Phenotype {
         Phenotype {
             metabolic_efficiency: (self.genome & 0xFF) as u8,
@@ -53,19 +53,19 @@ impl PhaseAgentMinimal {
     }
 }
 
-/// Era 0218: Circular Food Web
+/// Circular Food Web
 /// Returns 1 if `a` is a predator of `b` (steals ATP).
 /// Returns -1 if `a` is prey to `b` (loses ATP).
 /// Returns 0 if neutral.
 pub fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
     if a_genome == b_genome { return 0; }
-    
-    // Philosophy Vector 13: Cryptographic Co-Adaptation (Red Queen's Race)
+
+    // Philosophy Cryptographic Co-Adaptation (Red Queen's Race)
     // Asymmetric cyclic food web based on GF(2) mixing and ring distance
     let ha = crate::math::xorshift32_once(a_genome);
     let hb = crate::math::xorshift32_once(b_genome);
     let delta = ha.wrapping_sub(hb);
-    
+
     if delta == 0 {
         0
     } else if delta < 0x80000000 {
@@ -83,19 +83,19 @@ pub struct PhaseAgentSmart {
     pub energy: u32,
     pub base_freq: i32,
     pub state_flags: u32,
-    
+
     // ---- ORTHOGONAL 16 BYTES (The "Smart" depth) ----
     /// Phase in an orthogonal branch of reality (e.g. quantum superposition)
     pub ortho_phase: u32,
-    
+
     /// Hash or lattice index of the historically strongest attractor this agent synced to
     pub attractor_memory: u32,
-    
+
     /// Epoch absolute chronos of the last profound mutation
     pub mutation_epoch: u32,
-    
+
     /// Padding strictly guaranteeing 32-byte Array-of-Structures (AoS) SIMD alignment
-    pub padding: u32, 
+    pub padding: u32,
 }
 
 impl Default for PhaseAgentMinimal {

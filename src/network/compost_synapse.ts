@@ -37,7 +37,7 @@ export class CompostSynapse {
         // Map MitosisReceipt to Liquid's CompostWitnessedClaim
         const payload = {
             // FNV-1a hash of receipt string to represent the agent ID
-            agent_id: this.fastHash(receipt.receiptHash), 
+            agent_id: this.fastHash(receipt.receiptHash),
             genome: receipt.parent.genome,
             phase: receipt.parent.phase,
             energy_at_death: receipt.metabolicCost,

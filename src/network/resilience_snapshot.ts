@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1190 — Resilience Snapshot Export (JS mirror)
-//
+// Resilience Snapshot Export (JS mirror)
+
 // Pure-TS port of `omega_v2::resilience_snapshot`. Used by browser/
 // Deno relays to broadcast their own ConvergenceDetector stats and
 // to ingest peer relays' snapshots for partition detection.

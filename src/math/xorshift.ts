@@ -1,7 +1,7 @@
 /**
  * Xorshift64* Deterministic PRNG (TypeScript / BigInt)
  *
- * Era 960: Port of the Rust `omega_v2/src/math.rs` xorshift64* to TypeScript.
+ * Port of the Rust `omega_v2/src/math.rs` xorshift64* to TypeScript.
  * Period: 2^64 - 1. Passes BigCrush. Zero allocations. Single bigint state.
  *
  * # HIGH-4 FIX

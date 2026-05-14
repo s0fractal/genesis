@@ -65,19 +65,19 @@ export class RendererBuffers {
         });
         // Default to Q10 LUT for toroidal shader
         this.device.queue.writeBuffer(this.sineLutBuffer, 0, pointers.sineLutQ10Bytes);
-        
+
         // Ping-Pong Global Order Accumulator (8 bytes)
         this.newMeanFieldBuffer = this.device.createBuffer({
             size: 8,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
-        
+
         this.oldMeanFieldBuffer = this.device.createBuffer({
             size: 8,
             usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
         });
         this.device.queue.writeBuffer(this.oldMeanFieldBuffer, 0, new Uint8Array(8));
-        
+
         // Attractor Array Uniform Buffer (80 bytes)
         this.attractorBuffer = this.device.createBuffer({
             size: 80,

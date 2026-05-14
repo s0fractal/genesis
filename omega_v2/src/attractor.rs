@@ -1,7 +1,7 @@
-// 🌌 OMEGA-64: Era 1010 — Attractor Matrix & Dipole Validation
-//
+// Attractor Matrix & Dipole Validation
+
 // Attractors are public, immutable matrices with a dipole pair:
-//   direct matrix (attraction) + inverse matrix (cleansing/inversion).
+// direct matrix (attraction) + inverse matrix (cleansing/inversion).
 // They pulse at a fixed frequency and amplitude, modifying local phase space.
 
 /// 16-byte attractor matrix. Fits in GPU uniform buffer and WASM FFI.
@@ -116,9 +116,9 @@ impl AttractorArray {
     }
 }
 
-// ------------------------------------------------------------------------------
+
 // Tests
-// ------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;

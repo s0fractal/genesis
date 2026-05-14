@@ -1,29 +1,29 @@
-// 🌌 OMEGA-64: Era 1440 — Cross-Substrate Convergence Smoke
-//
+// Cross-Substrate Convergence Smoke
+
 // Eras 1380-1430 stack up to a complete forensic-event protocol on
 // both substrates: chain-anchored sink, wire-format chunked delta,
 // reassembly, apply, scheduler. Cross-substrate parity has been
 // asserted at the *primitive* level (FNV anchors, frame-type IDs,
 // kind-tag packing).
-//
+
 // Era 1440 adds the highest-level lock: a complete wire envelope
 // produced by the JS chunker MUST parse cleanly through the Rust
 // accumulator, yield the same envelope_hash, and produce the same
 // applied-anchor when merged into a Rust sink.
-//
+
 // The locked byte vector below was produced by:
-//
-//   const a = new ForensicEventSink();
-//   const b = new ForensicEventSink();
-//   b.append("alrm", 0x10, 100);
-//   b.append("alrm", 0x20, 100);
-//   b.append("alrm", 0x30, 100);
-//   const list = buildEventHashList(a, 100);
-//   const delta = computeEventDelta(list, b.list(), 200);
-//   const frames = chunkEventDelta(delta, 0x42);
-//
+
+// const a = new ForensicEventSink();
+// const b = new ForensicEventSink();
+// b.append("alrm", 0x10, 100);
+// b.append("alrm", 0x20, 100);
+// b.append("alrm", 0x30, 100);
+// const list = buildEventHashList(a, 100);
+// const delta = computeEventDelta(list, b.list(), 200);
+// const frames = chunkEventDelta(delta, 0x42);
+
 // → 4 frames × 32 bytes = 128 bytes total.
-//
+
 // If JS regenerates this byte sequence with any structural change
 // (sorted-set iteration, kind packing, sequence/total layout), the
 // Rust test fails — and conversely, a Rust regression breaks

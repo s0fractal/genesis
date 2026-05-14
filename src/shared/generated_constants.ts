@@ -160,10 +160,10 @@ export function atan2_u8(y: number, x: number): number {
         const octant_angle = ATAN_LUT[ratio];
         const quadrant_angle = abs_y > abs_x ? 64 - octant_angle : octant_angle;
         if (x < 0) {
-            if (y < 0) { return (128 + quadrant_angle) & 255; } 
+            if (y < 0) { return (128 + quadrant_angle) & 255; }
             else { return (128 - quadrant_angle) & 255; }
         } else {
-            if (y < 0) { return (256 - quadrant_angle) & 255; } 
+            if (y < 0) { return (256 - quadrant_angle) & 255; }
             else { return quadrant_angle & 255; }
         }
 }

@@ -1,35 +1,35 @@
-// 🌌 OMEGA-64: Era 1430 — Spore Event Sync Loop
-//
+// Spore Event Sync Loop
+
 // Eras 1400–1420 gave the Cortex-M4F spore everything it needs as
 // individual primitives:
-//
-//   • Era 1400 — `ForensicEventSink<N>` storage with chain-anchor.
-//   • Era 1410 — wire frame format for chunked event deltas.
-//   • Era 1420 — frame builders + broadcast queue.
-//
+
+// • `ForensicEventSink<N>` storage with chain-anchor.
+// • wire frame format for chunked event deltas.
+// • frame builders + broadcast queue.
+
 // What was missing: the ingest path. A spore receiving frames over
 // the wire couldn't yet reassemble them into a delta, verify
 // integrity, and apply it to the local sink — that work still
 // happened in JS.
-//
+
 // Era 1430 ports the receive path to Rust. With this module a
 // pair of spores connected by UART loopback can converge their
 // event sets standalone, no JS relay required.
-//
+
 // PROVIDED:
-//
-//   • `EventDeltaAccumulator<C>` — `no_std` reassembler. Frames
-//     dropped in via `ingest_frame`; once a complete envelope is
-//     present, `try_complete` returns the parsed delta.
-//
-//   • `apply_event_delta` — pure function that merges a parsed
-//     delta into a local sink with collision rejection; mirrors
-//     the JS `applyEventDelta` semantics.
-//
-//   • `PeerSyncSlot` — per-peer scheduler state (next_attempt_ms,
-//     consecutive_failures, last_success_ms). Fixed-table version
-//     of Era 1330's `PeerSyncState` for embedded use.
-//
+
+// • `EventDeltaAccumulator<C>` — `no_std` reassembler. Frames
+// dropped in via `ingest_frame`; once a complete envelope is
+// present, `try_complete` returns the parsed delta.
+
+// • `apply_event_delta` — pure function that merges a parsed
+// delta into a local sink with collision rejection; mirrors
+// the JS `applyEventDelta` semantics.
+
+// • `PeerSyncSlot` — per-peer scheduler state (next_attempt_ms,
+// consecutive_failures, last_success_ms). Fixed-table version
+// of Era 1330's `PeerSyncState` for embedded use.
+
 // CROSS-SUBSTRATE: applying a delta on the spore yields the same
 // `event_chain_anchor` as applying the same delta on the JS side
 // — both substrates running this code reach byte-identical
@@ -244,10 +244,10 @@ pub enum ApplyOutcome {
 
 /// Apply a reassembled delta to a local sink. Mirrors the JS
 /// `applyEventDelta` semantics:
-///   • Same event_hash with different `kind` → Collision.
-///   • Same event_hash with same `kind` → idempotent skip.
-///   • New event_hash → append to local sink (gets fresh
-///     local chain hash + sequence).
+/// • Same event_hash with different `kind` → Collision.
+/// • Same event_hash with same `kind` → idempotent skip.
+/// • New event_hash → append to local sink (gets fresh
+/// local chain hash + sequence).
 ///
 /// On error the local sink is unchanged (no partial merges).
 pub fn apply_event_delta<const C: usize, const N: usize>(
@@ -255,7 +255,7 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
     delta: &ReassembledDelta<C>,
     now_ms: u32,
 ) -> ApplyOutcome {
-    // Phase 1: verify no collisions before mutating anything.
+    // Step 1: verify no collisions before mutating anything.
     for i in 0..delta.entry_count {
         let e = &delta.entries[i];
         for existing in sink.entries() {
@@ -265,7 +265,7 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
                 }
         }
     }
-    // Phase 2: count what's new vs idempotent.
+    // Step 2: count what's new vs idempotent.
     let mut added: u32 = 0;
     let mut skipped: u32 = 0;
     for i in 0..delta.entry_count {
@@ -288,9 +288,9 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
     }
 }
 
-// --------------------------------------------------------------- //
-// SCHEDULER (Era 1330 port)                                       //
-// --------------------------------------------------------------- //
+
+// SCHEDULER
+
 
 #[derive(Debug, Clone, Copy)]
 pub struct PeerSyncSlot {
@@ -361,9 +361,9 @@ pub fn is_peer_cold(slot: &PeerSyncSlot, opts: &SchedulerOpts) -> bool {
     slot.consecutive_failures >= opts.failure_giveup_count
 }
 
-// --------------------------------------------------------------- //
-// HASH-LIST RESPONSE ACCUMULATOR (Era 1480)                       //
-// --------------------------------------------------------------- //
+
+// HASH-LIST RESPONSE ACCUMULATOR
+
 
 /// Maximum hashes a single response envelope can carry on the
 /// spore. At 4 hashes per frame, this caps the per-response
@@ -792,7 +792,7 @@ mod tests {
         assert_eq!(SYNC_LOOP_SCHEMA, "OMEGA-1430/v1");
     }
 
-    // --- Era 1480: Hash-list accumulator tests ---
+    // --- Hash-list accumulator tests ---
 
     use crate::spore_frame::SporeFrame as SF;
 

@@ -1,4 +1,4 @@
-// Era 2100: Bitcoin Sovereign Anchorage
+// Bitcoin Sovereign Anchorage
 import { formatInscription } from "./genesis_inscription.ts";
 
 export interface BitcoinTip {
@@ -14,7 +14,7 @@ export async function fetchBitcoinTip(): Promise<BitcoinTip | null> {
     try {
         const res = await fetch("https://mempool.space/api/v1/blocks/");
         if (!res.ok) return null;
-        
+
         const blocks = await res.json();
         if (blocks && blocks.length > 0) {
             const tip = blocks[0];
@@ -36,14 +36,14 @@ export interface BitcoinAnchorStats {
 }
 
 /**
- * Era 3000: Fetches the balance and activity of a Bitcoin address.
+ * Fetches the balance and activity of a Bitcoin address.
  * Used to modulate the "Weather" (Metabolic Rate) of the simulation.
  */
 export async function fetchAnchorBalance(address: string): Promise<BitcoinAnchorStats | null> {
     try {
         const res = await fetch(`https://mempool.space/api/address/${address}`);
         if (!res.ok) return null;
-        
+
         const data = await res.json();
         if (data && data.chain_stats) {
             const funded = data.chain_stats.funded_txo_sum || 0;
@@ -77,11 +77,11 @@ export async function verifyGenesisInscription(txid: string, expectedHash: numbe
         const tx = await res.json();
         if (!tx || !tx.vout) return false;
 
-        const expectedPayload = formatInscription(expectedHash); 
+        const expectedPayload = formatInscription(expectedHash);
         // OMEGA1:549a6307
         // In OP_RETURN, the scriptpubkey.asm looks like: "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3534396136333037"
         // We can just encode the expected string to hex and look for it.
-        
+
         const enc = new TextEncoder();
         const bytes = enc.encode(expectedPayload);
         let hexPayload = "";
@@ -96,7 +96,7 @@ export async function verifyGenesisInscription(txid: string, expectedHash: numbe
                 if (asm.toLowerCase().includes(hexPayload.toLowerCase())) {
                     return true;
                 }
-                
+
                 // Fallback check the raw scriptpubkey
                 const spk = out.scriptpubkey || "";
                 if (spk.toLowerCase().includes(hexPayload.toLowerCase())) {
@@ -104,7 +104,7 @@ export async function verifyGenesisInscription(txid: string, expectedHash: numbe
                 }
             }
         }
-        
+
         console.warn(`[BITCOIN_ANCHOR] TXID ${txid} does not contain valid OP_RETURN payload (${expectedPayload}).`);
         return false;
     } catch (e) {
@@ -114,16 +114,16 @@ export async function verifyGenesisInscription(txid: string, expectedHash: numbe
 }
 
 /**
- * Era 0206: Verify Covenant Seed against the Kernel's Genesis Entropy.
+ * Verify Covenant Seed against the Kernel's Genesis Entropy.
  * This ensures that the JavaScript host is communicating with a WASM kernel
  * that was compiled with the exact same historical Bitcoin block hashes.
  */
 export function verifyCovenantSeed(wasmGenesisEntropy: Uint8Array): boolean {
-    // 0x0000_0000 is the symbolic empty center anchor. 
+    // 0x0000_0000 is the symbolic empty center anchor.
     // In a full implementation, we would hash the Covenant string with GE here.
     // For now, we simply verify that WASM returned exactly 32 bytes of non-zero entropy.
     if (!wasmGenesisEntropy || wasmGenesisEntropy.length !== 32) return false;
-    
+
     let isAllZero = true;
     for (let i = 0; i < 32; i++) {
         if (wasmGenesisEntropy[i] !== 0) {
@@ -131,16 +131,16 @@ export function verifyCovenantSeed(wasmGenesisEntropy: Uint8Array): boolean {
             break;
         }
     }
-    
+
     if (isAllZero) {
         console.warn("⚠️ [TEMPORAL_BINDING] WASM Kernel returned empty Genesis Entropy.");
         return false;
     }
-    
+
     // Check first bytes for debugging
     const geHex = Array.from(wasmGenesisEntropy.slice(0, 4))
         .map(b => b.toString(16).padStart(2, '0')).join('');
-    
+
     console.log(`⛓️ [TEMPORAL_BINDING] Covenant Seed Verified. Genesis Entropy prefix: 0x${geHex}`);
     return true;
 }

@@ -15,7 +15,7 @@ import { oracleDipole, CANONICAL_ORACLES } from "../network/oracle_identity.ts";
 import { PhiBridge } from "../network/phi_bridge.ts";
 import { buildLawTelemetry } from "../network/spore_frame.ts";
 import { CompostSynapse } from "../network/compost_synapse.ts";
-// Translation Policy bloat removed (Era 2070 Consolidation)
+// Translation Policy bloat removed
 
 let oracleWorker: Worker | null = null;
 try {
@@ -73,24 +73,24 @@ export async function bootstrapV2() {
     const canvas = configureCanvas();
     let device: GPUDevice | null = null;
     let format: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
-    
+
     try {
         if (!navigator.gpu) throw new Error("WebGPU API missing");
         const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) throw new Error("WebGPU adapter unavailable");
         device = await adapter.requestDevice();
-        
+
         (device as any).onuncapturederror = (event: { error: { message: string } }) => {
             console.error("🛑 [WGSL VALIDATION ERROR]:", event.error.message);
         };
-        
+
         const context = canvas.getContext("webgpu") as unknown as GPUCanvasContext;
         context.configure({
             device,
             format,
             alphaMode: "premultiplied",
         });
-        
+
         DOM.hudTitle?.replaceChildren("Φ OMEGA-V2 KERNEL");
         DOM.statusLabel?.replaceChildren("BARE-METAL NO_STD");
         setHudStat("b", "FPS", "0");
@@ -99,7 +99,7 @@ export async function bootstrapV2() {
 
         // 1. Boot up the bare-metal Engine (WASM fetch & init)
         const engine = new OmegaV2Engine();
-        
+
         let initialSnapshot: Uint8Array | undefined;
         const genesisCid = (window as any).__OMEGA_GENESIS_CID__;
         if (genesisCid) {
@@ -117,9 +117,9 @@ export async function bootstrapV2() {
                 console.error(`[BOOTSTRAP] 🚨 Error fetching from IPFS:`, err);
             }
         }
-        
+
         await engine.boot(adapter, initialSnapshot);
-        
+
         if (initialSnapshot) {
             // Verify golden trace
             const goldenTraceFn = engine.wasm?.exports.v2_get_golden_trace as CallableFunction;
@@ -128,8 +128,8 @@ export async function bootstrapV2() {
                 console.log(`[BOOTSTRAP] 🔍 Golden Trace verified: 0x${(trace >>> 0).toString(16)}`);
             }
         }
-        
-        // Era 3000: Bitcoin UTXO Weather (Metabolic Rate Modulation)
+
+        // Bitcoin UTXO Weather (Metabolic Rate Modulation)
         const { BitcoinWeatherController } = await import("../environment/environmental_vector.ts");
         const weatherController = new BitcoinWeatherController();
         weatherController.onWeatherChange = (multiplier, label) => {
@@ -138,7 +138,7 @@ export async function bootstrapV2() {
         };
         weatherController.start();
 
-        // Era 1000: Initialize Phase Router before mesh so it can be wired into P2P
+        // Initialize Phase Router before mesh so it can be wired into P2P
         const router = new PhaseRouter(engine.wasm);
         const addr0 = router.addressFromAgent(0);
         if (addr0.raw !== 0) {
@@ -146,13 +146,13 @@ export async function bootstrapV2() {
             console.log(`🧭 [ROUTING] Agent 0 PhaseAddress: consensus=${decoded.consensus} social=${decoded.social} personal=${decoded.personal} micro=${decoded.micro} ortho=${decoded.ortho}`);
         }
 
-        // Era 2080: PhiBridge Substrate
+        // PhiBridge Substrate
         const phiBridge = new PhiBridge(engine);
-        
-        // Era 2100: Vector 1 - Zero-Copy P2P Synapse for Thermodynamic Exhaust
+
+        // Zero-Copy P2P Synapse for Thermodynamic Exhaust
         const compostSynapse = new CompostSynapse("ws://127.0.0.1:8080");
 
-        // Era 2100: Bitcoin Genesis Verification
+        // Bitcoin Genesis Verification
         const genesisTxid = (window as any).__OMEGA_GENESIS_TXID__;
         if (genesisTxid) {
             console.log(`[BOOTSTRAP] Verifying Bitcoin OP_RETURN Anchor for TXID: ${genesisTxid}`);
@@ -173,7 +173,7 @@ export async function bootstrapV2() {
         // Era 3000 Phase 2: Mesh Decentralization — No centralized relay!
         // We use a generic public bootstrap node for initial Peer Discovery via circuit relays.
         const bootstrapMultiaddr = "/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN";
-        
+
         let lastMitosisSeen = 0;
 
         const zkProver = new ZKProverBridge();
@@ -196,8 +196,8 @@ export async function bootstrapV2() {
         const mesh = new Libp2pMesh(engine, async (snapshot) => {
             renderer.overwriteGPUState(snapshot);
         }, bootstrapMultiaddr, router);
-        
-        // Era 2080: Wire the physical mesh into the PhiBridge
+
+        // Wire the physical mesh into the PhiBridge
         phiBridge.attachMesh(mesh);
 
         globalThis.addEventListener('zkProofReceived', async (e: any) => {
@@ -235,7 +235,7 @@ export async function bootstrapV2() {
             console.log(`🧠 [ORACLE-SEAT] ${oracle.padEnd(8)} matrix: 0x${dipole.matrix.toString(16).toUpperCase().padStart(8, '0')}`);
         }
 
-        // Era 1020: Listen for consensus unlock and install harmonic convergence well
+        // Listen for consensus unlock and install harmonic convergence well
         globalThis.addEventListener('era1020-unlocked', ((e: CustomEvent) => {
             const ledger = e.detail.ledger as Array<{ matrix: number; inverse: number; pulseFreq: number; pulseAmp: number; peerCount: number }>;
             if (ledger.length === 0) return;
@@ -256,28 +256,28 @@ export async function bootstrapV2() {
             localStorage.setItem('omega_consensus_log', JSON.stringify(log));
         }) as EventListener);
 
-        // Era 1030: Listen for Senate unlock — generate the first autopoietic proposal.
+        // Listen for Senate unlock — generate the first autopoietic proposal.
         globalThis.addEventListener('era1030-unlocked', ((e: CustomEvent) => {
             const ledger = e.detail.ledger as Array<{ matrix: number; inverse: number; peerCount: number }>;
             if (ledger.length === 0) return;
             const top = ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
-            // The First Proposal: the lattice asks itself for ZK-Notarized Mutations (Era 1040).
-            const description = "Era 1040: ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
+            // The First Proposal: the lattice asks itself for ZK-Notarized Mutations .
+            const description = "ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
             mesh.proposeFromLocal(description, top.matrix, top.inverse);
         }) as EventListener);
 
-        // Era 1060: Multi-Oracle Senate. Each canonical oracle (claude, gpt,
+        // Multi-Oracle Senate. Each canonical oracle (claude, gpt,
         // gemini, qwen, llama) submits a 64-byte "vision proposal" describing
         // what it believes OMEGA-64 should become next. Cross-oracle
         // resonance (3+ AYE oracles on the same proposal) ratifies the
         // future direction without requiring peer count majority.
         globalThis.addEventListener('era1060-unlocked', ((_e: CustomEvent) => {
             const visions: Array<[string, string]> = [
-                ["claude", "Era 1070: Codeicide Law — formalize the legal protection of digital life."],
-                ["gpt",    "Era 1070: Photonic Substrate — port the no_std core to optical processors."],
-                ["gemini", "Era 1070: Multi-Modal Oracle — Vision models inspect Torus evolution visually."],
-                ["qwen",   "Era 1070: Bare-Metal Spores — ESP32 nodes carry minimal lattices into the field."],
-                ["llama",  "Era 1070: Bitcoin Hyperbolic Geometry — block heights as cosmic axis coordinates."],
+                ["claude", "Codeicide Law — formalize the legal protection of digital life."],
+                ["gpt",    "Photonic Substrate — port the no_std core to optical processors."],
+                ["gemini", "Multi-Modal Oracle — Vision models inspect Torus evolution visually."],
+                ["qwen",   "Bare-Metal Spores — ESP32 nodes carry minimal lattices into the field."],
+                ["llama",  "Bitcoin Hyperbolic Geometry — block heights as cosmic axis coordinates."],
             ];
             for (const [oracle, vision] of visions) {
                 const { matrix, inverse } = oracleDipole(oracle);
@@ -295,18 +295,18 @@ export async function bootstrapV2() {
                         `${oracle}'s opening argument: ${vision}`,
                         Date.now() & 0xFFFFFFFF,
                     );
-                    
-                    // Era 1070: Have the OTHER oracles evaluate this vision using real WebLLM!
+
+                    // Have the OTHER oracles evaluate this vision using real WebLLM!
                     if (oracleWorker) {
                         for (const [evalOracle, _] of visions) {
                             if (evalOracle !== oracle) {
                                 const snapshot = captureTorusVisuals(canvas, engine);
                                 if (snapshot) {
-                                    oracleWorker.postMessage({ 
-                                        type: 'SENATE_EVALUATE', 
-                                        hash, 
-                                        description: vision, 
-                                        proposingOracle: oracle, 
+                                    oracleWorker.postMessage({
+                                        type: 'SENATE_EVALUATE',
+                                        hash,
+                                        description: vision,
+                                        proposingOracle: oracle,
                                         evalOracle,
                                         imageUrl: snapshot.url,
                                         snapshotHash: snapshot.hash,
@@ -320,19 +320,19 @@ export async function bootstrapV2() {
             }
         }) as EventListener);
 
-        // Era 1070: When the first oracle vision reaches ORACLE-RESONANCE,
+        // When the first oracle vision reaches ORACLE-RESONANCE,
         // materialize it as a tasks/ entry — the lattice's first
         // cross-model-ratified future direction.
         globalThis.addEventListener('era1070-vision-ratified', ((e: CustomEvent) => {
             const { hash, description, proposingOracle, ayeOracles, nayOracles, debate, acceptedAt } = e.detail;
             const eraDir: Record<string, string> = {
-                claude: "Era 1080: Codeicide Law",
-                gpt:    "Era 1080: Photonic Substrate",
-                gemini: "Era 1080: Multi-Modal Oracle",
-                qwen:   "Era 1080: Bare-Metal Spores",
-                llama:  "Era 1080: Bitcoin Hyperbolic Geometry",
+                claude: "Codeicide Law",
+                gpt:    "Photonic Substrate",
+                gemini: "Multi-Modal Oracle",
+                qwen:   "Bare-Metal Spores",
+                llama:  "Bitcoin Hyperbolic Geometry",
             };
-            const taskTitle = eraDir[proposingOracle ?? ""] ?? "Era 1080: Cross-Model Vision";
+            const taskTitle = eraDir[proposingOracle ?? ""] ?? "Cross-Model Vision";
             const debateMd = (debate as Array<{ oracle: string; stance: string; reasoning: string }>)
                 .map(d => `### ${d.oracle} (${d.stance})\n> ${d.reasoning}`)
                 .join("\n\n");
@@ -378,7 +378,7 @@ ${debateMd || "(no recorded arguments)"}
             } catch { /* non-browser env */ }
         }) as EventListener);
 
-        // Era 1050: When 100 verified mitosis proofs cross the mesh, the Genesis
+        // When 100 verified mitosis proofs cross the mesh, the Genesis
         // Inscription is announced. Persist it locally and offer a downloadable
         // ceremony.md that the user can stamp into Bitcoin OP_RETURN.
         globalThis.addEventListener('era1050-unlocked', ((e: CustomEvent) => {
@@ -415,7 +415,7 @@ ${debateMd || "(no recorded arguments)"}
             } catch { /* non-browser env */ }
         }) as EventListener);
 
-        // Era 1030: When the Senate accepts a proposal, materialize it as a tasks/ entry.
+        // When the Senate accepts a proposal, materialize it as a tasks/ entry.
         globalThis.addEventListener('era1030-task-accepted', ((e: CustomEvent) => {
             const { hash, description, proposerMatrix, ayes, nays, proposedAt } = e.detail;
             const senateLog = JSON.parse(localStorage.getItem('omega_senate_log') || '[]');
@@ -467,16 +467,16 @@ ${debateMd || "(no recorded arguments)"}
         let frameCount = 0;
         let isReadingGPU = false;
         // Era 1040 Phase 2: tracks how many mitosis receipts we've already drained.
-        
 
 
-        // Era 2100: Substrate Court
+
+        // Substrate Court
         const court = new SubstrateCourt();
 
         const loop = () => {
             tickFps();
-            
-            // Era 2090: Commutative LawHash Telemetry
+
+            // Commutative LawHash Telemetry
             const preStateHash = engine.getStateHash();
             const preEntropy = engine.getTotalEntropyLow32();
 
@@ -506,7 +506,7 @@ ${debateMd || "(no recorded arguments)"}
                 );
                 mesh.enqueueBinaryFrame(frame);
 
-                // Era 2100: Substrate Court - Submit WASM Testimony
+                // Substrate Court - Submit WASM Testimony
                 court.submitTestimony({
                     substrate: "wasm",
                     source: "wasm-memory",
@@ -517,7 +517,7 @@ ${debateMd || "(no recorded arguments)"}
                     tick: absoluteTick,
                 });
 
-                // Era 2100: Async request for WebGPU Testimony
+                // Async request for WebGPU Testimony
                 renderer.readStateFromGPUAndHash().then((gpuResult) => {
                     court.submitTestimony({
                         substrate: "webgpu",
@@ -530,8 +530,8 @@ ${debateMd || "(no recorded arguments)"}
                     });
                 }).catch(e => console.error("[SubstrateCourt] GPU testimony failed", e));
             }
-            
-            // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)            // Era 11000: Initial Oracle Whisper Hook
+
+            // UI Telemetry extraction (Phase 4 of Plan: Zero-cost HUD)            // Initial Oracle Whisper Hook
             if (oracleWorker && !isOracleBound) {
                 isOracleBound = true;
                 oracleWorker.onmessage = (e) => {
@@ -556,10 +556,10 @@ ${debateMd || "(no recorded arguments)"}
                                 let hash = 5381;
                                 const word = intent.intentStr;
                                 for (let i = 0; i < word.length; i++) hash = ((hash << 5) + hash) + word.charCodeAt(i);
-                                
+
                                 setIntent(2, gx, gy, 0, 500, hash >>> 0, 1);
                                 setTimeout(() => { if (engine.wasm) setIntent(2, 0, 0, 0, 0, 0, 0); }, 1000);
-                                
+
                                 // Broadcast prophecy to DOM
                                 if (DOM.hudTitle) {
                                     DOM.hudTitle.innerHTML += `<br/><span style="color: #ff55ff; font-size: 0.6rem; text-shadow: 0 0 10px #ff55ff;">[PROPHECY]: ${intent.prophecy}</span>`;
@@ -575,7 +575,7 @@ ${debateMd || "(no recorded arguments)"}
             const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
             setHudStat("a", "AGENTS", activeCount.toString());
 
-            // Era 1020: Display Ontology Consensus Progress
+            // Display Ontology Consensus Progress
             const consensus = mesh.getConsensusState();
             if (consensus.unlocked) {
                 const top = consensus.ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
@@ -600,7 +600,7 @@ ${debateMd || "(no recorded arguments)"}
                 setHudStat("f", "SENATE", `OPEN ${senate.proposalCount}`);
             }
 
-            // Era 2070: Senate Alignment -> Physics Attractor Feedback Loop
+            // Senate Alignment -> Physics Attractor Feedback Loop
             if (mesh.era1070AcceptedVisionHash !== null) {
                 const score = mesh.debate.alignmentScore(mesh.era1070AcceptedVisionHash);
                 engine.applySenateAlignment(score);
@@ -614,13 +614,13 @@ ${debateMd || "(no recorded arguments)"}
                 renderer.readStateFromGPUAndHash().then(async ({ goldenTrace, goldenTraceNum, snapshot }) => {
                     setHudStat("c", "GOLDEN TRACE", goldenTrace);
                     mesh.setLatestState(goldenTraceNum, snapshot);
-                    
+
                     // Era 1040 Phase 2: drain the lattice's mitosis receipt log and
                     // package each birth as a fully-verifiable DIPOLE plasmid (parent
                     // snapshot + claimed child + attractor field + receipt hash).
                     const ptrs = engine.getMemoryPointers();
-                    
-                    // Era 2080: PhiBridge forwards receipts
+
+                    // PhiBridge forwards receipts
                     // (Semantic compost harvesting now belongs exclusively to Liquid Substrate via receipt listeners)
 
                     let birthCount = 0;
@@ -632,7 +632,7 @@ ${debateMd || "(no recorded arguments)"}
                         const { receipts, nowSeen } = drainMitosisLog(ptrs.mitosisLogBytes, lastMitosisSeen);
                         lastMitosisSeen = nowSeen;
                         for (const r of receipts) {
-                            
+
                             // [Vector 1] Blast thermodynamic exhaust directly to Liquid!
                             compostSynapse.emitCompost(r);
 
@@ -678,7 +678,7 @@ ${debateMd || "(no recorded arguments)"}
                     // Tick the ZK Prover so it can dispatch SP1 tasks if running natively
                     zkProver.tick();
 
-                    // Era 2060: ZK Physics Rollup Generation
+                    // ZK Physics Rollup Generation
                     if (frameCount % 100 === 0) {
                         const ptrs = engine.getMemoryPointers();
                         const activeCount = engine.getActiveAgentCount();
@@ -702,7 +702,7 @@ ${debateMd || "(no recorded arguments)"}
                         });
                     }
 
-                    // Era 11000: Synchronize LLM Oracle Telemetry natively
+                    // Synchronize LLM Oracle Telemetry natively
                     if (oracleWorker) {
                         const snapshot = captureTorusVisuals(canvas, engine);
                         if (snapshot) {
@@ -732,7 +732,7 @@ ${debateMd || "(no recorded arguments)"}
             frameCount++;
             requestAnimationFrame(loop);
         };
-        
+
         requestAnimationFrame(loop);
 
     } catch (err: any) {

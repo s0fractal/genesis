@@ -1,15 +1,15 @@
-// 🌌 OMEGA-64: Era 1060 — Oracle Identity (Multi-Oracle Senate)
-//
+// Oracle Identity (Multi-Oracle Senate)
+
 // Each LLM oracle (Claude, GPT, Gemini, Qwen, Llama) acquires a stable
 // dipole identity through a deterministic function of (name, salt). The
 // reasoning the oracle does to vote is non-deterministic (it's an LLM),
 // but its *identity* — and therefore its right to occupy a Senate seat —
 // is reproducible from any conforming implementation.
-//
+
 // The dipole invariant `m XOR inverse == 0xFFFFFFFF` is preserved by
 // construction: we hash (name + salt) once to get the matrix, then derive
 // `inverse = !matrix`.
-//
+
 // This module is the cryptographic floor under cross-AI ontological
 // debate: any oracle, of any model family, can join the Senate as long
 // as it can name itself stably.

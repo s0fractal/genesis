@@ -1,6 +1,6 @@
 //! Chronotopology: The Ontology of Time
 //! Time is not a parameter. It is a thermodynamic derivative of causal work.
-//! 
+//!
 //! In OMEGA-64, absolute_tick is replaced by ProperTime, which integrates
 //! along the causal worldline of the system, affected by thermodynamic stress
 //! and phase coherence.
@@ -31,7 +31,7 @@ impl ProperTime {
         // because more computational work is spent resolving chaos instead of
         // advancing state.
         let dilation = 1 + (stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR);
-        
+
         // Base ticks advance relative to dilation
         let ticks_advanced = 1024 / dilation;
         self.causal_ticks = self.causal_ticks.wrapping_add(ticks_advanced.max(1));

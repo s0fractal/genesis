@@ -1,26 +1,26 @@
-// 🌌 OMEGA-64: Era 1150 — Adaptive TTL
-//
+// Adaptive TTL
+
 // Era 1130 stamped every outgoing frame with a fixed `DEFAULT_TTL = 4`.
 // That works for short, healthy daisy chains, but it wastes propagation
 // margin on a chain of healthy nodes (TTL=2 would suffice) AND it
 // strands a frame too early on a chain of marginal nodes (TTL=8 needed).
-//
+
 // Era 1150 lets the originator compute a TTL value as a deterministic
 // function of:
-//   - the path's expected reliability (reputation scores from Era 1140);
-//   - a configurable safety factor (extra hops as retry headroom);
-//   - hard floors and ceilings (TTL ∈ [1, 16]).
-//
+// - the path's expected reliability (reputation scores from Era 1140);
+// - a configurable safety factor (extra hops as retry headroom);
+// - hard floors and ceilings (TTL ∈ [1, 16]).
+
 // The math:
-//   reliability(path) = product_i  (score_i / MAX_REASONABLE_SCORE)
-//   margin(path)      = ceil( log_2( 1 / reliability ) )    // hops needed for >50%
-//   ttl(path)         = clamp( path.length + margin + safety,
-//                              MIN_TTL, MAX_TTL )
-//
+// reliability(path) = product_i  (score_i / MAX_REASONABLE_SCORE)
+// margin(path)      = ceil( log_2( 1 / reliability ) )    // hops needed for >50%
+// ttl(path)         = clamp( path.length + margin + safety,
+// MIN_TTL, MAX_TTL )
+
 // Forked or zero-score nodes contribute 0 reliability → infinite margin
 // → ttl = MAX_TTL. The path is still tried (so we never refuse a route
 // that has a slim chance), but with maximum retries.
-//
+
 // This is the LAST piece of the routing stack: from now on, every
 // frame's TTL reflects what the originator actually observed about the
 // network state at emission time, not a network-wide constant.

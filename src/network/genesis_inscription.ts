@@ -1,9 +1,9 @@
-// 🌌 OMEGA-64: Era 1050 — Genesis Inscription (JS mirror)
-//
+// Genesis Inscription (JS mirror)
+
 // Pure-TS port of `omega_v2::genesis_inscription`. The frozen
 // `GENESIS_HASH_LEGACY_V1_0 = 0x549a6307` constant below MUST equal the value
 // computed by the Rust kernel for any conforming implementation.
-//
+
 // Cross-language anchor lives in `omega_v2/src/genesis_inscription.rs`
 // (`anchors_v1_0_match_other_modules` test) and `tests/genesis_inscription_test.ts`.
 import { sha256_hash } from "../sdk/phi_crypto.ts";

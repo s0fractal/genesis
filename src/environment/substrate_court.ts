@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 2100 — Substrate Court
-//
+// Substrate Court
+
 // The Substrate Court enforces multi-witness deterministic consensus across
 // heterogeneous substrates (WebGPU, Cortex-M4F/WASM, and SP1 ZK-VM).
 // Instead of one substrate acting as a passive slave, all compute nodes
@@ -28,7 +28,7 @@ export interface StateWitness {
 export class SubstrateCourt {
     private testimonies = new Map<number, Map<WitnessSubstrate, StateWitness>>(); // tick -> (substrate -> StateWitness)
     private pendingArbitrations = new Map<number, number>(); // tick -> timeout id
-    
+
     // Substrates that have failed arbitration and are temporarily isolated
     public isolatedSubstrates = new Set<WitnessSubstrate>();
     public quarantineReceipts = new Set<string>(); // Store isolation receipts
@@ -55,10 +55,10 @@ export class SubstrateCourt {
     /** Check if we have drift between the fast substrates (WebGPU vs WASM). */
     private checkConsensus(tick: number): void {
         const records = this.testimonies.get(tick)!;
-        
+
         const gpu = records.get("webgpu");
         const wasm = records.get("wasm");
-        
+
         if (gpu && wasm) {
             if (gpu.postStateHash !== wasm.postStateHash || gpu.lawHash !== wasm.lawHash) {
                 // Drift detected! Trigger ZK arbitration if not already pending
@@ -85,13 +85,13 @@ export class SubstrateCourt {
         if (this.pendingArbitrations.has(tick)) {
             clearTimeout(this.pendingArbitrations.get(tick));
             console.error(`[SubstrateCourt] Arbitration timeout for tick ${tick}. Quarantining involved substrates.`);
-            
+
             const records = this.testimonies.get(tick);
             if (records) {
                 // If SP1 testimony did not arrive, we cannot decide who is right. Isolate both fast substrates.
                 if (records.has("webgpu")) this.isolatedSubstrates.add("webgpu");
                 if (records.has("wasm")) this.isolatedSubstrates.add("wasm");
-                
+
                 const receipt = `timeout_quarantine_tick_${tick}`;
                 this.quarantineReceipts.add(receipt);
                 this.transitionReceipts.add(receipt);
@@ -103,7 +103,7 @@ export class SubstrateCourt {
     /** Process the definitive STARK proof testimony and punish the drifting substrate. */
     public resolveArbitration(arbiterTestimony: StateWitness): void {
         if (arbiterTestimony.substrate !== "sp1") return;
-        
+
         // Ensure mock vs real proofs are tracked in the receipt
         const proofKind = arbiterTestimony.proofKind || "mock";
 
@@ -111,7 +111,7 @@ export class SubstrateCourt {
         if (!this.pendingArbitrations.has(tick)) return;
 
         clearTimeout(this.pendingArbitrations.get(tick));
-        
+
         const records = this.testimonies.get(tick);
         if (!records) return;
 

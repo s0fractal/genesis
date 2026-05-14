@@ -1,29 +1,29 @@
-// 🌌 OMEGA-64: Era 1190 — Resilience Snapshot Export
-//
+// Resilience Snapshot Export
+
 // Era 1180 measures `redundancy_rate` per-relay. Era 1190 lets each
 // relay BROADCAST that measurement so peer relays can compare. Two
 // relays agreeing on resilience metrics provide stronger evidence
 // than either one alone — and disagreement reveals partitions.
-//
+
 // FRAME FORMAT (32 bytes, fits in a SporeFrame payload):
-//
-//   offset  size  field
-//   ─────────────────────────────────────────────────────────────
-//        0     2  magic = 0x5253 ("RS")
-//        2     1  version (1 = OMEGA-64 v1.0)
-//        3     1  reserved
-//        4     4  total_intents       (u32 BE)
-//        8     4  single_witness      (u32 BE)
-//       12     4  double_witness      (u32 BE)
-//       16     4  triple_plus         (u32 BE)
-//       20     4  redundancy_rate_q16 (u32 BE; rate × 2^16)
-//       24     4  proven_carrier_count (u32 BE)
-//       28     4  sha256_crc           (BE; over bytes 0..28)
-//
+
+// offset  size  field
+// ─────────────────────────────────────────────────────────────
+// 0     2  magic = 0x5253 ("RS")
+// 2     1  version (1 = OMEGA-64 v1.0)
+// 3     1  reserved
+// 4     4  total_intents       (u32 BE)
+// 8     4  single_witness      (u32 BE)
+// 12     4  double_witness      (u32 BE)
+// 16     4  triple_plus         (u32 BE)
+// 20     4  redundancy_rate_q16 (u32 BE; rate × 2^16)
+// 24     4  proven_carrier_count (u32 BE)
+// 28     4  sha256_crc           (BE; over bytes 0..28)
+
 // `redundancy_rate_q16` is `(rate * 65536)` rounded; receivers
 // recover the rate as `value / 65536.0`. Integer-only on the wire,
 // floating-point only in the human-facing display.
-//
+
 // Snapshots are wrapped in a FRAME_TYPE_RESILIENCE_SNAPSHOT frame
 // (added to spore_frame's enum) so they ride the same TTL/CRC/routing
 // machinery as warrant votes and heartbeats.

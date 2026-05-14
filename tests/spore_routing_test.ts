@@ -1,4 +1,4 @@
-// Era 1130: Spore-to-spore routing cross-language tests.
+// Spore-to-spore routing cross-language tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import {
     DEFAULT_TTL,

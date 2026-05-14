@@ -1,4 +1,4 @@
-// Era 1110: Spore Frame cross-language tests.
+// Spore Frame cross-language tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import {
     FRAME_TYPE_HEARTBEAT,

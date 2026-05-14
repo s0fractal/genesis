@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1040 Phase 2 — JS reader for the WASM mitosis log.
-//
+// Phase 2 — JS reader for the WASM mitosis log.
+
 // Reads the static MitosisLog ring buffer in WASM memory and exposes the
 // receipts JS hasn't seen yet. The pointer is zero-copy: we treat the
 // underlying ArrayBuffer as the single source of truth.

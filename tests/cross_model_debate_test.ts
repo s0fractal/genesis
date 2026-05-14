@@ -1,4 +1,4 @@
-// Era 1070: Cross-model debate ledger tests.
+// Cross-model debate ledger tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 import {

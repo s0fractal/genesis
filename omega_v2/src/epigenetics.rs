@@ -1,4 +1,4 @@
-//! Epigenetic Memory Layer (Era 950+)
+//! Epigenetic Memory Layer
 //!
 //! This module gives OMEGA-64 the ability to "remember" which genetic traits
 //! led to survival. Instead of purely random Big Bang genomes, the lattice

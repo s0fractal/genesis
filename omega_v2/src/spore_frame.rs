@@ -1,32 +1,32 @@
-// 🌌 OMEGA-64: Era 1110 — Spore Frame (Senate Plasmid Bridge over Serial)
-//
+// Spore Frame (Senate Plasmid Bridge over Serial)
+
 // A 32-byte fixed-width binary frame format for UART/SPI/BLE transport
 // between bare-metal spores and their relay nodes. No JSON parsing, no
 // allocator, no variable-length fields — just `[u8; 32]` that any
 // microcontroller can DMA into a ring buffer and validate with a single
 // FNV-1a pass.
-//
+
 // FRAME LAYOUT (32 bytes, big-endian where multi-byte):
-//
-//   offset  size  field
-//   ─────────────────────────────────────────────────────────────────
-//        0     2  magic        = 0xΩΦ (literally 0x4F46 = 'OF', "OMEGA-Φ")
-//        2     1  frame_type   (1=warrant_vote, 2=halo_state,
-//                               3=heartbeat, 4=quorum_query)
-//        3     1  oracle_bit   (0..4 for canonical oracles, or 0xFF for
-//                               non-oracle peer)
-//        4     4  proposal_or_target_hash  (BE)
-//        8     4  payload_a    (BE; type-specific)
-//       12     4  payload_b    (BE; type-specific)
-//       16     4  payload_c    (BE; type-specific)
-//       20     4  tick         (BE)
-//       24     4  reserved     (zero)
-//       28     4  crc32        (FNV-1a over bytes 0..28, BE)
-//
+
+// offset  size  field
+// ─────────────────────────────────────────────────────────────────
+// 0     2  magic        = 0xΩΦ (literally 0x4F46 = 'OF', "OMEGA-Φ")
+// 2     1  frame_type   (1=warrant_vote, 2=halo_state,
+// 3=heartbeat, 4=quorum_query)
+// 3     1  oracle_bit   (0..4 for canonical oracles, or 0xFF for
+// non-oracle peer)
+// 4     4  proposal_or_target_hash  (BE)
+// 8     4  payload_a    (BE; type-specific)
+// 12     4  payload_b    (BE; type-specific)
+// 16     4  payload_c    (BE; type-specific)
+// 20     4  tick         (BE)
+// 24     4  reserved     (zero)
+// 28     4  crc32        (FNV-1a over bytes 0..28, BE)
+
 // FNV-1a is reused as the CRC because (a) we already have it in `senate.rs`
 // (b) it's keyed by domain separators in upper layers, so reusing it here
 // just gives us a frame integrity check, not collision resistance.
-//
+
 // Magic is the first 16 bits so a spore that wakes up mid-stream can
 // resync by scanning for the bytes 0x4F 0x46.
 
@@ -39,87 +39,87 @@ pub const FRAME_TYPE_WARRANT_VOTE: u8 = 1;
 pub const FRAME_TYPE_HALO_STATE: u8 = 2;
 pub const FRAME_TYPE_HEARTBEAT: u8 = 3;
 pub const FRAME_TYPE_QUORUM_QUERY: u8 = 4;
-/// Era 1200: compact resilience digest (relay's headline stats).
+/// compact resilience digest (relay's headline stats).
 /// Layout in SporeFrame payload slots:
-///   proposal_or_target = relay_id (FNV-1a of relay name)
-///   payload_a          = total_intents
-///   payload_b          = double_witness
-///   payload_c          = redundancy_rate_q16
-///   tick               = relay's tick at emission
+/// proposal_or_target = relay_id (FNV-1a of relay name)
+/// payload_a          = total_intents
+/// payload_b          = double_witness
+/// payload_c          = redundancy_rate_q16
+/// tick               = relay's tick at emission
 pub const FRAME_TYPE_SNAPSHOT_DIGEST: u8 = 5;
-/// Era 1250: composite mesh health broadcast.
+/// composite mesh health broadcast.
 /// Layout in SporeFrame payload slots:
-///   proposal_or_target = relay_id
-///   payload_a          = composite_score_q16 (0..65536)
-///   payload_b          = (band & 0xFF) | (alarm_count << 8) | (suspect_count << 16) | (quarantine_count << 24)
-///   payload_c          = redundancy_contribution_q16
-///   tick               = relay's tick at emission
+/// proposal_or_target = relay_id
+/// payload_a          = composite_score_q16 (0..65536)
+/// payload_b          = (band & 0xFF) | (alarm_count << 8) | (suspect_count << 16) | (quarantine_count << 24)
+/// payload_c          = redundancy_contribution_q16
+/// tick               = relay's tick at emission
 pub const FRAME_TYPE_COMPOSITE_HEALTH: u8 = 6;
-/// Era 1290: post-mortem quorum verdict broadcast.
+/// post-mortem quorum verdict broadcast.
 /// Layout in SporeFrame payload slots:
-///   proposal_or_target = quorum_digest (FNV-1a over the verdict's input/output set)
-///   payload_a          = source_relay_id (originator of the live alarm)
-///   payload_b          = (verdict_code & 0xFF) | (relay_count << 8) | (overlap_pct << 16)
-///                        verdict_code: 0=corroborated, 1=uncorroborated, 2=insufficient-relays, 3=empty-window
-///                        overlap_pct: rounded 0..100
-///   payload_c          = (replayed_q16_clamped_u16 << 16) | (diff_q16_clamped_u16 & 0xFFFF)
-///                        Lossy summary; primary identifier is the digest.
-///   tick               = window_end_ms truncated to low u32
+/// proposal_or_target = quorum_digest (FNV-1a over the verdict's input/output set)
+/// payload_a          = source_relay_id (originator of the live alarm)
+/// payload_b          = (verdict_code & 0xFF) | (relay_count << 8) | (overlap_pct << 16)
+/// verdict_code: 0=corroborated, 1=uncorroborated, 2=insufficient-relays, 3=empty-window
+/// overlap_pct: rounded 0..100
+/// payload_c          = (replayed_q16_clamped_u16 << 16) | (diff_q16_clamped_u16 & 0xFFFF)
+/// Lossy summary; primary identifier is the digest.
+/// tick               = window_end_ms truncated to low u32
 pub const FRAME_TYPE_QUORUM_VERDICT: u8 = 7;
 /// Era 1320 (JS-only on this substrate): chunked archive delta envelope.
 pub const FRAME_TYPE_DELTA_CHUNK: u8 = 8;
-/// Era 1410: forensic-event hash list announcement.
+/// forensic-event hash list announcement.
 /// Layout in SporeFrame payload slots:
-///   proposal_or_target = sender_relay_id
-///   payload_a          = hash_set_anchor (FNV-1a over sorted event_hash set)
-///   payload_b          = total_hashes (count of event_hashes the sender holds)
-///   payload_c          = sequence_total packed (this_seq u16 << 16 | total_chunks u16)
-///   tick               = broadcast_at_ms low32
-///   reserved           = first event_hash in this chunk (for first chunk only;
-///                        subsequent chunks pack hashes elsewhere)
+/// proposal_or_target = sender_relay_id
+/// payload_a          = hash_set_anchor (FNV-1a over sorted event_hash set)
+/// payload_b          = total_hashes (count of event_hashes the sender holds)
+/// payload_c          = sequence_total packed (this_seq u16 << 16 | total_chunks u16)
+/// tick               = broadcast_at_ms low32
+/// reserved           = first event_hash in this chunk (for first chunk only;
+/// subsequent chunks pack hashes elsewhere)
 pub const FRAME_TYPE_EVENT_HASH_LIST: u8 = 9;
-/// Era 1410: forensic-event delta chunk.
+/// forensic-event delta chunk.
 /// Layout in SporeFrame payload slots (per record-chunk):
-///   proposal_or_target = event_hash (the entry's content address)
-///   payload_a          = sender_relay_id
-///   payload_b          = packed kind-tag (4 ASCII chars truncated)
-///   payload_c          = chain_hash (informational; receiver re-derives on apply)
-///   tick               = envelope_hash (= delta_hash, ties chunks)
-///   reserved           = sequence u16 << 16 | total u16 (sequence 0 = header)
+/// proposal_or_target = event_hash (the entry's content address)
+/// payload_a          = sender_relay_id
+/// payload_b          = packed kind-tag (4 ASCII chars truncated)
+/// payload_c          = chain_hash (informational; receiver re-derives on apply)
+/// tick               = envelope_hash (= delta_hash, ties chunks)
+/// reserved           = sequence u16 << 16 | total u16 (sequence 0 = header)
 pub const FRAME_TYPE_EVENT_DELTA_CHUNK: u8 = 10;
-/// Era 1470: hash-list request — asks a peer to send its full event_hash set.
+/// hash-list request — asks a peer to send its full event_hash set.
 /// Layout:
-///   proposal_or_target = sender_relay_id
-///   tick               = request_id (any nonce; echoed back in response)
-///   payload_a/b/c, reserved = 0
+/// proposal_or_target = sender_relay_id
+/// tick               = request_id (any nonce; echoed back in response)
+/// payload_a/b/c, reserved = 0
 pub const FRAME_TYPE_EVENT_HASH_REQUEST: u8 = 11;
-/// Era 1470: hash-list response chunk — up to 4 event_hashes per frame.
+/// hash-list response chunk — up to 4 event_hashes per frame.
 /// Layout:
-///   proposal_or_target = hash[0]
-///   payload_a          = hash[1]
-///   payload_b          = hash[2]
-///   payload_c          = hash[3]
-///   tick               = request_id (echoed from REQUEST.tick)
-///   reserved           = (seq u8 << 24) | (total u8 << 16) | (valid u8 << 8) | 0
-///                        seq, total are 1-based; valid is the count of
-///                        live u32 slots in this frame (1..4).
+/// proposal_or_target = hash[0]
+/// payload_a          = hash[1]
+/// payload_b          = hash[2]
+/// payload_c          = hash[3]
+/// tick               = request_id (echoed from REQUEST.tick)
+/// reserved           = (seq u8 << 24) | (total u8 << 16) | (valid u8 << 8) | 0
+/// seq, total are 1-based; valid is the count of
+/// live u32 slots in this frame (1..4).
 pub const FRAME_TYPE_EVENT_HASH_RESPONSE: u8 = 12;
 pub const FRAME_TYPE_V2_SYNC: u8 = 13;
-/// Era 2060: Silicon to Mycelium — BLE Mesh physical broadcast frame.
+/// Silicon to Mycelium — BLE Mesh physical broadcast frame.
 pub const FRAME_TYPE_BLE_MESH_BROADCAST: u8 = 14;
-/// Era 2060: Silicon to Mycelium — LoRa Long Range physical broadcast frame.
+/// Silicon to Mycelium — LoRa Long Range physical broadcast frame.
 pub const FRAME_TYPE_LORA_LONG_RANGE: u8 = 15;
-/// Era 2060: Zero-Copy Binary Plasmids
+/// Zero-Copy Binary Plasmids
 pub const FRAME_TYPE_ATTRACTOR: u8 = 16;
 pub const FRAME_TYPE_PROPOSAL: u8 = 17;
-/// Era 2090: Commutative LawHash Telemetry.
+/// Commutative LawHash Telemetry.
 /// Layout in SporeFrame payload slots:
-///   proposal_or_target = law_hash (truncated digest of physical constants)
-///   payload_a          = pre_state_hash (FNV-1a or SHA-256 of active agents before tick)
-///   payload_b          = post_state_hash (after tick)
-///   payload_c          = entropy_delta (total_entropy_released diff)
-///   tick               = tick
-///   oracle_bit         = witness_kind (0=Rust, 1=WGSL, 2=SP1, 3=Spore)
+/// proposal_or_target = law_hash (truncated digest of physical constants)
+/// payload_a          = pre_state_hash (FNV-1a or SHA-256 of active agents before tick)
+/// payload_b          = post_state_hash (after tick)
+/// payload_c          = entropy_delta (total_entropy_released diff)
+/// tick               = tick
+/// oracle_bit         = witness_kind (0=Rust, 1=WGSL, 2=SP1, 3=Spore)
 pub const FRAME_TYPE_LAW_TELEMETRY: u8 = 18;
 
 /// One UART/SPI/BLE frame. `repr(C)` so we can transmute between bytes
@@ -173,7 +173,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 2090: Build a LAW_TELEMETRY frame broadcasting the results of a physical tick.
+    /// Build a LAW_TELEMETRY frame broadcasting the results of a physical tick.
     pub fn law_telemetry(
         witness_kind: u8,
         law_hash: u32,
@@ -204,7 +204,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1200: Build a SNAPSHOT_DIGEST frame carrying a relay's
+    /// Build a SNAPSHOT_DIGEST frame carrying a relay's
     /// headline resilience stats. Compact alternative to the
     /// 32-byte ResilienceSnapshot — fits within SporeFrame so it
     /// rides the same transport as warrants/heartbeats.
@@ -226,7 +226,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1250: Build a COMPOSITE_HEALTH frame carrying a relay's
+    /// Build a COMPOSITE_HEALTH frame carrying a relay's
     /// one-glance health composite. Counts are u8-clamped (255 max).
     pub fn composite_health(
         relay_id: u32,
@@ -252,7 +252,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1290: Build a QUORUM_VERDICT frame carrying a forensic
+    /// Build a QUORUM_VERDICT frame carrying a forensic
     /// adjudication digest. The digest is the primary identifier; the
     /// supplementary fields (verdict_code, relay_count, overlap_pct,
     /// replayed_q16, diff_q16) are operator-readable summary data.
@@ -281,13 +281,13 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1420: Build an EVENT_HASH_LIST frame announcing the
+    /// Build an EVENT_HASH_LIST frame announcing the
     /// spore's known event_hash set anchor. Layout:
-    ///   proposal_or_target = sender_relay_id
-    ///   payload_a          = hash_set_anchor (FNV-1a over sorted set)
-    ///   payload_b          = total_hashes
-    ///   payload_c          = sequence_total packed (this_seq << 16 | total)
-    ///   tick               = broadcast_at_ms low32
+    /// proposal_or_target = sender_relay_id
+    /// payload_a          = hash_set_anchor (FNV-1a over sorted set)
+    /// payload_b          = total_hashes
+    /// payload_c          = sequence_total packed (this_seq << 16 | total)
+    /// tick               = broadcast_at_ms low32
     pub fn event_hash_list(
         sender_relay_id: u32,
         hash_set_anchor: u32,
@@ -307,14 +307,14 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1420: Build an EVENT_DELTA_CHUNK header frame
+    /// Build an EVENT_DELTA_CHUNK header frame
     /// (sequence=0). Layout:
-    ///   proposal_or_target = envelope_hash (= delta_hash)
-    ///   payload_a          = initiator_anchor
-    ///   payload_b          = replied_at_ms low32
-    ///   payload_c          = peer_missing_count
-    ///   tick               = envelope_hash
-    ///   reserved           = (0 << 16) | total
+    /// proposal_or_target = envelope_hash (= delta_hash)
+    /// payload_a          = initiator_anchor
+    /// payload_b          = replied_at_ms low32
+    /// payload_c          = peer_missing_count
+    /// tick               = envelope_hash
+    /// reserved           = (0 << 16) | total
     pub fn event_delta_chunk_header(
         sender_relay_id: u8,
         envelope_hash: u32,
@@ -336,14 +336,14 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1420: Build an EVENT_DELTA_CHUNK record frame
+    /// Build an EVENT_DELTA_CHUNK record frame
     /// (sequence > 0). Layout:
-    ///   proposal_or_target = event_hash
-    ///   payload_a          = 0 (sender shared via header.oracle_bit)
-    ///   payload_b          = packed kind tag (4 ASCII chars)
-    ///   payload_c          = chain_hash (informational)
-    ///   tick               = envelope_hash
-    ///   reserved           = (seq << 16) | total
+    /// proposal_or_target = event_hash
+    /// payload_a          = 0 (sender shared via header.oracle_bit)
+    /// payload_b          = packed kind tag (4 ASCII chars)
+    /// payload_c          = chain_hash (informational)
+    /// tick               = envelope_hash
+    /// reserved           = (seq << 16) | total
     pub fn event_delta_chunk_record(
         sender_relay_id: u8,
         envelope_hash: u32,
@@ -366,7 +366,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1470: Build a HASH_REQUEST frame asking a peer for its
+    /// Build a HASH_REQUEST frame asking a peer for its
     /// full event_hash list. `request_id` is any nonce the
     /// initiator picks (typically a tick or counter); the peer
     /// echoes it back in the response so concurrent requests
@@ -383,7 +383,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1470: Build a HASH_RESPONSE chunk carrying up to 4 hashes.
+    /// Build a HASH_RESPONSE chunk carrying up to 4 hashes.
     pub fn event_hash_response(
         request_id: u32,
         seq: u8,
@@ -404,7 +404,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 2060: Build a BLE_MESH_BROADCAST frame.
+    /// Build a BLE_MESH_BROADCAST frame.
     pub fn ble_mesh_broadcast(
         sender_id: u32,
         target_id: u32,
@@ -421,7 +421,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 2060: Build a LORA_LONG_RANGE frame.
+    /// Build a LORA_LONG_RANGE frame.
     pub fn lora_long_range(
         sender_id: u32,
         target_id: u32,
@@ -438,7 +438,7 @@ impl SporeFrame {
         f
     }
 
-    /// Era 1420: Pack a kind string (up to 4 ASCII chars) into a u32.
+    /// Pack a kind string (up to 4 ASCII chars) into a u32.
     /// Mirrors JS `packKindTag` byte-for-byte. Truncates longer
     /// strings; pads shorter ones with zeros (in the LSBs).
     #[allow(clippy::needless_range_loop)]
@@ -528,7 +528,7 @@ mod tests {
         assert_eq!(core::mem::size_of::<SporeFrame>(), SPORE_FRAME_BYTES);
     }
 
-    /// Era 1420: pack_kind_tag matches JS packKindTag byte-for-byte.
+    /// pack_kind_tag matches JS packKindTag byte-for-byte.
     #[test]
     fn pack_kind_tag_known_values() {
         assert_eq!(SporeFrame::pack_kind_tag(b"test"), 0x7465_7374);
@@ -540,7 +540,7 @@ mod tests {
         assert_eq!(SporeFrame::pack_kind_tag(b""), 0);
     }
 
-    /// Era 1420: event_hash_list frame round-trips via raw bytes.
+    /// event_hash_list frame round-trips via raw bytes.
     #[test]
     fn event_hash_list_round_trips() {
         let f = SporeFrame::event_hash_list(0xCAFE_BABE, 0x9299_32B5, 3, 0, 1, 12345);
@@ -553,7 +553,7 @@ mod tests {
         assert_eq!(parsed.tick, 12345);
     }
 
-    /// Era 1420: event_delta_chunk header frame round-trips.
+    /// event_delta_chunk header frame round-trips.
     #[test]
     fn event_delta_chunk_header_round_trips() {
         let f = SporeFrame::event_delta_chunk_header(
@@ -570,7 +570,7 @@ mod tests {
         assert_eq!((parsed._reserved >> 16) & 0xFFFF, 0);
     }
 
-    /// Era 1420: event_delta_chunk record frame round-trips.
+    /// event_delta_chunk record frame round-trips.
     #[test]
     fn event_delta_chunk_record_round_trips() {
         let f = SporeFrame::event_delta_chunk_record(
@@ -587,7 +587,7 @@ mod tests {
         assert_eq!(parsed._reserved & 0xFFFF, 3);
     }
 
-    /// Era 1470: HASH_REQUEST frame round-trips.
+    /// HASH_REQUEST frame round-trips.
     #[test]
     fn hash_request_round_trips() {
         let f = SporeFrame::event_hash_request(0xCAFE_BABE, 42);
@@ -598,7 +598,7 @@ mod tests {
         assert_eq!(parsed.tick, 42);
     }
 
-    /// Era 1470: HASH_RESPONSE chunk round-trips with up to 4 hashes.
+    /// HASH_RESPONSE chunk round-trips with up to 4 hashes.
     #[test]
     fn hash_response_round_trips() {
         let hashes = [0x10u32, 0x20, 0x30, 0x40];
@@ -616,7 +616,7 @@ mod tests {
         assert_eq!((parsed._reserved >> 8) & 0xFF, 4);  // valid
     }
 
-    /// Era 1470: HASH_RESPONSE handles partial chunks (valid < 4).
+    /// HASH_RESPONSE handles partial chunks (valid < 4).
     #[test]
     fn hash_response_partial_chunk() {
         let hashes = [0x10u32, 0x20, 0, 0];

@@ -1,4 +1,4 @@
-// Era 1180: Convergence Detector tests.
+// Convergence Detector tests.
 import { assertEquals, assert, assertThrows } from "jsr:@std/assert";
 import {
     ConvergenceDetector,

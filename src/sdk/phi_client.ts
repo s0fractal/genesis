@@ -18,7 +18,7 @@ export class PhiClient {
     private peerConnection: RTCPeerConnection | null = null;
     private dataChannel: RTCDataChannel | null = null;
     private handlers: Map<number | string, PayloadHandler[]> = new Map();
-    
+
     public witnessHistory: WitnessData[] = [];
     public connected: boolean = false;
 
@@ -29,7 +29,7 @@ export class PhiClient {
      * This is a minimal stub representing the future P2P bootstrapping mechanism.
      */
     public async connect(signalingUrl: string, targetPeerId: string): Promise<void> {
-        // 1. Setup WebSocket for signaling and broadcast fallback (Era 0213)
+        // 1. Setup WebSocket for signaling and broadcast fallback
         const ws = new WebSocket(signalingUrl);
         ws.onopen = () => {
             console.log(`[Φ-SDK] Signaling WebSocket connected.`);
@@ -75,10 +75,10 @@ export class PhiClient {
             if (event.data instanceof ArrayBuffer) {
                 const buffer = new Uint8Array(event.data);
                 if (buffer.length < 1) return;
-                
+
                 const frameType = buffer[0];
                 const payload = buffer.subarray(1);
-                
+
                 this.dispatchEvent(frameType, payload);
             }
         };

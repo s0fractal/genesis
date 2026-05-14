@@ -8,7 +8,7 @@ export function isProduction(): boolean {
     if (typeof globalThis !== "undefined" && (globalThis as any).__OMEGA_PROD__) {
         return true;
     }
-    
+
     // 2. Check for Deno environment variables (Server/CLI)
     try {
         // @ts-ignore: Deno namespace is conditionally present
@@ -16,7 +16,7 @@ export function isProduction(): boolean {
             return true;
         }
     } catch { /* Ignore permissions/absence errors */ }
-    
+
     // 3. Check for Vite injected environment variables (Browser Build)
     try {
         // @ts-ignore: import.meta.env is conditionally present via Vite
@@ -24,6 +24,6 @@ export function isProduction(): boolean {
             return true;
         }
     } catch { /* Ignore absence errors */ }
-    
+
     return false;
 }

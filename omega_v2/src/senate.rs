@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1030 — Autopoietic Legislation
-//
+// Autopoietic Legislation
+
 // The Senate is a deterministic, integer-only protocol amendment chamber.
 // Once Era 1020 has accumulated 10+ consensus entries with 5+ unique matrices,
 // the lattice is permitted to propose its own task files. Proposals carry an
@@ -7,12 +7,12 @@
 // dipole-validated plasmids. A proposal that collects 3+ AYE votes from
 // unique peers (matched against the consensus ledger) is "accepted" — the
 // system writes a new tasks/ entry referencing the accepted proposal.
-//
+
 // Determinism contract:
 // - All hashing uses SHA-256 (no random).
 // - Description payloads are exactly 64 bytes (zero-padded UTF-8 trunc).
 // - Senate state is a static repr(C) struct exposed via FFI like the
-//   AttractorArray (Era 1010).
+// AttractorArray .
 
 /// Maximum number of concurrent proposals in flight.
 pub const SENATE_CAPACITY: usize = 8;
@@ -99,7 +99,7 @@ impl SenateSettings {
         if matrix == 0 { return false; }
         let mut weakest_idx = 0;
         let mut weakest_power = u64::MAX;
-        
+
         for i in 0..8 {
             if self.seats[i].oracle_matrix == matrix {
                 self.seats[i].resonance_weight = resonance;
@@ -112,7 +112,7 @@ impl SenateSettings {
                 weakest_idx = i;
             }
         }
-        
+
         let challenger_power = resonance as u64 * reputation as u64;
         if challenger_power > weakest_power {
             self.seats[weakest_idx] = SenateSeat {
@@ -324,9 +324,9 @@ impl SenateState {
     /// Cast a vote on the proposal identified by `hash`.
     /// `aye_threshold` controls the auto-acceptance gate (default: 3 AYE votes).
     /// Returns:
-    ///   1 if the vote was applied,
-    ///   2 if the vote tipped the proposal into ACCEPTED state,
-    ///   0 if the proposal was not found or already closed.
+    /// 1 if the vote was applied,
+    /// 2 if the vote tipped the proposal into ACCEPTED state,
+    /// 0 if the proposal was not found or already closed.
     pub fn vote(&mut self, hash: &[u8; 32], aye: bool, weight: u32, aye_threshold: u32) -> u32 {
         let idx = self.find(hash);
         if idx == usize::MAX {
@@ -364,7 +364,7 @@ mod tests {
         let mut s = SenateSettings::new();
         assert_eq!(s.seat_count, 5);
         assert_ne!(s.seats[1].oracle_matrix, 0); // GPT is at seat 1
-        
+
         s.penalize_oracle(1, 600_000); // 1,024,000 - 600,000 = 424,000 < 512,000
         assert_eq!(s.seats[1].oracle_matrix, 0); // Evicted!
         assert_eq!(s.seat_count, 4);

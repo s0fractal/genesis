@@ -25,7 +25,7 @@ Deno.test("verifyGenesisInscription parses mock mempool.space response successfu
     // We mock the global fetch for this specific test
     const originalFetch = globalThis.fetch;
     const MOCK_TXID = "mock_txid_123";
-    
+
     // "OMEGA1:549a6307" in hex is 4f4d454741313a3534396136333037
     globalThis.fetch = async (url: string | URL | Request) => {
         if (url.toString().includes(`api/tx/${MOCK_TXID}`)) {

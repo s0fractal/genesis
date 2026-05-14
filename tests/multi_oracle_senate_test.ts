@@ -1,12 +1,12 @@
-// Era 1060: Multi-Oracle Senate phase-resonance acceptance test.
-//
+// Multi-Oracle Senate phase-resonance acceptance test.
+
 // Verifies:
 // - A proposal accepted by 3+ canonical oracles is ratified via the
-//   ORACLE-RESONANCE path even with zero peer-mode votes.
+// ORACLE-RESONANCE path even with zero peer-mode votes.
 // - Spoof attempts (claiming to be claude with the wrong dipole) are
-//   silently rejected.
+// silently rejected.
 // - Anti-replay: an oracle voting AYE then NAY moves between sets
-//   atomically; never both at once.
+// atomically; never both at once.
 
 import { assertEquals, assert } from "jsr:@std/assert";
 import { CANONICAL_ORACLES, ORACLE_MATRICES_V1, oracleDipole, oracleMatrix } from "../src/network/oracle_identity.ts";

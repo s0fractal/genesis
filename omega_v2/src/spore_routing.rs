@@ -1,20 +1,20 @@
-// 🌌 OMEGA-64: Era 1130 — Federated Spore-to-Spore Routing
-//
+// Federated Spore-to-Spore Routing
+
 // When no relay node is reachable, spores forward each other's frames
 // peer-to-peer along a known-good topology. This module defines the
 // minimal forwarding rules that fit in microcontroller RAM:
-//
-//   - TTL decrements at every hop; frames at TTL=0 are dropped.
-//   - The frame's `payload_b` slot is repurposed as a "trail digest" —
-//     a rolling FNV-1a hash of the spore IDs that have already touched
-//     the frame. Loops are detected when a spore sees its own ID
-//     contribution back in the trail.
-//   - The forwarding rule: a healthy spore relays any HEARTBEAT or
-//     WARRANT_VOTE frame it receives, after decrementing TTL and
-//     mixing its own spore_id into the trail digest. Forked / stalled
-//     spores DO NOT forward (the aggregator on the eventual relay
-//     never trusted them anyway).
-//
+
+// - TTL decrements at every hop; frames at TTL=0 are dropped.
+// - The frame's `payload_b` slot is repurposed as a "trail digest" —
+// a rolling FNV-1a hash of the spore IDs that have already touched
+// the frame. Loops are detected when a spore sees its own ID
+// contribution back in the trail.
+// - The forwarding rule: a healthy spore relays any HEARTBEAT or
+// WARRANT_VOTE frame it receives, after decrementing TTL and
+// mixing its own spore_id into the trail digest. Forked / stalled
+// spores DO NOT forward (the aggregator on the eventual relay
+// never trusted them anyway).
+
 // This is intentionally NOT a fully-routed mesh. It's a flooding
 // protocol with TTL + loop detection — appropriate for daisy-chained
 // UART or BLE-mesh topologies, where the alternative is no

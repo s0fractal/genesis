@@ -1,4 +1,4 @@
-// Era 2070: Full WGSL-Rust-TS atan2 Parity Test
+// Full WGSL-Rust-TS atan2 Parity Test
 // Exhaustively verifies all 65,536 combinations of X and Y (-128 to 127).
 
 import { assertEquals } from "jsr:@std/assert";
@@ -48,10 +48,10 @@ fn atan2_fast(y: i32, x: i32) -> i32 {
 fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let idx = global_id.x;
     if (idx >= 65536u) { return; }
-    
+
     let y = i32(idx / 256u) - 128;
     let x = i32(idx % 256u) - 128;
-    
+
     out_buffer[idx] = atan2_fast(y, x);
 }
 `;
@@ -116,20 +116,20 @@ Deno.test({
         for (let idx = 0; idx < 65536; idx++) {
             const y = Math.floor(idx / 256) - 128;
             const x = (idx % 256) - 128;
-            
+
             const wgslAns = wgslResults[idx];
             const rustAns = v2_math_atan2(y, x);
-            
+
             // Note: v2_math_atan2 returns u32, let's normalize to i32 for comparison
             // though it's already bounded to 0..255.
-            
+
             if (wgslAns !== rustAns) {
                 console.error(`Mismatch at (y=${y}, x=${x}): WGSL=${wgslAns}, Rust=${rustAns}`);
                 mismatchCount++;
                 if (mismatchCount > 10) break; // Don't flood console
             }
         }
-        
+
         assertEquals(mismatchCount, 0, "WGSL and Rust atan2_fast must be bit-identical across all 65536 inputs.");
 
         readbackBuffer.unmap();

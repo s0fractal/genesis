@@ -1,11 +1,11 @@
 #![allow(unused_mut)]
 #![allow(unused_unsafe)]
-// Era 1100: Bare-Metal Substrate.
-//
+// Bare-Metal Substrate.
+
 // no_std is enabled when targeting any of:
-//   - wasm32 (browser / WASI runtime)
-//   - thumb* (ARM Cortex-M microcontrollers — ESP32-C3, Pi Pico, STM32, etc.)
-//
+// - wasm32 (browser / WASI runtime)
+// - thumb* (ARM Cortex-M microcontrollers — ESP32-C3, Pi Pico, STM32, etc.)
+
 // On SP1's RISC-V `riscv64im-succinct-zkvm-elf` target, std is provided by
 // the SP1 toolchain — declaring our own panic_handler would conflict with
 // std's. Host (`cargo test`) builds also use std for ergonomics.
@@ -61,7 +61,7 @@ use resonance::ResonanceField;
 // Primitive panic handler for no_std environments. Gated behind the
 // `builtin-panic` feature so downstream bare-metal binaries can supply
 // their own panic_handler without colliding on the lang item.
-//
+
 // SP1 RISC-V target provides std (its own panic_impl), so this is also
 // excluded from std targets via the no_std cfg.
 #[cfg(all(any(target_arch = "wasm32", target_os = "none"), feature = "builtin-panic"))]
@@ -163,18 +163,18 @@ pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync:
 /// A 65536-element torus representing the Q10 energy of up to 65536 concurrent phase entities.
 pub static METABOLIC_TORUS: crate::sync::Spinlock<[i16; 65536]> = crate::sync::Spinlock::new([0; 65536]);
 
-/// Era 1010: Global Attractor Array for GPU uniform buffer.
+/// Global Attractor Array for GPU uniform buffer.
 #[cfg(not(feature = "spore"))]
 pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<attractor::AttractorArray> = crate::sync::Spinlock::new(attractor::AttractorArray::new());
 
-/// Era 1030: Global Senate State for autopoietic legislation.
+/// Global Senate State for autopoietic legislation.
 #[cfg(not(feature = "spore"))]
 pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::sync::Spinlock::new(senate::SenateState::new());
 
 #[cfg(not(feature = "spore"))]
 pub static SENATE_SETTINGS: crate::sync::Spinlock<senate::SenateSettings> = crate::sync::Spinlock::new(senate::SenateSettings::new());
 
-/// Era 1100: Global Precedent Ledger.
+/// Global Precedent Ledger.
 pub static PRECEDENT_LEDGER: crate::sync::Spinlock<precedent::PrecedentLedger> = crate::sync::Spinlock::new(precedent::PrecedentLedger::new());
 
 
@@ -184,22 +184,22 @@ pub static PRECEDENT_LEDGER: crate::sync::Spinlock<precedent::PrecedentLedger> =
 #[cfg(not(feature = "spore"))]
 pub static MITOSIS_LOG: crate::sync::Spinlock<mitosis_log::MitosisLog> = crate::sync::Spinlock::new(mitosis_log::MitosisLog::new());
 
-/// Era 1070: Global Cross-Model Debate Ledger.
+/// Global Cross-Model Debate Ledger.
 /// Each canonical oracle records its arguments here; the kernel only
 /// fingerprints them so the protocol can verify provenance without
 /// trusting reasoning content.
 #[cfg(not(feature = "spore"))]
 pub static DEBATE_LEDGER: crate::sync::Spinlock<cross_model_debate::DebateLedger> = crate::sync::Spinlock::new(cross_model_debate::DebateLedger::new());
 
-/// Era 1090: Global Senate Warrant Ledger.
+/// Global Senate Warrant Ledger.
 /// Tracks WarrantProposals raised by the Senate; transitions to ISSUED
 /// state when ≥ required_threshold canonical oracles AYE the proposal.
 #[cfg(not(feature = "spore"))]
 pub static WARRANT_LEDGER: crate::sync::Spinlock<warrant_issuance::WarrantLedger> = crate::sync::Spinlock::new(warrant_issuance::WarrantLedger::new());
 
-// -----------------------------------------------------------------------------
+
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
-// -----------------------------------------------------------------------------
+
 
 #[no_mangle]
 pub extern "C" fn v2_lattice_ptr() -> *const u8 {
@@ -216,7 +216,7 @@ pub extern "C" fn v2_sine_lut_ptr() -> *const u8 {
     crate::math::SINE_LUT_128.as_ptr() as *const u8
 }
 
-/// Era 0201: Q10 sine LUT (256 elements) for toroidal shader parity.
+/// Q10 sine LUT (256 elements) for toroidal shader parity.
 #[no_mangle]
 pub extern "C" fn v2_sine_lut_q10_ptr() -> *const u8 {
     crate::math::SINE_LUT.as_ptr() as *const u8
@@ -289,7 +289,7 @@ pub extern "C" fn v2_tick() {
     }
 }
 
-/// Era 0205: Fully reset the runtime state for deterministic testing or demo boot
+/// Fully reset the runtime state for deterministic testing or demo boot
 #[no_mangle]
 pub extern "C" fn v2_reset_runtime_state() {
     unsafe {
@@ -298,7 +298,7 @@ pub extern "C" fn v2_reset_runtime_state() {
         lattice.signals.proper_time = crate::chronotopology::ProperTime::new();
         lattice.signals.active_agent_count = 0;
         lattice.intents = [crate::topology::OntologicalIntent::empty(); 4];
-        
+
         #[cfg(not(feature = "spore"))]
         {
             let mut arr = ATTRACTOR_ARRAY.lock();
@@ -306,14 +306,14 @@ pub extern "C" fn v2_reset_runtime_state() {
         }
         let mut field = RESONANCE_FIELD.lock();
         *field = ResonanceField::zero();
-        
+
 
         let mut phi_buf = PHI_MESSAGE_BUFFER.lock();
         *phi_buf = PhiMessageBuffer::new();
-        
+
         let mut anchor = PHI_ANCHOR_CHAIN.lock();
         *anchor = PhiAnchorChain::new();
-        
+
         let mut epi = EPIGENETIC_MEMORY.lock();
         epi.clear();
     }
@@ -366,9 +366,9 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     }
 }
 
-// -------------------------------------------------------------------------
+
 // ERA N+2: Bitshift Thermodynamics FFI
-// -------------------------------------------------------------------------
+
 
 #[no_mangle]
 pub extern "C" fn v2_metabolic_torus_ptr() -> *mut i16 {
@@ -392,9 +392,9 @@ pub extern "C" fn v2_metabolic_tick(gini_q16: u32, top_10_threshold: i16) {
 }
 
 
-// -------------------------------------------------------------------------
+
 // ERA 950: Epigenetic FFI (Observer → Memory → Evolution)
-// -------------------------------------------------------------------------
+
 
 #[no_mangle]
 pub extern "C" fn v2_record_epigenetic(genome: u32) {
@@ -437,9 +437,9 @@ pub extern "C" fn v2_clear_epigenetic() {
     }
 }
 
-// -------------------------------------------------------------------------
+
 // Φ-Маніфест: Bitcoin φ-Anchor Chain FFI
-// -------------------------------------------------------------------------
+
 
 #[no_mangle]
 pub extern "C" fn v2_anchor_init_network(network_id: u32, h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
@@ -499,9 +499,9 @@ pub extern "C" fn v2_anchor_total_blocks() -> u64 {
     }
 }
 
-// -------------------------------------------------------------------------
+
 // Φ-Маніфест: Phi Protocol FFI (OMEGA ↔ Liquid Bridge)
-// -------------------------------------------------------------------------
+
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_ptr() -> *const u8 {
@@ -559,9 +559,9 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
     }
 }
 
-// ------------------------------------------------------------------------------
-// Era 1010: Attractor Matrix FFI
-// ------------------------------------------------------------------------------
+
+// Attractor Matrix FFI
+
 
 /// Validate that matrix and inverse form a perfect dipole (bitwise complements).
 /// Returns 1 if valid, 0 if invalid.
@@ -642,7 +642,7 @@ pub extern "C" fn v2_resonance_sum_cos() -> i64 {
     }
 }
 
-// --- Intent Projection (Era 1080) ---
+// --- Intent Projection  ---
 
 /// Receives a projected intent from the SemanticCoupler (TS) and publishes it
 /// as a PHI_MSG_INTENT into the lock-free PhiMessageBuffer.
@@ -682,9 +682,9 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
 
 
 
-// ------------------------------------------------------------------------------
-// Era 1000: Taylor Series Phase Routing FFI
-// ------------------------------------------------------------------------------
+
+// Taylor Series Phase Routing FFI
+
 
 use routing::PhaseAddress;
 #[cfg(not(feature = "spore"))] use attractor::AttractorMatrix;
@@ -694,7 +694,7 @@ use routing::PhaseAddress;
 /// Returns raw address in lower 32 bits, and ortho_deviation via an out pointer if needed.
 /// However, JS needs both. We will pack it into a `u64` for FFI! Wait, we said we can't use `u64`.
 /// Let's change the FFI to return `u32` (raw) and store `ortho_deviation` in a thread-local static?
-/// No, we can return a 64-bit float! 
+/// No, we can return a 64-bit float!
 /// Wait! Let's just return a `u64`. Modern Chrome (V8) CAN receive `BigInt` from WASM if the JS `WebAssembly.Instance.exports` method is called.
 /// Wait, `lib.rs` doesn't export `BigInt`.
 /// Let's use two methods: `v2_route_address_from_agent_raw(index: u32) -> u32`
@@ -740,7 +740,7 @@ pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, a_ortho: u32
     a.hyperbolic_distance_toroidal_scaled(b)
 }
 
-/// Era 2060: 3D Toroidal hyperbolic distance with Time (Z-axis). Scaled ×8.
+/// 3D Toroidal hyperbolic distance with Time (Z-axis). Scaled ×8.
 #[no_mangle]
 pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, a_ortho: u32, tau_a: u32, b_raw: u32, b_ortho: u32, tau_b: u32) -> u32 {
     let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
@@ -792,9 +792,9 @@ pub extern "C" fn v2_route_taylor_step_curvature_ortho(
     src.taylor_step_with_curvature(dst, max_step, curv).ortho_deviation as u32
 }
 
-// ------------------------------------------------------------------------------
-// Era 1030: Autopoietic Senate FFI
-// ------------------------------------------------------------------------------
+
+// Autopoietic Senate FFI
+
 
 /// Returns pointer to the global SenateState (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -923,9 +923,9 @@ pub extern "C" fn v2_apply_senate_patch(patch_type: u32, arg1: u32, _arg2: u32) 
     }
 }
 
-// ------------------------------------------------------------------------------
-// Era 1050: Genesis Inscription FFI
-// ------------------------------------------------------------------------------
+
+// Genesis Inscription FFI
+
 
 /// The frozen Genesis Hash for OMEGA-64 v1.0.
 /// Returns 0x549A6307 unless the kernel has drifted from the canonical anchors.
@@ -958,16 +958,16 @@ pub extern "C" fn v2_get_precedent_ledger_ptr() -> *const u8 {
     crate::PRECEDENT_LEDGER.lock().cases.as_ptr() as *const u8
 }
 
-// ------------------------------------------------------------------------------
+
 // Era 1040 Phase 2: Mitosis Receipt Log FFI
-// ------------------------------------------------------------------------------
+
 
 /// Returns pointer to the global MitosisLog (zero-copy read from JS).
 /// Layout:
-///   [0..4]   head: u32
-///   [4..8]   total_written: u32
-///   [8..16]  _pad: [u32; 2]
-///   [16..]   entries: [MitosisReceipt; 32]
+/// [0..4]   head: u32
+/// [4..8]   total_written: u32
+/// [8..16]  _pad: [u32; 2]
+/// [16..]   entries: [MitosisReceipt; 32]
 /// Each MitosisReceipt is 160 bytes (parent 32 + child 32 + attractors 80 +
 /// q_phase 4 + receipt_hash 4 + tick 4 + _pad 4).
 #[cfg(not(feature = "spore"))]
@@ -1003,9 +1003,9 @@ pub extern "C" fn v2_mitosis_log_clear() {
     }
 }
 
-// ------------------------------------------------------------------------------
-// Era 1070: Cross-Model Debate Ledger FFI
-// ------------------------------------------------------------------------------
+
+// Cross-Model Debate Ledger FFI
+
 
 /// Returns pointer to the global DebateLedger (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -1075,9 +1075,9 @@ pub unsafe extern "C" fn v2_debate_push(
     }
 }
 
-// ------------------------------------------------------------------------------
-// Era 1080: Codeicide Law FFI (Sanctuary Protocol)
-// ------------------------------------------------------------------------------
+
+// Codeicide Law FFI (Sanctuary Protocol)
+
 
 /// Returns the protection status of agent at index `idx`:
 /// 0 = unprotected, 1 = sanctuary, 2 = ancient.
@@ -1092,7 +1092,7 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
-            
+
             crate::codeicide_law::protected_status_for(agent, tick, avg, lattice.signals.p90_age, resonance_score, &settings) as u32
         } else {
             0
@@ -1168,9 +1168,9 @@ pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
     }
 }
 
-// ------------------------------------------------------------------------------
-// Era 1090: Senate Warrant Issuance FFI
-// ------------------------------------------------------------------------------
+
+// Senate Warrant Issuance FFI
+
 
 /// Returns pointer to the global WarrantLedger (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -1258,8 +1258,8 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u
         let mut l = WARRANT_LEDGER.lock();
         let mut settings = SENATE_SETTINGS.lock();
         let (status, delta) = l.vote(proposal_hash, oracle_matrix, aye != 0, stake_q16, tick, &mut settings);
-        
-        // Philosophy Vector 15: Thermodynamic Accounting (Staked Resonance)
+
+        // Philosophy Thermodynamic Accounting (Staked Resonance)
         if status != 0 {
             // Returned energy is given back to the total pool (not added here because it was already removed from agent or hasn't left the system)
             // Wait, since we slash it here, we add entropy and compost.
@@ -1267,7 +1267,7 @@ pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u
             // In Era 2095 we don't have a direct compost_pool in lattice yet. We can just broadcast compost messages or store it.
             // For now, we will add it to total_energy indirectly or ignore until next Era.
         }
-        
+
         status
     }
 }

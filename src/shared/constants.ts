@@ -1,6 +1,6 @@
 /**
  * OMEGA-64 | UNIVERSAL AXIOM (O-59)
- * 
+ *
  * The single source of truth for all simulation mathematics and topological thresholds.
  * "Magic numbers" are strictly forbidden outside this module.
  */
@@ -13,7 +13,7 @@ export const SENATE_MASK_LOGOS = "LOGOS";
 export const SENATE_MASK_CHRONOS = "CHRONOS";
 export const SENATE_MASK_AION = "AION";
 
-// The Semantic Dipoles (Era 247 Quaternionic Senate)
+// The Semantic Dipoles
 export const DIPOLE_POLES = {
     ALPHA: "ALPHA (Chaos/Preservation)",
     OMEGA: "OMEGA (Symmetry/Execution)"
@@ -37,7 +37,7 @@ export let SUBSTRATE_DAMPING_BASE = 0;
 
 export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset: number) {
     const view = new DataView(memory.buffer, headerOffset, 256);
-    
+
     // Bytes 0-3: Magic
     const m0 = view.getUint8(0);
     const m1 = view.getUint8(1);
@@ -59,8 +59,8 @@ export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset:
     SUBSTRATE_DAMPING_BASE = view.getInt32(24, true);
 
     // Bytes 28-63: Kuramoto Thermodynamics
-    // Era 244: SSoT statically guarantees determinism. No need to dynamically cast from memory.
-    
+    // SSoT statically guarantees determinism. No need to dynamically cast from memory.
+
     // Bytes 64-87: Evolutionary Parameters
-    // Era 244: SSoT statically guarantees determinism.
+    // SSoT statically guarantees determinism.
 }

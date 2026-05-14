@@ -62,31 +62,31 @@ export class PhaseV2Renderer {
         }
 
         const commandEncoder = this.device.createCommandEncoder();
-        
+
         const computePipeline = this.pipelines.toroidalComputePipeline;
         const computeBindGroup = this.buffers.agentsPingPong === 0
             ? this.pipelines.computeBindGroupToroidalA
             : this.pipelines.computeBindGroupToroidalB;
-        
+
         const renderBindGroup = this.buffers.agentsPingPong === 0
-            ? this.pipelines.renderBindGroupB 
+            ? this.pipelines.renderBindGroupB
             : this.pipelines.renderBindGroupA;
-        
+
         // 1. Compute Pass
         const passEncoder = commandEncoder.beginComputePass();
         passEncoder.setPipeline(computePipeline);
         passEncoder.setBindGroup(0, computeBindGroup);
-        
+
         const activeCount = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset + 32 + 8, 1)[0];
         const dispatchSize = Math.ceil(activeCount / 64);
         if (dispatchSize > 0) { passEncoder.dispatchWorkgroups(dispatchSize); }
         passEncoder.end();
-        
+
         // Pass completed
-        
+
         // Ping-pong: swap source/target
         this.buffers.agentsPingPong = 1 - this.buffers.agentsPingPong;
-        
+
         // 2. Render Pass
         const renderPassEncoder = commandEncoder.beginRenderPass({
             colorAttachments: [{
@@ -96,14 +96,14 @@ export class PhaseV2Renderer {
                 storeOp: 'store',
             }]
         });
-        
+
         renderPassEncoder.setPipeline(this.pipelines.renderPipeline);
         renderPassEncoder.setBindGroup(0, renderBindGroup);
         if (activeCount > 0) { renderPassEncoder.draw(6, activeCount, 0, 0); }
         renderPassEncoder.end();
-        
+
         this.daemon.evaluate(activeCount);
-        
+
         this.device.queue.submit([commandEncoder.finish()]);
     }
 

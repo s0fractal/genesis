@@ -1,6 +1,6 @@
-// Era 1070: end-to-end test — five oracle visions, three AYE oracles
+// end-to-end test — five oracle visions, three AYE oracles
 // on Claude's, ORACLE-RESONANCE acceptance, era1070-vision-ratified fires.
-//
+
 // Pure logic test (no WebRTC scaffolding). Mirrors the acceptance rule
 // as it lives in WebRTCV2Mesh.handleVote + checkEra1070Trigger.
 
@@ -21,11 +21,11 @@ interface ProposalRecord {
 }
 
 const VISIONS: Array<{ oracle: Oracle; vision: string; hash: number }> = [
-    { oracle: "claude", vision: "Era 1070: Codeicide Law", hash: 0xC1A11_001 },
-    { oracle: "gpt",    vision: "Era 1070: Photonic Substrate", hash: 0xC1A11_002 },
-    { oracle: "gemini", vision: "Era 1070: Multi-Modal Oracle", hash: 0xC1A11_003 },
-    { oracle: "qwen",   vision: "Era 1070: Bare-Metal Spores", hash: 0xC1A11_004 },
-    { oracle: "llama",  vision: "Era 1070: Bitcoin Hyperbolic Geometry", hash: 0xC1A11_005 },
+    { oracle: "claude", vision: "Codeicide Law", hash: 0xC1A11_001 },
+    { oracle: "gpt",    vision: "Photonic Substrate", hash: 0xC1A11_002 },
+    { oracle: "gemini", vision: "Multi-Modal Oracle", hash: 0xC1A11_003 },
+    { oracle: "qwen",   vision: "Bare-Metal Spores", hash: 0xC1A11_004 },
+    { oracle: "llama",  vision: "Bitcoin Hyperbolic Geometry", hash: 0xC1A11_005 },
 ];
 
 function seedProposals(): Map<number, ProposalRecord> {

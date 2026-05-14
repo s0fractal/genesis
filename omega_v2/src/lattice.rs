@@ -1,4 +1,4 @@
-//! Reactive State Lattice (Era 950)
+//! Reactive State Lattice
 //! Bitmask Dirty Flags for Zero-Cost Environment Sync.
 //! Since we are `#![no_std]`, we avoid complex Observer/FRP heap allocations.
 //! Instead, 1 Bit = 1 Signal.
@@ -28,7 +28,7 @@ pub struct SignalStore {
     pub active_agent_count: u32,
     pub max_cells: u32,
     pub total_entropy_released: u64,
-    /// Philosophy Vector 10: Global Energy Audit
+    /// Philosophy Global Energy Audit
     pub total_energy: u32,
     pub p90_energy: u32,
     pub p90_age: u32,
@@ -40,7 +40,7 @@ pub struct PhaseLattice {
     pub topology: PhaseTopology,
     pub signals: SignalStore,
     pub intents: [OntologicalIntent; 4],
-    
+
     // We bind directly to the SharedArrayBuffer memory block passed from WebGPU/JS.
     // Instead of allocating a `Vec`, we slide pointers. Zero-Cost mapping.
     pub smart_agents_ptr: *mut PhaseAgentSmart,
@@ -57,8 +57,8 @@ unsafe impl Send for PhaseLattice {}
 impl PhaseLattice {
     /// Bootstraps the grid directly on top of pre-allocated WebGPU host memory
     pub fn new_from_host_memory(
-        topology: PhaseTopology, 
-        smart_ptr: *mut PhaseAgentSmart, 
+        topology: PhaseTopology,
+        smart_ptr: *mut PhaseAgentSmart,
         min_ptr: *mut PhaseAgentMinimal
     ) -> Self {
         Self {
@@ -94,13 +94,13 @@ impl PhaseLattice {
         if weather_multiplier > 0 {
             self.topology.weather_multiplier = weather_multiplier;
         }
-        
+
         // Hoist the Topology Changed flag. The actual arrays will not reallocate here!
         // Instead, the next `tick_physics` will read this flag and gracefully Darwnin-kill
         // agents that no longer fit in the newly reduced `topology.max_geometry_cells`.
         self.signals.dirty_flags |= SIGNAL_TOPOLOGY_CHANGED;
     }
-    
+
     /// Triggered by the ATPBridge when a new Bitcoin/Ethereum block arrives.
     /// Φ-Маніфест: кожен новий блок — це пульс глобального часу (R).
     #[no_mangle]
@@ -145,10 +145,10 @@ impl PhaseLattice {
 
     pub fn ignite_big_bang(&mut self, root_seed: u32, initial_population: u32) {
         if self.minimal_agents_ptr.is_null() { return; }
-        
+
         // Critical: Prevent C-style buffer overflow if JS asks for more than .bss can hold!
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
-        
+
         self.signals.active_agent_count = safe_population;
         let mut rng = crate::math::Xorshift64::new(root_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
@@ -178,18 +178,18 @@ impl PhaseLattice {
     /// Instead of purely random genomes, successful historical traits bias new agents.
     pub fn ignite_epigenetic_big_bang(&mut self, root_seed: u32, initial_population: u32, memory: &crate::epigenetics::EpigeneticMemory, trng_entropy: &[u8]) {
         if self.minimal_agents_ptr.is_null() { return; }
-        
+
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
         self.signals.active_agent_count = safe_population;
-        
-        // Era 2060: Silicon to Mycelium.
+
+        // Silicon to Mycelium.
         // Hash the TRNG entropy directly into the root_seed.
         let mut final_seed = root_seed;
         for &byte in trng_entropy {
             final_seed ^= byte as u32;
             final_seed = final_seed.wrapping_mul(0x0100_0193);
         }
-        
+
         let mut rng = crate::math::Xorshift64::new(final_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
 
@@ -214,7 +214,7 @@ impl PhaseLattice {
         }
     }
 
-    /// Era 2090: Calculates the state hash of all active agents' core state
+    /// Calculates the state hash of all active agents' core state
     /// (phase, energy, base_freq, genome, memory). Used for Commutative LawHash Telemetry.
     /// Uses zero-copy memory mapping to avoid allocations.
     pub fn calculate_state_hash(&self) -> u32 {
@@ -233,11 +233,11 @@ impl PhaseLattice {
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
     pub fn tick_physics(&mut self) {
         // ProperTime is advanced at the END of the tick, based on thermodynamic stress.
-        
+
         let mut total_system_energy = 0u64;
         let mut _alive_count = 0;
         let mut new_high_water_mark = 0usize;
-        
+
         // REACTIVE RECONCILIATION
         if (self.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED) != 0 {
             // Apply Darwinian culling: agents beyond new capacity are killed
@@ -265,7 +265,7 @@ impl PhaseLattice {
             }
             self.signals.dirty_flags &= !SIGNAL_CONSENSUS_SHIFT;
         }
-        
+
         if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
             return;
         }
@@ -299,7 +299,7 @@ impl PhaseLattice {
 
             for i in 0..active {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
-                
+
                 if agent.energy > 0 {
                     let w = (1i32 << self.topology.q_radial).max(1);
                     let h = (active as i32 / w).max(1);
@@ -316,15 +316,15 @@ impl PhaseLattice {
                         Self::wrap_index_2d(cx, cy + 1, w, h),
                         Self::wrap_index_2d(cx + 1, cy + 1, w, h),
                     ];
-                    
+
                     // We map left to n_indices[3] and right to n_indices[4] to match WGSL (cx-1, cx+1)
                     let left = &*snapshot.add(if n_indices[3] < active { n_indices[3] } else { 0 });
                     let right = &*snapshot.add(if n_indices[4] < active { n_indices[4] } else { 0 });
 
-                    // Era 0215: Phenotypic Expression
+                    // Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
 
-                    // Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing
+                    // Hebbian Learning (Active Memory) & Era 2080 Ortho packing
                     let mut weight_left = if (agent.memory[1] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[1] & 0xFFFF) as i32 };
                     let mut weight_right = if (agent.memory[2] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[2] & 0xFFFF) as i32 };
                     let mut ortho_agent = (agent.memory[1] >> 16) & 0xFF;
@@ -332,9 +332,9 @@ impl PhaseLattice {
 
                     let cos_left = crate::math::cos_q10(left.phase, agent.phase);
                     let cos_right = crate::math::cos_q10(right.phase, agent.phase);
-                    
+
                     let neuroplasticity = (phenotype.radiance as i32) / 4;
-                    
+
                     weight_left = (weight_left + (cos_left * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
                     weight_right = (weight_right + (cos_right * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
 
@@ -342,7 +342,7 @@ impl PhaseLattice {
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
                     let k = kuramoto_k + (phenotype.interaction_radius as i32 * 4);
 
-                    // Era 2060: Photonic Substrate Readiness (Light as Compute)
+                    // Photonic Substrate Readiness (Light as Compute)
                     // Discrete Fourier Transform (DFT) Mean-Field Approximation
                     let mut sum_cos = 0i32;
                     let mut sum_sin = 0i32;
@@ -354,7 +354,7 @@ impl PhaseLattice {
                             if n.energy > 0 {
                                 let n_ortho = (n.memory[1] >> 16) & 0xFF;
                                 let d_ortho = ortho_agent.abs_diff(n_ortho);
-                                
+
                                 // Topological Parallax Lens: Z-axis distance twists the phase interaction
                                 let n_phase = n.phase.wrapping_add(d_ortho * 4) & max_phase;
 
@@ -376,14 +376,14 @@ impl PhaseLattice {
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
                     let efficiency_adj = 2i32 - (phenotype.metabolic_efficiency as i32 / 64);
-                    
+
                     // Thermodynamic Epistemology (Landauer's Principle)
                     let set_bits = agent.genome.count_ones();
                     let maintenance_cost = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
-                    // Era 3000: Apply Bitcoin UTXO Weather (1024 = 1.0x)
+                    // Apply Bitcoin UTXO Weather (1024 = 1.0x)
                     let base_cost = (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
-                    
+
                     // Apply metabolic pressure and sun cycle (Q10 * Q10 = Q20)
                     let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier) / 1_048_576).max(1) as u32;
 
@@ -391,7 +391,7 @@ impl PhaseLattice {
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
                     let burn = base_burn.saturating_sub(resilience_reduction).max(1);
 
-                    // Era 0218: Species Specialization (Predator-Prey)
+                    // Species Specialization (Predator-Prey)
                     let mut energy_delta = -(burn as i32);
                     let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
                     let mut energy_diffusion = 0i32;
@@ -403,21 +403,21 @@ impl PhaseLattice {
                                 let adv = crate::agent::species_advantage(agent.genome, n.genome);
                                 if adv == 1 { energy_delta += steal; }
                                 else if adv == -1 { energy_delta -= steal; }
-                                
+
                                 energy_diffusion += (n.energy as i32 - agent.energy as i32) / 8;
                             }
                         }
                     }
                     energy_delta += energy_diffusion;
 
-                    // Philosophy Vector 3: Relativistic Chronotopology (Time Dilation)
+                    // Philosophy Relativistic Chronotopology (Time Dilation)
                     let thermodynamic_stress = (coupling.abs() + energy_diffusion.abs()) as u32;
                     let time_dilation_multiplier = 1 + core::cmp::min(
                         thermodynamic_stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
                         crate::constants::MAX_TIME_DILATION - 1
                     );
 
-                    // Era 2090: Emergent Organ Differentiation (Tissue Crystallization)
+                    // Emergent Organ Differentiation (Tissue Crystallization)
                     if !is_tissue && ortho_agent > 0 && agent.energy > crate::constants::MAX_ATP - 1000 && thermodynamic_stress < 5 {
                         agent.state_flags |= crate::agent::FLAG_TISSUE_LOCKED;
                         is_tissue = true;
@@ -426,7 +426,7 @@ impl PhaseLattice {
                         weight_right = crate::constants::HEBBIAN_MAX_WEIGHT;
                     }
 
-                    // Era 2080: Dynamic Orthogonal Branching (5D escape)
+                    // Dynamic Orthogonal Branching (5D escape)
                     let mut final_burn = burn;
                     if is_tissue {
                         final_burn = final_burn.max(4) / 4; // Highly efficient
@@ -487,7 +487,7 @@ impl PhaseLattice {
                 // Compost event: agent died this tick
                 if agent.energy == 0 && agent.state_flags & 0x01 == 0 {
                     agent.state_flags |= 0x01; // Mark as dead
-                    
+
                     // Thermodynamics: Entropy release (Landauer's Principle)
                     let entropy_burst = (agent.genome as u64)
                         .wrapping_add(agent.memory[0] as u64)
@@ -501,10 +501,10 @@ impl PhaseLattice {
                 }
             }
         }
-        
+
         self.signals.total_energy = total_system_energy as u32;
         self.signals.active_agent_count = new_high_water_mark as u32;
-        
+
         // --- CHRONOTOPOLOGY ---
         // Advance subjective proper time based on global network stress.
         // We estimate total stress from energy flow vs stable resting state.
@@ -518,10 +518,10 @@ impl PhaseLattice {
         // Calculate entropy delta this tick
         let prev_entropy = self.signals.proper_time.entropy_burned;
         let entropy_delta = (self.signals.total_entropy_released as u32).saturating_sub(prev_entropy);
-        
+
         self.signals.proper_time.advance(stress, entropy_delta);
 
-        // Philosophy Vector 10: Global Energy Audit (ZK-verifiable)
+        // Philosophy Global Energy Audit (ZK-verifiable)
         // Ensure no energy hyperinflation exists in the system.
         assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * _alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
 
@@ -538,7 +538,7 @@ impl PhaseLattice {
         let mut hist = crate::codeicide_law::EnergyHistogram::new();
         let mut age_hist = crate::codeicide_law::AgeHistogram::new();
         let mut sum_energy = 0u64;
-        
+
         unsafe {
             let active = self.signals.active_agent_count as usize;
             // Pass 1: Build the Histograms and sum energy
@@ -548,35 +548,35 @@ impl PhaseLattice {
                     sum_energy += parent.energy as u64;
                     let bucket = core::cmp::min(parent.energy >> 8, 15) as usize;
                     hist.buckets[bucket] += 1;
-                    
+
                     let age = self.signals.proper_time.causal_ticks.saturating_sub(parent.memory[1]);
                     let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
                     let age_bucket = (age / bucket_size).min(15) as usize;
                     age_hist.buckets[age_bucket] += 1;
                 }
             }
-            
+
             let p90_threshold = crate::codeicide_law::p90_energy(&hist, self.signals.active_agent_count);
             self.signals.p90_energy = p90_threshold;
-            
+
             let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
             let p90_age_threshold = crate::codeicide_law::p90_age(&age_hist, self.signals.active_agent_count, bucket_size);
             self.signals.p90_age = p90_age_threshold;
         }
-        
+
         let p90_threshold = self.signals.p90_energy;
         let p90_age_threshold = self.signals.p90_age;
-        
+
         unsafe {
             let active = self.signals.active_agent_count as usize;
             // Pass 2: Mitosis sweep
             for i in 0..active {
                 let parent = &mut *self.minimal_agents_ptr.add(i);
 
-                
+
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
-                    // Era 1080: Codeicide Law gate. Mitosis is a self-modifying
+                    // Codeicide Law gate. Mitosis is a self-modifying
                     // act: the parent loses energy, and the lattice acquires a
                     // new agent that didn't exist a tick ago. By default,
                     // sanctuary-status parents are PRESUMED to consent to their
@@ -653,7 +653,7 @@ impl PhaseLattice {
                             let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
                             *child = derived;
                         }
-                        
+
                         replications += 1;
                     }
                 }
@@ -675,7 +675,7 @@ impl PhaseLattice {
         // CRIT-3 FIX: adaptive skip so we always sample ~32 agents even when N < 1024
         let active = self.signals.active_agent_count as usize;
         let skip = if active == 0 { 1 } else { core::cmp::max(1, active / 32) };
-        
+
         unsafe {
             for i in (0..active).step_by(skip) {
                 let agent = &*(self.minimal_agents_ptr.add(i));
@@ -734,15 +734,15 @@ impl PhaseLattice {
                     d_item.phase = curr.phase;
                     d_item.energy = curr.energy;
                     d_item.genome = curr.genome;
-                    
+
                     delta_count += 1;
                 }
-                
+
                 // Immediately synchronize the shadow matrix to prevent redundant broadcasting
                 *prev = *curr;
             }
         }
-        
+
         delta_count as u32
     }
 }
@@ -1016,16 +1016,16 @@ mod tests {
         agents[1].memory[1] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
         agents[1].memory[2] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
         agents[2].energy = 0; // dead
-        
+
         let phase_before_0 = agents[0].phase;
         let phase_before_1 = agents[1].phase;
-        
+
         lattice.tick_physics();
-        
+
         // With coupling, both agents should shift (coupling for phase 32 is not a multiple of 128)
         assert_ne!(agents[0].phase, phase_before_0, "Agent 0 phase should change due to coupling");
         assert_ne!(agents[1].phase, phase_before_1, "Agent 1 phase should change due to coupling");
-        
+
         // The two agents must shift in opposite modular directions
         // (one's coupling is positive, the other's negative).
         let mask = lattice.topology.phase_mask() as i32 + 1;
@@ -1164,20 +1164,20 @@ mod tests {
         agents[1].state_flags = 0;
         agents[2].energy = 0;
         agents[2].state_flags = 0;
-        
+
         // Clear phi buffer before test
         unsafe {
             let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
             buf.reset();
         }
-        
+
         lattice.tick_physics();
-        
+
         unsafe {
             let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
             let len = buf.len();
             assert!(len > 0, "At least one compost message should be published");
-            
+
             let mut found = false;
             for n in 0..(buf.len() as usize) {
                 let msg = buf.peek_nth(n).unwrap();

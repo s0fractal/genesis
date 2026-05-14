@@ -1,20 +1,20 @@
-// 🌌 OMEGA-64: Era 1040 — ZK-Notarized Mutations (Phase 1)
-//
+// ZK-Notarized Mutations (Phase 1)
+
 // This module isolates the *pure*, *deterministic* child-derivation function
 // used by darwinian_mitosis so the same exact code runs in three places:
-//   1. Host-side Rust  (omega_v2 lattice tick path)
-//   2. SP1 ZK-VM guest (omega_zk_guest, Mode 2)
-//   3. JavaScript      (src/network/webrtc_v2.ts cross-check on receipt)
-//
+// 1. Host-side Rust  (omega_v2 lattice tick path)
+// 2. SP1 ZK-VM guest (omega_zk_guest, Mode 2)
+// 3. JavaScript      (src/network/webrtc_v2.ts cross-check on receipt)
+
 // Bit-for-bit equivalence across all three is the cryptographic foundation
-// for Era 1040: the lattice can prove that a particular birth event followed
+// for the lattice can prove that a particular birth event followed
 // the integer-only physics laws, and any peer can independently verify.
-//
+
 // Determinism contract:
 // - All math is integer-only (i32/u32/i64).
 // - Attractor lookup follows the same toroidal-distance rule as the lattice.
 // - xorshift64_once with parent.genome as seed provides the mutation mask
-//   when no attractor is dominant (`birth_near_attractor == false`).
+// when no attractor is dominant (`birth_near_attractor == false`).
 
 use crate::agent::PhaseAgentMinimal;
 use crate::attractor::AttractorArray;
@@ -22,7 +22,7 @@ use crate::attractor::AttractorArray;
 /// Constants extracted from `lattice::darwinian_mitosis` so they cannot drift
 /// between the lattice path and the proof path.
 pub const CHILD_ENERGY_SEED: u32 = crate::constants::CHILD_ENERGY_SEED;
-/// Era 1010: bit set on `state_flags` when a birth happens near a dominant attractor.
+/// bit set on `state_flags` when a birth happens near a dominant attractor.
 pub const BIRTH_NEAR_ATTRACTOR_FLAG: u32 = 0x0100_0000;
 
 /// Pure, deterministic child derivation.
@@ -72,7 +72,7 @@ pub fn derive_mitosis_child(
             new_state_flags,
         )
     } else {
-        // Era 0219: Epigenetic Inheritance
+        // Epigenetic Inheritance
         // The parent's lived experience (memory) and stress (energy) alters the mutation vector.
         let epigenetic_base = (parent.genome as u64)
             ^ ((parent.memory[1] as u64) << 16)
@@ -89,7 +89,7 @@ pub fn derive_mitosis_child(
         )
     };
 
-    // Era 0218: Species Specialization
+    // Species Specialization
     let species = genome & 0x7F;
     state_flags = (state_flags & !0xFE) | (species << 1);
 

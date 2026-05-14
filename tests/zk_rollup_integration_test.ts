@@ -14,7 +14,7 @@ async function run() {
     agentView.setInt32(8, 10, true); // base_freq
     agentView.setUint32(12, 0, true); // state_flags
     agentView.setUint32(16, 0x1111_1111, true); // genome
-    
+
     // Agent 1
     agentView.setUint32(32 + 0, 200, true); // phase
     agentView.setUint32(32 + 4, 3000, true); // energy
@@ -26,21 +26,21 @@ async function run() {
     const attractorBytes = new Uint8Array(16 + 16);
     const attractorView = new DataView(attractorBytes.buffer);
     attractorView.setUint32(0, 1, true); // count
-    
+
     attractorView.setUint32(16, 0xAAAA_BBBB, true); // matrix
     attractorView.setUint32(20, (~0xAAAA_BBBB) >>> 0, true); // inverse
     attractorView.setUint32(24, 10, true); // pulse_freq
     attractorView.setUint32(28, 256, true); // pulse_amp
 
     const prover = new ZKProverBridge();
-    
+
     console.log("[TEST] Generating Tick Rollup STARK...");
     const bundle = await prover.generateTickRollup(agentBytes, attractorBytes, activeCount, 8);
-    
+
     if (bundle) {
         console.log(`[TEST] ✅ Rollup STARK generated successfully!`);
         console.log(`[TEST] publicValues:`, bundle.publicValues);
-        
+
         console.log("[TEST] Verifying STARK locally...");
         const valid = await prover.verifyExternalProof(bundle);
         if (valid) {

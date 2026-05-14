@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { PhaseRouter } from "../src/network/routing_bridge.ts";
 
 /**
- * Era 1001: 3-node mesh routing simulation.
+ * 3-node mesh routing simulation.
  * Verifies that greedy next-hop selection routes a plasmid from node A
  * through node B to node C using hyperbolic distance gradients.
  */
@@ -28,7 +28,7 @@ Deno.test("3-node mesh greedy routing A -> B -> C", async () => {
 });
 
 /**
- * Era 1001: Toroidal wrap-around routing.
+ * Toroidal wrap-around routing.
  * On a 1D ring, the shortest path from 0 to 224 goes backward through 224-256 wrap.
  */
 Deno.test("toroidal 3-node mesh prefers wrap-around shortcut", async () => {

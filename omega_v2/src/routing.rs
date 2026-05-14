@@ -1,8 +1,8 @@
-// 🌌 OMEGA-64: Era 1000 — Fourier/Taylor Phase Routing (Hyperbolic DNS)
-//
+// Fourier/Taylor Phase Routing (Hyperbolic DNS)
+
 // Replaces flat IP/DHT routing tables with a phase-gradient manifold.
 // A PhaseAddress is a vector of angular deviations:
-//   [Consensus, Social, Personal, Micro]
+// [Consensus, Social, Personal, Micro]
 // Each level has a smaller "radius of influence" (logarithmic or power-of-2).
 // Packets (plasmids) fall toward the nearest phase well along the gradient.
 
@@ -15,7 +15,7 @@ use crate::agent::PhaseAgentMinimal;
 /// Layout: [consensus:8 | social:8 | personal:8 | micro:8]
 /// Each byte is an angle in the shared q_phase space (default 0..255 for q_phase=8).
 /// The "radius of influence" halves at each level (consensus = global,
-//  social = cluster, personal = agent, micro = mutation).
+// social = cluster, personal = agent, micro = mutation).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PhaseAddress {
     pub raw: u32,
@@ -38,7 +38,7 @@ impl PhaseAddress {
         let social = (agent.genome >> 8) & 0xFF;
         let personal = agent.genome & 0xFF;
         let micro = agent.memory[0] & 0xFF;
-        // Era 2080: Ortho deviation lives in upper 8 bits of memory[1] to separate from Hebbian weight
+        // Ortho deviation lives in upper 8 bits of memory[1] to separate from Hebbian weight
         let ortho = (agent.memory[1] >> 16) & 0xFF;
         Self {
             raw: (consensus << 24) | (social << 16) | (personal << 8) | micro,
@@ -68,7 +68,7 @@ impl PhaseAddress {
 
     /// Hyperbolic distance between two addresses.
     /// Each level contributes with halving weight:
-    ///   d = |Δconsensus| + |Δsocial|/2 + |Δpersonal|/4 + |Δmicro|/8
+    /// d = |Δconsensus| + |Δsocial|/2 + |Δpersonal|/4 + |Δmicro|/8
     /// This is integer-only (Q3 fixed-point, result scaled ×8).
     /// To get the true distance, divide by 8.
     pub fn hyperbolic_distance_scaled(self, other: Self) -> u32 {
@@ -95,24 +95,24 @@ impl PhaseAddress {
         dc * 8 + ds * 4 + dp * 2 + dm + d_ortho * 16
     }
 
-    /// Era 2060: Bitcoin Hyperbolic Geometry (The Llama Oracle Vision)
+    /// Bitcoin Hyperbolic Geometry (The Llama Oracle Vision)
     /// 3D Toroidal hyperbolic distance treating time (tau/Bitcoin Block Height) as the radial z-axis.
     /// In a Poincaré disk model, radial distance increases exponentially.
     /// Here, the z-axis acts as an exponential curvature penalty (ATP Cost) for out-of-sync nodes.
     pub fn hyperbolic_distance_toroidal_3d_scaled(self, tau_self: u32, other: Self, tau_other: u32) -> u32 {
         let base_distance = self.hyperbolic_distance_toroidal_scaled(other);
         let tau_diff = core::cmp::min(tau_self.abs_diff(tau_other), 64);
-        
+
         // Fixed-point hyperbolic curvature math for integer-only execution:
         // We penalize time travel heavily. distance += (Δτ * 8) + (Δτ² / 1024)
         let curvature_penalty = (tau_diff * 8) + ((tau_diff * tau_diff) / 1024);
-        
+
         base_distance.saturating_add(curvature_penalty)
     }
 
     /// First-order Taylor step toward `target`.
     /// Returns a new PhaseAddress moved by the linear term:
-    ///   f(x + Δ) ≈ f(x) + Δ
+    /// f(x + Δ) ≈ f(x) + Δ
     /// where Δ is the signed delta per level, clamped to ±max_step.
     /// `max_step` limits how far a single hop may travel (prevents overshoot).
     pub fn taylor_step_toward(self, target: Self, max_step: u8) -> Self {
@@ -211,9 +211,9 @@ impl PhaseAddress {
     }
 }
 
-// ------------------------------------------------------------------------------
+
 // Tests
-// ------------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;

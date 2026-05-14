@@ -1,13 +1,13 @@
-// 🌌 OMEGA-64: Era 1400 — Forensic Event Sink (Rust mirror)
-//
-// Cross-substrate twin of the JS `forensic_event_sink.ts` (Era 1380)
-// + minimal `event_sink_sync.ts` (Era 1390) primitives needed for
+// Forensic Event Sink (Rust mirror)
+
+// Cross-substrate twin of the JS `forensic_event_sink.ts`
+// + minimal `event_sink_sync.ts`  primitives needed for
 // a bare-metal spore to participate in event convergence.
-//
+
 // `no_std`-clean: fixed-capacity ring buffer, no allocator, all
 // state lives in a struct held by the caller (typically a static
 // in spore main loop).
-//
+
 // CROSS-SUBSTRATE INVARIANT: identical event_hash sets produce
 // identical `event_chain_anchor` values across Rust, JS, and SP1.
 // Tests in this file verify the same anchors as the JS test suite.

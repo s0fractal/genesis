@@ -1,4 +1,4 @@
-// Era 1160: Path Selection tests.
+// Path Selection tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import {
     PathCandidate,

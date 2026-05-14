@@ -1,18 +1,18 @@
-// 🌌 OMEGA-64: Era 1050 — Genesis Inscription (Open Protocol Stamping)
-//
+// Genesis Inscription (Open Protocol Stamping)
+
 // When the mesh accumulates 100+ verified mitosis proofs, the lattice
 // reaches the Era 1050 trigger and computes the GENESIS INSCRIPTION:
 // a single 32-bit FNV-1a hash that captures EVERY non-negotiable invariant
 // of the system in a deterministic, version-frozen order.
-//
+
 // This hash is the cryptographic identity of OMEGA-64 v1.0 — the value
 // that gets inscribed into Bitcoin as an OP_RETURN payload, becoming the
 // permanent on-chain anchor for the protocol.
-//
+
 // Once inscribed, the wire format is FROZEN. Future amendments require a
 // new RFC (v2.0+) and a new Genesis Inscription. The v1.0 anchor remains
 // valid forever as long as the constants below are unchanged.
-//
+
 // Determinism contract: this module's output MUST be reproducible
 // bit-for-bit from any independent implementation given the same inputs.
 // Cross-language anchor lives in `tests/genesis_inscription_test.ts`.
@@ -72,10 +72,10 @@ pub const TOROIDAL_MODULUS: u32 = 256;
 ///
 /// The hash function is FNV-1a 32-bit over a deterministic byte sequence:
 ///
-///   protocol_version_bytes
-///   || anchor_bytes (20 big-endian bytes from GenesisAnchors)
-///   || dipole_invariant (4 BE bytes)
-///   || toroidal_modulus (4 BE bytes)
+/// protocol_version_bytes
+/// || anchor_bytes (20 big-endian bytes from GenesisAnchors)
+/// || dipole_invariant (4 BE bytes)
+/// || toroidal_modulus (4 BE bytes)
 ///
 /// Total input: PROTOCOL_VERSION.len() + 28 bytes.
 pub fn compute_genesis_hash(anchors: &GenesisAnchors) -> u32 {
@@ -112,7 +112,7 @@ pub fn compute_genesis_hash_sha256(anchors: &GenesisAnchors) -> [u8; 32] {
     let mut buf = [0u8; 64];
     let version_len = PROTOCOL_VERSION.len();
     let total_len = version_len + 28;
-    
+
     let mut i = 0;
     while i < version_len {
         buf[i] = PROTOCOL_VERSION[i];
@@ -213,8 +213,8 @@ mod tests {
         let a = GenesisAnchors::V1_0;
         // These values are duplicated by design — they MUST equal the constants
         // anchored in the cross-language tests:
-        //   omega_v2/tests/cross_lang_hash.rs (senate hashes)
-        //   omega_v2/tests/mitosis_anchor.rs   (mitosis receipts)
+        // omega_v2/tests/cross_lang_hash.rs (senate hashes)
+        // omega_v2/tests/mitosis_anchor.rs   (mitosis receipts)
         // The first_proposal_hash matches what bootstrap/v2.ts auto-submits.
         assert_eq!(a.senate_hash_empty, 0xF5A5_FD42);
         assert_eq!(a.senate_hash_short, 0x1530_2EC1);

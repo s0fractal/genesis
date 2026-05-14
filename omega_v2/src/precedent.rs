@@ -1,6 +1,6 @@
-// Philosophy Vector 10: Precedent System (Case Law)
+// Philosophy Precedent System (Case Law)
 
-/// Philosophy Vector 10: Precedent System (Case Law)
+/// Philosophy Precedent System (Case Law)
 /// A historical record of a Senate vote that resulted in an ISSUED warrant.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -68,7 +68,7 @@ mod tests {
             ledger.record(i, i * 2, i * 10, 0b1111);
         }
         assert_eq!(ledger.head, 300);
-        
+
         // 300 % 256 = 44, so index 43 should have been written last
         assert_eq!(ledger.cases[43].proposal_hash, 299);
         assert_eq!(ledger.cases[44].proposal_hash, 44); // overwritten from earlier loop? Wait, 44 was overwritten by 256+44 = 300, which is the 301st item. We inserted up to i=299.

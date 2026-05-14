@@ -1,18 +1,18 @@
-// 🌌 OMEGA-64: Era 1120 — Liveness Telemetry Aggregator
-//
+// Liveness Telemetry Aggregator
+
 // A relay-side observer that consumes HEARTBEAT frames from N bare-metal
 // spores and classifies each one's health. Used by browser/Deno relays
 // to render an operational HUD ("3 of 5 spores are healthy, 1 is forked,
 // 1 stalled") and to surface anchor-drift incidents the moment they
 // happen.
-//
+
 // HEALTH CLASSES:
-//   - HEALTHY:    seen recently AND advancing tick AND genesis = 0x549A6307
-//   - STALLED:    seen recently BUT tick has not advanced for ≥ stallTicks
-//   - FORKED:     genesis_hash != 0x549A6307 (anchor drift — non-conforming impl)
-//   - LOST:       last_seen_at_ms is older than maxSilenceMs
-//   - UNKNOWN:    seen ≥ once but not enough samples to classify
-//
+// - HEALTHY:    seen recently AND advancing tick AND genesis = 0x549A6307
+// - STALLED:    seen recently BUT tick has not advanced for ≥ stallTicks
+// - FORKED:     genesis_hash != 0x549A6307 (anchor drift — non-conforming impl)
+// - LOST:       last_seen_at_ms is older than maxSilenceMs
+// - UNKNOWN:    seen ≥ once but not enough samples to classify
+
 // NB: this layer trusts the wire format (CRC validated by frameFromBytes
 // at the boundary) but does NOT trust the spore's claimed identity. A
 // spore that broadcasts a wrong genesis_hash is FORKED, not impostor.

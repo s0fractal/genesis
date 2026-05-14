@@ -1,20 +1,20 @@
-// 🌌 OMEGA-64: Era 1200 — Peer Snapshot Monitor
-//
+// Peer Snapshot Monitor
+
 // Era 1190 made a relay's resilience metrics serializable. Era 1200
 // makes them BROADCASTABLE: each relay periodically emits a
 // SNAPSHOT_DIGEST frame containing its headline stats. Other relays
 // observe these digests, compare them with their own
 // ConvergenceDetector state, and detect partitions when measurements
 // diverge by ≥ PARTITION_DIFF_THRESHOLD_Q16.
-//
+
 // On partition detection, the monitor surfaces an alarm AND can
 // auto-raise an investigation proposal via the Era 1090 warrant
 // issuance flow (caller-provided callback).
-//
+
 // SECURITY NOTE: a malicious relay could broadcast a fake digest
 // claiming arbitrary numbers. The protocol does NOT trust digests
 // blindly — the partition detection is a SIGNAL, not a verdict.
-// The Senate's investigation flow (Era 1080+1090) handles
+// The Senate's investigation flow  handles
 // authentication of the response.
 
 import { ConvergenceDetector } from "./convergence_detector.ts";

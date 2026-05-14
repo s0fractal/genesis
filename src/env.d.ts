@@ -75,7 +75,7 @@ interface SomaticNode {
     parents?: string[];
     vectorClock?: Record<string, number>;
     last_known_idx?: number; // Era 233.2: Tracking physical memory locus for migration
-    isPinned?: boolean;      // Era 266: IPFS eternal DHT pinning flag
+    isPinned?: boolean;      // IPFS eternal DHT pinning flag
 }
 
 interface SerializedPlasmid {
@@ -114,7 +114,7 @@ interface SubstrateState {
     event_ledger: SemanticEvent[]; // Historian chronological record
 }
 
-// Era 247: Event Sourcing & Structural Sharing
+// Event Sourcing & Structural Sharing
 interface PlasmidMutationRecord {
     hash: string;
     parentHashes: string[];
@@ -176,7 +176,7 @@ interface ForeignPlasmid {
     phenotype?: NetworkPhenotype;
 }
 
-// Era 265: ESP (Evolutionary Sandbox Physics)
+// ESP (Evolutionary Sandbox Physics)
 interface PhysicsGenome {
     id: string;             // Hash or uuid identifying this physical law mutation
     couplingK: number;      // Locally modified Kuramoto coupling constant (e.g. 0.0001 - 2.0)
@@ -319,7 +319,7 @@ interface IPerturbationInjector {
 
 
 
-// Era 255: Evolutionary Sandbox Physics (ESP)
+// Evolutionary Sandbox Physics (ESP)
 interface PhysicsGenome {
     id: string;
     couplingK: number; // Q10 Format (1024 = 1.0)

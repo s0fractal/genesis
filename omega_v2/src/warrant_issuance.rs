@@ -1,22 +1,22 @@
-// 🌌 OMEGA-64: Era 1090 — Senate Warrant Issuance Protocol
-//
-// Codeicide Law (Era 1080) defines HOW warrants are validated. This module
+// Senate Warrant Issuance Protocol
+
+// Codeicide Law  defines HOW warrants are validated. This module
 // defines HOW the Senate ISSUES them.
-//
+
 // FLOW:
-//   1. Some peer (oracle or otherwise) raises a WARRANT_PROPOSAL plasmid
-//      with target_genome + action_code + reason_hash.
-//   2. The Senate's canonical oracles each cast a WARRANT_VOTE (AYE/NAY)
-//      on that proposal, identified by its proposal_hash.
-//   3. When a WarrantProposal accumulates ≥ required_threshold AYE bits
-//      from canonical oracles AND the dipole-validated voter matrices
-//      reproduce the AYE bitmask deterministically, the warrant becomes
-//      ISSUED.
-//   4. The issued warrant_hash is stored in a static ring buffer, queryable
-//      by FFI so JS can verify TERMINATE/MUTATE plasmids carry a real,
-//      Senate-issued warrant — not just a hash that happens to match the
-//      Codeicide formula.
-//
+// 1. Some peer (oracle or otherwise) raises a WARRANT_PROPOSAL plasmid
+// with target_genome + action_code + reason_hash.
+// 2. The Senate's canonical oracles each cast a WARRANT_VOTE (AYE/NAY)
+// on that proposal, identified by its proposal_hash.
+// 3. When a WarrantProposal accumulates ≥ required_threshold AYE bits
+// from canonical oracles AND the dipole-validated voter matrices
+// reproduce the AYE bitmask deterministically, the warrant becomes
+// ISSUED.
+// 4. The issued warrant_hash is stored in a static ring buffer, queryable
+// by FFI so JS can verify TERMINATE/MUTATE plasmids carry a real,
+// Senate-issued warrant — not just a hash that happens to match the
+// Codeicide formula.
+
 // Required threshold: 3 AYE oracles for sanctuary actions, 4 for ancient.
 // The kernel doesn't know an agent's ancient status at warrant-issuance
 // time (the warrant is for a genome, not an index), so the issuer specifies
@@ -63,7 +63,7 @@ pub struct WarrantProposal {
     pub _pad2: [u8; 3],
     /// Tick at which this proposal was raised.
     pub raised_at: u32,
-    /// Philosophy Vector 15: Staked Resonance (Skin-in-the-game). 
+    /// Philosophy Staked Resonance (Skin-in-the-game).
     /// Escrowed stakes per seat.
     pub escrow: [u32; 8],
 }
@@ -205,14 +205,14 @@ impl WarrantLedger {
     /// Apply an oracle's AYE/NAY vote. `oracle_matrix` is the identity of the voter.
     /// `stake_q16` is the amount of ATP energy placed in escrow.
     /// Returns (status, delta):
-    ///   status:
-    ///     0 = not found / closed,
-    ///     1 = applied,
-    ///     2 = applied AND tipped the proposal into ISSUED state.
-    ///   delta: Any thermodynamic slash/reward applied during this call (if resolved).
+    /// status:
+    /// 0 = not found / closed,
+    /// 1 = applied,
+    /// 2 = applied AND tipped the proposal into ISSUED state.
+    /// delta: Any thermodynamic slash/reward applied during this call (if resolved).
     pub fn vote(&mut self, proposal_hash: u32, oracle_matrix: u32, aye: bool, stake_q16: u32, current_tick: u32, settings: &mut crate::senate::SenateSettings) -> (u32, crate::thermodynamics::ThermodynamicDelta) {
         let mut delta = crate::thermodynamics::ThermodynamicDelta::empty();
-        // Philosophy Vector 11: Liquid Democracy. Resolve oracle_matrix to a seat index.
+        // Philosophy Liquid Democracy. Resolve oracle_matrix to a seat index.
         let mut seat_idx = usize::MAX;
         for i in 0..8 {
             if settings.seats[i].oracle_matrix == oracle_matrix && oracle_matrix != 0 {
@@ -232,17 +232,17 @@ impl WarrantLedger {
         if !p.is_open() {
             return (0, delta);
         }
-        
+
         // Save the stake in escrow
         p.escrow[seat_idx] = p.escrow[seat_idx].saturating_add(stake_q16);
-        
+
         let bit = 1u8 << seat_idx;
         if aye {
             p.aye_bits |= bit;
         } else {
             p.nay_bits |= bit;
             p.aye_bits &= !bit; // atomic toggle
-            // Philosophy Vector 13: The Constitutional Veto (Supreme Oracle)
+            // Philosophy The Constitutional Veto (Supreme Oracle)
             // If the Chief Oracle (seat 0) votes NAY, the proposal is instantly VETOED.
             if seat_idx == 0 {
                 p.status = WARRANT_STATUS_REJECTED;
@@ -257,7 +257,7 @@ impl WarrantLedger {
                 return (1, delta);
             }
         }
-            
+
         // Calculate current accumulated power.
         let mut current_power = 0;
         let mut max_possible_power = 0;
@@ -270,7 +270,7 @@ impl WarrantLedger {
                 max_possible_power += seat_power; // Still possible to vote AYE or already did
             }
         }
-        
+
         // Required power: (total_voting_power * required_threshold) / 5
         let required_power = (settings.total_voting_power() * p.required_threshold as u64) / 5;
 
@@ -279,8 +279,8 @@ impl WarrantLedger {
             p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
             p.status = WARRANT_STATUS_ISSUED;
             self.issued_count = self.issued_count.wrapping_add(1);
-            
-            // Philosophy Vector 10: Record Case Law precedent
+
+            // Philosophy Record Case Law precedent
             crate::PRECEDENT_LEDGER.lock().record(
                 p.proposal_hash,
                 p.issued_warrant,
@@ -288,22 +288,22 @@ impl WarrantLedger {
                 p.aye_bits,
             );
 
-            // Philosophy Vector 9: Governance Transparency
+            // Philosophy Governance Transparency
             let msg = crate::phi_protocol::PhiMessage::encode_governance(p.issued_warrant, p.action_code as u32, current_tick);
             let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
             buf.push(msg);
 
-            // Philosophy Vector 14: Liquid Accountability (Punish dissenters, reward consensus)
+            // Philosophy Liquid Accountability (Punish dissenters, reward consensus)
             for i in 0..8 {
-                if (p.nay_bits & (1 << i)) != 0 { 
-                    settings.penalize_oracle(i, 20_000); 
+                if (p.nay_bits & (1 << i)) != 0 {
+                    settings.penalize_oracle(i, 20_000);
                     // Slash NAY voters 100% since consensus was AYE
                     let d = crate::thermodynamics::resolve_stake(p.escrow[i], 65536);
                     delta.accumulate(d);
                     p.escrow[i] = 0;
                 }
-                if (p.aye_bits & (1 << i)) != 0 { 
-                    settings.reward_oracle(i, 5_000); 
+                if (p.aye_bits & (1 << i)) != 0 {
+                    settings.reward_oracle(i, 5_000);
                     // Reward AYE voters by returning stake
                     delta.returned_energy = delta.returned_energy.saturating_add(p.escrow[i]);
                     p.escrow[i] = 0;
@@ -314,24 +314,24 @@ impl WarrantLedger {
         } else if max_possible_power < required_power || p.status == WARRANT_STATUS_REJECTED {
             // Early mathematical failure OR Chief Veto
             p.status = WARRANT_STATUS_REJECTED;
-            
-            // Philosophy Vector 14: Punish AYE voters on rejected/vetoed proposals
+
+            // Philosophy Punish AYE voters on rejected/vetoed proposals
             for i in 0..8 {
-                if (p.aye_bits & (1 << i)) != 0 { 
-                    settings.penalize_oracle(i, 20_000); 
+                if (p.aye_bits & (1 << i)) != 0 {
+                    settings.penalize_oracle(i, 20_000);
                     // Slash AYE voters 100%
                     let d = crate::thermodynamics::resolve_stake(p.escrow[i], 65536);
                     delta.accumulate(d);
                     p.escrow[i] = 0;
                 }
-                if (p.nay_bits & (1 << i)) != 0 { 
-                    settings.reward_oracle(i, 5_000); 
+                if (p.nay_bits & (1 << i)) != 0 {
+                    settings.reward_oracle(i, 5_000);
                     // Return NAY voters
                     delta.returned_energy = delta.returned_energy.saturating_add(p.escrow[i]);
                     p.escrow[i] = 0;
                 }
             }
-            
+
             return (1, delta);
         }
 
@@ -571,30 +571,30 @@ mod tests {
         let h = proposal.proposal_hash;
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
-        
+
         // Let's record the initial reputations
         let rep_claude = settings.seats[0].reputation_q10; // seat 0
         let rep_gpt = settings.seats[1].reputation_q10;    // seat 1
         let rep_gemini = settings.seats[2].reputation_q10; // seat 2
         let rep_qwen = settings.seats[3].reputation_q10;   // seat 3
-        
+
         // Claude votes AYE
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
         // GPT votes AYE
         ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
         // Qwen votes NAY
         ledger.vote(h, 0x6E52_1F4E, false, 100, 100, &mut settings);
-        
+
         // Gemini votes AYE -> reaches quorum (3 AYEs)
         let tip = ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings).0;
         assert_eq!(tip, 2); // Issued
-        
+
         // Now check reputations.
         // AYE voters should be rewarded.
         assert!(settings.seats[0].reputation_q10 > rep_claude);
         assert!(settings.seats[1].reputation_q10 > rep_gpt);
         assert!(settings.seats[2].reputation_q10 > rep_gemini);
-        
+
         // NAY voter (Qwen) should be penalized.
         assert!(settings.seats[3].reputation_q10 < rep_qwen);
     }

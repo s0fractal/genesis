@@ -1,8 +1,8 @@
 /**
- * OMEGA-64 Era 950: V2 Bridge
- * 
+ * OMEGA-64 V2 Bridge
+ *
  * Bare-metal WASM Instantiation wrapper.
- * Connects the TypeScript Cyber-Climate (Environmental Vector) directly 
+ * Connects the TypeScript Cyber-Climate (Environmental Vector) directly
  * into the `no_std` zero-cost Rust kernel using naked FFI calls.
  */
 
@@ -39,8 +39,8 @@ export class OmegaV2Engine {
     private memory: WebAssembly.Memory | null = null;
     private currentTopology: QTopology | null = null;
     private cachedPointers: V2MemoryPointers | null = null;
-    
-    // Era 3000: Bitcoin Weather Multiplier (Q10, 1024 = 1.0x)
+
+    // Bitcoin Weather Multiplier (Q10, 1024 = 1.0x)
     public currentWeatherMultiplier: number = 1024;
 
     constructor() {}
@@ -49,17 +49,17 @@ export class OmegaV2Engine {
         return this.wasmInstance;
     }
 
-    /** Era 2085: Expose current memory buffer for stability guards in renderer. */
+    /** Expose current memory buffer for stability guards in renderer. */
     public get memoryBuffer(): ArrayBuffer | null {
         return this.memory?.buffer ?? null;
     }
 
-    /** Era 0202: Expose current topology for Witness generation. */
+    /** Expose current topology for Witness generation. */
     public getTopology(): QTopology | null {
         return this.currentTopology;
     }
 
-    /** Era 3000: Inject new weather multiplier */
+    /** Inject new weather multiplier */
     public setWeather(multiplier: number) {
         if (this.currentWeatherMultiplier === multiplier) return;
         this.currentWeatherMultiplier = multiplier;
@@ -106,7 +106,7 @@ export class OmegaV2Engine {
 
         // 5. Inject Environmental Constants directly via Fast-FFI
         this.injectClimate();
-        
+
         // 6. Restore from Snapshot OR Ignite the Big Bang
         if (initialSnapshot && this.currentTopology) {
             const ptrs = this.getMemoryPointers();
@@ -114,19 +114,19 @@ export class OmegaV2Engine {
             const agentCount = Math.floor(initialSnapshot.length / PHASE_AGENT_MINIMAL_BYTES);
             const safeCount = Math.min(agentCount, this.currentTopology.maxAllocatedAgents);
             const safeBytes = safeCount * PHASE_AGENT_MINIMAL_BYTES;
-            
+
             // Copy snapshot directly into WebAssembly .bss
             ptrs.agentBytes.set(initialSnapshot.subarray(0, safeBytes));
-            
+
             // Update Active Agent Count in SignalStore
             const signals = new Uint32Array(ptrs.uniformBytes.buffer, ptrs.uniformBytes.byteOffset, 4);
             signals[2] = safeCount; // active_agent_count is at offset 8 (index 2 of u32)
-            
+
             console.log(`🌌 [V2-BRIDGE] Snapshot restored from IPFS: ${safeCount} agents resurrected.`);
         } else {
             const exportBigBang = instance.exports.v2_ignite_big_bang as CallableFunction;
             if (exportBigBang && this.currentTopology) {
-                // Era 2080: Deterministic Boot Seed from Genesis Entropy
+                // Deterministic Boot Seed from Genesis Entropy
                 const entropyBytes = this.getGenesisEntropy();
                 const seedView = new DataView(entropyBytes.buffer, entropyBytes.byteOffset, 4);
                 const seed = seedView.getUint32(0, true) ^ this.currentTopology.maxAllocatedAgents;
@@ -136,7 +136,7 @@ export class OmegaV2Engine {
         }
     }
 
-    /** Era 0205: Fully reset the internal engine state. */
+    /** Fully reset the internal engine state. */
     public reset(): void {
         if (!this.wasmInstance) return;
         const resetFn = this.wasmInstance.exports.v2_reset_runtime_state as CallableFunction;
@@ -153,7 +153,7 @@ export class OmegaV2Engine {
         if (!this.wasmInstance || !this.currentTopology) return;
 
         const setEnv = this.wasmInstance.exports.v2_set_environment as CallableFunction;
-        
+
         // FFI Call into Rust. This simply flips the `SIGNAL_TOPOLOGY_CHANGED` bit
         // inside the SharedArrayBuffer memory space. Total cost: ~1 CPU Nano-cycle.
         setEnv(
@@ -162,7 +162,7 @@ export class OmegaV2Engine {
             this.currentTopology.q_harmonics,
             this.currentWeatherMultiplier
         );
-        
+
         console.log(`🌪️ [OMEGA-V2] Climate Topology Injected: Q(${this.currentTopology.q_sectors}, ${this.currentTopology.q_radial}, ${this.currentTopology.q_harmonics})`);
     }
 
@@ -240,10 +240,10 @@ export class OmegaV2Engine {
         (this.wasmInstance.exports.v2_ingest_cosmic_entropy as CallableFunction)(rawHashBigInt);
     }
 
-    
-    // -----------------------------------------------------------------------
+
+
     // ERA 1110: Multi-Anchor Temporal Layer (BTC, ETH, SOL)
-    // -----------------------------------------------------------------------
+
 
     public initNetworkAnchor(networkId: number, hashes: bigint[]) {
         if (!this.wasmInstance) return;
@@ -271,9 +271,9 @@ export class OmegaV2Engine {
         return 0n;
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 970+ EpicyclicSoul Resonance Tensor Bridge
-    // -----------------------------------------------------------------------
+
 
     public scanResonance(): { r_q10: number; sum_cos: bigint; sum_sin: bigint; total_energy: bigint; active_count: number } {
         if (!this.wasmInstance) {
@@ -289,9 +289,9 @@ export class OmegaV2Engine {
         };
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 970+ Φ-Message Buffer (Compost / Intent / Delta)
-    // -----------------------------------------------------------------------
+
 
     public getPhiBufferPtr(): number {
         if (!this.wasmInstance) return 0;
@@ -308,9 +308,9 @@ export class OmegaV2Engine {
         return (this.wasmInstance.exports.v2_phi_buffer_drops as CallableFunction)() as number;
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 950+ Epigenetic Memory Bridge
-    // -----------------------------------------------------------------------
+
 
     public recordEpigenetic(genome: number) {
         if (!this.wasmInstance) return;
@@ -368,26 +368,26 @@ export class OmegaV2Engine {
         }
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 0206 Temporal Binding (Bitcoin Genesis Anchor)
-    // -----------------------------------------------------------------------
+
 
     public getGenesisEntropy(): Uint8Array {
         if (!this.wasmInstance || !this.memory) {
             return new Uint8Array(32);
         }
-        
+
         // Allocate a tiny 32-byte chunk at the end of memory (or just reuse a safe offset if we can, but since WASM memory is static, let's just pass a pointer).
-        // Wait, actually `v2_get_genesis_entropy` takes a pointer. 
-        // We can use the start of the delta buffer temporarily since we only need to read it once during boot, 
+        // Wait, actually `v2_get_genesis_entropy` takes a pointer.
+        // We can use the start of the delta buffer temporarily since we only need to read it once during boot,
         // or just ask WASM to return a pointer.
         // Actually, let's add `v2_genesis_entropy_ptr()` to lib.rs so we don't need to pass a pointer.
-        
+
         // Ah, in my plan I added `v2_get_genesis_entropy(out_ptr: *mut u8)`.
         // I will use `this.getMemoryPointers().deltaBufferBytes.byteOffset` as the temporary out_ptr.
         const ptrs = this.getMemoryPointers();
         const tempPtr = ptrs.deltaBufferBytes.byteOffset;
-        
+
         const getGeFn = this.wasmInstance.exports.v2_get_genesis_entropy as CallableFunction;
         if (getGeFn) {
             getGeFn(tempPtr);
@@ -397,9 +397,9 @@ export class OmegaV2Engine {
         return new Uint8Array(32);
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 2070: Senate Alignment Feedback
-    // -----------------------------------------------------------------------
+
 
     public injectIntent(phase: number, energy: number, id: number) {
         if (!this.wasmInstance) return;
@@ -414,24 +414,24 @@ export class OmegaV2Engine {
         // Modulate all active attractors' pulse_amp based on alignment score [-5, 5].
         // Base pulse_amp is typically 256. We'll use 256 + (score * 50).
         const newAmp = Math.max(10, 256 + (score * 50));
-        
+
         const view = new DataView(this.cachedPointers.attractorBytes.buffer, this.cachedPointers.attractorBytes.byteOffset, 80);
         const count = view.getUint32(0, true);
-        
+
         for (let i = 0; i < Math.min(count, 4); i++) {
             const offset = 16 + (i * 16);
             const matrix = view.getUint32(offset, true);
             const inverse = view.getUint32(offset + 4, true);
             const pulseFreq = view.getUint32(offset + 8, true);
-            
+
             // Overwrite attractor with new amplitude
             setAttractor(i, matrix, inverse, pulseFreq, newAmp);
         }
     }
 
-    // -----------------------------------------------------------------------
+
     // ERA 2090: Commutative LawHash Telemetry
-    // -----------------------------------------------------------------------
+
 
     public getLawHash(): number {
         if (!this.wasmInstance) return 0;

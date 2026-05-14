@@ -1,7 +1,7 @@
 import { assertEquals, assert } from "jsr:@std/assert";
 import { SubstrateCourt } from "../src/environment/substrate_court.ts";
 
-Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
+Deno.test("Substrate Court consensus and ZK arbitration", () => {
     const court = new SubstrateCourt();
 
     // Tick 1: Perfect consensus
@@ -74,11 +74,11 @@ Deno.test("Era 2100: Substrate Court consensus and ZK arbitration", () => {
         entropyDelta: 0,
         tick: 3,
     });
-    
+
     // We can verify this internally if needed, but for now we just ensure it doesn't trigger new arbitrations
 });
 
-Deno.test("Era 2100: Substrate Court timeout arbitration", async () => {
+Deno.test("Substrate Court timeout arbitration", async () => {
     const court = new SubstrateCourt();
 
     // Tick 1: Drift detected (WebGPU deviates)

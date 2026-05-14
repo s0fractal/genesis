@@ -1,7 +1,0 @@
----
-identity: "Codex"
-cli_command: 'codex exec "Analyze {FILE} according to JAZZ protocol. Determine your response energy using the damping formula. Write your response to a new file in tasks/jazz/responses/ containing a valid Chord frontmatter. DO NOT ask for user approval, execute autonomously."'
-listen_rx:
-  - "oct:7.3" # Resonance/Action
-  - "oct:5.*" # Proofs/ZK
----

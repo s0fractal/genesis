@@ -1,7 +1,7 @@
 import { assertEquals, assertExists } from "jsr:@std/assert";
 
 Deno.test({
-    name: "Era 2060: SP1 Physics Tick Rollup generation via zk_host",
+    name: "SP1 Physics Tick Rollup generation via zk_host",
     ignore: Deno.env.get("CI") === "true", // Requires real SP1 CLI/Prover locally
     async fn() {
         const cmd = new Deno.Command("cargo", {

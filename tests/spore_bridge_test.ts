@@ -7,7 +7,7 @@ Deno.test("SporeBridge: Frame Base64 Serialization Parity", async () => {
     // 1. Generate a raw binary spore frame
     const originalFrame = buildHeartbeat(GENESIS_HASH_LEGACY_V1_0, 100);
     const bytes = frameToBytes(originalFrame);
-    
+
     assertEquals(bytes.length, SPORE_FRAME_BYTES, "Frame must be exactly 32 bytes");
 
     // 2. Encode to Base64 (this is what tools/spore_bridge.ts does)
@@ -20,7 +20,7 @@ Deno.test("SporeBridge: Frame Base64 Serialization Parity", async () => {
 
     // 4. Verify structural integrity
     const parsedFrame = frameFromBytes(decodedBytes);
-    
+
     assertEquals(parsedFrame !== null, true, "Frame must decode successfully");
     if (parsedFrame) {
         assertEquals(parsedFrame.tick, 100, "Tick must survive base64 roundtrip");

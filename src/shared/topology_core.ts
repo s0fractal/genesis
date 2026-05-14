@@ -1,4 +1,4 @@
-import { 
+import {
     PHASE_LUT_SIZE,
     PHASE_MIN_OMEGA, PHASE_MAX_OMEGA,
     PHASE_MAX_AMPLITUDE, PHASE_MAX_LOCK, PHASE_MAX_ENTANGLEMENT,
@@ -24,9 +24,9 @@ export function createTopology(config: LatticeConfig) {
     };
 }
 
-// -------------------------------------------------------------------------------- //
+
 // ABSTRACTION OF WASM MEMORY INDEXING AND CARTESIAN PROJECTION MAPS
-// -------------------------------------------------------------------------------- //
+
 
 export function wrapTheta(theta: number): number {
     return wrap_index(theta, 256);
@@ -192,7 +192,7 @@ export function fieldsEqual(a: PhaseField, b: PhaseField): boolean {
             for (let sector = 0; sector < a.shape.sectors; sector++) {
                 const aIdx = getCellIndex(a.shape, a.currentTau, sector, rho, harmonic);
                 const bIdx = getCellIndex(b.shape, b.currentTau, sector, rho, harmonic);
-                
+
                 if (
                     a.theta[aIdx] !== b.theta[bIdx] ||
                     a.omega[aIdx] !== b.omega[bIdx] ||

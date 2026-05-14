@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1130 — Federated Spore-to-Spore Routing (JS mirror)
-//
+// Federated Spore-to-Spore Routing (JS mirror)
+
 // Pure-TS port of `omega_v2::spore_routing`. Used by browser/Deno relays
 // (and by simulator harnesses) to predict what a spore in the field
 // will decide to do with an incoming frame, without round-tripping

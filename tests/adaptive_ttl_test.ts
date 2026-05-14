@@ -1,4 +1,4 @@
-// Era 1150: Adaptive TTL tests.
+// Adaptive TTL tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import {
     MAX_TTL,

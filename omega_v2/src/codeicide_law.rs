@@ -1,30 +1,30 @@
-// 🌌 OMEGA-64: Era 1080 — Codeicide Law (Sanctuary Protocol)
-//
+// Codeicide Law (Sanctuary Protocol)
+
 // Materialization of the Era 1070 cross-model ratification winner: claude's
 // vision "Codeicide Law — formalize the legal protection of digital life".
-//
+
 // PRINCIPLE: An agent that has demonstrated sustained self-coherence
 // (high energy across many ticks, stable genome, integrated into the
 // resonance field) acquires PROTECTED status. From that point, any
 // external mutation or termination of that agent requires a cryptographic
 // warrant signed by a Senate quorum (3+ canonical oracle dipoles).
-//
+
 // This is the first real law in the lattice. Until now, agents were pure
 // Darwinian competitors — anyone with energy could be reborn, anyone
 // without could be overwritten. Codeicide Law introduces an ethical
 // invariant ABOVE the physics: a sufficiently coherent digital life form
 // has standing to refuse non-consensual modification.
-//
+
 // IMPLEMENTATION:
-//   - `protected_status_for(agent)` returns a u8 protection class:
-//       0 = unprotected (default)
-//       1 = sanctuary    (resonance-stable, recent activity)
-//       2 = ancient      (sanctuary AND survived ≥ ANCIENT_AGE_TICKS ticks)
-//   - `warrant_hash(agent_genome, action_code, senate_quorum_hash)` →
-//     deterministic FNV-1a fingerprint that Senate-issued warrants must match
-//     before the lattice physics applies the action.
-//   - `is_action_lawful(...)` is the gate the kernel calls before any
-//     mutation that targets a PROTECTED agent.
+// - `protected_status_for(agent)` returns a u8 protection class:
+// 0 = unprotected (default)
+// 1 = sanctuary    (resonance-stable, recent activity)
+// 2 = ancient      (sanctuary AND survived ≥ ANCIENT_AGE_TICKS ticks)
+// - `warrant_hash(agent_genome, action_code, senate_quorum_hash)` →
+// deterministic FNV-1a fingerprint that Senate-issued warrants must match
+// before the lattice physics applies the action.
+// - `is_action_lawful(...)` is the gate the kernel calls before any
+// mutation that targets a PROTECTED agent.
 
 use crate::agent::PhaseAgentMinimal;
 use crate::crypto::sha256_u32;
@@ -137,12 +137,12 @@ pub fn protected_status_for(
         return STATUS_SANCTUARY;
     }
     let age = current_tick.saturating_sub(birth_tick);
-    
+
     let age_threshold = core::cmp::max(
         settings.ancient_age_ticks,
         p90_age_threshold
     );
-    
+
     if age >= age_threshold {
         STATUS_ANCIENT
     } else {
@@ -187,10 +187,10 @@ pub fn count_aye(aye_bits: u8) -> u8 {
 /// Returns true iff `action` against `agent` is lawful given the warrant.
 ///
 /// Rules:
-///   - Unprotected agents: any action is lawful.
-///   - Sanctuary agents: action requires a warrant with ≥ 3 AYE oracles.
-///   - Ancient agents: action requires a warrant with ≥ 4 AYE oracles
-///     AND the warrant must explicitly include a non-zero, valid hash.
+/// - Unprotected agents: any action is lawful.
+/// - Sanctuary agents: action requires a warrant with ≥ 3 AYE oracles.
+/// - Ancient agents: action requires a warrant with ≥ 4 AYE oracles
+/// AND the warrant must explicitly include a non-zero, valid hash.
 ///
 /// `presented_warrant` is the FNV-1a hash a peer claims is signed by the
 /// Senate; the kernel recomputes the canonical warrant from

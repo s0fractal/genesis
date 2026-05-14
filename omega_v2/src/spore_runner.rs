@@ -1,34 +1,34 @@
-// 🌌 OMEGA-64: Era 1450 — Spore Main-Loop Glue + Wire-Driver Hook
-//
+// Spore Main-Loop Glue + Wire-Driver Hook
+
 // Era 1430 gave the spore an accumulator + apply path; Era 1420 gave
 // it a broadcast queue + frame builders. Era 1450 stitches them into
 // a runnable main loop with a clean abstraction for the wire driver.
-//
+
 // THE CORE LOOP:
-//
-//   1. Drain RX bytes from the driver into a small staging buffer.
-//   2. As complete 32-byte frames are available, parse them.
-//   3. Route each frame by `frame_type`:
-//        • EVENT_DELTA_CHUNK → feed the accumulator.
-//        • EVENT_HASH_LIST   → record peer's anchor (Era 1460 will
-//          drive set-difference computation; for now we only
-//          observe).
-//        • Other types → ignored at this layer (other Eras handle).
-//   4. If the accumulator just completed an envelope, take_delta +
-//      apply_event_delta to the local sink.
-//   5. Periodically (per `broadcast_interval_ticks`) build a fresh
-//      EVENT_HASH_LIST frame announcing our own state and push it
-//      onto the broadcast buffer.
-//   6. Flush the broadcast buffer to the driver.
-//
+
+// 1. Drain RX bytes from the driver into a small staging buffer.
+// 2. As complete 32-byte frames are available, parse them.
+// 3. Route each frame by `frame_type`:
+// • EVENT_DELTA_CHUNK → feed the accumulator.
+// • EVENT_HASH_LIST   → record peer's anchor (Era 1460 will
+// drive set-difference computation; for now we only
+// observe).
+// • Other types → ignored at this layer (other Eras handle).
+// 4. If the accumulator just completed an envelope, take_delta +
+// apply_event_delta to the local sink.
+// 5. Periodically (per `broadcast_interval_ticks`) build a fresh
+// EVENT_HASH_LIST frame announcing our own state and push it
+// onto the broadcast buffer.
+// 6. Flush the broadcast buffer to the driver.
+
 // WIRE DRIVER ABSTRACTION:
-//
+
 // The `WireDriver` trait hides UART/SPI/BLE behind two methods:
-//   • `read(&mut self, buf: &mut [u8]) -> usize` — non-blocking,
-//     returns bytes copied.
-//   • `write(&mut self, buf: &[u8]) -> usize` — non-blocking,
-//     returns bytes accepted.
-//
+// • `read(&mut self, buf: &mut [u8]) -> usize` — non-blocking,
+// returns bytes copied.
+// • `write(&mut self, buf: &[u8]) -> usize` — non-blocking,
+// returns bytes accepted.
+
 // A `LoopbackDriver` implementation lets two `SporeRunner` instances
 // converge against each other in-process — the test for end-to-end
 // substrate-only convergence over a real byte stream.
@@ -67,12 +67,12 @@ pub trait WireDriver {
 pub struct SporeRunner<const N: usize, const C: usize> {
     pub sink: ForensicEventSink<N>,
     pub accumulator: EventDeltaAccumulator<C>,
-    /// Era 1480: parallel reassembler for HASH_RESPONSE chunks.
+    /// parallel reassembler for HASH_RESPONSE chunks.
     pub hash_list_accumulator: HashListAccumulator<C>,
-    /// Era 1480: most recently completed hash-list response (for
+    /// most recently completed hash-list response (for
     /// the convergence driver to consume on next tick).
     pub pending_peer_hashes: Option<ReassembledHashList>,
-    /// Era 1480: id of the most recent HASH_REQUEST we received
+    /// id of the most recent HASH_REQUEST we received
     /// (peer wants our list — driver will respond next tick).
     pub pending_hash_request_id: u32,
     pub pending_hash_request_from: u32,
@@ -201,7 +201,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         match f.frame_type {
             FRAME_TYPE_EVENT_HASH_LIST => {
                 // Record peer's anchor; convergence-driver layer
-                // (Era 1460) uses it to decide when set-difference is
+                // uses it to decide when set-difference is
                 // worth shipping.
                 self.last_peer_anchor = f.payload_a;
             }
@@ -255,7 +255,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         self.last_broadcast_tick = self.tick;
     }
 
-    /// Era 1480: Ship a single HASH_REQUEST frame. Receiver echoes
+    /// Ship a single HASH_REQUEST frame. Receiver echoes
     /// `request_id` in its HASH_RESPONSE so concurrent requests don't
     /// mix.
     pub fn ship_hash_request<D: WireDriver>(
@@ -268,7 +268,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         driver.write(&bytes) == bytes.len()
     }
 
-    /// Era 1480: Ship our full hash list as chunked HASH_RESPONSE
+    /// Ship our full hash list as chunked HASH_RESPONSE
     /// frames. `request_id` should echo the originating REQUEST.
     pub fn ship_hash_list<D: WireDriver>(
         &self,
@@ -319,7 +319,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         written == offset
     }
 
-    /// Era 1480: If a peer's HASH_REQUEST is pending, respond with
+    /// If a peer's HASH_REQUEST is pending, respond with
     /// our full hash list. Returns true if a response was sent.
     pub fn maybe_answer_pending_request<D: WireDriver>(
         &mut self,
@@ -335,7 +335,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         ok
     }
 
-    /// Era 1480: Drain a completed peer hash list (if any). Returns
+    /// Drain a completed peer hash list (if any). Returns
     /// `Some(...)` once and only once per completed list — caller
     /// is expected to compute set-difference and ship missing entries.
     pub fn take_peer_hashes(&mut self) -> Option<ReassembledHashList> {
@@ -569,7 +569,7 @@ mod tests {
         assert_eq!(RUNNER_SCHEMA, "OMEGA-1450/v1");
     }
 
-    /// Era 1480: end-to-end HASH_REQUEST → HASH_RESPONSE → DIFF ship
+    /// end-to-end HASH_REQUEST → HASH_RESPONSE → DIFF ship
     /// pipeline. A asks B for B's hash list, computes set-difference,
     /// and ships only the entries B is missing.
     #[test]

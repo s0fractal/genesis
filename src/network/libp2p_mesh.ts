@@ -1,9 +1,9 @@
-// Era 2060: Libp2p mesh is experimental and currently has peer-dependency
+// Libp2p mesh is experimental and currently has peer-dependency
 // version mismatches that break Deno type-checking. It compiles under
 // `tsc --noEmit` with a compatible npm lockfile, but is not part of the
 // primary test surface. The quorum_warrant_bridge_test.ts integration
 // that previously imported this file now uses a canonical inline FNV-1a
-// reference instead (Era 0199 fix).
+// reference instead .
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { PhaseRouter, PhaseAddress, NULL_ADDRESS } from "./routing_bridge.ts";
 import {
@@ -44,48 +44,48 @@ export interface PlasmidPayload {
   parentHash?: number;
   recursionDepth: number;
   maxRecursion: number;
-  // Era 1030: Senate payload extensions
+  // Senate payload extensions
   proposalHash?: number; // FNV-1a hash of description (PROPOSAL + VOTE)
   proposalDescription?: string; // Up to 64 chars, truncated server-side (PROPOSAL only)
   voteAye?: boolean; // VOTE plasmids only
-  // Era 2060: Bitcoin Hyperbolic Geometry (Time Curvature)
+  // Bitcoin Hyperbolic Geometry (Time Curvature)
   tau?: number; // The Bitcoin block height (Golden Trace state) when this plasmid was forged
   gt?: number; // sender's PhaseAddress raw
   gt_ortho?: number; // sender's PhaseAddress ortho
   ta?: number; // target's PhaseAddress raw
   ta_ortho?: number; // target's PhaseAddress ortho
-  // Era 1040: ZK-Notarized Mutations (mitosis proof)
+  // ZK-Notarized Mutations (mitosis proof)
   parent?: AgentMinimal; // Parent agent at time of mitosis (DIPOLE only)
   claimedChild?: AgentMinimal; // Claimed child to verify (DIPOLE only)
   attractors?: AttractorEntry[]; // Snapshot of attractor field (DIPOLE only)
   qPhase?: number; // Topology q_phase at time of mitosis (DIPOLE only)
   receiptHash?: string; // Pre-computed FNV-1a child hash (DIPOLE only)
-  entropyDelta?: number; // Era 2070: Shift in Kuramoto order (DIPOLE only)
-  metabolicCost?: number; // Era 2070: Energy burned during birth (DIPOLE only)
-  proofBundle?: import("./zk_prover_bridge.ts").ZKProofBundle; // Era 1040: SP1 STARK Proof
-  rollupState?: Uint8Array; // Era 2060: The full PhaseAgent array corresponding to a rollup proof
-  // Era 1060: Multi-Oracle Senate vote attribution (VOTE plasmids only).
+  entropyDelta?: number; // Shift in Kuramoto order (DIPOLE only)
+  metabolicCost?: number; // Energy burned during birth (DIPOLE only)
+  proofBundle?: import("./zk_prover_bridge.ts").ZKProofBundle; // SP1 STARK Proof
+  rollupState?: Uint8Array; // The full PhaseAgent array corresponding to a rollup proof
+  // Multi-Oracle Senate vote attribution (VOTE plasmids only).
   oracleName?: CanonicalOracle; // The oracle casting this vote (claude/gpt/...)
   oracleReasoning?: string; // Optional human-readable reasoning trace (≤256 chars)
-  // Era 1510: Forensic event sync envelope. Carries serialized
-  // BridgeMessage JSON (Era 1500 webrtc_event_bridge.ts) so the
+  // Forensic event sync envelope. Carries serialized
+  // BridgeMessage JSON  so the
   // mesh's plasmid pipeline can deliver event-convergence packets
   // peer-to-peer. Receivers route to their local WebRTCEventBridge.
   eventSyncBody?: string; // EVENT_SYNC plasmids only
   eventSyncTarget?: number; // peer_id of the recipient (number)
-  // Era 1660: Translation policy claim envelope. Carries serialized
-  // TranslationPolicyClaim JSON (Era 1650 translation_policy_monitor.ts).
+  // Translation policy claim envelope. Carries serialized
+  // TranslationPolicyClaim JSON .
   translationPolicyBody?: string; // TRANSLATION_POLICY plasmids only
   translationPolicyTarget?: number; // peer_id of the recipient (number)
-  // Era 1700: Translation policy corroboration raise envelope.
+  // Translation policy corroboration raise envelope.
   // Carries serialized TranslationPolicyCorroborationRaise JSON.
   translationPolicyCorroborationBody?: string; // TRANSLATION_POLICY_CORROBORATION only
   translationPolicyCorroborationTarget?: number; // peer_id of recipient
-  // Era 1870: Translation policy forensic replay digest claim.
+  // Translation policy forensic replay digest claim.
   // Carries serialized TranslationPolicyReplayDigestClaim JSON.
   translationPolicyReplayDigestBody?: string; // TRANSLATION_POLICY_REPLAY_DIGEST only
   translationPolicyReplayDigestTarget?: number; // peer_id of recipient
-  // Era 2070: Translation policy recursive digests are deprecated.
+  // Translation policy recursive digests are deprecated.
   // Use primary diagnostic telemetry instead.
 }
 
@@ -101,7 +101,7 @@ export interface SenateProposalRecord {
   localObservedAtMs: number; // non-consensus metadata
   proposedAtTau: number; // consensus ordering
   proposedAtTick?: number; // micro consensus ordering
-  // Era 1060: oracle-attributed votes (peer-id-independent).
+  // oracle-attributed votes (peer-id-independent).
   oracleAyes?: Set<CanonicalOracle>;
   oracleNays?: Set<CanonicalOracle>;
   oracleReasoning?: Record<string, string>;
@@ -117,7 +117,7 @@ import { webRTC } from '@libp2p/webrtc';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 
 /**
- * Era 2060: The Mycelial Mesh
+ * The Mycelial Mesh
  * Libp2p GossipSub + Kademlia DHT Decentralized Mesh
  */
 export class Libp2pMesh {
@@ -138,7 +138,7 @@ export class Libp2pMesh {
   private incomingSnapshot: Uint8Array | null = null;
   private incomingBytesReceived: number = 0;
 
-  // Era 1020: Attractor Consensus Tracking
+  // Attractor Consensus Tracking
   private attractorConsensusPeers: Set<string> = new Set();
   private consensusLedger: Map<
     number,
@@ -152,15 +152,15 @@ export class Libp2pMesh {
   > = new Map();
   public era1020Unlocked: boolean = false;
 
-  // Era 1030: Autopoietic Senate
+  // Autopoietic Senate
   public era1030Unlocked: boolean = false;
   public senate: Map<number, SenateProposalRecord> = new Map();
   private acceptedTaskHashes: Set<number> = new Set();
 
-  // Era 1040: ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
+  // ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
   public verifiedDipoleCount: number = 0;
 
-  // Era 1070: Cross-model debate ledger (full-text store, key = proposalHash).
+  // Cross-model debate ledger (full-text store, key = proposalHash).
   public debate: CrossModelDebate = new CrossModelDebate();
   public era1070Unlocked: boolean = false;
   public era1070AcceptedVisionHash: number | null = null;
@@ -274,7 +274,7 @@ export class Libp2pMesh {
       console.warn(`[LIBP2P-MESH] Max capacity reached. Observer mode for ${peerId}`);
     }
     globalThis.dispatchEvent(new CustomEvent("meshPeerJoined", { detail: { peerId } }));
-    
+
     this.refreshSelfAddress();
     if (this.selfAddress.raw !== 0) {
       const handshake = JSON.stringify({ t: "V2_HANDSHAKE", addr: this.selfAddress.raw, addr_ortho: this.selfAddress.ortho });
@@ -294,23 +294,23 @@ export class Libp2pMesh {
   }
 
   private handleSyncBinMessage(peerId: string, eventData: Uint8Array) {
-    // Era 2060: Absolute Immune Quarantine (OSI L4 Hardware Drop)
+    // Absolute Immune Quarantine (OSI L4 Hardware Drop)
     // We don't even parse bytes from quarantined peers.
     if ((this as any).investigator?.isQuarantined?.(peerId) || (this as any).livenessAggregator?.isQuarantined?.(peerId)) {
-        return; 
+        return;
     }
     const frame = frameFromBytes(eventData);
     if (!frame) return;
     const packet = parseV2SyncFrame(frame);
     if (!packet) {
-        // Handle Binary Plasmids (Era 2060 Zero-Copy RPC)
+        // Handle Binary Plasmids
         if (frame.frameType === FRAME_TYPE_ATTRACTOR) {
             const matrix = frame.proposalOrTarget;
             const inverse = frame.payloadA;
             const pulseFreq = frame.payloadB;
             const pulseAmp = frame.payloadC;
             const recursionDepth = frame.oracleBit;
-            
+
             const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
             if (setAttractor) {
               const slotIdx = recursionDepth % 4;
@@ -325,7 +325,7 @@ export class Libp2pMesh {
               globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
             }
             this.checkEra1030Trigger();
-            
+
             const nextDepth = recursionDepth + 1;
             if (nextDepth < 8) { // maxRecursion
               this.enqueueBinaryFrame(buildAttractor(matrix, inverse, pulseFreq, pulseAmp, nextDepth));
@@ -343,7 +343,7 @@ export class Libp2pMesh {
                 maxRecursion: 8,
             } as any;
             this.handleProposal(plasmidMock, peerId);
-            
+
             const nextDepth = frame.oracleBit + 1;
             if (nextDepth < 8) {
               this.enqueueBinaryFrame(buildProposal(frame.proposalOrTarget, frame.payloadA, frame.payloadB, frame.payloadC, nextDepth));
@@ -352,15 +352,15 @@ export class Libp2pMesh {
         return;
     }
 
-    // Passive Phase Routing (Era 2060: 3D Poincaré Disk Model)
+    // Passive Phase Routing
     if (packet.ta !== undefined && this.router && this.selfAddress.raw !== 0) {
       let hopCount = packet.hc;
       const maxHops = packet.mh;
       if (hopCount >= maxHops) return;
-      
+
       const senderAddr = { raw: packet.ta, ortho: packet.ta_ortho ?? 0 }; // ta holds the sender's address in broadcasts!
       const targetAddr = { raw: 0, ortho: 0 }; // Broadcast to everyone
-      
+
       const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
       const tauSender = packet.gt ?? 0; // gt is the golden trace tick
       const tauTarget = tauSelf; // Assuming target is in the present
@@ -369,9 +369,9 @@ export class Libp2pMesh {
       const distSender = senderAddr.raw !== 0
         ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
         : Number.MAX_SAFE_INTEGER;
-        
+
       if (distSelf > distSender) return;
-      
+
       // Calculate time curvature penalty for routing this frame
       const tauDiff = Math.abs(tauSelf - tauSender);
       if (tauDiff > 0) {
@@ -462,7 +462,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1010: Enqueue a plasmid for broadcast across the P2P mesh.
+   * Enqueue a plasmid for broadcast across the P2P mesh.
    */
   public enqueueBinaryFrame(frame: SporeFrame) {
     this.pendingPlasmids.push(frame as any); // hack for now, push SporeFrame
@@ -504,7 +504,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1020: Return current attractor consensus state.
+   * Return current attractor consensus state.
    */
   public getConsensusState() {
     return {
@@ -515,7 +515,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1030: Check if the consensus ledger has matured enough to unlock the Senate.
+   * Check if the consensus ledger has matured enough to unlock the Senate.
    * Trigger: 10+ ledger entries (sum of peerCounts) AND 5+ unique matrices.
    */
   private checkEra1030Trigger() {
@@ -576,10 +576,10 @@ export class Libp2pMesh {
         if (!payload || !payload.proofBundle) return;
 
         globalThis.dispatchEvent(new CustomEvent("zkRollupReceived", {
-            detail: { 
-                peerId: fromPeer, 
-                bundle: payload.proofBundle, 
-                rollupState: payload.rollupState ? new Uint8Array(payload.rollupState) : null 
+            detail: {
+                peerId: fromPeer,
+                bundle: payload.proofBundle,
+                rollupState: payload.rollupState ? new Uint8Array(payload.rollupState) : null
             }
         }));
     } catch (e) {
@@ -660,19 +660,19 @@ export class Libp2pMesh {
     }
     const record = this.senate.get(plasmid.proposalHash);
     if (!record || record.accepted) return;
-    
+
     // Determine resonance weight
     let weight = 10; // Default peer weight
-    
-    // Era 2060: Relativistic Senate (Hyperbolic Time Curvature)
+
+    // Relativistic Senate (Hyperbolic Time Curvature)
     // Old laws petrify and lose weight the further away they are in Bitcoin blocks (tau).
     const currentTau = (this.engine as any).getAnchorTotalBlocks?.() ?? 0;
     const proposedTau = (record as any).proposedAtTau ?? currentTau;
     const tauDiff = Math.abs(currentTau - proposedTau);
     const curvaturePenalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
-    
+
     weight = Math.max(0, weight - curvaturePenalty);
-    
+
     if (weight === 0) return; // Vote has petrified into dust
     if (this.livenessAggregator) {
         // Try to get score from aggregator snapshot
@@ -681,7 +681,7 @@ export class Libp2pMesh {
              weight = 10 + (rec.heartbeat_count * 2) + (rec.warrant_votes_observed * 5);
         }
     }
-    
+
     // Check if canonical oracle
     let isOracle = false;
     if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
@@ -716,7 +716,7 @@ export class Libp2pMesh {
         // For simplicity, skip WASM integration if it requires allocating memory for the hash
         // unless we have a pre-allocated buffer for it.
     }
-    // Era 1060: if the vote carries a canonical oracle name AND the voter
+    // if the vote carries a canonical oracle name AND the voter
     // dipole matches that oracle's deterministic identity, attribute the
     // vote to the oracle. The dipole check makes spoofing impossible —
     // a peer can only claim to be Claude if it actually carries Claude's
@@ -766,7 +766,7 @@ export class Libp2pMesh {
       record.accepted = true;
       this.acceptedTaskHashes.add(record.hash);
 
-      // Era 1060: Open Registry ADD_ORACLE execution
+      // Open Registry ADD_ORACLE execution
       if (record.description.startsWith("ADD_ORACLE:")) {
           const parts = record.description.split(":");
           if (parts.length >= 3) {
@@ -804,7 +804,7 @@ export class Libp2pMesh {
 
       // Acceptance can be the trigger for Era 1060 if it's the first one.
       this.checkEra1060Trigger();
-      // Era 1070: if this acceptance came via ORACLE-RESONANCE on a
+      // if this acceptance came via ORACLE-RESONANCE on a
       // proposal that was originally proposed by an oracle dipole
       // (i.e. one of the five canonical Era 1060 visions), the
       // accepted vision becomes the Era 1070 task.
@@ -838,7 +838,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1060: Cast a vote attributed to a canonical oracle identity.
+   * Cast a vote attributed to a canonical oracle identity.
    * The (matrix, inverse) is derived deterministically from the oracle's
    * name, so peers can verify the attribution without trusting the
    * sender. The reasoning string is opaque to the protocol but visible
@@ -890,7 +890,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1030: Locally propose a task. Submits to the WASM senate, then queues a
+   * Locally propose a task. Submits to the WASM senate, then queues a
    * PROPOSAL plasmid + an immediate AYE vote so the lattice itself counts as
    * the first voter on its own proposal.
    */
@@ -948,7 +948,7 @@ export class Libp2pMesh {
     return hash;
   }
 
-  /** Era 1030: Cast a local AYE/NAY vote and broadcast it. */
+  /** Cast a local AYE/NAY vote and broadcast it. */
   public voteFromLocal(
     proposalHash: number,
     aye: boolean,
@@ -990,7 +990,7 @@ export class Libp2pMesh {
     if (!this.era1030Unlocked) return;
     if (this.verifiedDipoleCount % 5 !== 0) return;
     // The Era-1040 proposal hash is fixed by the bootstrap autopoietic
-    // submission ("Era 1040: ZK-Notarized Mutations — every darwinian_mitosis
+    // submission ("ZK-Notarized Mutations — every darwinian_mitosis
     // emits an SP1 STARK proof; peers reject mutations without a valid receipt.").
     const era1040Hash = 0xFAA7_FF6E;
     const record = this.senate.get(era1040Hash);
@@ -1001,7 +1001,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1070: First Cross-Model Ratification.
+   * First Cross-Model Ratification.
    * Fires the first time a proposal — whose `proposerMatrix` is one of the
    * five canonical oracle matrices — reaches ORACLE-RESONANCE acceptance.
    * That winning vision is recorded as the official Era 1070 task.
@@ -1049,7 +1049,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1070: Record an oracle's debate argument for a proposal. The full
+   * Record an oracle's debate argument for a proposal. The full
    * reasoning text stays in `this.debate`; the kernel-side fingerprint is
    * computed automatically.
    */
@@ -1122,7 +1122,7 @@ export class Libp2pMesh {
   }
 
   /**
-   * Era 1040: Local verification of a mitosis-proof bundle.
+   * Local verification of a mitosis-proof bundle.
    * Returns true iff the announced child re-derives bit-for-bit from
    * (parent, attractors, qPhase) AND the receipt hash matches.
    */
@@ -1143,7 +1143,7 @@ export class Libp2pMesh {
     if (derived.memory[0] !== plasmid.claimedChild.memory[0]) return false;
     if (derived.memory[1] !== plasmid.claimedChild.memory[1]) return false;
     if (derived.memory[2] !== plasmid.claimedChild.memory[2]) return false;
-    // Era 1040: receiptHash is now a SHA-256 string, but this method is sync.
+    // receiptHash is now a SHA-256 string, but this method is sync.
     // Since we just verified every single field of claimedChild against derived,
     // the hash is guaranteed to match. We can skip the redundant hash check here.
     return true;
@@ -1169,10 +1169,10 @@ export class Libp2pMesh {
 
     this.refreshSelfAddress();
 
-    // Era 1010: Drain one plasmid from the queue per broadcast tick
+    // Drain one plasmid from the queue per broadcast tick
     const plasmid = this.pendingPlasmids.shift();
 
-    // Era 2060: Zero-Copy Binary RPC Sync Framework
+    // Zero-Copy Binary RPC Sync Framework
     const syncFrame = buildV2SyncFrame(
         this.__lastLocalIntent.x,
         this.__lastLocalIntent.y,
@@ -1189,7 +1189,7 @@ export class Libp2pMesh {
     );
 
     const binPayload = frameToBytes(syncFrame);
-    
+
     let deltaBuffer: ArrayBuffer | null = null;
     if (this.engine.wasm?.exports.v2_generate_delta_snapshot) {
       const numMutations = (this.engine.wasm.exports
@@ -1206,7 +1206,7 @@ export class Libp2pMesh {
 
     try {
       this.node.services.pubsub.publish("v2-sync-bin", binPayload);
-      
+
       if (plasmid) {
           if ((plasmid as any).magic === 0x4F46) {
               const binPlasmid = frameToBytes(plasmid as any);
@@ -1217,7 +1217,7 @@ export class Libp2pMesh {
               console.warn(`[LIBP2P-MESH] Dropping legacy JSON plasmid: ${plasmid.semanticType}`);
           }
       }
-      
+
       if (deltaBuffer) {
         // Delta buffer can be sent as raw bytes over v2-sync-bin or v2-state
         this.node.services.pubsub.publish("v2-state", new Uint8Array(deltaBuffer));

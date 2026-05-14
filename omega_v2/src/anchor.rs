@@ -41,19 +41,19 @@ impl AnchorState {
             total_blocks: 0,
         }
     }
-    
+
     pub fn init(&mut self, hashes: [u64; 6]) {
         self.block_hashes = hashes;
         self.head = 5;
         self.total_blocks = 6;
     }
-    
+
     pub fn ingest_block(&mut self, hash: u64) {
         self.head = (self.head + 1) % 6;
         self.block_hashes[self.head] = hash;
         self.total_blocks = self.total_blocks.saturating_add(1);
     }
-    
+
     pub fn mix_into(&self, mut s: u64) -> u64 {
         if self.total_blocks < 6 {
             let available = core::cmp::min(self.total_blocks as usize, 6);
@@ -149,11 +149,11 @@ impl PhiAnchorChain {
         s = self.eth.mix_into(s);
         s = self.sol.mix_into(s);
         s = mix_u64(s, child_id);
-        
+
         let mut h = s as u32;
         let total_height = self.total_blocks_all();
         h = h.wrapping_add(Self::golden_angle_step(total_height, q_phase));
-        
+
         let mask = (1u32 << q_phase) - 1;
         h & mask
     }
@@ -213,7 +213,7 @@ mod tests {
         let phi2 = chain2.global_phi();
 
         assert_ne!(phi1, phi2); // Mixing ETH changes phi
-        
+
         // Even if SOL is empty, it shouldn't crash
         chain2.ingest_block_network(2, 999);
         assert_ne!(chain2.global_phi(), phi2);

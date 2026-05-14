@@ -1,4 +1,4 @@
-// Era 1170: Path diversification + dedup tests.
+// Path diversification + dedup tests.
 import { assertEquals, assert, assertThrows } from "jsr:@std/assert";
 import {
     DedupWindow,

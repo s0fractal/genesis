@@ -10,11 +10,11 @@ export class RendererDaemon {
     private daemonIntentDeadline: number = 0;
     private readonly DAEMON_INTENT_DURATION_FRAMES: number = 30; // ~500ms at 60fps
     private daemonTickCounter: number = 0;
-    
+
     private activeGodWord: string = "GENESIS";
     private activeGodHash: number = 0;
-    private activeDNSPhase: number = 0; 
-    private activeOpcode: number = 0;   
+    private activeDNSPhase: number = 0;
+    private activeOpcode: number = 0;
     private _mouseBound: boolean = false;
 
     constructor(context: GPUCanvasContext, engine: OmegaV2Engine) {
@@ -33,7 +33,7 @@ export class RendererDaemon {
     public bindGlobalEvents() {
         if (this._mouseBound) return;
         this._mouseBound = true;
-        
+
         const semanticInput = document.getElementById("semantic-input") as HTMLInputElement;
         if (semanticInput) {
             const updateGodWord = () => {
@@ -45,7 +45,7 @@ export class RendererDaemon {
             semanticInput.addEventListener('change', updateGodWord);
             updateGodWord();
         }
-        
+
         globalThis.addEventListener('keydown', (e: Event) => {
             const navMap: Record<string, number> = {
                 '1': 0,    // Aries
@@ -59,16 +59,16 @@ export class RendererDaemon {
                 'e': 3, // Opcode 3: Neural Paralysis
                 'r': 0  // Opcode 0: Safe data routing
             };
-            
+
             const key = (e as KeyboardEvent).key.toLowerCase();
             const HUD_ELEM = document.getElementById("hud-stat-c-val");
-            
+
             if (navMap[key] !== undefined) {
                 this.activeDNSPhase = navMap[key];
                 const names = {0: "ARIES", 64: "CANCER", 128: "LIBRA", 192: "CAPRICORN"};
                 if (HUD_ELEM) HUD_ELEM.innerText = `ROUTING: ${names[this.activeDNSPhase as keyof typeof names]}`;
             }
-            
+
             if (opMap[key] !== undefined) {
                 this.activeOpcode = opMap[key];
                 const vNames = {0: "BENIGN_DATA", 1: "LYSOGENIC_VIRUS", 2: "SOMATIC_BURST", 3: "NEURAL_PARALYSIS"};
@@ -79,38 +79,38 @@ export class RendererDaemon {
         globalThis.addEventListener('mousemove', (e: Event) => {
             const mouseEvent = e as MouseEvent;
             if (mouseEvent.buttons !== 1) return;
-            
+
             const canvas = (this.context as any).canvas as HTMLCanvasElement;
             if (!(canvas instanceof HTMLCanvasElement)) return;
             const rect = canvas.getBoundingClientRect();
             const x = ((mouseEvent.clientX - rect.left) / rect.width) * 2.0 - 1.0;
             const y = -(((mouseEvent.clientY - rect.top) / rect.height) * 2.0 - 1.0);
-            
+
             const ix = Math.floor(x * 1000);
             const iy = Math.floor(y * 1000);
-            
+
             const isGodMode = mouseEvent.shiftKey;
             const opMode = isGodMode ? 1 : 0;
-            
+
             let packedMass = 0;
             let semanticGenome = 0;
-            
+
             if (isGodMode) {
-                packedMass = 3000; 
+                packedMass = 3000;
                 semanticGenome = this.activeGodHash;
                 const HUD_ELEM = document.getElementById("hud-stat-c-val");
                 if (HUD_ELEM) HUD_ELEM.innerText = `[LOGOS INJECTION]: ${this.activeGodWord}`;
             } else {
-                const payload = this.activeOpcode; 
-                const baseMass = 2000; 
+                const payload = this.activeOpcode;
+                const baseMass = 2000;
                 packedMass = (payload << 24) | (this.activeDNSPhase << 16) | baseMass;
                 semanticGenome = 0;
             }
-            
+
             if ((globalThis as unknown as { _v2Mesh: any })._v2Mesh) {
                 (globalThis as unknown as { _v2Mesh: any })._v2Mesh.__lastLocalIntent = { x: ix, y: iy, m: packedMass, r: 200, g: semanticGenome, op: opMode };
             }
-            
+
             const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
             if (setIntent) setIntent(0, ix, iy, packedMass, 200, semanticGenome, opMode);
         });
@@ -131,7 +131,7 @@ export class RendererDaemon {
 
     public evaluate(activeCount: number) {
         const now = this.daemonTickCounter++;
-        
+
         // Frame-synchronized daemon intent clear
         if (this.daemonIntentDeadline > 0 && now >= this.daemonIntentDeadline) {
             this.daemonIntentDeadline = 0;
@@ -143,7 +143,7 @@ export class RendererDaemon {
         if (now - this.lastDaemonTick > 120) {
             this.lastDaemonTick = now;
             const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction | undefined;
-            
+
             if (setIntent) {
                 const rng = createSeededRng(this.daemonTickCounter + activeCount);
                 if (activeCount < 100000) {

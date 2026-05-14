@@ -53,7 +53,7 @@ export class ZKProverBridge {
 
         try {
             console.log(`[zk_prover_bridge] Triggering STARK generation for Mitosis (parent: 0x${(receipt.parent.genome >>> 0).toString(16)})`);
-            
+
             // @ts-ignore: Deno is only available in backend/CLI contexts
             if (typeof Deno === 'undefined') {
                 console.warn(`[zk_prover_bridge] Cannot generate STARK proof in browser context. Skipping.`);
@@ -71,10 +71,10 @@ export class ZKProverBridge {
                 stderr: "inherit" // Inherit so SP1 output can be seen in terminal
             });
             const child = cmd.spawn();
-            
+
             const writer = child.stdin.getWriter();
             const encoder = new TextEncoder();
-            
+
             // Convert to JSON with exact casing omega_zk_host expects
             const payload = {
                 parent: receipt.parent,
@@ -84,7 +84,7 @@ export class ZKProverBridge {
                 receiptHash: receipt.receiptHash,
                 tick: receipt.tick
             };
-            
+
             await writer.write(encoder.encode(JSON.stringify(payload)));
             await writer.close();
 
@@ -92,7 +92,7 @@ export class ZKProverBridge {
             if (output.success) {
                 const decoder = new TextDecoder();
                 const outStr = decoder.decode(output.stdout);
-                
+
                 // Since the output is pretty-printed, each line is not a valid JSON.
                 let parsed: any = null;
                 try {
@@ -101,7 +101,7 @@ export class ZKProverBridge {
                 } catch (e) {
                     console.error("[zk_prover_bridge] Failed to parse Mitosis JSON output:", e);
                 }
-                
+
                 if (parsed) {
                     const bundle: ZKProofBundle = {
                         kind: parsed.kind,
@@ -112,7 +112,7 @@ export class ZKProverBridge {
                         publicValues: parsed.public_values,
                         note: parsed.note
                     };
-                    
+
                     if (this.onProofGenerated) {
                         this.onProofGenerated(receipt, bundle);
                     }
@@ -147,10 +147,10 @@ export class ZKProverBridge {
                 stderr: "inherit"
             });
             const child = cmd.spawn();
-            
+
             const writer = child.stdin.getWriter();
             const encoder = new TextEncoder();
-            
+
             // omega_zk_host expects snake_case
             const payload = {
                 kind: bundle.kind,
@@ -161,7 +161,7 @@ export class ZKProverBridge {
                 public_values: bundle.publicValues,
                 note: bundle.note
             };
-            
+
             await writer.write(encoder.encode(JSON.stringify(payload)));
             await writer.close();
 
@@ -187,8 +187,8 @@ export class ZKProverBridge {
 
         try {
             console.log(`[zk_prover_bridge] Triggering ZK Physics Rollup for ${activeCount} agents...`);
-            
-            // Era 2070: ZK Rollup Bitmap Compression
+
+            // ZK Rollup Bitmap Compression
             // Only send agents that have mutated, accompanied by a sparse bitmap and Merkle root.
             const changed_indices = [];
             const changed_agents = [];
@@ -196,7 +196,7 @@ export class ZKProverBridge {
             for (let i = 0; i < activeCount; i++) {
                 const offset = i * 32;
                 const state_flags = agentView.getUint32(offset + 12, true);
-                
+
                 // Simulate sparse extraction (in production, compare against previous root)
                 if ((state_flags & 0x01) !== 0 || i % 16 === 0) {
                     changed_indices.push(i);
@@ -249,10 +249,10 @@ export class ZKProverBridge {
                 stderr: "inherit"
             });
             const child = cmd.spawn();
-            
+
             const writer = child.stdin.getWriter();
             const encoder = new TextEncoder();
-            
+
             await writer.write(encoder.encode(JSON.stringify(rollup)));
             await writer.close();
 
@@ -260,7 +260,7 @@ export class ZKProverBridge {
             if (output.success) {
                 const decoder = new TextDecoder();
                 const outStr = decoder.decode(output.stdout);
-                
+
                 const lines = outStr.trim().split("\n");
                 let parsed: any = null;
                 // Since the output is pretty-printed, each line is not a valid JSON.
@@ -276,7 +276,7 @@ export class ZKProverBridge {
                         } catch (e) {}
                     }
                 }
-                
+
                 if (parsed) {
                     return {
                         kind: parsed.kind,

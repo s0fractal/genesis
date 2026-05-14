@@ -1,9 +1,9 @@
-// 🌌 OMEGA-64: Era 1110 — Spore Frame (JS mirror)
-//
+// Spore Frame (JS mirror)
+
 // Pure-TS port of `omega_v2::spore_frame`. Used by relay nodes (browser
 // or Deno) to encode/decode the 32-byte fixed-width binary frames sent
 // over UART/SPI/BLE by bare-metal spores.
-//
+
 // Cross-language anchor lives in `tests/spore_frame_test.ts`.
 
 import { sha256_u32 } from "../sdk/phi_crypto.ts";
@@ -154,7 +154,7 @@ export function buildHeartbeat(genesisHash: number, tick: number): SporeFrame {
     return f;
 }
 
-/** Era 1200: Build a SNAPSHOT_DIGEST frame carrying a relay's
+/** Build a SNAPSHOT_DIGEST frame carrying a relay's
  *  headline resilience stats in compact form. */
 export function buildSnapshotDigest(
     relayId: number,
@@ -174,7 +174,7 @@ export function buildSnapshotDigest(
     return f;
 }
 
-/** Era 1250: Build a COMPOSITE_HEALTH frame carrying a relay's
+/** Build a COMPOSITE_HEALTH frame carrying a relay's
  *  one-glance health composite. Counts clamped to u8 (255 max). */
 export function buildCompositeHealth(
     relayId: number,
@@ -202,7 +202,7 @@ export function buildCompositeHealth(
     return f;
 }
 
-/** Era 1290: Build a QUORUM_VERDICT frame carrying a forensic adjudication
+/** Build a QUORUM_VERDICT frame carrying a forensic adjudication
  *  digest + summary. Q16 fields clamp to u16 for compact transport. */
 export function buildQuorumVerdict(
     quorumDigest: number,
@@ -230,42 +230,42 @@ export function buildQuorumVerdict(
     return f;
 }
 
-/** Era 2060: Zero-Copy Binary RPC. Packs v2-sync state into a SporeFrame. */
+/** Zero-Copy Binary RPC. Packs v2-sync state into a SporeFrame. */
 export function buildV2SyncFrame(
     x: number, y: number, m: number, r: number, g: number, o: number,
     ta: number, ta_ortho: number, gt: number, gt_ortho: number, hc: number, mh: number
 ): SporeFrame {
     const f = emptyFrame();
     f.frameType = FRAME_TYPE_V2_SYNC;
-    
+
     // pack x and y into oracleBit and highest byte of payloadA
     f.oracleBit = x & 0xFF;
     const y_clamped = y & 0xFF;
     const r_clamped = r & 0xFF;
-    
+
     // payloadA: [y:8 | r:8 | m:16 (energy/magnitude)]
     f.payloadA = ((y_clamped << 24) | (r_clamped << 16) | (m & 0xFFFF)) >>> 0;
-    
+
     // payloadB: g (genome/matrix)
     f.payloadB = g >>> 0;
-    
+
     // payloadC: o (op/inverse)
     f.payloadC = o >>> 0;
-    
+
     // proposalOrTarget: ta (target address)
     f.proposalOrTarget = ta >>> 0;
-    
+
     // tick: gt (golden trace)
     f.tick = gt >>> 0;
-    
+
     // reserved: [hc:8 | mh:8 | ta_ortho:8 | gt_ortho:8]
     f.reserved = (((hc & 0xFF) << 24) | ((mh & 0xFF) << 16) | ((ta_ortho & 0xFF) << 8) | (gt_ortho & 0xFF)) >>> 0;
-    
+
     f.crc32 = computeFrameCrc(f);
     return f;
 }
 
-/** Build an ATTRACTOR frame (Era 2060 Plasmid replacement) */
+/** Build an ATTRACTOR frame  */
 export function buildAttractor(
     matrix: number,
     inverse: number,
@@ -284,7 +284,7 @@ export function buildAttractor(
     return f;
 }
 
-/** Build a PROPOSAL frame (Era 2060 Plasmid replacement) */
+/** Build a PROPOSAL frame  */
 export function buildProposal(
     matrix: number,
     inverse: number,
@@ -303,7 +303,7 @@ export function buildProposal(
     return f;
 }
 
-/** Era 2090: Build a LAW_TELEMETRY frame broadcasting the results of a physical tick. */
+/** Build a LAW_TELEMETRY frame broadcasting the results of a physical tick. */
 export function buildLawTelemetry(
     witnessKind: number,
     lawHash: number,

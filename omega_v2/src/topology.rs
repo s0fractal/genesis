@@ -16,9 +16,9 @@ pub struct OntologicalIntent {
 
 impl OntologicalIntent {
     pub fn empty() -> Self {
-        Self { 
-            focus_x: 0, focus_y: 0, mass: 0, radius: 0, 
-            semantic_genome: 0, op_mode: 0, _pad1: 0, _pad2: 0 
+        Self {
+            focus_x: 0, focus_y: 0, mass: 0, radius: 0,
+            semantic_genome: 0, op_mode: 0, _pad1: 0, _pad2: 0
         }
     }
 }
@@ -28,23 +28,23 @@ impl OntologicalIntent {
 pub struct PhaseTopology {
     /// Power of 2 determining phase resolution (e.g. 8 -> 2^8 = 256 states per wave cycle).
     pub q_phase: u32,
-    
+
     /// Power of 2 determining the number of angular sectors (e.g. 7 -> 2^7 = 128 sectors).
     pub q_sectors: u32,
-    
+
     /// Power of 2 determining the number of concentric radial rings.
     pub q_radial: u32,
-    
+
     /// Power of 2 defining the math fixed-point precision (e.g. 20 -> Q20 notation).
     pub q_math: u32,
 
-    /// Era 3000: Bitcoin UTXO Weather Multiplier in Q10 (1024 = 1.0x)
+    /// Bitcoin UTXO Weather Multiplier in Q10 (1024 = 1.0x)
     pub weather_multiplier: u32,
-    
-    /// Vector 11: Sakaguchi-Kuramoto phase lag (alpha). Defines the twist of the coupling.
+
+    /// Sakaguchi-Kuramoto phase lag (alpha). Defines the twist of the coupling.
     /// Derived from golden angle / pi derivations (default: 64 ≈ 90°).
     pub alpha: i32,
-    
+
     // Padding to ensure exactly 32-byte alignment for WebGPU `vec4<u32>` * 2
     pub _pad1: u32,
     pub _pad2: u32,
@@ -98,7 +98,7 @@ impl PhaseTopology {
     pub fn get_sin(&self, angle: u32) -> i32 {
         let mask = self.phase_mask();
         let idx = angle & mask; // strictly bound
-        
+
         // Base is Q=7 (128 elements). We shift up if resolution is lower.
         let shift_up = 7 - self.q_phase;
         crate::math::SINE_LUT_128[(idx << shift_up) as usize]
@@ -109,7 +109,7 @@ impl PhaseTopology {
     pub fn get_cos(&self, angle: u32) -> i32 {
         let mask = self.phase_mask();
         let quarter_wave = 1u32 << (self.q_phase - 2); // exactly PI/2
-        
+
         let idx = (angle + quarter_wave) & mask;
         let shift_up = 7 - self.q_phase;
         crate::math::SINE_LUT_128[(idx << shift_up) as usize]

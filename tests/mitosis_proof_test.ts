@@ -1,4 +1,4 @@
-// Era 1040: cross-language anchor — JS deriveMitosisChild must produce the
+// cross-language anchor — JS deriveMitosisChild must produce the
 // same child as the Rust source-of-truth in omega_v2::mitosis_proof.
 import { assertEquals } from "jsr:@std/assert";
 import {

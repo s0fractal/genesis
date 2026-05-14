@@ -1,15 +1,15 @@
-// 🌌 OMEGA-64: Era 1170 — Path Diversification
-//
+// Path Diversification
+
 // High-priority frames (TYPE = WARRANT_VOTE — the things that change
 // Senate state) get duplicated along TWO DISJOINT paths simultaneously.
 // HEARTBEATs stay single-path (low priority — losing one doesn't hurt).
-//
+
 // At the destination, a small dedup window catches the second arrival
 // and discards it without reprocessing. The dedup key is the FNV-1a
 // over (frame_type || proposal_or_target || oracle_bit || tick) — bytes
 // that uniquely identify the *intent* of the frame, ignoring routing
 // metadata (TTL, trail digest) that legitimately differs across copies.
-//
+
 // PATH DISJOINTNESS RULE: two paths are disjoint iff they share no
 // intermediate spore_id. The originator and the destination MAY be
 // shared (they always are for a single-emit-multi-deliver pattern),

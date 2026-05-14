@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 Deno.test({
-    name: "🏛️  Era 0203: Museum WebGPU Smoke Test",
+    name: "🏛️  Museum WebGPU Smoke Test",
     ignore: Deno.env.get("CI") === "true", // Requires real GPU/Browser, usually flaky in pure CI unless configured.
     async fn() {
         const { default: puppeteer } = await import("npm:puppeteer");
@@ -24,10 +24,10 @@ Deno.test({
         try {
             const page = await browser.newPage();
             page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-            
+
             // We assume `deno task serve` (vite preview) is running on port 4173
             console.log("[TEST] Navigating to Museum...");
-            
+
             // We use a try-catch for navigation just in case the server isn't running,
             // we will skip the test rather than fail it if the dev server isn't up.
             try {

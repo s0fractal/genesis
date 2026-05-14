@@ -1,4 +1,4 @@
-// Era 1190: Resilience Snapshot cross-language tests.
+// Resilience Snapshot cross-language tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import {
     PARTITION_DIFF_THRESHOLD_Q16,

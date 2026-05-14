@@ -1,28 +1,28 @@
-// 🌌 OMEGA-64: Era 1420 — Spore-Initiated Event Broadcast
-//
-// The spore (Era 1400) holds a forensic event sink and (Era 1410)
+// Spore-Initiated Event Broadcast
+
+// The spore  holds a forensic event sink and
 // can decode chunked event-delta frames from the wire. Era 1420
 // closes the role: a spore can now ORIGINATE event-sync traffic
 // without waiting for a JS relay to drive.
-//
+
 // FUNCTIONS:
-//
-//   • `broadcast_hash_list_frames` — emit one or more EVENT_HASH_LIST
-//     frames covering the spore's known event_hash set. Each frame
-//     carries the FNV-1a anchor and the (this_seq, total) chunk
-//     position; multi-frame mode lets a spore announce a large set
-//     without exceeding any wire layer's MTU expectations.
-//
-//   • `broadcast_delta_chunks` — given a slice of `ForensicEvent`s
-//     the spore wants to ship to a peer (typically the result of
-//     a local set-difference), build the EVENT_DELTA_CHUNK header
-//     + record frames in deterministic order.
-//
-//   • `BroadcastBuffer<N>` — a tiny `no_std`-clean queue for the
-//     spore to assemble outgoing frames before flushing to the
-//     wire driver. Avoids dynamic allocation while keeping the
-//     emit path straightforward.
-//
+
+// • `broadcast_hash_list_frames` — emit one or more EVENT_HASH_LIST
+// frames covering the spore's known event_hash set. Each frame
+// carries the FNV-1a anchor and the (this_seq, total) chunk
+// position; multi-frame mode lets a spore announce a large set
+// without exceeding any wire layer's MTU expectations.
+
+// • `broadcast_delta_chunks` — given a slice of `ForensicEvent`s
+// the spore wants to ship to a peer (typically the result of
+// a local set-difference), build the EVENT_DELTA_CHUNK header
+// + record frames in deterministic order.
+
+// • `BroadcastBuffer<N>` — a tiny `no_std`-clean queue for the
+// spore to assemble outgoing frames before flushing to the
+// wire driver. Avoids dynamic allocation while keeping the
+// emit path straightforward.
+
 // CROSS-SUBSTRATE INVARIANT: frames produced by these helpers are
 // byte-identical to the JS `chunkEventDelta` output for the same
 // inputs — both sides reach the same wire bytes for the same

@@ -1,20 +1,20 @@
-// 🌌 OMEGA-64: Era 1160 — Path Selection by Reputation × TTL Budget
-//
+// Path Selection by Reputation × TTL Budget
+
 // Era 1140 ranked individual neighbors. Era 1150 turned per-frame TTL
 // into a function of path reliability. Era 1160 closes the loop: when
 // the originator has multiple eligible PATHS (each a sequence of
 // neighbors), pick the one with the best (reliability / TTL) tradeoff.
-//
+
 // PRINCIPLE: a path of 2 healthy hops with TTL=4 is preferable to a
 // path of 5 marginal hops with TTL=12 — even if both have the same
 // final reliability — because the shorter path costs less radio time
 // and leaves the mesh available for other traffic.
-//
+
 // FORMULA: efficiency = (reliability × 1000) / ttl
-//   - reliability ∈ (0, 1] — product of per-hop reputation/MAX_REASONABLE.
-//   - ttl ∈ [MIN_TTL, MAX_TTL] — output of `adaptiveTtl(path)`.
-//   - higher efficiency wins; ties broken by shorter path, then by
-//     lexicographic spore_id sequence (full determinism).
+// - reliability ∈ (0, 1] — product of per-hop reputation/MAX_REASONABLE.
+// - ttl ∈ [MIN_TTL, MAX_TTL] — output of `adaptiveTtl(path)`.
+// - higher efficiency wins; ties broken by shorter path, then by
+// lexicographic spore_id sequence (full determinism).
 
 import { ReputationScore } from "./reputation_routing.ts";
 import { adaptiveTtl, pathReliability } from "./adaptive_ttl.ts";

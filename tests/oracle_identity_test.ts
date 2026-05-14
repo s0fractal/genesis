@@ -1,4 +1,4 @@
-// Era 1060: cross-language oracle identity anchors.
+// cross-language oracle identity anchors.
 import { assertEquals } from "jsr:@std/assert";
 import {
     CANONICAL_ORACLES,

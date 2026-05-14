@@ -35,25 +35,25 @@ export class RendererReadback {
             buffers.stagingAgentsBuffer.size
         );
         this.device.queue.submit([commandEncoder.finish()]);
-        
+
         await buffers.stagingAgentsBuffer.mapAsync(GPUMapMode.READ);
         const copyArray = new Uint8Array(buffers.stagingAgentsBuffer.getMappedRange());
-        
+
         const snapshot = new Uint8Array(copyArray);
-        
+
         const ptrs = this.engine.getMemoryPointers();
-        ptrs.agentBytes.set(snapshot); 
-        
+        ptrs.agentBytes.set(snapshot);
+
         const mitosis = this.engine.wasm?.exports.v2_mitosis_sweep as CallableFunction;
         const numReplications = mitosis ? mitosis() as number : 0;
-        
+
         if (numReplications > 0) {
              this.overwriteGPUState(ptrs.agentBytes, buffers);
-             snapshot.set(ptrs.agentBytes); 
+             snapshot.set(ptrs.agentBytes);
         }
-        
+
         buffers.stagingAgentsBuffer.unmap();
-        
+
         const traceNum = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)() as number;
         this.cachedSnapshot = snapshot;
         this.cachedGoldenTrace = traceNum.toString(16).toUpperCase();

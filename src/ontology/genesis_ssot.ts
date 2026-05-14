@@ -1,9 +1,9 @@
 /**
  * OMEGA-64 | GENESIS SINGLE SOURCE OF TRUTH (SSoT)
- * 
+ *
  * This file governs all physical limits, memory offsets, and compile-time constants.
  * It strictly adheres to Deterministic Mathematics (Integers only).
- * 
+ *
  * Any changes here will automatically re-compile into Rust, WGSL, and TypeScript via \`tools/build_ssot.ts\`.
  */
 
@@ -14,7 +14,7 @@ export const CONSTANTS = {
     Q20_SCALE: { type: "i32", expr: "1 << 20" },
     Q24_SCALE: { type: "i32", expr: "1 << 24" },
     NATIVE_GRAVITY: { type: "i32", value: -51 },
-    
+
     FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },
     FNV64_PRIME: { type: "u64", value: 1099511628211n },
     FNV64_MASK: { type: "u64", value: 0xFFFFFFFFFFFFFFFFn },
@@ -22,7 +22,7 @@ export const CONSTANTS = {
     // Core Lattice and Phase Mathematics
     PHASE_TAU_DEPTH: { type: "i32", value: 4 },
     // PHASE_LUT_SIZE defines the minimum discrete angular unit (360° / 256).
-    // By strictly enforcing a power of 2 (2^8 = 256), the polyglot generators can 
+    // By strictly enforcing a power of 2 (2^8 = 256), the polyglot generators can
     // bypass expensive modulo hardware pipelines in favor of zero-branch bitwise masking (& 255)
     // for continuous deterministic phase wrapping (128 = 180°, 64 = 90°).
     PHASE_LUT_SIZE: { type: "i32", value: 256 },
@@ -36,22 +36,22 @@ export const CONSTANTS = {
     PHASE_FOSSILIZATION_PULSE_TICKS: { type: "i32", value: 24 },
 
     // Kuramoto Thermodynamics (Q10 Format)
-    KURAMOTO_COUPLING_BASE: { type: "i32", expr: "MATH_Q_SCALE" }, 
-    KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", expr: "MATH_Q_SCALE / 2" }, 
-    KURAMOTO_COUPLING_ANTIPODE: { type: "i32", expr: "(MATH_Q_SCALE * 7) / 20" }, 
-    KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", expr: "MATH_Q_SCALE * 3" }, 
-    KURAMOTO_COHERENCE_THRESHOLD_HIGH: { type: "i32", expr: "(MATH_Q_SCALE * 42) / 10" }, 
-    KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 6) / 10" }, 
-    KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 92) / 100" }, 
-    KURAMOTO_COUPLING_PLASMID: { type: "i32", expr: "(MATH_Q_SCALE * 3) / 4" }, 
+    KURAMOTO_COUPLING_BASE: { type: "i32", expr: "MATH_Q_SCALE" },
+    KURAMOTO_COUPLING_HARMONIC_PEER: { type: "i32", expr: "MATH_Q_SCALE / 2" },
+    KURAMOTO_COUPLING_ANTIPODE: { type: "i32", expr: "(MATH_Q_SCALE * 7) / 20" },
+    KURAMOTO_COHERENCE_THRESHOLD_LOCK: { type: "i32", expr: "MATH_Q_SCALE * 3" },
+    KURAMOTO_COHERENCE_THRESHOLD_HIGH: { type: "i32", expr: "(MATH_Q_SCALE * 42) / 10" },
+    KURAMOTO_ADOPTION_RESONANCE_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 6) / 10" },
+    KURAMOTO_ANTIPODE_ALIGNMENT_THRESHOLD: { type: "i32", expr: "(MATH_Q_SCALE * 92) / 100" },
+    KURAMOTO_COUPLING_PLASMID: { type: "i32", expr: "(MATH_Q_SCALE * 3) / 4" },
     KURAMOTO_PLASMID_DIFFUSION_RATE: { type: "i32", expr: "MATH_Q_SCALE / 20" },
 
     // Evolutionary Parameters
     MUTATION_BASE_COST: { type: "i32", value: 50 },
     MUTATION_MIN_COST: { type: "i32", value: 5 },
     MUTATION_MAX_COST: { type: "i32", value: 500 },
-    MUTATION_SMOOTHING_FACTOR: { type: "i32", value: 102 }, 
-    
+    MUTATION_SMOOTHING_FACTOR: { type: "i32", value: 102 },
+
     // Senate & Shadow Network Governance
     SENATE_ORACLE_TIMEOUT_MS: { type: "i32", value: 16 },
     SENATE_MYCELIUM_MIN_LOCKS: { type: "i32", value: 1000 },
@@ -110,7 +110,7 @@ export const CONSTANTS = {
     ESP_MUTATION_RATE_MAX: { type: "i32", value: 102 }, // ~0.1 * 1024
     ESP_DIFFUSION_RATE_MIN: { type: "i32", value: 0 },
     ESP_DIFFUSION_RATE_MAX: { type: "i32", value: 1024 }, // 1.0 * 1024
-    ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: { type: "i32", value: 1 }, // Boolean flag mapped as integer 
+    ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: { type: "i32", value: 1 }, // Boolean flag mapped as integer
 
     // === Omega V2 Legacy Constants ===
     MAX_ATP: { type: "u32", value: 4096 },
@@ -260,10 +260,10 @@ export const MACROS = {
     const octant_angle = ATAN_LUT[ratio];
     const quadrant_angle = abs_y > abs_x ? 64 - octant_angle : octant_angle;
     if (x < 0) {
-        if (y < 0) { return (128 + quadrant_angle) & 255; } 
+        if (y < 0) { return (128 + quadrant_angle) & 255; }
         else { return (128 - quadrant_angle) & 255; }
     } else {
-        if (y < 0) { return (256 - quadrant_angle) & 255; } 
+        if (y < 0) { return (256 - quadrant_angle) & 255; }
         else { return quadrant_angle & 255; }
     }
         `.trim()
@@ -294,7 +294,7 @@ export const LUTS = {
             -392, -369, -345, -321, -297, -273, -249, -224, -200, -175, -150, -125, -100, -75, -50, -25
         ]
     },
-    // ENTROPY_LUT: [i32; 256] -> -P(x) * log2(P(x)) * 1024 
+    // ENTROPY_LUT: [i32; 256] -> -P(x) * log2(P(x)) * 1024
     ENTROPY_LUT: {
         type: "i32", len: 256,
         data: [

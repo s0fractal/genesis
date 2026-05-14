@@ -1,4 +1,4 @@
-// Era 1050: cross-language anchor for the Genesis Inscription.
+// cross-language anchor for the Genesis Inscription.
 // JS computeGenesisHash MUST produce the same value the Rust kernel
 // computes (omega_v2/src/genesis_inscription.rs).
 import { assertEquals } from "jsr:@std/assert";

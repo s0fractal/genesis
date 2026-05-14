@@ -1,21 +1,21 @@
-// 🌌 OMEGA-64: Era 1180 — Convergence Detection
-//
+// Convergence Detection
+
 // When Era 1170 duplicates a WARRANT_VOTE along two disjoint paths,
 // the destination's DedupWindow catches the second arrival and discards
 // it. Era 1180 elevates that "second arrival caught" event into a
 // first-class resilience signal: a "double-witness" log entry that
 // proves both paths actually delivered the same intent.
-//
+
 // WHY THIS MATTERS:
-//   - Single-witness: the vote arrived. The mesh probably works.
-//   - Double-witness: the vote arrived TWICE via DISJOINT paths. The
-//                     mesh definitely works AND has redundancy headroom.
-//
+// - Single-witness: the vote arrived. The mesh probably works.
+// - Double-witness: the vote arrived TWICE via DISJOINT paths. The
+// mesh definitely works AND has redundancy headroom.
+
 // The double-witness rate is an emergent network health metric. A high
 // rate means duplication is doing its job; a low rate means either
 // duplication isn't being attempted (fewer disjoint paths available)
 // or the secondary paths are losing more frames than primary ones.
-//
+
 // Witnesses are stored in a bounded ring buffer keyed by dedup-key, so
 // older convergence events naturally age out as new ones arrive.
 

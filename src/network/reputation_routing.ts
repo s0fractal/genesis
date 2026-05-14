@@ -1,26 +1,26 @@
-// 🌌 OMEGA-64: Era 1140 — Reputation-Weighted Routing
-//
+// Reputation-Weighted Routing
+
 // Combines the Era 1120 LivenessAggregator's per-spore health metrics
 // with the Era 1130 spore_routing decision logic to choose AMONG
 // multiple eligible neighbors instead of flooding all of them.
-//
+
 // PRINCIPLE: a spore in a multi-neighbor topology (BLE mesh, UART star,
 // CAN bus) wants to forward each frame to the neighbor most likely to
 // successfully deliver it onward. This module computes a deterministic
 // reputation score per neighbor from observable metrics:
-//
-//   reputation = base
-//                + healthy_bonus       (currently healthy)
-//                + heartbeat_density   (recent activity)
-//                + warrant_throughput  (carries votes successfully)
-//                - stall_penalty       (tick stuck)
-//                - silence_penalty     (lost contact)
-//                - fork_penalty        (drifted genesis — never picked)
-//
+
+// reputation = base
+// + healthy_bonus       (currently healthy)
+// + heartbeat_density   (recent activity)
+// + warrant_throughput  (carries votes successfully)
+// - stall_penalty       (tick stuck)
+// - silence_penalty     (lost contact)
+// - fork_penalty        (drifted genesis — never picked)
+
 // FORKED neighbors are excluded entirely. This is not a soft penalty —
 // it's a hard cryptographic gate. Era 1080 codeicide / Era 1130 wire-
 // drift containment already established that drift propagates nothing.
-//
+
 // The output is a stable ranking. Two relays with the same observation
 // history MUST produce the same ranking, so the routing layer above is
 // deterministic across nodes.

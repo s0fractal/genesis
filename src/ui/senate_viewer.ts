@@ -28,8 +28,8 @@ class SenateViewer {
     constructor() {
         this.container = document.getElementById("debate-container") as HTMLElement;
         this.client = new PhiClient();
-        
-        // Listen to plasmids via PhiClient (Era 0213)
+
+        // Listen to plasmids via PhiClient
         this.client.onFrame("plasmid", (type, payload: PlasmidPayload) => {
             this.handlePlasmid(payload);
         });
@@ -97,7 +97,7 @@ class SenateViewer {
 
             const card = document.createElement("div");
             card.className = "proposal-card";
-            
+
             let votesHtml = "";
             for (const [oracle, vote] of Object.entries(prop.oracleReasoning)) {
                 const voteClass = vote.aye ? "aye" : "nay";
@@ -125,12 +125,12 @@ class SenateViewer {
                     ${votesHtml || '<span style="color:var(--text-dim);font-size:0.9rem;font-style:italic">Awaiting Oracles...</span>'}
                 </div>
             `;
-            
+
             this.container.appendChild(card);
         }
     }
 
-    // Era 0213: For manual testing, you can inject a mock plasmid
+    // For manual testing, you can inject a mock plasmid
     public injectMock(p: PlasmidPayload) {
         this.handlePlasmid(p);
     }

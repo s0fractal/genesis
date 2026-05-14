@@ -1,10 +1,10 @@
-// 🌌 OMEGA-64: Era 1060 — Oracle Identity (JS mirror)
-//
+// Oracle Identity (JS mirror)
+
 // Pure-TS port of `omega_v2::oracle_identity`. Each LLM oracle's dipole
 // identity is `(matrix, inverse) = (FNV-1a(name + ':' + salt), !matrix)`,
 // preserving the dipole invariant `m XOR inverse == 0xFFFFFFFF` by
 // construction.
-//
+
 // Cross-language anchor lives in `omega_v2/tests/oracle_anchors.rs` and
 // `tests/oracle_identity_test.ts`.
 

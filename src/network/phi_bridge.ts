@@ -51,15 +51,15 @@ export class PhiBridge {
             hash = Math.imul(hash, 16777619);
         }
         const intentId = hash >>> 0;
-        
+
         // Derive energetic disturbance amplitude from Liquid rho
         const energy = Math.floor(intent.rho * 100);
-        
+
         // Map 8D phase vector to a single planar 1D phase (0-255)
         const phaseShift = intent.phaseVector.length > 0 ? (Math.floor(intent.phaseVector[0] * 255) & 255) : 0;
-        
+
         console.log(`[Φ-Bridge] Routing Intent -> Attractor(0x${intentId.toString(16).toUpperCase()}), Energy(${energy}), Phase(${phaseShift})`);
-        
+
         // Broadcast as an INTENT plasmid to the P2P mesh
         if (this.mesh) {
             this.mesh.enqueuePlasmid({

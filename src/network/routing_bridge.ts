@@ -1,5 +1,5 @@
-// 🌌 OMEGA-64: Era 1000 — Phase Routing Bridge (JS ↔ WASM FFI)
-//
+// Phase Routing Bridge (JS ↔ WASM FFI)
+
 // Wraps the no_std Rust routing module (`omega_v2/src/routing.rs`) in a
 // type-safe TypeScript API. All math is integer-only and deterministic.
 
@@ -16,7 +16,7 @@ export interface WasmExports {
     v2_validate_dipole?: (matrix: number, inverse: number) => number;
     v2_set_attractor?: (index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number) => void;
     v2_clear_attractors?: () => void;
-    // Era 1030: Senate FFI
+    // Senate FFI
     v2_senate_state_ptr?: () => number;
     v2_senate_hash?: (descPtr: number, descLen: number, outPtr: number) => void;
     v2_senate_propose?: (descPtr: number, descLen: number, proposerMatrix: number) => number;
@@ -75,7 +75,7 @@ export class PhaseRouter {
     }
 
     /**
-     * Era 2060: 3D Toroidal hyperbolic distance (with Time Curvature penalty). Scaled ×8.
+     * 3D Toroidal hyperbolic distance (with Time Curvature penalty). Scaled ×8.
      */
     hyperbolicDistanceToroidal3D(a: PhaseAddress, tauA: number, b: PhaseAddress, tauB: number): number {
         const fn = this.exports.v2_route_hyperbolic_distance_3d;
@@ -134,7 +134,7 @@ export class PhaseRouter {
     }
 
     /**
-     * Era 1010: Inject an attractor matrix into the WASM global attractor array.
+     * Inject an attractor matrix into the WASM global attractor array.
      */
     setAttractor(index: number, matrix: number, inverse: number, pulseFreq: number, pulseAmp: number): void {
         const fn = this.exports.v2_set_attractor;
@@ -143,7 +143,7 @@ export class PhaseRouter {
     }
 
     /**
-     * Era 1010: Clear all attractors from the WASM global array.
+     * Clear all attractors from the WASM global array.
      */
     clearAttractors(): void {
         const fn = this.exports.v2_clear_attractors;
@@ -158,9 +158,9 @@ export class PhaseRouter {
         const fnRaw = this.exports.v2_route_taylor_step_raw;
         const fnOrtho = this.exports.v2_route_taylor_step_ortho;
         if (!fnRaw || !fnOrtho) return src;
-        return { 
-            raw: fnRaw(src.raw, src.ortho, dst.raw, dst.ortho, maxStep), 
-            ortho: fnOrtho(src.raw, src.ortho, dst.raw, dst.ortho, maxStep) 
+        return {
+            raw: fnRaw(src.raw, src.ortho, dst.raw, dst.ortho, maxStep),
+            ortho: fnOrtho(src.raw, src.ortho, dst.raw, dst.ortho, maxStep)
         };
     }
 

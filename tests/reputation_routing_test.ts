@@ -1,4 +1,4 @@
-// Era 1140: Reputation-Weighted Routing tests.
+// Reputation-Weighted Routing tests.
 import { assertEquals, assert } from "jsr:@std/assert";
 import { LivenessAggregator } from "../src/network/liveness_aggregator.ts";
 import {

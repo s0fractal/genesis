@@ -1,4 +1,4 @@
-//! Universal Integer Trigonometry (Era 960)
+//! Universal Integer Trigonometry
 //! #![no_std] deterministic math. Q=7 Resonance Matrix (128 elements).
 
 // HIGH-1 FIX: xorshift64* replaces NR LCG for superior spectral properties.
@@ -172,7 +172,7 @@ pub fn atan2_brute_256(y: i32, x: i32) -> i32 {
     best
 }
 
-// Era 2060: Evolutionary Genome (Probabilistic Automaton)
+// Evolutionary Genome (Probabilistic Automaton)
 // Biologically inspired bit-flip masks: 1-bit, 2-bit, 3-bit, and 2-4 bit random flips.
 pub const MUTATION_LUT: [u32; 256] = [
     0x00000000, 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040,
@@ -311,7 +311,7 @@ mod tests {
         // BigBang expectation
         assert_eq!(dist[0], 1, "Expected exactly 1 zero-mutation mask");
         assert!(dist[1] >= 32, "Expected at least 32 single-bit mutations");
-        
+
         let sum: u32 = dist.iter().sum();
         assert_eq!(sum, 256, "Total distribution must sum to 256");
     }

@@ -10,7 +10,7 @@ export interface PhaseAgentMinimal {
     stateFlags: number;   // u32
     genome: number;       // u32
     memory: [number, number, number]; // [u32; 3]
-    
+
     // Decoded flags
     isLocked: boolean;
     speciesId: number;
@@ -72,7 +72,7 @@ export class PhaseAgentParser {
 
         const maxAgents = Math.floor(view.byteLength / this.BYTES_PER_AGENT);
         const parseCount = count !== undefined ? Math.min(count, maxAgents) : maxAgents;
-        
+
         const agents: PhaseAgentMinimal[] = [];
         for (let i = 0; i < parseCount; i++) {
             agents.push(this.parse(view, i * this.BYTES_PER_AGENT));

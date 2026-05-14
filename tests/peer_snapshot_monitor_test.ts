@@ -1,4 +1,4 @@
-// Era 1200: Peer Snapshot Monitor tests.
+// Peer Snapshot Monitor tests.
 import { assertEquals, assert, assertThrows } from "jsr:@std/assert";
 import { PeerSnapshotMonitor, snapshotFromDigest } from "../src/network/peer_snapshot_monitor.ts";
 import { ConvergenceDetector } from "../src/network/convergence_detector.ts";

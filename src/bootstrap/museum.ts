@@ -1,5 +1,5 @@
 /**
- * OMEGA-64 Era 0200 — Living Museum
+ * OMEGA-64 Living Museum
  *
  * Standalone public demo of the deterministic lattice.
  * Read-only mode: no WebRTC mesh, no ZK proofs, no oracles.
@@ -50,8 +50,8 @@ async function boot() {
         showFatalError("WebGPU adapter unavailable.");
         return;
     }
-    
-    // Era 0202: Record adapter label if available
+
+    // Record adapter label if available
     try {
         if ('requestAdapterInfo' in adapter) {
             const adapterInfo = await (adapter as any).requestAdapterInfo();
@@ -81,7 +81,7 @@ async function boot() {
     renderer = new PhaseV2Renderer(context, device, format, ENGINE);
     await renderer.initialize();
     renderer.setComputeMode("toroidal"); // Exact Rust parity for museum stability
-    
+
     // Pre-fetch wasm_hash
     fetch('/v2/omega_v2_core.wasm.sha256')
         .then(r => r.text())
@@ -231,7 +231,7 @@ function exportWitness() {
     const active = signals.getUint32(24, true);
 
     const topology = ENGINE.getTopology();
-    
+
     // Read attractors from memory
     const attractorArr = new DataView(ptrs.attractorBytes.buffer, ptrs.attractorBytes.byteOffset, 80);
     const attractorCount = attractorArr.getUint32(0, true);
