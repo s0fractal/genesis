@@ -130,7 +130,7 @@ pub fn atan2_fast(y: i32, x: i32) -> i32 {
     let mut ratio = 0i32;
     if b != 0 { ratio = (a * 128) / b; }
     if ratio > 128 { ratio = 128; }
-    // ATAN_LUT from generated_constants.wgsl
+    // ATAN_LUT — canonical copy (shaders receive this via WASM storage buffer)
     const ATAN_LUT: [u32; 129] = [
         0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5,
         5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 10,
@@ -170,6 +170,21 @@ pub fn atan2_brute_256(y: i32, x: i32) -> i32 {
         }
     }
     best
+}
+
+/// Branchless absolute value. Equivalent to `v.abs()` but without branches.
+#[inline(always)]
+pub fn fast_abs(v: i32) -> i32 {
+    let mask = v >> 31;
+    (v ^ mask) - mask
+}
+
+/// Circular distance on a 256-phase ring.
+/// Returns the shortest absolute difference between two phase values.
+#[inline(always)]
+pub fn phase_distance(a: i32, b: i32) -> i32 {
+    let diff = fast_abs(a - b) & 255;
+    if diff > 128 { 256 - diff } else { diff }
 }
 
 // Evolutionary Genome (Probabilistic Automaton)

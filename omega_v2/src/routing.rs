@@ -203,7 +203,7 @@ impl PhaseAddress {
     /// Phase Cone Instead of Fixed Velocity
     /// Evaluates the latency/"distance" for a signal to propagate between phases.
     pub fn causal_light_cone(src_phase: u32, dst_phase: u32, coupling: i32) -> u32 {
-        let delta = crate::constants::phase_distance(src_phase as i32, dst_phase as i32) as u32;
+        let delta = crate::math::phase_distance(src_phase as i32, dst_phase as i32) as u32;
         // Максимальна швидкість = 1 cell/tick при coupling=1024
         // При слабкому зв'язку конус звужується
         let max_hops = (1024u32).saturating_sub(coupling.unsigned_abs() / 4);
