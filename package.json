@@ -10,16 +10,10 @@
   "scripts": {
     "dev": "vite",
     "export": "deno run -A tools/export_omega.ts",
-    "build:proto": "pbjs -t static-module -w commonjs -o src/proto/omega_v2.js src/proto/omega_v2.proto && pbts -o src/proto/omega_v2.d.ts src/proto/omega_v2.js",
-    "build:wasm": "deno run -A tools/build_v2.ts",
+        "build:wasm": "deno run -A tools/build_v2.ts",
     "build": "npm run build:wasm && vite build && npm run verify:dist",
     "serve": "vite preview",
-    "generate:phase-goldens": "deno run -A tools/generate_golden.ts",
-    "verify:phase-coherence:kernel": "cargo test --manifest-path omega_core/Cargo.toml phase_lattice",
-    "verify:phase-coherence:wasm": "deno run -A tools/verify_phase_coherence_wasm.ts",
-    "verify:phase-coherence": "deno task verify:phase-coherence:kernel && deno task verify:phase-coherence:wasm",
-    "verify:phase-stack": "deno task verify:phase-coherence",
-    "verify:golden": "deno run -A tools/verify_golden.ts"
+        "verify:dist": "deno run -A tools/verify_dist.ts"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",

@@ -14,3 +14,4 @@ omega_zk_host/Cargo.lock
 # Era 1100: bare-metal spore firmware target dir is reproducible
 omega_spore/target/
 omega_spore/Cargo.lock
+history.jsonl
