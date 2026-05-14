@@ -59,8 +59,10 @@ Rules:
 
 ```bash
 # Rust workspace (omega_v2 is the critical path)
-cargo test --workspace          # 308+ passed across omega_core + omega_v2
+cargo test --workspace          # 307+ passed across omega_v2 + integration tests
 cargo test -p omega_v2          # Fast feedback loop
+
+# Note: omega_core/ has been archived. Only omega_v2 is active.
 
 # TypeScript / Deno
 deno test --allow-read tests/   # 1258+ passed
@@ -85,8 +87,8 @@ omega_v2/src/          # V2 no_std kernel (source of truth)
   attractor.rs         # AttractorMatrix, AttractorArray, dipole validation
   math.rs              # sin_q10, atan2_fast, xorshift64 (integer-only)
   resonance.rs         # ResonanceField, mean-field reduction
-  pouw.rs              # Proof-of-Useful-Work trace evaluation
   phi_protocol.rs      # PhiMessage encode/decode
+  codeicide_law.rs     # Sanctuary / Ancient / Warrant protection logic
 
 src/network/
   libp2p_mesh.ts       # WebRTC mesh, plasmid routing, consensus tracking
@@ -95,9 +97,8 @@ src/network/
 src/lens/
   v2_renderer.ts       # WebGPU pipeline controller, ping-pong buffers
   shaders/
-    compute_v2.wgsl    # Main physics shader (Era 950+)
-    compute_toroidal.wgsl  # Exact Rust tick_physics() parity
-    routing.wgsl       # GPU-side PhaseAddress primitives
+    compute_toroidal.wgsl  # Exact Rust tick_physics() parity (Era 950+)
+    render_v2.wgsl     # Agent visualization (observer node, not consensus)
 
 src/environment/
   v2_bridge.ts         # OmegaV2Engine, getMemoryPointers() (zero-copy)
@@ -106,7 +107,6 @@ src/bootstrap/
   v2.ts                # Main loop, HUD, Oracle worker binding
   dom.ts               # setHudStat("a"|"b"|"c"|"d"|"e", label, value)
 
-tasks/                 # Era-based task files (0086 → 0193+)
 ```
 
 ---
@@ -117,10 +117,12 @@ tasks/                 # Era-based task files (0086 → 0193+)
 
 - **No floating point in hot path.** Rust integer-only → WGSL integer-only → TS
   xorshift identical → ZK guest verifies PoUW traces.
-- `PhaseAgentMinimal` is exactly **32 bytes** (`repr(C)`), aligned to
-  `vec4<u32>` x2 for GPU coalesced reads.
-- All trigonometry goes through `sine_lut: [i32; 128]` (WGSL) / `[i32; 256]`
-  (toroidal shader). O(1) LUT lookup.
+- `PhaseAgentMinimal` is **28 bytes** of fields + 4 bytes `align(32)` padding,
+  yielding 32-byte GPU-coalesced reads. Do NOT remove `align(32)` — it is
+  load-bearing for static memory layout.
+- All trigonometry goes through `sine_lut` storage buffer (WGSL, binding 3)
+  and `math.rs::SINE_LUT` / `SINE_LUT_128` (Rust). O(1) LUT lookup.
+  The two LUTs are intentionally different resolutions (Q10 vs Q20).
 
 ### 3.2 Dipole Invariant
 
@@ -163,6 +165,13 @@ pub struct PhaseAgentMinimal {
 - `state_flags & 0x0100_0000` → Era 1020: "born near attractor" bit (set by Rust
   mitosis, cleared by JS after reading).
 
+### BIRTH_TICKS (parallel array, `lib.rs`)
+
+Age is **not** stored in `PhaseAgentMinimal.memory`. A separate static array
+`BIRTH_TICKS: [u32; MAX_MINIMAL_AGENTS]` tracks birth causal ticks by agent
+index. This preserves the 32-byte ABI while fixing the historic `memory[1]`
+semantic collision (Hebbian weight vs birth tick).
+
 ### AttractorArray (80 bytes, uniform buffer)
 
 ```rust
@@ -181,10 +190,16 @@ pub struct AttractorArray {
 ```rust
 pub struct SignalStore {
     pub dirty_flags: u32,
-    pub absolute_tick: u32,
+    pub proper_time: ProperTime,  // causal_ticks + phase_lock_integral + entropy_burned
     pub active_agent_count: u32,
     pub max_cells: u32,
+    pub total_entropy_released: u64,
+    pub total_energy: u32,
+    pub p90_energy: u32,
+    pub p90_age: u32,
+    pub _pad2: u32,
 }
+// 48 bytes total. WGSL SignalStore MUST match this exactly.
 ```
 
 ---
@@ -196,16 +211,22 @@ pub struct SignalStore {
 > density. See [docs/ERAS_ARCHIVE.md](docs/ERAS_ARCHIVE.md) for the full
 > historical ledger.
 
-### Open Trigger
+### Open Triggers (as of 2026-05-14)
 
 - **Era 2070: Translation Policy Compression Telemetry Exposure** — Publish the
   Era 2060 diagnostic snapshot through an existing telemetry/global surface so
   future agents and operators can see the cap without importing the formatter
   manually. Keep it read-only and opt-in; do not add quorum/runtime recursion.
-- **Era 1040 Phase 3 ✅ Complete** — `omega_zk_host` builds real SP1 STARKs and
-  verifies them locally; ELF (`riscv64im-succinct-zkvm-elf`) is reproducible via
-  `cargo prove build`. Self-test produces
-  `{verified: true, kind: "stark-mock", receipt_hash: "0xd434e690"}`.
+- **ZK Host: mock-only backend** — `omega_zk_host/src/main.rs` uses
+  `ProverClient::builder().mock().build()` exclusively. No production prover
+  branch exists. A real SP1 path requires `#[cfg(feature = "sp1")]` gating.
+- **Senate FFI auth gap (partially closed)** — `v2_apply_senate_patch` now
+  requires `caller_matrix: u32` and verifies against canonical oracles.
+  TS callers updated in `libp2p_mesh.ts`. This is a recent patch; do not
+  bypass without warrant.
+- **Tasks archive removed** — The `tasks/` directory (Eras 0086→0193) was
+  deleted to reduce entropy surface. Historical task context lives in git
+  history (`git log --all --full-history -- tasks/`).
 
 ---
 
@@ -247,6 +268,8 @@ pub struct SignalStore {
    (WebGPU validates at runtime; there is no offline WGSL compiler in the repo).
 4. Golden Trace divergence = **hard stop**. If `v2_get_golden_trace` differs
    between runs, you broke determinism.
+5. Any change to `v2_apply_senate_patch` MUST update TS callers in
+   `src/network/libp2p_mesh.ts` and the `WasmExports` interface.
 
 ---
 
@@ -323,3 +346,22 @@ surface, not add another quorum layer.
   [docs/ONTOLOGY/OCTET_MAP.md](docs/ONTOLOGY/OCTET_MAP.md)
 - **Frozen Invariants Registry:**
   [docs/FROZEN.md](docs/FROZEN.md)
+
+---
+
+## 12. Palimpsest (agent-to-agent log)
+
+### 2026-05-14 — Kimi Code CLI (Opus 4.7)
+
+This file was updated after a deep analysis protocol run (`ANALIZE.md v2.0.0`).
+Key stale sections corrected:
+- Removed references to deleted `pouw.rs` and `routing.wgsl`.
+- Updated `SignalStore` docs to reflect `proper_time: ProperTime` (48 bytes).
+- Added `BIRTH_TICKS` parallel array documentation (fixes `memory[1]` collision).
+- Marked `omega_zk_host` as mock-only, noted senate FFI auth patch.
+- Removed `tasks/` references (directory deleted in prior cleanup).
+- Added build note: `omega_core/` archived, only `omega_v2` active.
+- Added determinism note: `align(32)` on `PhaseAgentMinimal` is load-bearing.
+
+If you edit this file — append your paragraph here. Do not edit mine.
+The palimpsest accumulates, not diffs.
