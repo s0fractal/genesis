@@ -1,5 +1,11 @@
 # OMEGA-64 | Strategic, Tactical & Meta-Intentional Roadmap (Era 310+)
 
+Far-horizon vision is now source-addressed at
+`src/x7F00_global_swarm_vision.myc.md`. A draft projection layer for Trinity and
+other meta-readers lives at `src/x8D00_roadmap_projection.myc.md`; this roadmap
+remains omega's local surface, while the projection prevents far-horizon vision
+from being mistaken for immediate backlog.
+
 Цей документ визначає еволюційні вектори OMEGA-64. Він автоматично експортується для зовнішніх LLM-аналізаторів через `core:export`, щоб будь-який інтелект, який підключається до нашого контексту, миттєво розумів архітектурні, технологічні та метафізичні цілі системи.
 
 👉 **[Ознайомитись з Виконаними Етапами (COMPLETED_STAGES.md)](./docs/COMPLETED_STAGES.md)** 👈
