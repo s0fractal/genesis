@@ -1,10 +1,18 @@
 #!/usr/bin/env -S deno run --allow-read
-// omega/0x2/E.ts — omega native status / self-reflection
+// omega/src/x2E00_status.ts — omega native status / self-reflection
 // position: 2/E → mirror(2) × harmony-pair(E) = state-aware self-reflection
 // hex_dipole: "00 00 6C 40 33 26 4C 33"
 // placement_policy: axis
+// migrated 2026-05-23 from omega/0x2/E.ts as part of SUBSTRATE_SELF_ABI.v0.1
+// adoption (slot 2/E). Adapter organ — coexists with omega's domain
+// subdirectories (src/network, src/lens, src/math, etc.) which are
+// intentional architecture, not drift.
 
-import { dirname, fromFileUrl, join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import {
+  dirname,
+  fromFileUrl,
+  join,
+} from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const OMEGA_ROOT = dirname(HERE);
@@ -24,14 +32,14 @@ if (import.meta.main) {
     "Cargo.toml",
     "omega_v2/Cargo.toml",
     "omega_spore/Cargo.toml",
-    "omega_zk_host/Cargo.toml"
+    "omega_zk_host/Cargo.toml",
   ];
-  
+
   let ok = 0;
   for (const c of components) {
     if (await checkFile(c)) ok++;
   }
-  
+
   const overall = ok === components.length ? "healthy" : "degraded";
 
   const receipt = {
@@ -47,8 +55,8 @@ if (import.meta.main) {
         ok,
         fail: components.length - ok,
         total: components.length,
-      }
-    }
+      },
+    },
   };
 
   console.log(JSON.stringify(receipt, null, 2));
