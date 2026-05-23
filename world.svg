@@ -1,24 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1500" width="2000" height="1500" style="background-color: #0d1117; font-family: sans-serif;">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 2000 1500"
+  width="2000"
+  height="1500"
+  style="background-color: #0d1117; font-family: sans-serif"
+>
   <defs>
     <!-- Arrowhead for dependency lines -->
-    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <marker
+      id="arrow"
+      viewBox="0 0 10 10"
+      refX="10"
+      refY="5"
+      markerWidth="6"
+      markerHeight="6"
+      orient="auto-start-reverse"
+    >
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#30363d" />
     </marker>
   </defs>
 
   <!-- Topology Graph Edges (Latent Links & Dependencies) -->
-  <g id="tissue-edges">
-    
-  </g>
+  <g id="tissue-edges"></g>
 
   <!-- Ontology Neurons (Geometry mapped to ASTs) -->
   <g id="tissue-nodes">
-    
     <g transform="translate(985.3682258487903, 526.4411039697577)">
-      <g id="fast_abs" data-hash="1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9" data-ir-id="fast_abs" data-kind="pure_fn" data-substrate="ts" data-z="100">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="5s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="fast_abs"
+        data-hash="1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9"
+        data-ir-id="fast_abs"
+        data-kind="pure_fn"
+        data-substrate="ts"
+        data-z="100"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="5s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;1bb8c52a34e89c53e614a91d7b9dac2b3f93534247f2e11f1169245de24a61e9&quot;,
     &quot;context_hash&quot;: &quot;init&quot;,
@@ -70,16 +97,55 @@
   &quot;implementation&quot;: {},
   &quot;mutation_log&quot;: []
 }</desc>
-        <circle cx="0" cy="0" r="10" fill="#58a6ff" fill-opacity="0.875" stroke="#ffffff" stroke-width="2" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="15">fast_abs</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="9">pure_fn | Z:100</text>
+        <circle
+          cx="0"
+          cy="0"
+          r="10"
+          fill="#58a6ff"
+          fill-opacity="0.875"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="15"
+        >fast_abs</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="9"
+        >pure_fn | Z:100</text>
       </g>
     </g>
 
     <g transform="translate(1085.100675941048, 641.9840486977414)">
-      <g id="calculate_structural_hash" data-hash="742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501" data-ir-id="calculate_structural_hash" data-kind="meta_fn" data-substrate="ts" data-z="200">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="calculate_structural_hash"
+        data-hash="742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501"
+        data-ir-id="calculate_structural_hash"
+        data-kind="meta_fn"
+        data-substrate="ts"
+        data-z="200"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="30s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;742f388ff2efc34f98f6e33638218f0895348aee123afb29dad74317a496c501&quot;,
     &quot;context_hash&quot;: &quot;core&quot;,
@@ -116,16 +182,57 @@
   },
   &quot;mutation_log&quot;: []
 }</desc>
-        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">calculate_structural_hash</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+        <rect
+          x="-10"
+          y="-10"
+          width="20"
+          height="20"
+          fill="#8b949e"
+          fill-opacity="0.75"
+          stroke="#ffffff"
+          stroke-width="2"
+          rx="2.5"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="14"
+        >calculate_structural_hash</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="8"
+        >meta_fn | Z:200</text>
       </g>
     </g>
 
     <g transform="translate(1107.9615762805765, 269.8769918999428)">
-      <g id="mutate_ir" data-hash="15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456" data-ir-id="mutate_ir" data-kind="meta_fn" data-substrate="ts" data-z="200">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="mutate_ir"
+        data-hash="15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456"
+        data-ir-id="mutate_ir"
+        data-kind="meta_fn"
+        data-substrate="ts"
+        data-z="200"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="30s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;15d6bba9c12c53de3f1975258b967c76930ad6937f8f3fc0133fcd1e17047456&quot;,
     &quot;context_hash&quot;: &quot;core&quot;,
@@ -182,16 +289,57 @@
   },
   &quot;mutation_log&quot;: []
 }</desc>
-        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">mutate_ir</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+        <rect
+          x="-10"
+          y="-10"
+          width="20"
+          height="20"
+          fill="#8b949e"
+          fill-opacity="0.75"
+          stroke="#ffffff"
+          stroke-width="2"
+          rx="2.5"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="14"
+        >mutate_ir</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="8"
+        >meta_fn | Z:200</text>
       </g>
     </g>
 
     <g transform="translate(1189.837751555923, 360.2134303796406)">
-      <g id="flush_state_to_disk" data-hash="84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3" data-ir-id="flush_state_to_disk" data-kind="meta_fn" data-substrate="ts" data-z="200">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="flush_state_to_disk"
+        data-hash="84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3"
+        data-ir-id="flush_state_to_disk"
+        data-kind="meta_fn"
+        data-substrate="ts"
+        data-z="200"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="30s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;84ee457159f7720697909e90588f1c3b2034f044fa3c11f4ba32dc5d43b092b3&quot;,
     &quot;context_hash&quot;: &quot;core&quot;,
@@ -233,16 +381,57 @@
   },
   &quot;mutation_log&quot;: []
 }</desc>
-        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">flush_state_to_disk</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+        <rect
+          x="-10"
+          y="-10"
+          width="20"
+          height="20"
+          fill="#8b949e"
+          fill-opacity="0.75"
+          stroke="#ffffff"
+          stroke-width="2"
+          rx="2.5"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="14"
+        >flush_state_to_disk</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="8"
+        >meta_fn | Z:200</text>
       </g>
     </g>
 
     <g transform="translate(1129.1986340219316, 615.5527498015873)">
-      <g id="atomic_pulse" data-hash="b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105" data-ir-id="atomic_pulse" data-kind="meta_fn" data-substrate="ts" data-z="200">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="atomic_pulse"
+        data-hash="b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105"
+        data-ir-id="atomic_pulse"
+        data-kind="meta_fn"
+        data-substrate="ts"
+        data-z="200"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="30s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;b0254164c70db96d5ef01003d66b21e633ea19c42d3c3811886d822d0a631105&quot;,
     &quot;context_hash&quot;: &quot;core&quot;,
@@ -289,16 +478,57 @@
   },
   &quot;mutation_log&quot;: []
 }</desc>
-        <rect x="-10" y="-10" width="20" height="20" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="2.5" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">atomic_pulse</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+        <rect
+          x="-10"
+          y="-10"
+          width="20"
+          height="20"
+          fill="#8b949e"
+          fill-opacity="0.75"
+          stroke="#ffffff"
+          stroke-width="2"
+          rx="2.5"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="14"
+        >atomic_pulse</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="8"
+        >meta_fn | Z:200</text>
       </g>
     </g>
 
     <g transform="translate(2555.7731124187567, 335.2392807845189)">
-      <g id="rust_compiler_bridge" data-hash="f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246" data-ir-id="rust_compiler_bridge" data-kind="meta_fn" data-substrate="ts" data-z="200">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="30s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="rust_compiler_bridge"
+        data-hash="f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246"
+        data-ir-id="rust_compiler_bridge"
+        data-kind="meta_fn"
+        data-substrate="ts"
+        data-z="200"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="30s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;f5fd3abca1803b5b51f2d42f85bcfb719440f99733ecaf5d34e36a35d440f246&quot;,
     &quot;context_hash&quot;: &quot;sys&quot;,
@@ -344,16 +574,57 @@
   },
   &quot;mutation_log&quot;: []
 }</desc>
-        <rect x="-80" y="-80" width="160" height="160" fill="#8b949e" fill-opacity="0.75" stroke="#ffffff" stroke-width="2" rx="20" />
-        <text x="0" y="-90" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="14">rust_compiler_bridge</text>
-        <text x="0" y="-102" fill="#777" text-anchor="middle" font-family="monospace" font-size="8">meta_fn | Z:200</text>
+        <rect
+          x="-80"
+          y="-80"
+          width="160"
+          height="160"
+          fill="#8b949e"
+          fill-opacity="0.75"
+          stroke="#ffffff"
+          stroke-width="2"
+          rx="20"
+        />
+        <text
+          x="0"
+          y="-90"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="14"
+        >rust_compiler_bridge</text>
+        <text
+          x="0"
+          y="-102"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="8"
+        >meta_fn | Z:200</text>
       </g>
     </g>
 
     <g transform="translate(888.981175271362, 164.72317066152107)">
-      <g id="tissue_history" data-hash="58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2" data-ir-id="tissue_history" data-kind="module" data-substrate="ts" data-z="300">
-        <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="600s" repeatCount="indefinite" />
-        <desc type="application/json">{
+      <g
+        id="tissue_history"
+        data-hash="58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2"
+        data-ir-id="tissue_history"
+        data-kind="module"
+        data-substrate="ts"
+        data-z="300"
+      >
+        <animateTransform
+          attributeName="transform"
+          type="rotate"
+          from="0 0 0"
+          to="360 0 0"
+          dur="600s"
+          repeatCount="indefinite"
+        />
+        <desc
+          type="application/json"
+        >{
   &quot;identity&quot;: {
     &quot;structural_hash&quot;: &quot;58a4bc25280a0ade6980fe289caeabd38febb401e29a167f88ed6db2bfeb14a2&quot;,
     &quot;context_hash&quot;: &quot;core&quot;,
@@ -385,9 +656,30 @@
   &quot;implementation&quot;: {},
   &quot;mutation_log&quot;: []
 }</desc>
-        <polygon points="0,-10 10,0 0,10 -10,0" fill="#d2a8ff" fill-opacity="0.625" stroke="#ffffff" stroke-width="2" />
-        <text x="0" y="-20" fill="#c9d1d9" text-anchor="middle" font-family="monospace" font-weight="bold" font-size="13">tissue_history</text>
-        <text x="0" y="-32" fill="#777" text-anchor="middle" font-family="monospace" font-size="7">module | Z:300</text>
+        <polygon
+          points="0,-10 10,0 0,10 -10,0"
+          fill="#d2a8ff"
+          fill-opacity="0.625"
+          stroke="#ffffff"
+          stroke-width="2"
+        />
+        <text
+          x="0"
+          y="-20"
+          fill="#c9d1d9"
+          text-anchor="middle"
+          font-family="monospace"
+          font-weight="bold"
+          font-size="13"
+        >tissue_history</text>
+        <text
+          x="0"
+          y="-32"
+          fill="#777"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="7"
+        >module | Z:300</text>
       </g>
     </g>
   </g>

@@ -87,7 +87,7 @@ deno task dev                   # Vite + WebGPU
 | Layer              | Encoding                                                 | Source-of-truth                       |
 | ------------------ | -------------------------------------------------------- | ------------------------------------- |
 | L0 — Φ Address     | `u32 [consensus:8 \| social:8 \| personal:8 \| micro:8]` | `omega_v2/src/routing.rs`             |
-| L1 — Plasmid       | JSON over WebRTC `v2-sync` (UDP-style)                   | `src/network/libp2p_mesh.ts`            |
+| L1 — Plasmid       | JSON over WebRTC `v2-sync` (UDP-style)                   | `src/network/libp2p_mesh.ts`          |
 | L2 — Snapshot      | Raw 32-byte agents, 64KB chunks via `v2-state`           | `omega_v2/src/agent.rs`               |
 | L3 — Senate        | PROPOSAL / VOTE plasmids, FNV-1a hashes                  | `omega_v2/src/senate.rs`              |
 | L4 — Anchor        | Bitcoin block hash → φ derivation                        | `omega_v2/src/anchor.rs`              |

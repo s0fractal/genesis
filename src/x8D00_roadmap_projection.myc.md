@@ -80,6 +80,6 @@ Not a backlog item: this remains mythic-horizon orientation.
 ## Projection Contract
 
 Omega owns this projection because omega owns the vision and operational
-roadmap. Trinity should consume this file, or a generated successor, as
-omega's declared far-horizon roadmap signal. Trinity should not mine
+roadmap. Trinity should consume this file, or a generated successor, as omega's
+declared far-horizon roadmap signal. Trinity should not mine
 `src/x7F00_global_swarm_vision.myc.md` directly unless omega has no projection.

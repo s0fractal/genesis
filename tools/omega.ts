@@ -12,7 +12,10 @@ async function runCmd(cmd: string[]) {
   });
   const { code } = await command.output();
   if (code !== 0) {
-    console.error(`%c[OMEGA-64] Command failed with exit code ${code}`, "color: red");
+    console.error(
+      `%c[OMEGA-64] Command failed with exit code ${code}`,
+      "color: red",
+    );
     Deno.exit(code);
   }
 }
@@ -37,10 +40,16 @@ const command = args[0];
 
 switch (command) {
   case "test":
-    console.log("%c🌌 OMEGA-64 Resonance Verification Sequence...", "color: magenta; font-weight: bold");
+    console.log(
+      "%c🌌 OMEGA-64 Resonance Verification Sequence...",
+      "color: magenta; font-weight: bold",
+    );
     await runCmd(["cargo", "test", "-p", "omega_v2"]);
     await runCmd(["deno", "test", "-A"]);
-    console.log("%c✅ All invariants hold. Zero drift.", "color: green; font-weight: bold");
+    console.log(
+      "%c✅ All invariants hold. Zero drift.",
+      "color: green; font-weight: bold",
+    );
     break;
 
   case "export":
@@ -63,28 +72,40 @@ switch (command) {
         console.log("Empty map.");
         break;
       }
-      console.log("%c🌌 OMEGA-64 Octet Address Map\n", "color: cyan; font-weight: bold");
+      console.log(
+        "%c🌌 OMEGA-64 Octet Address Map\n",
+        "color: cyan; font-weight: bold",
+      );
       const lines = content.split("\n");
       for (const line of lines) {
         const record = JSON.parse(line);
         if (record.record_type === "node") {
-          const depthColor = record.depth === 1 ? "color: yellow; font-weight: bold" : "color: white";
+          const depthColor = record.depth === 1
+            ? "color: yellow; font-weight: bold"
+            : "color: white";
           console.log(`%c[${record.address}] ${record.title}`, depthColor);
           console.log(`    Phase: ${record.phase} | Path: ${record.path}`);
         }
       }
     } catch (e) {
-      console.error("%c[ERROR] Failed to read octet map. Ensure tasks/octet-index.ndjson exists.", "color: red");
+      console.error(
+        "%c[ERROR] Failed to read octet map. Ensure tasks/octet-index.ndjson exists.",
+        "color: red",
+      );
     }
     break;
   }
 
   case "task":
-    console.log("Task management requires semantic payloads. To be implemented in Era 2110.");
+    console.log(
+      "Task management requires semantic payloads. To be implemented in Era 2110.",
+    );
     break;
-    
+
   case "court":
-    console.log("SubstrateCourt reading will scan logs/receipts. To be implemented in Era 2110.");
+    console.log(
+      "SubstrateCourt reading will scan logs/receipts. To be implemented in Era 2110.",
+    );
     break;
 
   default:

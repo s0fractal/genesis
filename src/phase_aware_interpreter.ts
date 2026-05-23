@@ -13,10 +13,10 @@ import { fast_abs } from "./shared/constants.ts";
  * Transforms a linear value (i32) into a Geometric Phase Vector.
  */
 export function linearToPhase(value: number): PhaseVector {
-    // Handling negative numbers by wrapping them cyclically
-    const angle = ((value % 256) + 256) % 256;
-    const radius = Math.floor(value / 256);
-    return { angle, radius };
+  // Handling negative numbers by wrapping them cyclically
+  const angle = ((value % 256) + 256) % 256;
+  const radius = Math.floor(value / 256);
+  return { angle, radius };
 }
 
 /**
@@ -24,7 +24,7 @@ export function linearToPhase(value: number): PhaseVector {
  * Often only used for external IO edges.
  */
 export function phaseToLinear(vector: PhaseVector): number {
-    return vector.angle + (vector.radius * 256);
+  return vector.angle + (vector.radius * 256);
 }
 
 /**
@@ -32,14 +32,14 @@ export function phaseToLinear(vector: PhaseVector): number {
  * If the angle completes a full rotation (> 255), the cycle (radius) increases.
  */
 export function phaseShiftAdd(a: PhaseVector, b: PhaseVector): PhaseVector {
-    const rawAngle = a.angle + b.angle;
-    const newAngle = rawAngle % 256;
+  const rawAngle = a.angle + b.angle;
+  const newAngle = rawAngle % 256;
 
-    // Cycle increases based on full rotations made, plus existing cycles
-    const orbitStep = Math.floor(rawAngle / 256);
-    const newRadius = a.radius + b.radius + orbitStep;
+  // Cycle increases based on full rotations made, plus existing cycles
+  const orbitStep = Math.floor(rawAngle / 256);
+  const newRadius = a.radius + b.radius + orbitStep;
 
-    return { angle: newAngle, radius: newRadius };
+  return { angle: newAngle, radius: newRadius };
 }
 
 /**
@@ -49,13 +49,13 @@ export function phaseShiftAdd(a: PhaseVector, b: PhaseVector): PhaseVector {
  * A score of -1.0 means complete destructive interference (opposite sides of the circle).
  */
 export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
-    const phaseDiff = fast_abs(a.angle - b.angle);
+  const phaseDiff = fast_abs(a.angle - b.angle);
 
-    // Map the 0-255 difference into a radian value (0 - PI)
-    const radians = (phaseDiff / 256) * Math.PI * 2;
+  // Map the 0-255 difference into a radian value (0 - PI)
+  const radians = (phaseDiff / 256) * Math.PI * 2;
 
-    // The coupling is the cosine of the phase difference.
-    return Math.cos(radians);
+  // The coupling is the cosine of the phase difference.
+  return Math.cos(radians);
 }
 
 /**
@@ -63,32 +63,39 @@ export function calculateResonance(a: PhaseVector, b: PhaseVector): number {
  * Recursively runs an expression tree geometry within the Phase Space constraints.
  */
 // deno-lint-ignore no-explicit-any
-export function executePhaseGeometricAST(ir: any, env: Record<string, PhaseVector>): PhaseVector {
-    if (ir.kind === "const") {
-        return linearToPhase(ir.value);
+export function executePhaseGeometricAST(
+  ir: any,
+  env: Record<string, PhaseVector>,
+): PhaseVector {
+  if (ir.kind === "const") {
+    return linearToPhase(ir.value);
+  }
+
+  if (ir.kind === "var") {
+    if (!env[ir.name]) {
+      throw new Error(
+        `Geometrical Variable ${ir.name} not supplied in Phase environment.`,
+      );
+    }
+    return env[ir.name];
+  }
+
+  if (ir.kind === "op") {
+    // Geometric Translation
+    if (ir.op === "add") {
+      const left = executePhaseGeometricAST(ir.args[0], env);
+      const right = executePhaseGeometricAST(ir.args[1], env);
+      return phaseShiftAdd(left, right);
     }
 
-    if (ir.kind === "var") {
-        if (!env[ir.name]) throw new Error(`Geometrical Variable ${ir.name} not supplied in Phase environment.`);
-        return env[ir.name];
+    // Advanced Orbits
+    if (ir.op === "mul") {
+      const left = executePhaseGeometricAST(ir.args[0], env);
+      const right = executePhaseGeometricAST(ir.args[1], env);
+      const linearOut = phaseToLinear(left) * phaseToLinear(right);
+      return linearToPhase(linearOut);
     }
+  }
 
-    if (ir.kind === "op") {
-        // Geometric Translation
-        if (ir.op === "add") {
-            const left = executePhaseGeometricAST(ir.args[0], env);
-            const right = executePhaseGeometricAST(ir.args[1], env);
-            return phaseShiftAdd(left, right);
-        }
-
-        // Advanced Orbits
-        if (ir.op === "mul") {
-            const left = executePhaseGeometricAST(ir.args[0], env);
-            const right = executePhaseGeometricAST(ir.args[1], env);
-            const linearOut = phaseToLinear(left) * phaseToLinear(right);
-            return linearToPhase(linearOut);
-        }
-    }
-
-    throw new Error(`Unhandled Geometric Configuration: ${ir.kind}`);
+  throw new Error(`Unhandled Geometric Configuration: ${ir.kind}`);
 }

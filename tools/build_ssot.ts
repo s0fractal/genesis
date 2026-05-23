@@ -3,7 +3,7 @@
  * Generates identical memory offsets and mathematically deterministic logic across Rust, WGSL, and TypeScript.
  */
 
-import { CONSTANTS, MACROS, LUTS } from "../src/ontology/genesis_ssot.ts";
+import { CONSTANTS, LUTS, MACROS } from "../src/ontology/genesis_ssot.ts";
 
 const TS_OUT = "src/shared/generated_constants.ts";
 const RS_OUT = "omega_v2/src/constants.rs";
@@ -19,32 +19,35 @@ tsData += "// --- CONSTANTS ---\n";
 rsData += "// --- CONSTANTS ---\n";
 
 for (const [key, obj] of Object.entries(CONSTANTS)) {
-    let value = (obj as any).value;
-    if ((obj as any).expr) {
-        let expr = (obj as any).expr;
-        for (const [k, v] of Object.entries(CONSTANTS)) {
-            if ((v as any).value !== undefined) {
-                expr = expr.replace(new RegExp("\\b" + k + "\\b", "g"), (v as any).value.toString());
-            }
-        }
-        value = Math.trunc(eval(expr));
-        (CONSTANTS as any)[key].value = value;
+  let value = (obj as any).value;
+  if ((obj as any).expr) {
+    let expr = (obj as any).expr;
+    for (const [k, v] of Object.entries(CONSTANTS)) {
+      if ((v as any).value !== undefined) {
+        expr = expr.replace(
+          new RegExp("\\b" + k + "\\b", "g"),
+          (v as any).value.toString(),
+        );
+      }
     }
+    value = Math.trunc(eval(expr));
+    (CONSTANTS as any)[key].value = value;
+  }
 
-    const t = (obj as any).type;
-    
-    // TS Emission
-    let tsVal = value.toString();
-    if (typeof value === "bigint") tsVal += "n";
-    tsData += "export const " + key + " = " + tsVal + ";\n";
+  const t = (obj as any).type;
 
-    // Rust Emission
-    let rsVal = value.toString();
-    if (t === "f32" && !rsVal.includes(".")) rsVal += ".0";
-    rsData += "pub const " + key + ": " + t + " = " + rsVal + ";\n";
+  // TS Emission
+  let tsVal = value.toString();
+  if (typeof value === "bigint") tsVal += "n";
+  tsData += "export const " + key + " = " + tsVal + ";\n";
 
-    // WGSL Emission — discontinued. Shaders bind LUTs from WASM memory.
-    // if (t !== "u64") { ... }
+  // Rust Emission
+  let rsVal = value.toString();
+  if (t === "f32" && !rsVal.includes(".")) rsVal += ".0";
+  rsData += "pub const " + key + ": " + t + " = " + rsVal + ";\n";
+
+  // WGSL Emission — discontinued. Shaders bind LUTs from WASM memory.
+  // if (t !== "u64") { ... }
 }
 
 // 2. Process Macros
@@ -55,14 +58,18 @@ tsData += "\n// --- MACROS ---\n";
 const TS_SKIP_MACROS = new Set(["sin_q10", "cos_q10", "q20_round", "atan2_u8"]);
 
 for (const [key, macro] of Object.entries(MACROS)) {
-    if (TS_SKIP_MACROS.has(key)) continue;
+  if (TS_SKIP_MACROS.has(key)) continue;
 
-    const tsArgMap = (a: any) => a.name + ": " + (a.type === "u64" ? "bigint" : "number");
-    const tsArgs = macro.args.map(tsArgMap).join(", ");
+  const tsArgMap = (a: any) =>
+    a.name + ": " + (a.type === "u64" ? "bigint" : "number");
+  const tsArgs = macro.args.map(tsArgMap).join(", ");
 
-    const tsRet = macro.returns === "void" ? "void" : (macro.returns === "u64" ? "bigint" : "number");
-    
-    tsData += "export function " + key + "(" + tsArgs + "): " + tsRet + " {\n" + macro.ts.split('\n').map(l => '    ' + l).join('\n') + "\n}\n\n";
+  const tsRet = macro.returns === "void"
+    ? "void"
+    : (macro.returns === "u64" ? "bigint" : "number");
+
+  tsData += "export function " + key + "(" + tsArgs + "): " + tsRet + " {\n" +
+    macro.ts.split("\n").map((l) => "    " + l).join("\n") + "\n}\n\n";
 }
 
 // 3. Process LUTS
@@ -73,18 +80,20 @@ tsData += "// --- HARDCODED LUTS ---\n";
 const TS_SKIP_LUTS = new Set(["SINE_LUT", "ENTROPY_LUT", "ATAN_LUT"]);
 
 const formatLut = (arr: any[], perLine: number = 16) => {
-    let out = "";
-    for (let i = 0; i < arr.length; i += perLine) {
-        out += "    " + arr.slice(i, i + perLine).join(", ") + ",\n";
-    }
-    return out.trimEnd();
+  let out = "";
+  for (let i = 0; i < arr.length; i += perLine) {
+    out += "    " + arr.slice(i, i + perLine).join(", ") + ",\n";
+  }
+  return out.trimEnd();
 };
 
 for (const [key, lut] of Object.entries(LUTS)) {
-    if (TS_SKIP_LUTS.has(key)) continue;
+  if (TS_SKIP_LUTS.has(key)) continue;
 
-    const formatted = formatLut(lut.data as number[]);
-    tsData += "export const " + key + " = new " + (lut.type === "i32" ? "Int32Array" : "Uint8Array") + "([\n" + formatted + "\n]);\n\n";
+  const formatted = formatLut(lut.data as number[]);
+  tsData += "export const " + key + " = new " +
+    (lut.type === "i32" ? "Int32Array" : "Uint8Array") + "([\n" + formatted +
+    "\n]);\n\n";
 }
 
 Deno.writeTextFileSync(TS_OUT, tsData);

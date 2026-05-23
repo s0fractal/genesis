@@ -1,4 +1,6 @@
-const computeHoloWgsl = Deno.readTextFileSync("src/lens/shaders/compute_hologram.wgsl");
+const computeHoloWgsl = Deno.readTextFileSync(
+  "src/lens/shaders/compute_hologram.wgsl",
+);
 const holoLensWgsl = Deno.readTextFileSync("src/lens/shaders/holo_lens.wgsl");
 
 const adapter = await navigator.gpu.requestAdapter();

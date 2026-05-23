@@ -108,31 +108,38 @@ export const GOLDEN_TRACE_SAMPLES = 32;
 
 // --- MACROS ---
 export function fast_abs(v: number): number {
-    const mask = v >> 31;
-    return (v ^ mask) - mask;
+  const mask = v >> 31;
+  return (v ^ mask) - mask;
 }
 
 export function mix_u64(hash: bigint, value: bigint): bigint {
-    const h = hash ^ value;
-    return BigInt.asUintN(64, h * FNV64_PRIME);
+  const h = hash ^ value;
+  return BigInt.asUintN(64, h * FNV64_PRIME);
 }
 
 export function wrap_index(value: number, modulo: number): number {
-    return value & (modulo - 1);
+  return value & (modulo - 1);
 }
 
-export function signed_phase_delta(from_theta: number, to_theta: number): number {
-    const delta = (to_theta - from_theta) & 255;
-    return delta > 128 ? delta - 256 : delta;
+export function signed_phase_delta(
+  from_theta: number,
+  to_theta: number,
+): number {
+  const delta = (to_theta - from_theta) & 255;
+  return delta > 128 ? delta - 256 : delta;
 }
 
 export function phase_distance(a: number, b: number): number {
-    const diff = fast_abs(a - b) & 255;
-    return diff > 128 ? 256 - diff : diff;
+  const diff = fast_abs(a - b) & 255;
+  return diff > 128 ? 256 - diff : diff;
 }
 
-export function clamp_i32(value: number, min_val: number, max_val: number): number {
-    return Math.min(max_val, Math.max(min_val, value));
+export function clamp_i32(
+  value: number,
+  min_val: number,
+  max_val: number,
+): number {
+  return Math.min(max_val, Math.max(min_val, value));
 }
 
 // --- HARDCODED LUTS ---

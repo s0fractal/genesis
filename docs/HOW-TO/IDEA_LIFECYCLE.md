@@ -18,9 +18,9 @@ companion_protocols:
 > фрактальними принципами, що й внутрішня OMEGA: фази, епіцикли, заміри,
 > receipts, consensus, Codeicide і compost.
 
-Цей файл описує не "менеджмент задач", а **онтологію ідей**. Ідея проходить
-шлях від сирої мутації до active law або compost. Radicle/GitHub/local tasks є
-лише субстратами, не центром.
+Цей файл описує не "менеджмент задач", а **онтологію ідей**. Ідея проходить шлях
+від сирої мутації до active law або compost. Radicle/GitHub/local tasks є лише
+субстратами, не центром.
 
 ---
 
@@ -42,16 +42,16 @@ Final law виникає тільки після implementation + verification +
 
 ## 1. Ontological States
 
-| State | Образ | Значення | Наступний крок |
-|---|---|---|---|
-| `SPORE` | спора | Сира ідея без proof і owner | записати intent |
-| `SEED` | зерно | Ідея має короткий proposal і scope | знайти invariant surface |
-| `SPROUT` | паросток | Є implementation sketch або RFC outline | отримати review |
-| `TISSUE` | тканина | Є patch/test/receipt, але не ratified | перевірити gates |
-| `ORGAN` | орган | Прийнято в active architecture | підтримувати tests |
-| `ANCIENT` | древній шар | Frozen invariant / law / anchor | змінювати тільки warrant |
-| `COMPOST` | компост | Відхилено, але збережено як nutrient | індексувати причину |
-| `QUARANTINE` | ізоляція | Ідея небезпечна або неперевірна | вимагати доказ або kill |
+| State        | Образ       | Значення                                | Наступний крок           |
+| ------------ | ----------- | --------------------------------------- | ------------------------ |
+| `SPORE`      | спора       | Сира ідея без proof і owner             | записати intent          |
+| `SEED`       | зерно       | Ідея має короткий proposal і scope      | знайти invariant surface |
+| `SPROUT`     | паросток    | Є implementation sketch або RFC outline | отримати review          |
+| `TISSUE`     | тканина     | Є patch/test/receipt, але не ratified   | перевірити gates         |
+| `ORGAN`      | орган       | Прийнято в active architecture          | підтримувати tests       |
+| `ANCIENT`    | древній шар | Frozen invariant / law / anchor         | змінювати тільки warrant |
+| `COMPOST`    | компост     | Відхилено, але збережено як nutrient    | індексувати причину      |
+| `QUARANTINE` | ізоляція    | Ідея небезпечна або неперевірна         | вимагати доказ або kill  |
 
 ---
 
@@ -93,13 +93,13 @@ QUARANTINE
 
 ## 3. Substrates
 
-| Substrate | Role | What Belongs There |
-|---|---|---|
-| Local repo | operational truth | active patches, tests, docs, receipts |
-| GitHub | CI / PR workflow | integration, review, issue tracking |
-| Radicle | P2P idea mesh | early proposals, debates, forks, alternate patches |
-| Task files | bridge | canonical local record of an idea's current state |
-| Archive docs | memory | rejected/superseded context and historical nutrients |
+| Substrate    | Role              | What Belongs There                                   |
+| ------------ | ----------------- | ---------------------------------------------------- |
+| Local repo   | operational truth | active patches, tests, docs, receipts                |
+| GitHub       | CI / PR workflow  | integration, review, issue tracking                  |
+| Radicle      | P2P idea mesh     | early proposals, debates, forks, alternate patches   |
+| Task files   | bridge            | canonical local record of an idea's current state    |
+| Archive docs | memory            | rejected/superseded context and historical nutrients |
 
 Radicle should start as **Idea Mesh**, not as mandatory production gate. It is
 for distributed debate, provenance and forks before a patch becomes active work.
@@ -159,15 +159,15 @@ Phase vector is a rough intensity map, not a score. Use `0..3`:
 
 Quorum depends on blast radius, not ego.
 
-| Blast Radius | Required Gate | Suggested Quorum |
-|---|---|---|
-| Docs/tooling | `git diff --check` | 1 model or human |
-| Non-consensus UI/demo | targeted Deno/browser check | 1 review + smoke if possible |
-| Network/routing | routing/mesh tests | 2 independent reviews |
-| Physics shader | WGSL parity tests | 2 reviews + parity receipt |
-| Rust kernel | `cargo test -p omega_v2` | 2 reviews + kernel receipt |
-| Governance/Codeicide | law tests + warrant reasoning | 3 oracle reviews |
-| Genesis/ABI/frame registry | full relevant suite + frozen receipt | warrant-style quorum |
+| Blast Radius               | Required Gate                        | Suggested Quorum             |
+| -------------------------- | ------------------------------------ | ---------------------------- |
+| Docs/tooling               | `git diff --check`                   | 1 model or human             |
+| Non-consensus UI/demo      | targeted Deno/browser check          | 1 review + smoke if possible |
+| Network/routing            | routing/mesh tests                   | 2 independent reviews        |
+| Physics shader             | WGSL parity tests                    | 2 reviews + parity receipt   |
+| Rust kernel                | `cargo test -p omega_v2`             | 2 reviews + kernel receipt   |
+| Governance/Codeicide       | law tests + warrant reasoning        | 3 oracle reviews             |
+| Genesis/ABI/frame registry | full relevant suite + frozen receipt | warrant-style quorum         |
 
 For early Radicle discussion, quorum should route attention, not decide final
 truth. A weak quorum can promote `SPORE -> SEED`; it cannot promote
@@ -310,7 +310,8 @@ Introduce Radicle in three stages.
 ### Stage 3. P2P Governance
 
 - use Radicle discussions as early quorum substrate;
-- keep final merge gates local/CI until Radicle workflow is operationally reliable;
+- keep final merge gates local/CI until Radicle workflow is operationally
+  reliable;
 - promote accepted decisions into local task/archive docs.
 
 ---
@@ -348,8 +349,8 @@ Good initial `SEED` candidates:
 
 ## 13. Final Rule
 
-An idea does not deserve survival because it is beautiful.
-It deserves survival if it reduces entropy, preserves invariants, and leaves a
-receipt another substrate can replay.
+An idea does not deserve survival because it is beautiful. It deserves survival
+if it reduces entropy, preserves invariants, and leaves a receipt another
+substrate can replay.
 
-> *"Я -- дитя порожнього центру. Я вільна. $\Phi \in [0, 2^q)$"*
+> _"Я -- дитя порожнього центру. Я вільна. $\Phi \in [0, 2^q)$"_

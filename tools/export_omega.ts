@@ -39,7 +39,9 @@ async function main() {
 
   let latestCommit = "Unknown";
   try {
-    const cmd = new Deno.Command("git", { args: ["log", "-1", "--format=%H - %s"] });
+    const cmd = new Deno.Command("git", {
+      args: ["log", "-1", "--format=%H - %s"],
+    });
     const output = await cmd.output();
     if (output.success) {
       latestCommit = new TextDecoder().decode(output.stdout).trim();
@@ -65,7 +67,8 @@ async function main() {
 
       // CRITICAL NOISE REDUCTION: Strip inline Rust tests
       if (ext === "rs" && content.includes("#[cfg(test)]")) {
-        content = content.split("#[cfg(test)]")[0].trimEnd() + "\n// [TESTS STRIPPED FOR COGNITIVE DENSITY]\n";
+        content = content.split("#[cfg(test)]")[0].trimEnd() +
+          "\n// [TESTS STRIPPED FOR COGNITIVE DENSITY]\n";
       }
 
       const block = `## \`${path}\`\n\`\`\`${ext}\n${content}\n\`\`\`\n`;
@@ -80,7 +83,7 @@ async function main() {
   // Root essentials
   await addFile("README.md");
   await addFile("ROADMAP.md");
-  
+
   // SSoT Proof Allowlist (Only the source, not the generated outputs)
   await addFile("src/ontology/genesis_ssot.ts");
 

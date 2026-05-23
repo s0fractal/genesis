@@ -6,7 +6,10 @@ const OUTPUT_PATH = Deno.args[1] || "phi_receipt_fixture.json";
 
 async function sha256(data: string): Promise<string> {
   const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(data));
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(data),
+  );
   return encodeHex(hashBuffer);
 }
 
@@ -42,11 +45,13 @@ async function processIntent() {
   const signature = await sha256(receiptStr);
   const signedReceipt = {
     ...receipt,
-    receipt_signature: signature
+    receipt_signature: signature,
   };
 
   await Deno.writeTextFile(OUTPUT_PATH, JSON.stringify(signedReceipt, null, 2));
-  console.log(`[Genesis] Processed PHI_INTENT. Output receipt to ${OUTPUT_PATH}`);
+  console.log(
+    `[Genesis] Processed PHI_INTENT. Output receipt to ${OUTPUT_PATH}`,
+  );
   console.log(`[Genesis] Receipt hash: ${signature}`);
 }
 

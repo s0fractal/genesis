@@ -1,7 +1,7 @@
 # Genesis Phase Coherence
 
-`Genesis` should stop treating `x/y` as the primary ontology of the field.
-The simulation already evolves mostly through phase, omega, LUT lookup, and
+`Genesis` should stop treating `x/y` as the primary ontology of the field. The
+simulation already evolves mostly through phase, omega, LUT lookup, and
 resonance. The next coherent step is to make Cartesian coordinates a render
 projection, not the substrate itself.
 
@@ -55,8 +55,8 @@ The semantic interpretation becomes:
 
 Today, the hottest logic in `omega_core/src/simd_tick.rs` already depends on
 `theta_*`, `omega`, LUT lookup, and phase-lock behavior much more than on
-Cartesian movement. That means `Genesis` is already phase-first in practice,
-but not yet phase-first in architecture.
+Cartesian movement. That means `Genesis` is already phase-first in practice, but
+not yet phase-first in architecture.
 
 This phase lattice model keeps the strongest part of `Genesis`:
 
@@ -73,8 +73,8 @@ without inheriting all of `OMEGA`'s ontological surface area.
 
 `verify:phase-coherence`
 
-This is not a copy of `OMEGA`'s `verify:coherence`. It is the admission test
-for the phase lattice itself.
+This is not a copy of `OMEGA`'s `verify:coherence`. It is the admission test for
+the phase lattice itself.
 
 The stronger admission stack is now:
 
@@ -116,8 +116,8 @@ So the safe rule is:
 - coherence / amplitude stay driven by phase alignment
 - long-range coupling is only a bounded correction term
 
-That keeps the system in generalized Kuramoto territory rather than replacing
-it with magic.
+That keeps the system in generalized Kuramoto territory rather than replacing it
+with magic.
 
 ### 1. Deterministic Replay
 
@@ -200,8 +200,8 @@ This should become the `Genesis` equivalent of a coherence gate.
 
 - migrate neighbor lookup from Cartesian adjacency to phase-lattice adjacency
 - move from `idx +/- width` to `(sector, rho, harmonic)` neighborhood logic
-- `omega_core/src/simd_tick.rs` now also contains `execute_phase_bridge_tick`
-  as a compatibility bridge over the old `Field` layout
+- `omega_core/src/simd_tick.rs` now also contains `execute_phase_bridge_tick` as
+  a compatibility bridge over the old `Field` layout
 - `verify:phase-bridge` validates the compatibility bridge independently of the
   pure phase-lattice kernel
 
@@ -247,5 +247,5 @@ Stage 0 is now represented by:
 
 That gives `Genesis` a concrete first doctrine:
 
-not "cells on a grid that happen to carry phase",
-but "a phase lattice that may be rendered as a grid when useful".
+not "cells on a grid that happen to carry phase", but "a phase lattice that may
+be rendered as a grid when useful".

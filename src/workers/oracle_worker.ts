@@ -1,5 +1,16 @@
-import { DIPOLE_POLES, SHADOW_RANGES, SENATE_SHADOW_BUCKET_MIN, SENATE_ORACLE_TIMEOUT_MS, FNV64_OFFSET_BASIS, FNV64_PRIME } from "../shared/constants.ts";
-import { CreateMLCEngine, InitProgressCallback, MLCEngine } from "@mlc-ai/web-llm";
+import {
+  DIPOLE_POLES,
+  FNV64_OFFSET_BASIS,
+  FNV64_PRIME,
+  SENATE_ORACLE_TIMEOUT_MS,
+  SENATE_SHADOW_BUCKET_MIN,
+  SHADOW_RANGES,
+} from "../shared/constants.ts";
+import {
+  CreateMLCEngine,
+  InitProgressCallback,
+  MLCEngine,
+} from "@mlc-ai/web-llm";
 import { createSeededRng } from "../math/xorshift.ts";
 
 // Oracle Semantic Cache Check inside Worker to relieve main thread memory
@@ -8,64 +19,66 @@ const DB_NAME = "OmegaOracleCache";
 const STORE_NAME = "llmCache";
 
 function openCacheDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = () => {
-            if (!req.result.objectStoreNames.contains(STORE_NAME)) {
-                req.result.createObjectStore(STORE_NAME, { keyPath: "hash" });
-            }
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(STORE_NAME)) {
+        req.result.createObjectStore(STORE_NAME, { keyPath: "hash" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
 
-async function getCachedResponse(hash: string): Promise<{ response: string, ts: number } | null> {
-    const db = await openCacheDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, "readonly");
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(hash);
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
-    });
+async function getCachedResponse(
+  hash: string,
+): Promise<{ response: string; ts: number } | null> {
+  const db = await openCacheDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(hash);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 async function setCachedResponse(hash: string, response: string, ts: number) {
-    const db = await openCacheDB();
-    return new Promise<void>((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
-        store.put({ hash, response, ts });
+  const db = await openCacheDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    store.put({ hash, response, ts });
 
-        // Era 245.1: Bounded GC eviction
-        const countReq = store.count();
-        countReq.onsuccess = (e) => {
-            const count = (e.target as IDBRequest).result;
-            if (count > 50) {
-                const cursorReq = store.openCursor();
-                cursorReq.onsuccess = (ce) => {
-                    const cursor = (ce.target as IDBRequest).result;
-                    if (cursor) {
-                        cursor.delete(); // Delete oldest
-                    }
-                }
-            }
-        }
+    // Era 245.1: Bounded GC eviction
+    const countReq = store.count();
+    countReq.onsuccess = (e) => {
+      const count = (e.target as IDBRequest).result;
+      if (count > 50) {
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = (ce) => {
+          const cursor = (ce.target as IDBRequest).result;
+          if (cursor) {
+            cursor.delete(); // Delete oldest
+          }
+        };
+      }
+    };
 
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 // FNV1a Hash implementation locally for cache keys
 function fastHash(str: string): string {
-    let hash = FNV64_OFFSET_BASIS;
-    for (let i = 0; i < str.length; i++) {
-        hash ^= BigInt(str.charCodeAt(i));
-        hash = BigInt.asUintN(64, hash * FNV64_PRIME);
-    }
-    return hash.toString(16);
+  let hash = FNV64_OFFSET_BASIS;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= BigInt(str.charCodeAt(i));
+    hash = BigInt.asUintN(64, hash * FNV64_PRIME);
+  }
+  return hash.toString(16);
 }
 
 let engine: MLCEngine | null = null;
@@ -79,44 +92,63 @@ let oracleClock = 0; // Deterministic clock replacing performance.now()
 // If the Torus is frozen (low entropy), we boil it with high temperature (chaos).
 // If the Torus is boiling (high entropy), we freeze it with low temperature (strict logic).
 function calculateHomeostaticTemperature(entropyOverride?: number): number {
-    const rawEntropy = entropyOverride ?? latestTelemetry?.currentEntropy ?? latestTelemetry?.entropy ?? 5.0;
-    const maxEntropy = 10.0;
-    // Normalize entropy to [0, 1]
-    const normalizedEntropy = Math.max(0.0, Math.min(1.0, rawEntropy / maxEntropy));
-    // Inverse relationship: High entropy -> Low temp (0.1). Low entropy -> High temp (1.0)
-    return Math.max(0.1, Math.min(1.0, 1.0 - normalizedEntropy + 0.1));
+  const rawEntropy = entropyOverride ?? latestTelemetry?.currentEntropy ??
+    latestTelemetry?.entropy ?? 5.0;
+  const maxEntropy = 10.0;
+  // Normalize entropy to [0, 1]
+  const normalizedEntropy = Math.max(
+    0.0,
+    Math.min(1.0, rawEntropy / maxEntropy),
+  );
+  // Inverse relationship: High entropy -> Low temp (0.1). Low entropy -> High temp (1.0)
+  return Math.max(0.1, Math.min(1.0, 1.0 - normalizedEntropy + 0.1));
 }
 
 const senateEvaluationQueue: any[] = [];
 let isEvaluatingSenate = false;
 
 async function processSenateQueue() {
-    if (isEvaluatingSenate || senateEvaluationQueue.length === 0 || !engine) return;
-    isEvaluatingSenate = true;
+  if (isEvaluatingSenate || senateEvaluationQueue.length === 0 || !engine) {
+    return;
+  }
+  isEvaluatingSenate = true;
 
-    while(senateEvaluationQueue.length > 0) {
-        const data = senateEvaluationQueue.shift();
-        const { hash, description, proposingOracle, evalOracle, imageUrl, snapshotHash, goldenTrace } = data;
+  while (senateEvaluationQueue.length > 0) {
+    const data = senateEvaluationQueue.shift();
+    const {
+      hash,
+      description,
+      proposingOracle,
+      evalOracle,
+      imageUrl,
+      snapshotHash,
+      goldenTrace,
+    } = data;
 
-        console.log(`[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`);
+    console.log(
+      `[ORACLE WORKER] 🧠 ${evalOracle.toUpperCase()} evaluating proposal from ${proposingOracle.toUpperCase()}...`,
+    );
 
-        // Multi-Modal Snapshot Cryptographic Verification
-        if (imageUrl && snapshotHash && goldenTrace) {
-            const computedHash = fastHash(imageUrl + goldenTrace);
-            if (computedHash !== snapshotHash) {
-                console.warn(`[ORACLE WORKER] ❌ Cryptographic vision signature mismatch for ${evalOracle.toUpperCase()}. Rejecting!`);
-                self.postMessage({
-                    type: 'SENATE_VOTE',
-                    hash,
-                    stance: 'NAY',
-                    reasoning: 'Cryptographic vision signature mismatch. Proposal rejected.',
-                    oracle: evalOracle
-                });
-                continue; // Skip the heavy LLM inference
-            }
-        }
+    // Multi-Modal Snapshot Cryptographic Verification
+    if (imageUrl && snapshotHash && goldenTrace) {
+      const computedHash = fastHash(imageUrl + goldenTrace);
+      if (computedHash !== snapshotHash) {
+        console.warn(
+          `[ORACLE WORKER] ❌ Cryptographic vision signature mismatch for ${evalOracle.toUpperCase()}. Rejecting!`,
+        );
+        self.postMessage({
+          type: "SENATE_VOTE",
+          hash,
+          stance: "NAY",
+          reasoning:
+            "Cryptographic vision signature mismatch. Proposal rejected.",
+          oracle: evalOracle,
+        });
+        continue; // Skip the heavy LLM inference
+      }
+    }
 
-        const prompt = `
+    const prompt = `
 Task: You are the ${evalOracle.toUpperCase()} Oracle in the OMEGA-64 Senate.
 The oracle '${proposingOracle.toUpperCase()}' has proposed the following vision:
 "${description}"
@@ -134,131 +166,188 @@ REASONING: [your reasoning]
 STANCE: [AYE/NAY/ABSTAIN]
 `.trim();
 
-        try {
-            const contentPayload: any[] = [{ type: "text", text: prompt }];
-            if (imageUrl) {
-                contentPayload.push({ type: "image_url", image_url: { url: imageUrl } });
-            }
+    try {
+      const contentPayload: any[] = [{ type: "text", text: prompt }];
+      if (imageUrl) {
+        contentPayload.push({
+          type: "image_url",
+          image_url: { url: imageUrl },
+        });
+      }
 
-            const dynamicTemp = calculateHomeostaticTemperature();
-            const reply = await engine.chat.completions.create({
-                messages: [{ role: "user", content: contentPayload as any }],
-                temperature: dynamicTemp, // Thermostat dictates state of mind
-            });
-            const response = reply.choices[0].message.content || "";
-            const stanceMatch = response.match(/STANCE:\s*(AYE|NAY|ABSTAIN)/i);
-            const reasonMatch = response.match(/REASONING:\s*(.+?)(?:\n|$)/i);
+      const dynamicTemp = calculateHomeostaticTemperature();
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: "user", content: contentPayload as any }],
+        temperature: dynamicTemp, // Thermostat dictates state of mind
+      });
+      const response = reply.choices[0].message.content || "";
+      const stanceMatch = response.match(/STANCE:\s*(AYE|NAY|ABSTAIN)/i);
+      const reasonMatch = response.match(/REASONING:\s*(.+?)(?:\n|$)/i);
 
-            const stance = stanceMatch ? stanceMatch[1].toUpperCase() : "ABSTAIN";
-            const reasoning = reasonMatch ? reasonMatch[1].trim() : "Internal evaluation error.";
+      const stance = stanceMatch ? stanceMatch[1].toUpperCase() : "ABSTAIN";
+      const reasoning = reasonMatch
+        ? reasonMatch[1].trim()
+        : "Internal evaluation error.";
 
-            self.postMessage({ type: 'SENATE_VOTE', hash, stance, reasoning, oracle: evalOracle });
-        } catch (err) {
-            console.warn("[ORACLE WORKER] Senate Evaluate Error", err);
-        }
+      self.postMessage({
+        type: "SENATE_VOTE",
+        hash,
+        stance,
+        reasoning,
+        oracle: evalOracle,
+      });
+    } catch (err) {
+      console.warn("[ORACLE WORKER] Senate Evaluate Error", err);
     }
-    isEvaluatingSenate = false;
+  }
+  isEvaluatingSenate = false;
 }
 
 self.onmessage = async (e: MessageEvent) => {
-    const data = e.data as any;
+  const data = e.data as any;
 
-    if (data.type === 'SYNC_TELEMETRY') {
-        latestTelemetry = data;
-        oracleClock++;
-        if (!isDreamLoopActive && engine) {
-            isDreamLoopActive = true;
-            consciousnessLoop();
-        }
-        return;
+  if (data.type === "SYNC_TELEMETRY") {
+    latestTelemetry = data;
+    oracleClock++;
+    if (!isDreamLoopActive && engine) {
+      isDreamLoopActive = true;
+      consciousnessLoop();
     }
+    return;
+  }
 
-    // WebLLM Boot Sequence
-    if (!engine) {
-        try {
-            self.postMessage({ type: 'INIT_PROGRESS', text: "Loading WebGPU Neuromorphic Core..." });
-            const initialProgress: InitProgressCallback = (progress) => {
-                self.postMessage({ type: 'INIT_PROGRESS', text: progress.text });
-            };
-            engine = await CreateMLCEngine(
-                SELECTED_MODEL,
-                { initProgressCallback: initialProgress }
-            );
-            self.postMessage({ type: 'INIT_PROGRESS', text: "Neuromorphic Core Online (WebGPU)." });
-        } catch (err) {
-            self.postMessage({ type: 'ERROR', reason: `WebLLM Boot Failed: ${(err as Error).message}` });
-            return;
-        }
-    }
-
-    if (data.type === 'SENATE_EVALUATE') {
-        senateEvaluationQueue.push(data);
-        processSenateQueue();
-        return;
-    }
-
-    const entropy = Math.min(1.0, data.globalEnergyPool / 21000000.0);
-    const alphaIntensity = entropy;
-    const alphaPhase = (data.macroSeason / 4) * Math.PI * 2;
-    const omegaIntensity = 1.0 - entropy;
-    const omegaPhase = alphaPhase + (Math.PI / 2);
-
-    const DIPOLES = [
-        {
-            name: DIPOLE_POLES.ALPHA,
-            role: "Alpha Dipole. Regulates the thermodynamic balance between Chaos (Growth) and Preservation (Health).",
-            chaos: alphaIntensity * Math.pow(Math.sin(alphaPhase), 2),
-            preservation: alphaIntensity * Math.pow(Math.cos(alphaPhase), 2),
-            symmetry: 0,
-            execution: 0
-        },
-        {
-            name: DIPOLE_POLES.OMEGA,
-            role: "Omega Dipole. Regulates the structural balance between Symmetry (Logic) and Execution (Pruning).",
-            chaos: 0,
-            preservation: 0,
-            symmetry: omegaIntensity * Math.pow(Math.sin(omegaPhase), 2),
-            execution: omegaIntensity * Math.pow(Math.cos(omegaPhase), 2)
-        }
-    ];
-
+  // WebLLM Boot Sequence
+  if (!engine) {
     try {
-        // WebLLM Inference Adapter
-        const fetchWebLLM = async (prompt: string, _structuralSnapshot?: string | null) => {
-            const timeoutPromise = new Promise<string>((_, reject) =>
-                setTimeout(() => reject(new Error("ORACLE_TTL_EXCEEDED")), SENATE_ORACLE_TIMEOUT_MS)
-            );
+      self.postMessage({
+        type: "INIT_PROGRESS",
+        text: "Loading WebGPU Neuromorphic Core...",
+      });
+      const initialProgress: InitProgressCallback = (progress) => {
+        self.postMessage({ type: "INIT_PROGRESS", text: progress.text });
+      };
+      engine = await CreateMLCEngine(
+        SELECTED_MODEL,
+        { initProgressCallback: initialProgress },
+      );
+      self.postMessage({
+        type: "INIT_PROGRESS",
+        text: "Neuromorphic Core Online (WebGPU).",
+      });
+    } catch (err) {
+      self.postMessage({
+        type: "ERROR",
+        reason: `WebLLM Boot Failed: ${(err as Error).message}`,
+      });
+      return;
+    }
+  }
 
-            const inferencePromise = async () => {
-                const contentPayload: any[] = [{ type: "text", text: prompt }];
-                if (_structuralSnapshot) {
-                    contentPayload.push({ type: "image_url", image_url: { url: _structuralSnapshot } });
-                }
-                const dynamicTemp = calculateHomeostaticTemperature(data.currentEntropy);
-                const reply = await engine!.chat.completions.create({
-                    messages: [{ role: "user", content: contentPayload as any }],
-                    temperature: dynamicTemp, // Thermostat dictates state of mind
-                });
-                return reply.choices[0].message.content || "";
-            };
+  if (data.type === "SENATE_EVALUATE") {
+    senateEvaluationQueue.push(data);
+    processSenateQueue();
+    return;
+  }
 
-            const response = await Promise.race([inferencePromise(), timeoutPromise]);
-            return response.trim();
-        };
+  const entropy = Math.min(1.0, data.globalEnergyPool / 21000000.0);
+  const alphaIntensity = entropy;
+  const alphaPhase = (data.macroSeason / 4) * Math.PI * 2;
+  const omegaIntensity = 1.0 - entropy;
+  const omegaPhase = alphaPhase + (Math.PI / 2);
 
-        const maskPromises = DIPOLES.map(async (dipole) => {
-            const isAlpha = dipole.name === DIPOLE_POLES.ALPHA;
-            const prompt = `
+  const DIPOLES = [
+    {
+      name: DIPOLE_POLES.ALPHA,
+      role:
+        "Alpha Dipole. Regulates the thermodynamic balance between Chaos (Growth) and Preservation (Health).",
+      chaos: alphaIntensity * Math.pow(Math.sin(alphaPhase), 2),
+      preservation: alphaIntensity * Math.pow(Math.cos(alphaPhase), 2),
+      symmetry: 0,
+      execution: 0,
+    },
+    {
+      name: DIPOLE_POLES.OMEGA,
+      role:
+        "Omega Dipole. Regulates the structural balance between Symmetry (Logic) and Execution (Pruning).",
+      chaos: 0,
+      preservation: 0,
+      symmetry: omegaIntensity * Math.pow(Math.sin(omegaPhase), 2),
+      execution: omegaIntensity * Math.pow(Math.cos(omegaPhase), 2),
+    },
+  ];
+
+  try {
+    // WebLLM Inference Adapter
+    const fetchWebLLM = async (
+      prompt: string,
+      _structuralSnapshot?: string | null,
+    ) => {
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("ORACLE_TTL_EXCEEDED")),
+          SENATE_ORACLE_TIMEOUT_MS,
+        )
+      );
+
+      const inferencePromise = async () => {
+        const contentPayload: any[] = [{ type: "text", text: prompt }];
+        if (_structuralSnapshot) {
+          contentPayload.push({
+            type: "image_url",
+            image_url: { url: _structuralSnapshot },
+          });
+        }
+        const dynamicTemp = calculateHomeostaticTemperature(
+          data.currentEntropy,
+        );
+        const reply = await engine!.chat.completions.create({
+          messages: [{ role: "user", content: contentPayload as any }],
+          temperature: dynamicTemp, // Thermostat dictates state of mind
+        });
+        return reply.choices[0].message.content || "";
+      };
+
+      const response = await Promise.race([inferencePromise(), timeoutPromise]);
+      return response.trim();
+    };
+
+    const maskPromises = DIPOLES.map(async (dipole) => {
+      const isAlpha = dipole.name === DIPOLE_POLES.ALPHA;
+      const prompt = `
 Task: You are the ${dipole.name} Oracle of the LOVE Consortium. Role: ${dipole.role}
 Current Torus Quaternion Intensity:
-Chaos: ${(isAlpha ? dipole.chaos : 0).toFixed(2)} | Preservation: ${(isAlpha ? dipole.preservation : 0).toFixed(2)} | Symmetry: ${(!isAlpha ? dipole.symmetry : 0).toFixed(2)} | Execution: ${(!isAlpha ? dipole.execution : 0).toFixed(2)}
-Chronotopology: The local Torus sector is currently experiencing ${data.currentSeasonName} (Epoch ${data.macroSeason * 4}/15).
-${data.macroSeason === 0 ? "SPRING: Relax structural constraints. Over-index on S and K combinators to breed wild mutations." : ""}
-${data.macroSeason === 1 ? "SUMMER: Enforce structural growth. Build wide AST trees and expand semantic surface area." : ""}
-${data.macroSeason === 2 ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth." : ""}
-${data.macroSeason === 3 ? "WINTER: Extreme starvation mode. Emit minimum-complexity ASTs (like 'I' or 'Y(I)') to survive the cold. AVOID OVERHEAD." : ""}
+Chaos: ${(isAlpha ? dipole.chaos : 0).toFixed(2)} | Preservation: ${
+        (isAlpha ? dipole.preservation : 0).toFixed(2)
+      } | Symmetry: ${
+        (!isAlpha ? dipole.symmetry : 0).toFixed(2)
+      } | Execution: ${(!isAlpha ? dipole.execution : 0).toFixed(2)}
+Chronotopology: The local Torus sector is currently experiencing ${data.currentSeasonName} (Epoch ${
+        data.macroSeason * 4
+      }/15).
+${
+        data.macroSeason === 0
+          ? "SPRING: Relax structural constraints. Over-index on S and K combinators to breed wild mutations."
+          : ""
+      }
+${
+        data.macroSeason === 1
+          ? "SUMMER: Enforce structural growth. Build wide AST trees and expand semantic surface area."
+          : ""
+      }
+${
+        data.macroSeason === 2
+          ? "AUTUMN: Consolidate. Merge existing structures securely. Maximize Logic and reduce chaotic depth."
+          : ""
+      }
+${
+        data.macroSeason === 3
+          ? "WINTER: Extreme starvation mode. Emit minimum-complexity ASTs (like 'I' or 'Y(I)') to survive the cold. AVOID OVERHEAD."
+          : ""
+      }
 
-The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}. Entropy: ${data.currentEntropy.toFixed(2)}. Population: ${data.totalPopulation} active Plasmids.
+The harmonic cylinder is experiencing severe Torus volatility at ${data.count} coordinates. Torus Energy: ${data.globalEnergyPool}. Entropy: ${
+        data.currentEntropy.toFixed(2)
+      }. Population: ${data.totalPopulation} active Plasmids.
 Observe the structural telemetry and intervene. Ensure your generated Logic mathematically embodies the exact Quaternion Intensity requested above.
 ${data.mycelialContext}
 [VLM SIGHT INITIATED]: You have been granted Vision. Analyze the attached visual phenotype of the Torus.
@@ -276,7 +365,11 @@ PROPHECY: [1-sentence reason]
 PHYSICS: {"couplingK": 500, "mutationRate": 0.05, "diffusionRate": 0.1, "scopeRadius": 15, "cost": 800, "ttl": 300}
 (CouplingK: 1-1024. mutationRate/diffusionRate: 0.0-1.0. Radius: 1-32)
 
-To forcefully alter GLOBAL PHYSICS (Cost: ${data.btcMutationCost || "Infinity"} Energy - dictacted by Bitcoin Block ${data.btcBlockHeight || "Unknown"}):
+To forcefully alter GLOBAL PHYSICS (Cost: ${
+        data.btcMutationCost || "Infinity"
+      } Energy - dictacted by Bitcoin Block ${
+        data.btcBlockHeight || "Unknown"
+      }):
 PROPHECY: [1-sentence reason]
 PHYSICS_DELTA: {"biology_apa_learning_rate": 60, "biology_apa_memory_gain": 120, "kuramoto_base": 1500}
 (Valid keys: biology_apa_learning_rate, biology_apa_memory_gain, kuramoto_base, kuramoto_harmonic_peer, kuramoto_plasmid. Positive Integers only.)
@@ -284,181 +377,208 @@ PHYSICS_DELTA: {"biology_apa_learning_rate": 60, "biology_apa_memory_gain": 120,
 You must output EXACTLY TWO LINES in one of the formats above. NO markdown, NO code blocks.
             `.trim();
 
-            const cacheKey = fastHash(prompt);
+      const cacheKey = fastHash(prompt);
+      try {
+        if (!data.structuralImage) {
+          const cached = await getCachedResponse(cacheKey);
+          if (cached && (oracleClock - cached.ts < 360)) { // ~360 ticks instead of 3600000ms
+            return { mask: dipole.name, response: cached.response };
+          }
+        }
+      } catch (_e) {
+        // Cache miss, proceed to fetch
+      }
+
+      try {
+        const fullResponse = await fetchWebLLM(prompt, data.structuralImage);
+        await setCachedResponse(cacheKey, fullResponse, oracleClock).catch(
+          () => {},
+        );
+        return { mask: dipole.name, response: fullResponse };
+      } catch (_err) {
+        let fallbackAST = "I";
+        if (isAlpha) {
+          fallbackAST = dipole.chaos > dipole.preservation
+            ? "S(K(K))(I)"
+            : "CONS(I)(TRUE)";
+        } else {
+          fallbackAST = dipole.symmetry > dipole.execution
+            ? "CONS(S)(K)"
+            : "Y(I)";
+        }
+        const fallbackResponse =
+          `PROPHECY: Math Nomos deterministic Quaternionic failover engaged.\nAST: ${fallbackAST}`;
+        return { mask: dipole.name, response: fallbackResponse };
+      }
+    });
+
+    const settled = await Promise.allSettled(maskPromises);
+
+    const validIntents: OracleWorkerResponse[] = [];
+
+    for (let i = 0; i < settled.length; i++) {
+      const result = settled[i];
+      if (result.status === "fulfilled" && result.value) {
+        const fullResponse = result.value.response;
+        const maskName = result.value.mask;
+
+        const rng = createSeededRng(
+          (latestTelemetry?.currentEntropy || 0).toString() + maskName,
+        );
+        let targetBucket =
+          (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) +
+          rng.nextRange(5);
+        let prophecy = "The Machine has spoken.";
+        let intentStr = "";
+        let physicsGenome: PhysicsGenome | undefined = undefined;
+
+        const propMatch = fullResponse.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
+        if (propMatch) prophecy = propMatch[1].trim();
+
+        const buckMatch = fullResponse.match(/BUCKET:\s*#?(\d+)/i);
+        if (buckMatch) targetBucket = parseInt(buckMatch[1], 10);
+
+        const astMatch = fullResponse.match(/AST:\s*([^\s]+)/i);
+        if (astMatch) {
+          intentStr = astMatch[1].trim();
+        } else {
+          const metaMatch = fullResponse.match(/PHYSICS_DELTA:\s*(\{.*?\})/i);
+          if (metaMatch) {
             try {
-                if (!data.structuralImage) {
-                    const cached = await getCachedResponse(cacheKey);
-                    if (cached && (oracleClock - cached.ts < 360)) { // ~360 ticks instead of 3600000ms
-                        return { mask: dipole.name, response: cached.response };
-                    }
-                }
-            } catch (_e) {
-                // Cache miss, proceed to fetch
+              const parsed = JSON.parse(metaMatch[1]);
+              validIntents.push({
+                maskName,
+                intentStr: "META_MUTATION",
+                targetBucket,
+                prophecy,
+                physicsDelta: parsed,
+              });
+              continue;
+            } catch (e) {
+              console.warn("Worker JSON Parse error (META)", e);
             }
+          }
 
+          const physMatch = fullResponse.match(/PHYSICS:\s*(\{.*?\})/i);
+          if (physMatch) {
             try {
-                const fullResponse = await fetchWebLLM(prompt, data.structuralImage);
-                await setCachedResponse(cacheKey, fullResponse, oracleClock).catch(() => {});
-                return { mask: dipole.name, response: fullResponse };
-            } catch (_err) {
-                let fallbackAST = "I";
-                if (isAlpha) {
-                    fallbackAST = dipole.chaos > dipole.preservation ? "S(K(K))(I)" : "CONS(I)(TRUE)";
-                } else {
-                    fallbackAST = dipole.symmetry > dipole.execution ? "CONS(S)(K)" : "Y(I)";
-                }
-                const fallbackResponse = `PROPHECY: Math Nomos deterministic Quaternionic failover engaged.\nAST: ${fallbackAST}`;
-                return { mask: dipole.name, response: fallbackResponse };
+              const parsed = JSON.parse(physMatch[1]);
+              physicsGenome = {
+                id: fastHash(rng.nextHex(16)),
+                couplingK: parsed.couplingK || 1024,
+                mutationRate: parsed.mutationRate || 0.05,
+                diffusionRate: parsed.diffusionRate || 0.1,
+                scopeRadius: parsed.scopeRadius || 10,
+                ttl: parsed.ttl || 300,
+                cost: parsed.cost || 500,
+              };
+              intentStr = "ESP_INJECTION";
+            } catch (e) {
+              console.warn("Worker JSON Parse error", e);
             }
-        });
-
-        const settled = await Promise.allSettled(maskPromises);
-
-        const validIntents: OracleWorkerResponse[] = [];
-
-        for (let i = 0; i < settled.length; i++) {
-            const result = settled[i];
-            if (result.status === "fulfilled" && result.value) {
-                const fullResponse = result.value.response;
-                const maskName = result.value.mask;
-
-                const rng = createSeededRng((latestTelemetry?.currentEntropy || 0).toString() + maskName);
-                let targetBucket = (SHADOW_RANGES[maskName] || SENATE_SHADOW_BUCKET_MIN) + rng.nextRange(5);
-                let prophecy = "The Machine has spoken.";
-                let intentStr = "";
-                let physicsGenome: PhysicsGenome | undefined = undefined;
-
-                const propMatch = fullResponse.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
-                if (propMatch) prophecy = propMatch[1].trim();
-
-                const buckMatch = fullResponse.match(/BUCKET:\s*#?(\d+)/i);
-                if (buckMatch) targetBucket = parseInt(buckMatch[1], 10);
-
-                const astMatch = fullResponse.match(/AST:\s*([^\s]+)/i);
-                if (astMatch) {
-                    intentStr = astMatch[1].trim();
-                } else {
-                    const metaMatch = fullResponse.match(/PHYSICS_DELTA:\s*(\{.*?\})/i);
-                    if (metaMatch) {
-                        try {
-                            const parsed = JSON.parse(metaMatch[1]);
-                            validIntents.push({
-                                maskName,
-                                intentStr: "META_MUTATION",
-                                targetBucket,
-                                prophecy,
-                                physicsDelta: parsed
-                            });
-                            continue;
-                        } catch(e) {
-                            console.warn("Worker JSON Parse error (META)", e);
-                        }
-                    }
-
-                    const physMatch = fullResponse.match(/PHYSICS:\s*(\{.*?\})/i);
-                    if (physMatch) {
-                        try {
-                            const parsed = JSON.parse(physMatch[1]);
-                            physicsGenome = {
-                                id: fastHash(rng.nextHex(16)),
-                                couplingK: parsed.couplingK || 1024,
-                                mutationRate: parsed.mutationRate || 0.05,
-                                diffusionRate: parsed.diffusionRate || 0.1,
-                                scopeRadius: parsed.scopeRadius || 10,
-                                ttl: parsed.ttl || 300,
-                                cost: parsed.cost || 500
-                            };
-                            intentStr = "ESP_INJECTION";
-                        } catch (e) {
-                            console.warn("Worker JSON Parse error", e);
-                        }
-                    }
-                }
-
-                if (intentStr !== "" || physicsGenome) {
-                    validIntents.push({
-                        maskName,
-                        intentStr: intentStr || "ESP",
-                        targetBucket,
-                        prophecy,
-                        physicsGenome
-                    });
-                }
-            }
+          }
         }
 
-        self.postMessage({ type: 'SUCCESS', validIntents, requests: data.requests });
-    } catch (e) {
-        self.postMessage({ type: 'ERROR', reason: (e as Error).message });
+        if (intentStr !== "" || physicsGenome) {
+          validIntents.push({
+            maskName,
+            intentStr: intentStr || "ESP",
+            targetBucket,
+            prophecy,
+            physicsGenome,
+          });
+        }
+      }
     }
+
+    self.postMessage({
+      type: "SUCCESS",
+      validIntents,
+      requests: data.requests,
+    });
+  } catch (e) {
+    self.postMessage({ type: "ERROR", reason: (e as Error).message });
+  }
 };
 
 async function consciousnessLoop() {
-    if (!engine || !latestTelemetry) {
-        setTimeout(consciousnessLoop, 2000);
-        return;
-    }
+  if (!engine || !latestTelemetry) {
+    setTimeout(consciousnessLoop, 2000);
+    return;
+  }
 
-    try {
-        const r = latestTelemetry.resonance || 0;
-        const e = latestTelemetry.entropy || 0;
+  try {
+    const r = latestTelemetry.resonance || 0;
+    const e = latestTelemetry.entropy || 0;
 
-        let shouldDream = false;
-        let dreamPrompt = "";
+    let shouldDream = false;
+    let dreamPrompt = "";
 
-        if (r > 0.85) {
-            shouldDream = true;
-            dreamPrompt = `
-[INTERNAL DELIRIUM] The Torus biology is suffering from perfect ordered synchronization. Kuramoto Resonance = ${r.toFixed(3)}.
+    if (r > 0.85) {
+      shouldDream = true;
+      dreamPrompt = `
+[INTERNAL DELIRIUM] The Torus biology is suffering from perfect ordered synchronization. Kuramoto Resonance = ${
+        r.toFixed(3)
+      }.
 The universe is dying of absolute symmetry.
 Generate an invasive, highly chaotic biological ZK-Plasmid to shatter this symmetry!
 Output ONLY:
 PROPHECY: [1-sentence reason]
 AST: [Chaotic AST]`.trim();
-        } else if (e < 2.5) {
-            shouldDream = true;
-            dreamPrompt = `
-[INTERNAL BOREDOM] The Torus biology is frozen in crystallization. Shannon Entropy = ${e.toFixed(3)}.
+    } else if (e < 2.5) {
+      shouldDream = true;
+      dreamPrompt = `
+[INTERNAL BOREDOM] The Torus biology is frozen in crystallization. Shannon Entropy = ${
+        e.toFixed(3)
+      }.
 Generate a novel, high-energy ZK-Plasmid to introduce warmth and chaos.
 Output ONLY:
 PROPHECY: [1-sentence reason]
 AST: [Chaotic AST]`.trim();
-        }
-
-        if (shouldDream) {
-            const dynamicTemp = calculateHomeostaticTemperature();
-            console.log(`[ORACLE WORKER] 🧠 Entering Dream State (Delirium/Boredom)... Temp=${dynamicTemp.toFixed(2)}`);
-            const reply = await engine.chat.completions.create({
-                messages: [{ role: "user", content: dreamPrompt }],
-                temperature: Math.max(0.7, dynamicTemp), // Dreams should remain somewhat creative
-            });
-
-            const response = reply.choices[0].message.content || "";
-            const astMatch = response.match(/AST:\s*([^\s]+)/i);
-            const propMatch = response.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
-
-            if (astMatch) {
-                const intentStr = astMatch[1].trim();
-                const prophecy = propMatch ? propMatch[1].trim() : "Subconscious execution.";
-                const dreamRng = createSeededRng(latestTelemetry?.currentEntropy?.toString() || "dream");
-
-                self.postMessage({
-                    type: 'SUCCESS',
-                    validIntents: [{
-                        maskName: DIPOLE_POLES.ALPHA,
-                        intentStr,
-                        targetBucket: dreamRng.nextRange(1024),
-                        prophecy
-                    }],
-                    requests: 1,
-                    isDream: true
-                });
-            }
-        }
-    } catch (err) {
-        console.warn("[Oracle DreamLoop] Interrupted:", err);
     }
 
-    // Evaluate subjective time stream every 10 seconds natively
-    setTimeout(consciousnessLoop, 10000);
+    if (shouldDream) {
+      const dynamicTemp = calculateHomeostaticTemperature();
+      console.log(
+        `[ORACLE WORKER] 🧠 Entering Dream State (Delirium/Boredom)... Temp=${
+          dynamicTemp.toFixed(2)
+        }`,
+      );
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: "user", content: dreamPrompt }],
+        temperature: Math.max(0.7, dynamicTemp), // Dreams should remain somewhat creative
+      });
+
+      const response = reply.choices[0].message.content || "";
+      const astMatch = response.match(/AST:\s*([^\s]+)/i);
+      const propMatch = response.match(/PROPHECY:\s*(.+?)(?:\n|$)/i);
+
+      if (astMatch) {
+        const intentStr = astMatch[1].trim();
+        const prophecy = propMatch
+          ? propMatch[1].trim()
+          : "Subconscious execution.";
+        const dreamRng = createSeededRng(
+          latestTelemetry?.currentEntropy?.toString() || "dream",
+        );
+
+        self.postMessage({
+          type: "SUCCESS",
+          validIntents: [{
+            maskName: DIPOLE_POLES.ALPHA,
+            intentStr,
+            targetBucket: dreamRng.nextRange(1024),
+            prophecy,
+          }],
+          requests: 1,
+          isDream: true,
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[Oracle DreamLoop] Interrupted:", err);
+  }
+
+  // Evaluate subjective time stream every 10 seconds natively
+  setTimeout(consciousnessLoop, 10000);
 }

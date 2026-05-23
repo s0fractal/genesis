@@ -15,13 +15,13 @@ export const SENATE_MASK_AION = "AION";
 
 // The Semantic Dipoles
 export const DIPOLE_POLES = {
-    ALPHA: "ALPHA (Chaos/Preservation)",
-    OMEGA: "OMEGA (Symmetry/Execution)"
+  ALPHA: "ALPHA (Chaos/Preservation)",
+  OMEGA: "OMEGA (Symmetry/Execution)",
 };
 
 export const SHADOW_RANGES: Record<string, number> = {
-    [DIPOLE_POLES.ALPHA]: 1000,
-    [DIPOLE_POLES.OMEGA]: 1012
+  [DIPOLE_POLES.ALPHA]: 1000,
+  [DIPOLE_POLES.OMEGA]: 1012,
 };
 
 // ===============================================
@@ -35,32 +35,37 @@ export let SUBSTRATE_HARMONICS = 0;
 export let SUBSTRATE_MAX_ATOMS = 0;
 export let SUBSTRATE_DAMPING_BASE = 0;
 
-export function hydrateSubstrateHeader(memory: WebAssembly.Memory, headerOffset: number) {
-    const view = new DataView(memory.buffer, headerOffset, 256);
+export function hydrateSubstrateHeader(
+  memory: WebAssembly.Memory,
+  headerOffset: number,
+) {
+  const view = new DataView(memory.buffer, headerOffset, 256);
 
-    // Bytes 0-3: Magic
-    const m0 = view.getUint8(0);
-    const m1 = view.getUint8(1);
-    const m2 = view.getUint8(2);
-    const m3 = view.getUint8(3);
-    SUBSTRATE_MAGIC = String.fromCharCode(m0, m1, m2, m3);
-    if (SUBSTRATE_MAGIC !== "OMGA") {
-        throw new Error(`FATAL: Invalid Substrate Header Magic: expected OMGA, got ${SUBSTRATE_MAGIC}`);
-    }
+  // Bytes 0-3: Magic
+  const m0 = view.getUint8(0);
+  const m1 = view.getUint8(1);
+  const m2 = view.getUint8(2);
+  const m3 = view.getUint8(3);
+  SUBSTRATE_MAGIC = String.fromCharCode(m0, m1, m2, m3);
+  if (SUBSTRATE_MAGIC !== "OMGA") {
+    throw new Error(
+      `FATAL: Invalid Substrate Header Magic: expected OMGA, got ${SUBSTRATE_MAGIC}`,
+    );
+  }
 
-    // Bytes 4-7: Version (u32, little-endian)
-    SUBSTRATE_VERSION = view.getUint32(4, true);
+  // Bytes 4-7: Version (u32, little-endian)
+  SUBSTRATE_VERSION = view.getUint32(4, true);
 
-    // Bytes 8-27: Layout and Thermodynamics
-    SUBSTRATE_SECTORS = view.getUint32(8, true);
-    SUBSTRATE_RADIAL_BINS = view.getUint32(12, true);
-    SUBSTRATE_HARMONICS = view.getUint32(16, true);
-    SUBSTRATE_MAX_ATOMS = view.getUint32(20, true);
-    SUBSTRATE_DAMPING_BASE = view.getInt32(24, true);
+  // Bytes 8-27: Layout and Thermodynamics
+  SUBSTRATE_SECTORS = view.getUint32(8, true);
+  SUBSTRATE_RADIAL_BINS = view.getUint32(12, true);
+  SUBSTRATE_HARMONICS = view.getUint32(16, true);
+  SUBSTRATE_MAX_ATOMS = view.getUint32(20, true);
+  SUBSTRATE_DAMPING_BASE = view.getInt32(24, true);
 
-    // Bytes 28-63: Kuramoto Thermodynamics
-    // SSoT statically guarantees determinism. No need to dynamically cast from memory.
+  // Bytes 28-63: Kuramoto Thermodynamics
+  // SSoT statically guarantees determinism. No need to dynamically cast from memory.
 
-    // Bytes 64-87: Evolutionary Parameters
-    // SSoT statically guarantees determinism.
+  // Bytes 64-87: Evolutionary Parameters
+  // SSoT statically guarantees determinism.
 }

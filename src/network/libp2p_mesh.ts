@@ -5,7 +5,7 @@
 // that previously imported this file now uses a canonical inline FNV-1a
 // reference instead .
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
-import { PhaseRouter, PhaseAddress, NULL_ADDRESS } from "./routing_bridge.ts";
+import { NULL_ADDRESS, PhaseAddress, PhaseRouter } from "./routing_bridge.ts";
 import {
   AgentMinimal,
   AttractorEntry,
@@ -17,9 +17,24 @@ import {
   GENESIS_HASH_LEGACY_V1_0,
   verifyGenesisV1,
 } from "./genesis_inscription.ts";
-import { CANONICAL_ORACLES, CanonicalOracle, ORACLE_MATRICES_V1, oracleDipole } from "./oracle_identity.ts";
+import {
+  CANONICAL_ORACLES,
+  CanonicalOracle,
+  ORACLE_MATRICES_V1,
+  oracleDipole,
+} from "./oracle_identity.ts";
 import { CrossModelDebate } from "./cross_model_debate.ts";
-import { buildV2SyncFrame, frameFromBytes, frameToBytes, parseV2SyncFrame, FRAME_TYPE_ATTRACTOR, FRAME_TYPE_PROPOSAL, buildAttractor, buildProposal, SporeFrame } from "./spore_frame.ts";
+import {
+  buildAttractor,
+  buildProposal,
+  buildV2SyncFrame,
+  FRAME_TYPE_ATTRACTOR,
+  FRAME_TYPE_PROPOSAL,
+  frameFromBytes,
+  frameToBytes,
+  parseV2SyncFrame,
+  SporeFrame,
+} from "./spore_frame.ts";
 import { LivenessAggregator } from "./liveness_aggregator.ts";
 
 export interface PlasmidPayload {
@@ -107,14 +122,14 @@ export interface SenateProposalRecord {
   oracleReasoning?: Record<string, string>;
 }
 
-import { createLibp2p, Libp2p } from 'libp2p';
-import { webSockets } from '@libp2p/websockets';
-import { noise } from '@chainsafe/libp2p-noise';
-import { yamux } from '@libp2p/yamux';
-import { kadDHT } from '@libp2p/kad-dht';
-import { gossipsub } from '@chainsafe/libp2p-gossipsub';
-import { webRTC } from '@libp2p/webrtc';
-import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
+import { createLibp2p, Libp2p } from "libp2p";
+import { webSockets } from "@libp2p/websockets";
+import { noise } from "@chainsafe/libp2p-noise";
+import { yamux } from "@libp2p/yamux";
+import { kadDHT } from "@libp2p/kad-dht";
+import { gossipsub } from "@chainsafe/libp2p-gossipsub";
+import { webRTC } from "@libp2p/webrtc";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 
 /**
  * The Mycelial Mesh
@@ -186,8 +201,8 @@ export class Libp2pMesh {
     if (!str) return 0;
     let hash = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
-        hash ^= str.charCodeAt(i);
-        hash = Math.imul(hash, 0x01000193);
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
     }
     return hash >>> 0;
   }
@@ -202,13 +217,13 @@ export class Libp2pMesh {
         webRTC({
           rtcConfiguration: {
             iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
-            ]
-          }
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:global.stun.twilio.com:3478" },
+            ],
+          },
         }),
         // @ts-ignore
-        circuitRelayTransport({ discoverRelays: 1 } as any)
+        circuitRelayTransport({ discoverRelays: 1 } as any),
       ],
       connectionEncryption: [noise()],
       streamMuxers: [yamux()],
@@ -217,76 +232,100 @@ export class Libp2pMesh {
         dht: kadDHT(),
         // @ts-ignore
         pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
-      }
+      },
     });
 
     this.localId = this.node.peerId.toString();
     console.log(`[LIBP2P-MESH] My Node ID: ${this.localId}`);
 
-    this.node.addEventListener('peer:connect', (evt: any) => {
-        const peerId = evt.detail.toString();
-        console.log(`[LIBP2P-MESH] Connection established to: ${peerId}`);
-        this.handlePeerJoined(peerId);
+    this.node.addEventListener("peer:connect", (evt: any) => {
+      const peerId = evt.detail.toString();
+      console.log(`[LIBP2P-MESH] Connection established to: ${peerId}`);
+      this.handlePeerJoined(peerId);
     });
 
-    this.node.addEventListener('peer:disconnect', (evt: any) => {
-        const peerId = evt.detail.toString();
-        console.log(`[LIBP2P-MESH] Disconnected from: ${peerId}`);
-        this.closePeer(peerId);
+    this.node.addEventListener("peer:disconnect", (evt: any) => {
+      const peerId = evt.detail.toString();
+      console.log(`[LIBP2P-MESH] Disconnected from: ${peerId}`);
+      this.closePeer(peerId);
     });
 
-    this.node.services.pubsub.addEventListener('message', (evt: any) => {
-        if (evt.detail.topic === 'v2-sync-bin') {
-            this.handleSyncBinMessage(evt.detail.from.toString(), new Uint8Array(evt.detail.data));
-        } else if (evt.detail.topic === 'v2-state') {
-            this.handleStateMessage(evt.detail.from.toString(), evt.detail.data.buffer as ArrayBuffer);
-        } else if (evt.detail.topic === 'v2-zk-proof') {
-            this.handleZKProofMessage(evt.detail.from.toString(), evt.detail.data);
-        } else if (evt.detail.topic === 'v2-zk-rollup') {
-            this.handleZKRollupMessage(evt.detail.from.toString(), evt.detail.data);
-        }
+    this.node.services.pubsub.addEventListener("message", (evt: any) => {
+      if (evt.detail.topic === "v2-sync-bin") {
+        this.handleSyncBinMessage(
+          evt.detail.from.toString(),
+          new Uint8Array(evt.detail.data),
+        );
+      } else if (evt.detail.topic === "v2-state") {
+        this.handleStateMessage(
+          evt.detail.from.toString(),
+          evt.detail.data.buffer as ArrayBuffer,
+        );
+      } else if (evt.detail.topic === "v2-zk-proof") {
+        this.handleZKProofMessage(evt.detail.from.toString(), evt.detail.data);
+      } else if (evt.detail.topic === "v2-zk-rollup") {
+        this.handleZKRollupMessage(evt.detail.from.toString(), evt.detail.data);
+      }
     });
 
-    this.node.services.pubsub.subscribe('v2-sync-bin');
-    this.node.services.pubsub.subscribe('v2-state');
-    this.node.services.pubsub.subscribe('v2-zk-proof');
-    this.node.services.pubsub.subscribe('v2-zk-rollup');
+    this.node.services.pubsub.subscribe("v2-sync-bin");
+    this.node.services.pubsub.subscribe("v2-state");
+    this.node.services.pubsub.subscribe("v2-zk-proof");
+    this.node.services.pubsub.subscribe("v2-zk-rollup");
 
     await this.node.start();
     console.log(`[LIBP2P-MESH] Libp2p node started.`);
 
     if (bootstrapMultiaddr) {
-        try {
-            await this.node.dial(bootstrapMultiaddr);
-            console.log(`[LIBP2P-MESH] Dialed bootstrap node: ${bootstrapMultiaddr}`);
-        } catch (e) {
-            console.warn(`[LIBP2P-MESH] Failed to dial bootstrap node:`, e);
-        }
+      try {
+        await this.node.dial(bootstrapMultiaddr);
+        console.log(
+          `[LIBP2P-MESH] Dialed bootstrap node: ${bootstrapMultiaddr}`,
+        );
+      } catch (e) {
+        console.warn(`[LIBP2P-MESH] Failed to dial bootstrap node:`, e);
+      }
     }
   }
 
   private handlePeerJoined(peerId: string) {
     if (this.nextSlot < 4) {
       this.peerSlots.set(peerId, this.nextSlot);
-      console.log(`[LIBP2P-MESH] Peer ${peerId} mapped to WASM Intent Slot ${this.nextSlot}`);
+      console.log(
+        `[LIBP2P-MESH] Peer ${peerId} mapped to WASM Intent Slot ${this.nextSlot}`,
+      );
       this.nextSlot++;
     } else {
-      console.warn(`[LIBP2P-MESH] Max capacity reached. Observer mode for ${peerId}`);
+      console.warn(
+        `[LIBP2P-MESH] Max capacity reached. Observer mode for ${peerId}`,
+      );
     }
-    globalThis.dispatchEvent(new CustomEvent("meshPeerJoined", { detail: { peerId } }));
+    globalThis.dispatchEvent(
+      new CustomEvent("meshPeerJoined", { detail: { peerId } }),
+    );
 
     this.refreshSelfAddress();
     if (this.selfAddress.raw !== 0) {
-      const handshake = JSON.stringify({ t: "V2_HANDSHAKE", addr: this.selfAddress.raw, addr_ortho: this.selfAddress.ortho });
-      this.node.services.pubsub.publish("v2-sync", new TextEncoder().encode(handshake));
+      const handshake = JSON.stringify({
+        t: "V2_HANDSHAKE",
+        addr: this.selfAddress.raw,
+        addr_ortho: this.selfAddress.ortho,
+      });
+      this.node.services.pubsub.publish(
+        "v2-sync",
+        new TextEncoder().encode(handshake),
+      );
     }
   }
 
   public closePeer(peerId: string) {
-    globalThis.dispatchEvent(new CustomEvent("meshPeerLeft", { detail: { peerId } }));
+    globalThis.dispatchEvent(
+      new CustomEvent("meshPeerLeft", { detail: { peerId } }),
+    );
     const slot = this.peerSlots.get(peerId);
     if (slot !== undefined) {
-      const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+      const setIntent = this.engine.wasm?.exports
+        .v2_set_intent as CallableFunction;
       if (setIntent) setIntent(slot, 0, 0, 0, 0, 0, 0);
       this.peerSlots.delete(peerId);
     }
@@ -296,60 +335,86 @@ export class Libp2pMesh {
   private handleSyncBinMessage(peerId: string, eventData: Uint8Array) {
     // Absolute Immune Quarantine (OSI L4 Hardware Drop)
     // We don't even parse bytes from quarantined peers.
-    if ((this as any).investigator?.isQuarantined?.(peerId) || (this as any).livenessAggregator?.isQuarantined?.(peerId)) {
-        return;
+    if (
+      (this as any).investigator?.isQuarantined?.(peerId) ||
+      (this as any).livenessAggregator?.isQuarantined?.(peerId)
+    ) {
+      return;
     }
     const frame = frameFromBytes(eventData);
     if (!frame) return;
     const packet = parseV2SyncFrame(frame);
     if (!packet) {
-        // Handle Binary Plasmids
-        if (frame.frameType === FRAME_TYPE_ATTRACTOR) {
-            const matrix = frame.proposalOrTarget;
-            const inverse = frame.payloadA;
-            const pulseFreq = frame.payloadB;
-            const pulseAmp = frame.payloadC;
-            const recursionDepth = frame.oracleBit;
+      // Handle Binary Plasmids
+      if (frame.frameType === FRAME_TYPE_ATTRACTOR) {
+        const matrix = frame.proposalOrTarget;
+        const inverse = frame.payloadA;
+        const pulseFreq = frame.payloadB;
+        const pulseAmp = frame.payloadC;
+        const recursionDepth = frame.oracleBit;
 
-            const setAttractor = this.engine.wasm?.exports.v2_set_attractor as CallableFunction;
-            if (setAttractor) {
-              const slotIdx = recursionDepth % 4;
-              setAttractor(slotIdx, matrix, inverse, pulseFreq, pulseAmp);
-            }
-            this.attractorConsensusPeers.add(peerId);
-            const ledgerEntry = this.consensusLedger.get(matrix);
-            if (ledgerEntry) ledgerEntry.peerCount += 1;
-            else this.consensusLedger.set(matrix, { matrix, inverse, pulseFreq, pulseAmp, peerCount: 1 });
-            if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
-              this.era1020Unlocked = true;
-              globalThis.dispatchEvent(new CustomEvent("era1020-unlocked", { detail: { peerCount: this.attractorConsensusPeers.size, ledger: Array.from(this.consensusLedger.values()) } }));
-            }
-            this.checkEra1030Trigger();
-
-            const nextDepth = recursionDepth + 1;
-            if (nextDepth < 8) { // maxRecursion
-              this.enqueueBinaryFrame(buildAttractor(matrix, inverse, pulseFreq, pulseAmp, nextDepth));
-            }
+        const setAttractor = this.engine.wasm?.exports
+          .v2_set_attractor as CallableFunction;
+        if (setAttractor) {
+          const slotIdx = recursionDepth % 4;
+          setAttractor(slotIdx, matrix, inverse, pulseFreq, pulseAmp);
         }
-        else if (frame.frameType === FRAME_TYPE_PROPOSAL) {
-            // Re-construct the mock 'plasmid' to pass to handleProposal
-            const plasmidMock = {
-                semanticType: "PROPOSAL",
-                matrix: frame.proposalOrTarget,
-                inverse: frame.payloadA,
-                pulseFreq: frame.payloadB,
-                pulseAmp: frame.payloadC,
-                recursionDepth: frame.oracleBit,
-                maxRecursion: 8,
-            } as any;
-            this.handleProposal(plasmidMock, peerId);
-
-            const nextDepth = frame.oracleBit + 1;
-            if (nextDepth < 8) {
-              this.enqueueBinaryFrame(buildProposal(frame.proposalOrTarget, frame.payloadA, frame.payloadB, frame.payloadC, nextDepth));
-            }
+        this.attractorConsensusPeers.add(peerId);
+        const ledgerEntry = this.consensusLedger.get(matrix);
+        if (ledgerEntry) ledgerEntry.peerCount += 1;
+        else {this.consensusLedger.set(matrix, {
+            matrix,
+            inverse,
+            pulseFreq,
+            pulseAmp,
+            peerCount: 1,
+          });}
+        if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
+          this.era1020Unlocked = true;
+          globalThis.dispatchEvent(
+            new CustomEvent("era1020-unlocked", {
+              detail: {
+                peerCount: this.attractorConsensusPeers.size,
+                ledger: Array.from(this.consensusLedger.values()),
+              },
+            }),
+          );
         }
-        return;
+        this.checkEra1030Trigger();
+
+        const nextDepth = recursionDepth + 1;
+        if (nextDepth < 8) { // maxRecursion
+          this.enqueueBinaryFrame(
+            buildAttractor(matrix, inverse, pulseFreq, pulseAmp, nextDepth),
+          );
+        }
+      } else if (frame.frameType === FRAME_TYPE_PROPOSAL) {
+        // Re-construct the mock 'plasmid' to pass to handleProposal
+        const plasmidMock = {
+          semanticType: "PROPOSAL",
+          matrix: frame.proposalOrTarget,
+          inverse: frame.payloadA,
+          pulseFreq: frame.payloadB,
+          pulseAmp: frame.payloadC,
+          recursionDepth: frame.oracleBit,
+          maxRecursion: 8,
+        } as any;
+        this.handleProposal(plasmidMock, peerId);
+
+        const nextDepth = frame.oracleBit + 1;
+        if (nextDepth < 8) {
+          this.enqueueBinaryFrame(
+            buildProposal(
+              frame.proposalOrTarget,
+              frame.payloadA,
+              frame.payloadB,
+              frame.payloadC,
+              nextDepth,
+            ),
+          );
+        }
+      }
+      return;
     }
 
     // Passive Phase Routing
@@ -361,13 +426,24 @@ export class Libp2pMesh {
       const senderAddr = { raw: packet.ta, ortho: packet.ta_ortho ?? 0 }; // ta holds the sender's address in broadcasts!
       const targetAddr = { raw: 0, ortho: 0 }; // Broadcast to everyone
 
-      const tauSelf = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
+      const tauSelf = (this.engine.wasm?.exports
+        .v2_get_golden_trace as CallableFunction)?.() as number ?? 0;
       const tauSender = packet.gt ?? 0; // gt is the golden trace tick
       const tauTarget = tauSelf; // Assuming target is in the present
 
-      const distSelf = this.router.hyperbolicDistanceToroidal3D(this.selfAddress, tauSelf, targetAddr, tauTarget);
+      const distSelf = this.router.hyperbolicDistanceToroidal3D(
+        this.selfAddress,
+        tauSelf,
+        targetAddr,
+        tauTarget,
+      );
       const distSender = senderAddr.raw !== 0
-        ? this.router.hyperbolicDistanceToroidal3D(senderAddr, tauSender, targetAddr, tauTarget)
+        ? this.router.hyperbolicDistanceToroidal3D(
+          senderAddr,
+          tauSender,
+          targetAddr,
+          tauTarget,
+        )
         : Number.MAX_SAFE_INTEGER;
 
       if (distSelf > distSender) return;
@@ -375,32 +451,54 @@ export class Libp2pMesh {
       // Calculate time curvature penalty for routing this frame
       const tauDiff = Math.abs(tauSelf - tauSender);
       if (tauDiff > 0) {
-          const penalty = Math.floor((tauDiff * 8) + ((tauDiff * tauDiff) / 1024));
-          // Burn more ATP (hopCount) when bending space-time
-          hopCount += penalty;
-          if (hopCount >= maxHops) return;
+        const penalty = Math.floor(
+          (tauDiff * 8) + ((tauDiff * tauDiff) / 1024),
+        );
+        // Burn more ATP (hopCount) when bending space-time
+        hopCount += penalty;
+        if (hopCount >= maxHops) return;
       }
     }
 
     const slot = this.peerSlots.get(peerId);
     if (slot !== undefined) {
-      const setIntent = this.engine.wasm?.exports.v2_set_intent as CallableFunction;
+      const setIntent = this.engine.wasm?.exports
+        .v2_set_intent as CallableFunction;
       if (setIntent) {
-        if (packet.m > 0) setIntent(slot, packet.x, packet.y, packet.m, packet.r, packet.g || 0, packet.o || 0);
-        else setIntent(slot, 0, 0, 0, 0, 0, 0);
+        if (packet.m > 0) {
+          setIntent(
+            slot,
+            packet.x,
+            packet.y,
+            packet.m,
+            packet.r,
+            packet.g || 0,
+            packet.o || 0,
+          );
+        } else setIntent(slot, 0, 0, 0, 0, 0, 0);
       }
     }
 
     // Golden Trace Validation
-    const localTrace = (this.engine.wasm?.exports.v2_get_golden_trace as CallableFunction)?.() as number;
+    const localTrace = (this.engine.wasm?.exports
+      .v2_get_golden_trace as CallableFunction)?.() as number;
     const remoteGt = packet.gt as number;
     if (localTrace !== remoteGt && !this.isSyncFrozen) {
-      console.warn(`[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${localTrace.toString(16)} | Remote: ${remoteGt.toString(16)})`);
+      console.warn(
+        `[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${
+          localTrace.toString(16)
+        } | Remote: ${remoteGt.toString(16)})`,
+      );
       if (remoteGt > localTrace) {
-        console.log(`[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`);
+        console.log(
+          `[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`,
+        );
         this.isSyncFrozen = true;
         const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
-        this.node.services.pubsub.publish("v2-state", new TextEncoder().encode(req));
+        this.node.services.pubsub.publish(
+          "v2-state",
+          new TextEncoder().encode(req),
+        );
       }
     }
   }
@@ -412,44 +510,49 @@ export class Libp2pMesh {
       this.incomingBytesReceived += chunk.byteLength;
 
       if (this.incomingBytesReceived >= this.incomingSnapshot.byteLength) {
-        console.log(`[LIBP2P-MESH] Snapshot Assembly Complete! Injecting to GPU Memory.`);
+        console.log(
+          `[LIBP2P-MESH] Snapshot Assembly Complete! Injecting to GPU Memory.`,
+        );
         this.overwriteCallback(this.incomingSnapshot);
         this.incomingSnapshot = null;
         this.isSyncFrozen = false;
       }
     } else {
-        // ERA 6000: Continuous Delta Mutagens
-        const ptrs = this.engine.getMemoryPointers();
-        if (!ptrs) return;
+      // ERA 6000: Continuous Delta Mutagens
+      const ptrs = this.engine.getMemoryPointers();
+      if (!ptrs) return;
 
-        const deltasU32 = new Uint32Array(eventData);
-        const gridU32 = new Uint32Array(ptrs.wasmMemoryBuffer, ptrs.agentBytes.byteOffset, ptrs.agentBytes.byteLength / 4);
-        const maxAgents = gridU32.length / 8;
+      const deltasU32 = new Uint32Array(eventData);
+      const gridU32 = new Uint32Array(
+        ptrs.wasmMemoryBuffer,
+        ptrs.agentBytes.byteOffset,
+        ptrs.agentBytes.byteLength / 4,
+      );
+      const maxAgents = gridU32.length / 8;
 
-        const numMutations = Math.floor(deltasU32.length / 4);
-        console.log(`[LIBP2P-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`);
+      const numMutations = Math.floor(deltasU32.length / 4);
+      console.log(
+        `[LIBP2P-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`,
+      );
 
-        for (let i = 0; i < numMutations; i++) {
-          const index = deltasU32[i * 4 + 0];
-          const phase = deltasU32[i * 4 + 1];
-          const energy = deltasU32[i * 4 + 2];
-          const genome = deltasU32[i * 4 + 3];
+      for (let i = 0; i < numMutations; i++) {
+        const index = deltasU32[i * 4 + 0];
+        const phase = deltasU32[i * 4 + 1];
+        const energy = deltasU32[i * 4 + 2];
+        const genome = deltasU32[i * 4 + 3];
 
-          if (index >= maxAgents) continue;
-          gridU32[index * 8 + 0] = phase;
-          gridU32[index * 8 + 1] = energy;
-          gridU32[index * 8 + 4] = genome;
-        }
+        if (index >= maxAgents) continue;
+        gridU32[index * 8 + 0] = phase;
+        gridU32[index * 8 + 1] = energy;
+        gridU32[index * 8 + 4] = genome;
+      }
     }
   }
-
 
   private refreshSelfAddress() {
     if (!this.router || !this.engine.wasm) return;
     this.selfAddress = this.router.addressFromAgent(0);
   }
-
-
 
   public __lastLocalIntent = { x: 0, y: 0, m: 0, r: 0, g: 0, op: 0 };
   private latestGoldenTraceNum: number = 0;
@@ -469,18 +572,26 @@ export class Libp2pMesh {
   }
 
   public enqueuePlasmid(plasmid: PlasmidPayload) {
-    if (plasmid.semanticType === 'ZK_PROOF_EVENT') {
-        const payload = JSON.stringify(plasmid.proofBundle);
-        this.node.services.pubsub.publish("v2-zk-proof", new TextEncoder().encode(payload));
-        return;
+    if (plasmid.semanticType === "ZK_PROOF_EVENT") {
+      const payload = JSON.stringify(plasmid.proofBundle);
+      this.node.services.pubsub.publish(
+        "v2-zk-proof",
+        new TextEncoder().encode(payload),
+      );
+      return;
     }
-    if (plasmid.semanticType === 'ZK_ROLLUP_EVENT') {
-        const payload = JSON.stringify({
-            proofBundle: plasmid.proofBundle,
-            rollupState: plasmid.rollupState ? Array.from(plasmid.rollupState) : null
-        });
-        this.node.services.pubsub.publish("v2-zk-rollup", new TextEncoder().encode(payload));
-        return;
+    if (plasmid.semanticType === "ZK_ROLLUP_EVENT") {
+      const payload = JSON.stringify({
+        proofBundle: plasmid.proofBundle,
+        rollupState: plasmid.rollupState
+          ? Array.from(plasmid.rollupState)
+          : null,
+      });
+      this.node.services.pubsub.publish(
+        "v2-zk-rollup",
+        new TextEncoder().encode(payload),
+      );
+      return;
     }
 
     if (plasmid.recursionDepth >= plasmid.maxRecursion) {
@@ -489,11 +600,27 @@ export class Libp2pMesh {
     }
     // Encode known plasmids to binary Zero-Copy SporeFrames immediately
     if (plasmid.semanticType === "ATTRACTOR") {
-      this.enqueueBinaryFrame(buildAttractor(plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp, plasmid.recursionDepth));
+      this.enqueueBinaryFrame(
+        buildAttractor(
+          plasmid.matrix,
+          plasmid.inverse,
+          plasmid.pulseFreq,
+          plasmid.pulseAmp,
+          plasmid.recursionDepth,
+        ),
+      );
       return;
     }
     if (plasmid.semanticType === "PROPOSAL") {
-      this.enqueueBinaryFrame(buildProposal(plasmid.matrix, plasmid.inverse, plasmid.pulseFreq, plasmid.pulseAmp, plasmid.recursionDepth));
+      this.enqueueBinaryFrame(
+        buildProposal(
+          plasmid.matrix,
+          plasmid.inverse,
+          plasmid.pulseFreq,
+          plasmid.pulseAmp,
+          plasmid.recursionDepth,
+        ),
+      );
       return;
     }
     this.pendingPlasmids.push(plasmid);
@@ -557,33 +684,39 @@ export class Libp2pMesh {
 
   private async handleZKProofMessage(fromPeer: string, data: Uint8Array) {
     try {
-        const str = new TextDecoder().decode(data);
-        const bundle = JSON.parse(str);
-        if (!bundle || !bundle.receiptHash) return;
+      const str = new TextDecoder().decode(data);
+      const bundle = JSON.parse(str);
+      if (!bundle || !bundle.receiptHash) return;
 
-        globalThis.dispatchEvent(new CustomEvent("zkProofReceived", {
-            detail: { peerId: fromPeer, bundle }
-        }));
+      globalThis.dispatchEvent(
+        new CustomEvent("zkProofReceived", {
+          detail: { peerId: fromPeer, bundle },
+        }),
+      );
     } catch (e) {
-        console.warn(`[V2-MESH] Failed to parse ZK proof from ${fromPeer}`);
+      console.warn(`[V2-MESH] Failed to parse ZK proof from ${fromPeer}`);
     }
   }
 
   private async handleZKRollupMessage(fromPeer: string, data: Uint8Array) {
     try {
-        const str = new TextDecoder().decode(data);
-        const payload = JSON.parse(str);
-        if (!payload || !payload.proofBundle) return;
+      const str = new TextDecoder().decode(data);
+      const payload = JSON.parse(str);
+      if (!payload || !payload.proofBundle) return;
 
-        globalThis.dispatchEvent(new CustomEvent("zkRollupReceived", {
-            detail: {
-                peerId: fromPeer,
-                bundle: payload.proofBundle,
-                rollupState: payload.rollupState ? new Uint8Array(payload.rollupState) : null
-            }
-        }));
+      globalThis.dispatchEvent(
+        new CustomEvent("zkRollupReceived", {
+          detail: {
+            peerId: fromPeer,
+            bundle: payload.proofBundle,
+            rollupState: payload.rollupState
+              ? new Uint8Array(payload.rollupState)
+              : null,
+          },
+        }),
+      );
     } catch (e) {
-        console.warn(`[V2-MESH] Failed to parse ZK rollup from ${fromPeer}`);
+      console.warn(`[V2-MESH] Failed to parse ZK rollup from ${fromPeer}`);
     }
   }
 
@@ -603,9 +736,7 @@ export class Libp2pMesh {
     const expected = this.computeSenateHash(plasmid.proposalDescription);
     if (expected !== plasmid.proposalHash) {
       console.warn(
-        `[V2-MESH] PROPOSAL hash mismatch (expected=${
-          expected
-        }, got=${plasmid.proposalHash}); rejecting.`,
+        `[V2-MESH] PROPOSAL hash mismatch (expected=${expected}, got=${plasmid.proposalHash}); rejecting.`,
       );
       return;
     }
@@ -638,9 +769,7 @@ export class Libp2pMesh {
       void len;
     }
     console.log(
-      `🏛️ [SENATE] PROPOSAL received: 0x${
-        plasmid.proposalHash
-      } "${plasmid.proposalDescription}"`,
+      `🏛️ [SENATE] PROPOSAL received: 0x${plasmid.proposalHash} "${plasmid.proposalDescription}"`,
     );
     globalThis.dispatchEvent(
       new CustomEvent("senate-proposal", {
@@ -669,52 +798,56 @@ export class Libp2pMesh {
     const currentTau = (this.engine as any).getAnchorTotalBlocks?.() ?? 0;
     const proposedTau = (record as any).proposedAtTau ?? currentTau;
     const tauDiff = Math.abs(currentTau - proposedTau);
-    const curvaturePenalty = (tauDiff * 8) + Math.floor((tauDiff * tauDiff) / 1024);
+    const curvaturePenalty = (tauDiff * 8) +
+      Math.floor((tauDiff * tauDiff) / 1024);
 
     weight = Math.max(0, weight - curvaturePenalty);
 
     if (weight === 0) return; // Vote has petrified into dust
     if (this.livenessAggregator) {
-        // Try to get score from aggregator snapshot
-        const rec = this.livenessAggregator.snapshot().find(s => s.spore_id === fromPeer);
-        if (rec) {
-             weight = 10 + (rec.heartbeat_count * 2) + (rec.warrant_votes_observed * 5);
-        }
+      // Try to get score from aggregator snapshot
+      const rec = this.livenessAggregator.snapshot().find((s) =>
+        s.spore_id === fromPeer
+      );
+      if (rec) {
+        weight = 10 + (rec.heartbeat_count * 2) +
+          (rec.warrant_votes_observed * 5);
+      }
     }
 
     // Check if canonical oracle
     let isOracle = false;
     if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
-        const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
-        const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
-          (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
-        if (dipoleMatches) {
-            isOracle = true;
-            weight = 100;
-            if (this.debate) {
-                 weight += this.debate.alignmentScore(plasmid.proposalHash) * 10;
-                 if (weight < 50) weight = 50; // Minimum oracle weight
-            }
+      const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
+      const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
+        (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
+      if (dipoleMatches) {
+        isOracle = true;
+        weight = 100;
+        if (this.debate) {
+          weight += this.debate.alignmentScore(plasmid.proposalHash) * 10;
+          if (weight < 50) weight = 50; // Minimum oracle weight
         }
+      }
     }
 
     if (plasmid.voteAye) {
       if (!record.ayes.has(fromPeer)) {
-          record.ayes.add(fromPeer);
-          record.ayesWeight += weight;
+        record.ayes.add(fromPeer);
+        record.ayesWeight += weight;
       }
     } else {
       if (!record.nays.has(fromPeer)) {
-          record.nays.add(fromPeer);
-          record.naysWeight += weight;
+        record.nays.add(fromPeer);
+        record.naysWeight += weight;
       }
     }
 
     // Inform WASM Engine
     if (this.engine.wasm && this.engine.wasm.exports.v2_senate_vote) {
-        // We need the hash as 32 bytes in WASM memory
-        // For simplicity, skip WASM integration if it requires allocating memory for the hash
-        // unless we have a pre-allocated buffer for it.
+      // We need the hash as 32 bytes in WASM memory
+      // For simplicity, skip WASM integration if it requires allocating memory for the hash
+      // unless we have a pre-allocated buffer for it.
     }
     // if the vote carries a canonical oracle name AND the voter
     // dipole matches that oracle's deterministic identity, attribute the
@@ -768,42 +901,70 @@ export class Libp2pMesh {
 
       // Open Registry ADD_ORACLE execution
       if (record.description.startsWith("ADD_ORACLE:")) {
-          const parts = record.description.split(":");
-          if (parts.length >= 3) {
-              const newName = parts[1];
-              const newMatrix = parseInt(parts[2], 16);
-              if (newName && !isNaN(newMatrix) && !CANONICAL_ORACLES.includes(newName)) {
-                  CANONICAL_ORACLES.push(newName);
-                  ORACLE_MATRICES_V1[newName] = newMatrix;
-                  console.log(`🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`);
-              }
-              // Propagate to Rust (caller authenticated as CLAUDE oracle)
-              if (this.engine.wasm?.exports.v2_apply_senate_patch) {
-                  const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
-                  (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 4, newMatrix, 0);
-              }
+        const parts = record.description.split(":");
+        if (parts.length >= 3) {
+          const newName = parts[1];
+          const newMatrix = parseInt(parts[2], 16);
+          if (
+            newName && !isNaN(newMatrix) && !CANONICAL_ORACLES.includes(newName)
+          ) {
+            CANONICAL_ORACLES.push(newName);
+            ORACLE_MATRICES_V1[newName] = newMatrix;
+            console.log(
+              `🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`,
+            );
           }
+          // Propagate to Rust (caller authenticated as CLAUDE oracle)
+          if (this.engine.wasm?.exports.v2_apply_senate_patch) {
+            const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+            (this.engine.wasm.exports.v2_apply_senate_patch as any)(
+              callerMatrix,
+              4,
+              newMatrix,
+              0,
+            );
+          }
+        }
       } else if (record.description.startsWith("SET_QUORUM:")) {
-          const val = parseInt(record.description.split(":")[1], 10);
-          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 1, val, 0);
-              console.log(`🏛️ [SENATE] Applied SET_QUORUM=${val} to Rust core.`);
-          }
+        const val = parseInt(record.description.split(":")[1], 10);
+        if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          (this.engine.wasm.exports.v2_apply_senate_patch as any)(
+            callerMatrix,
+            1,
+            val,
+            0,
+          );
+          console.log(`🏛️ [SENATE] Applied SET_QUORUM=${val} to Rust core.`);
+        }
       } else if (record.description.startsWith("SET_SANCTUARY_MULT:")) {
-          const val = parseInt(record.description.split(":")[1], 10);
-          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 2, val, 0);
-              console.log(`🏛️ [SENATE] Applied SET_SANCTUARY_MULT=${val} to Rust core.`);
-          }
+        const val = parseInt(record.description.split(":")[1], 10);
+        if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          (this.engine.wasm.exports.v2_apply_senate_patch as any)(
+            callerMatrix,
+            2,
+            val,
+            0,
+          );
+          console.log(
+            `🏛️ [SENATE] Applied SET_SANCTUARY_MULT=${val} to Rust core.`,
+          );
+        }
       } else if (record.description.startsWith("SET_ANCIENT_AGE:")) {
-          const val = parseInt(record.description.split(":")[1], 10);
-          if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-              const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
-              (this.engine.wasm.exports.v2_apply_senate_patch as any)(callerMatrix, 3, val, 0);
-              console.log(`🏛️ [SENATE] Applied SET_ANCIENT_AGE=${val} to Rust core.`);
-          }
+        const val = parseInt(record.description.split(":")[1], 10);
+        if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
+          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          (this.engine.wasm.exports.v2_apply_senate_patch as any)(
+            callerMatrix,
+            3,
+            val,
+            0,
+          );
+          console.log(
+            `🏛️ [SENATE] Applied SET_ANCIENT_AGE=${val} to Rust core.`,
+          );
+        }
       }
 
       // Acceptance can be the trigger for Era 1060 if it's the first one.
@@ -1169,7 +1330,7 @@ export class Libp2pMesh {
   }
 
   private broadcastV2State() {
-    if (!this.node || this.node.status !== 'started') return;
+    if (!this.node || this.node.status !== "started") return;
 
     this.refreshSelfAddress();
 
@@ -1178,18 +1339,18 @@ export class Libp2pMesh {
 
     // Zero-Copy Binary RPC Sync Framework
     const syncFrame = buildV2SyncFrame(
-        this.__lastLocalIntent.x,
-        this.__lastLocalIntent.y,
-        this.__lastLocalIntent.m,
-        this.__lastLocalIntent.r,
-        this.__lastLocalIntent.g || 0,
-        this.__lastLocalIntent.op || 0,
-        this.selfAddress.raw,
-        this.selfAddress.ortho,
-        this.latestGoldenTraceNum,
-        0, // gt_ortho
-        0, // hopCount
-        8  // maxHops
+      this.__lastLocalIntent.x,
+      this.__lastLocalIntent.y,
+      this.__lastLocalIntent.m,
+      this.__lastLocalIntent.r,
+      this.__lastLocalIntent.g || 0,
+      this.__lastLocalIntent.op || 0,
+      this.selfAddress.raw,
+      this.selfAddress.ortho,
+      this.latestGoldenTraceNum,
+      0, // gt_ortho
+      0, // hopCount
+      8, // maxHops
     );
 
     const binPayload = frameToBytes(syncFrame);
@@ -1212,19 +1373,24 @@ export class Libp2pMesh {
       this.node.services.pubsub.publish("v2-sync-bin", binPayload);
 
       if (plasmid) {
-          if ((plasmid as any).magic === 0x4F46) {
-              const binPlasmid = frameToBytes(plasmid as any);
-              this.node.services.pubsub.publish("v2-sync-bin", binPlasmid);
-          } else {
-              // JSON Plasmids are SUNSET in Era 2060.
-              // Any non-binary plasmids remaining in the queue will be dropped.
-              console.warn(`[LIBP2P-MESH] Dropping legacy JSON plasmid: ${plasmid.semanticType}`);
-          }
+        if ((plasmid as any).magic === 0x4F46) {
+          const binPlasmid = frameToBytes(plasmid as any);
+          this.node.services.pubsub.publish("v2-sync-bin", binPlasmid);
+        } else {
+          // JSON Plasmids are SUNSET in Era 2060.
+          // Any non-binary plasmids remaining in the queue will be dropped.
+          console.warn(
+            `[LIBP2P-MESH] Dropping legacy JSON plasmid: ${plasmid.semanticType}`,
+          );
+        }
       }
 
       if (deltaBuffer) {
         // Delta buffer can be sent as raw bytes over v2-sync-bin or v2-state
-        this.node.services.pubsub.publish("v2-state", new Uint8Array(deltaBuffer));
+        this.node.services.pubsub.publish(
+          "v2-state",
+          new Uint8Array(deltaBuffer),
+        );
       }
     } catch (e) {
       console.warn(`[LIBP2P-MESH] Failed to publish state:`, e);

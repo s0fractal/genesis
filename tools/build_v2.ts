@@ -42,12 +42,18 @@ async function main() {
   const wasmBytes = await Deno.readFile(wasmDest);
   const hashBuffer = await crypto.subtle.digest("SHA-256", wasmBytes);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join(
+    "",
+  );
   await Deno.writeTextFile(wasmHashPath, hashHex);
 
   const fileInfo = await Deno.stat(wasmDest);
-  console.log(`✅ [OMEGA-V2] Build Success! Size: ${(fileInfo.size / 1024).toFixed(2)} KB -> ${wasmDest}`);
-  
+  console.log(
+    `✅ [OMEGA-V2] Build Success! Size: ${
+      (fileInfo.size / 1024).toFixed(2)
+    } KB -> ${wasmDest}`,
+  );
+
   // Future AOT capabilities would go here (e.g. stripping, binding generation)
 }
 

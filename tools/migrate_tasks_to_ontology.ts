@@ -19,11 +19,11 @@ async function main() {
     const filename = entry.name;
     const taskIdStr = filename.split(".")[0];
     const taskIdMatch = taskIdStr.match(/^0*(\d+)/);
-    
+
     // Ignore files that are not strictly numbered tasks (e.g., tasks starting with non-numbers)
     if (!taskIdMatch && !filename.match(/^\d+_/)) {
-        console.log(`Skipping ${entry.name} (not a standard task file)`);
-        continue;
+      console.log(`Skipping ${entry.name} (not a standard task file)`);
+      continue;
     }
 
     let numericId = 0;

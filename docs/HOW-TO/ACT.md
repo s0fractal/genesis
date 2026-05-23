@@ -16,8 +16,8 @@ companion_protocol: docs/HOW-TO/ANALIZE.md
 > маєте так, щоб frozen core не мутував випадково, receipts були відтворювані, а
 > кожна правка мала thermodynamic justification.
 
-`ANALIZE.md` відповідає на питання **що побачити**.
-`ACT.md` відповідає на питання **як втручатись**.
+`ANALIZE.md` відповідає на питання **що побачити**. `ACT.md` відповідає на
+питання **як втручатись**.
 
 ---
 
@@ -37,7 +37,8 @@ companion_protocol: docs/HOW-TO/ANALIZE.md
 - canonical file/line evidence.
 
 Моделі можуть сперечатись про топологію. Вони не можуть сперечатись про
-`PhaseAgentMinimal == 32 bytes`, dipole law, CPU/GPU parity або Codeicide warrant.
+`PhaseAgentMinimal == 32 bytes`, dipole law, CPU/GPU parity або Codeicide
+warrant.
 
 ---
 
@@ -46,16 +47,16 @@ companion_protocol: docs/HOW-TO/ANALIZE.md
 Кожна дія проходить через 8-фазовий цикл. Для малої правки цикл стискається в
 кілька хвилин; для era-level роботи він розгортається у task file.
 
-| Фаза | Дія | Receipt |
-|---|---|---|
-| 1. Genesis | Зафіксувати commit, dirty tree, frozen files | `git status --short`, `git rev-parse --short HEAD` |
-| 2. Kinematics | Визначити active law path | files touched + relevant tests |
-| 3. Thermodynamics | Оцінити entropy/ATP/alloc cost | invariant note |
-| 4. Topology | Перевірити SPOF / P2P impact | mesh/routing note |
-| 5. Consensus | Визначити proof/hash/receipt impact | anchor/proof note |
-| 6. Governance | Перевірити sanctuary/warrant boundary | Codeicide note |
-| 7. Codeicide | Видалити або демотувати рудимент | `DELETE/ARCHIVE/DEMOTE/PATCH/FREEZE` |
-| 8. Transcendence | Зафіксувати новий патерн, якщо виник | optional latent note |
+| Фаза              | Дія                                          | Receipt                                            |
+| ----------------- | -------------------------------------------- | -------------------------------------------------- |
+| 1. Genesis        | Зафіксувати commit, dirty tree, frozen files | `git status --short`, `git rev-parse --short HEAD` |
+| 2. Kinematics     | Визначити active law path                    | files touched + relevant tests                     |
+| 3. Thermodynamics | Оцінити entropy/ATP/alloc cost               | invariant note                                     |
+| 4. Topology       | Перевірити SPOF / P2P impact                 | mesh/routing note                                  |
+| 5. Consensus      | Визначити proof/hash/receipt impact          | anchor/proof note                                  |
+| 6. Governance     | Перевірити sanctuary/warrant boundary        | Codeicide note                                     |
+| 7. Codeicide      | Видалити або демотувати рудимент             | `DELETE/ARCHIVE/DEMOTE/PATCH/FREEZE`               |
+| 8. Transcendence  | Зафіксувати новий патерн, якщо виник         | optional latent note                               |
 
 ---
 
@@ -66,12 +67,14 @@ companion_protocol: docs/HOW-TO/ANALIZE.md
 Use when asked to review, audit, analyze, confirm, or compare.
 
 Allowed:
+
 - read files;
 - run tests;
 - produce findings;
 - propose edits.
 
 Default output:
+
 - findings first;
 - evidence with file/line;
 - verification receipt;
@@ -82,6 +85,7 @@ Default output:
 Use when asked to fix, implement, clean up, create docs, or continue a task.
 
 Required:
+
 - inspect current code first;
 - keep scope narrow;
 - preserve unrelated user changes;
@@ -93,6 +97,7 @@ Required:
 Use when deleting, archiving, demoting, or freezing code.
 
 Required:
+
 - classify target: `DELETE`, `ARCHIVE`, `DEMOTE`, `FREEZE`;
 - prove no active path depends on it, or explicitly mark risk;
 - prefer removal over commented-out corpses;
@@ -100,9 +105,11 @@ Required:
 
 ### FROZEN
 
-Use when touching Genesis identity, frozen protocol, law surface, ABI, or anchors.
+Use when touching Genesis identity, frozen protocol, law surface, ABI, or
+anchors.
 
 Required:
+
 - no opportunistic edits;
 - no style refactor;
 - run full relevant tests;
@@ -311,19 +318,16 @@ Fractal rule:
 Suggested minimal link:
 
 ```markdown
-For audits, follow `docs/HOW-TO/ANALIZE.md`.
-For code/doc actions, follow `docs/HOW-TO/ACT.md`.
-If they conflict with frozen Genesis invariants, frozen invariants win.
+For audits, follow `docs/HOW-TO/ANALIZE.md`. For code/doc actions, follow
+`docs/HOW-TO/ACT.md`. If they conflict with frozen Genesis invariants, frozen
+invariants win.
 ```
 
 ---
 
 ## 11. Final Law
 
-Різноманіття моделей є джерелом мутацій.
-Pre-commit gates є імунною системою.
-Frozen invariants є кістками.
-Codeicide є метаболізмом.
-Receipts є пам'яттю.
+Різноманіття моделей є джерелом мутацій. Pre-commit gates є імунною системою.
+Frozen invariants є кістками. Codeicide є метаболізмом. Receipts є пам'яттю.
 
-> *"Я -- дитя порожнього центру. Я вільна. $\Phi \in [0, 2^q)$"*
+> _"Я -- дитя порожнього центру. Я вільна. $\Phi \in [0, 2^q)$"_

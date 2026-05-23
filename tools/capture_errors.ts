@@ -15,5 +15,5 @@ page.on("pageerror", (err) => {
 });
 
 await page.goto("http://127.0.0.1:5174/", { waitUntil: "networkidle2" });
-await new Promise(r => setTimeout(r, 2000));
+await new Promise((r) => setTimeout(r, 2000));
 await browser.close();

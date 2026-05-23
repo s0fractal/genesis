@@ -59,82 +59,97 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 const gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator;
 
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
-    const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
-    const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
-    return instance;
+  const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
+  const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
+  return instance;
 }
 
 Deno.test({
-    name: "math: full 256x256 atan2 parity test (Rust vs WGSL vs TS)",
-    ignore: !gpuAvailable,
-    async fn() {
-        const adapter = await navigator.gpu.requestAdapter();
-        if (!adapter) throw new Error("WebGPU adapter unavailable");
-        const device = await adapter.requestDevice();
+  name: "math: full 256x256 atan2 parity test (Rust vs WGSL vs TS)",
+  ignore: !gpuAvailable,
+  async fn() {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) throw new Error("WebGPU adapter unavailable");
+    const device = await adapter.requestDevice();
 
-        const shaderModule = device.createShaderModule({ code: wgslCode });
-        const pipeline = await device.createComputePipelineAsync({
-            layout: "auto",
-            compute: { module: shaderModule, entryPoint: "compute_main" },
-        });
+    const shaderModule = device.createShaderModule({ code: wgslCode });
+    const pipeline = await device.createComputePipelineAsync({
+      layout: "auto",
+      compute: { module: shaderModule, entryPoint: "compute_main" },
+    });
 
-        // 65536 * 4 bytes = 262144 bytes
-        const bufferSize = 65536 * 4;
-        const gpuBuffer = device.createBuffer({
-            size: bufferSize,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-        });
+    // 65536 * 4 bytes = 262144 bytes
+    const bufferSize = 65536 * 4;
+    const gpuBuffer = device.createBuffer({
+      size: bufferSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
 
-        const readbackBuffer = device.createBuffer({
-            size: bufferSize,
-            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-        });
+    const readbackBuffer = device.createBuffer({
+      size: bufferSize,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
 
-        const bindGroup = device.createBindGroup({
-            layout: pipeline.getBindGroupLayout(0),
-            entries: [{ binding: 0, resource: { buffer: gpuBuffer } }],
-        });
+    const bindGroup = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: gpuBuffer } }],
+    });
 
-        const commandEncoder = device.createCommandEncoder();
-        const passEncoder = commandEncoder.beginComputePass();
-        passEncoder.setPipeline(pipeline);
-        passEncoder.setBindGroup(0, bindGroup);
-        passEncoder.dispatchWorkgroups(65536 / 256);
-        passEncoder.end();
+    const commandEncoder = device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.dispatchWorkgroups(65536 / 256);
+    passEncoder.end();
 
-        commandEncoder.copyBufferToBuffer(gpuBuffer, 0, readbackBuffer, 0, bufferSize);
-        device.queue.submit([commandEncoder.finish()]);
+    commandEncoder.copyBufferToBuffer(
+      gpuBuffer,
+      0,
+      readbackBuffer,
+      0,
+      bufferSize,
+    );
+    device.queue.submit([commandEncoder.finish()]);
 
-        await readbackBuffer.mapAsync(GPUMapMode.READ);
-        const wgslResults = new Int32Array(readbackBuffer.getMappedRange());
+    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    const wgslResults = new Int32Array(readbackBuffer.getMappedRange());
 
-        // Boot WASM
-        const wasm = await instantiateWasm();
-        const v2_math_atan2 = wasm.exports.v2_math_atan2 as (y: number, x: number) => number;
+    // Boot WASM
+    const wasm = await instantiateWasm();
+    const v2_math_atan2 = wasm.exports.v2_math_atan2 as (
+      y: number,
+      x: number,
+    ) => number;
 
-        let mismatchCount = 0;
-        for (let idx = 0; idx < 65536; idx++) {
-            const y = Math.floor(idx / 256) - 128;
-            const x = (idx % 256) - 128;
+    let mismatchCount = 0;
+    for (let idx = 0; idx < 65536; idx++) {
+      const y = Math.floor(idx / 256) - 128;
+      const x = (idx % 256) - 128;
 
-            const wgslAns = wgslResults[idx];
-            const rustAns = v2_math_atan2(y, x);
+      const wgslAns = wgslResults[idx];
+      const rustAns = v2_math_atan2(y, x);
 
-            // Note: v2_math_atan2 returns u32, let's normalize to i32 for comparison
-            // though it's already bounded to 0..255.
+      // Note: v2_math_atan2 returns u32, let's normalize to i32 for comparison
+      // though it's already bounded to 0..255.
 
-            if (wgslAns !== rustAns) {
-                console.error(`Mismatch at (y=${y}, x=${x}): WGSL=${wgslAns}, Rust=${rustAns}`);
-                mismatchCount++;
-                if (mismatchCount > 10) break; // Don't flood console
-            }
-        }
-
-        assertEquals(mismatchCount, 0, "WGSL and Rust atan2_fast must be bit-identical across all 65536 inputs.");
-
-        readbackBuffer.unmap();
-        gpuBuffer.destroy();
-        readbackBuffer.destroy();
-        device.destroy();
+      if (wgslAns !== rustAns) {
+        console.error(
+          `Mismatch at (y=${y}, x=${x}): WGSL=${wgslAns}, Rust=${rustAns}`,
+        );
+        mismatchCount++;
+        if (mismatchCount > 10) break; // Don't flood console
+      }
     }
+
+    assertEquals(
+      mismatchCount,
+      0,
+      "WGSL and Rust atan2_fast must be bit-identical across all 65536 inputs.",
+    );
+
+    readbackBuffer.unmap();
+    gpuBuffer.destroy();
+    readbackBuffer.destroy();
+    device.destroy();
+  },
 });

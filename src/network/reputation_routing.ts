@@ -27,46 +27,46 @@
 
 import { GENESIS_HASH_LEGACY_V1_0 } from "./genesis_inscription.ts";
 import {
-    LivenessAggregator,
-    SporeHealth,
-    SporeRecord,
+  LivenessAggregator,
+  SporeHealth,
+  SporeRecord,
 } from "./liveness_aggregator.ts";
 
 export interface ReputationScore {
-    spore_id: string;
-    score: number;
-    health: SporeHealth;
-    /** True if this neighbor is eligible to be picked at all. */
-    eligible: boolean;
-    /** Free-form breakdown of how the score was assembled (debug only). */
-    breakdown: Record<string, number>;
+  spore_id: string;
+  score: number;
+  health: SporeHealth;
+  /** True if this neighbor is eligible to be picked at all. */
+  eligible: boolean;
+  /** Free-form breakdown of how the score was assembled (debug only). */
+  breakdown: Record<string, number>;
 }
 
 export interface ReputationOptions {
-    base: number;
-    healthyBonus: number;
-    heartbeatPerCount: number;     // multiplied by min(heartbeat_count, cap)
-    heartbeatCap: number;
-    warrantPerVote: number;        // multiplied by warrant_votes_observed
-    warrantCap: number;
-    stallPenalty: number;
-    silencePenaltyPerSec: number;
-    silenceCapSec: number;
-    /** Hard gate: forked neighbors are NEVER eligible. */
-    forkExcludes: boolean;
+  base: number;
+  healthyBonus: number;
+  heartbeatPerCount: number; // multiplied by min(heartbeat_count, cap)
+  heartbeatCap: number;
+  warrantPerVote: number; // multiplied by warrant_votes_observed
+  warrantCap: number;
+  stallPenalty: number;
+  silencePenaltyPerSec: number;
+  silenceCapSec: number;
+  /** Hard gate: forked neighbors are NEVER eligible. */
+  forkExcludes: boolean;
 }
 
 const DEFAULT_OPTS: ReputationOptions = {
-    base: 100,
-    healthyBonus: 50,
-    heartbeatPerCount: 2,
-    heartbeatCap: 50,        // diminishing returns at 50 heartbeats
-    warrantPerVote: 5,
-    warrantCap: 20,          // diminishing returns at 20 votes
-    stallPenalty: 30,
-    silencePenaltyPerSec: 1,
-    silenceCapSec: 60,       // cap silence penalty at 60s
-    forkExcludes: true,
+  base: 100,
+  healthyBonus: 50,
+  heartbeatPerCount: 2,
+  heartbeatCap: 50, // diminishing returns at 50 heartbeats
+  warrantPerVote: 5,
+  warrantCap: 20, // diminishing returns at 20 votes
+  stallPenalty: 30,
+  silencePenaltyPerSec: 1,
+  silenceCapSec: 60, // cap silence penalty at 60s
+  forkExcludes: true,
 };
 
 /**
@@ -76,71 +76,72 @@ const DEFAULT_OPTS: ReputationOptions = {
  * sweeping the aggregator first, a record's `health` field may lag.
  */
 export function scoreOne(
-    rec: SporeRecord,
-    now_ms: number,
-    opts: ReputationOptions = DEFAULT_OPTS,
+  rec: SporeRecord,
+  now_ms: number,
+  opts: ReputationOptions = DEFAULT_OPTS,
 ): ReputationScore {
-    const breakdown: Record<string, number> = {};
-    let score = opts.base;
-    breakdown.base = opts.base;
+  const breakdown: Record<string, number> = {};
+  let score = opts.base;
+  breakdown.base = opts.base;
 
-    // Hard fork gate.
-    if (opts.forkExcludes && rec.health === "forked") {
-        return {
-            spore_id: rec.spore_id,
-            score: 0,
-            health: rec.health,
-            eligible: false,
-            breakdown: { fork_excluded: 1 },
-        };
-    }
-
-    if (rec.health === "healthy") {
-        score += opts.healthyBonus;
-        breakdown.healthy_bonus = opts.healthyBonus;
-    }
-
-    const hbContribution = Math.min(rec.heartbeat_count, opts.heartbeatCap)
-        * opts.heartbeatPerCount;
-    score += hbContribution;
-    breakdown.heartbeat_density = hbContribution;
-
-    const warrantContribution = Math.min(rec.warrant_votes_observed, opts.warrantCap)
-        * opts.warrantPerVote;
-    score += warrantContribution;
-    breakdown.warrant_throughput = warrantContribution;
-
-    if (rec.health === "stalled") {
-        score -= opts.stallPenalty;
-        breakdown.stall_penalty = -opts.stallPenalty;
-    }
-
-    if (rec.health === "lost") {
-        const silence_sec = Math.min(
-            (now_ms - rec.last_seen_at_ms) / 1000,
-            opts.silenceCapSec,
-        );
-        const penalty = silence_sec * opts.silencePenaltyPerSec;
-        score -= penalty;
-        breakdown.silence_penalty = -penalty;
-    }
-
-    if (rec.health === "unknown") {
-        // Mild penalty: we don't know enough yet to trust them.
-        score -= 5;
-        breakdown.unknown_penalty = -5;
-    }
-
-    // Score is never negative; clamp to 0.
-    if (score < 0) score = 0;
-
+  // Hard fork gate.
+  if (opts.forkExcludes && rec.health === "forked") {
     return {
-        spore_id: rec.spore_id,
-        score,
-        health: rec.health,
-        eligible: rec.health !== "forked",
-        breakdown,
+      spore_id: rec.spore_id,
+      score: 0,
+      health: rec.health,
+      eligible: false,
+      breakdown: { fork_excluded: 1 },
     };
+  }
+
+  if (rec.health === "healthy") {
+    score += opts.healthyBonus;
+    breakdown.healthy_bonus = opts.healthyBonus;
+  }
+
+  const hbContribution = Math.min(rec.heartbeat_count, opts.heartbeatCap) *
+    opts.heartbeatPerCount;
+  score += hbContribution;
+  breakdown.heartbeat_density = hbContribution;
+
+  const warrantContribution =
+    Math.min(rec.warrant_votes_observed, opts.warrantCap) *
+    opts.warrantPerVote;
+  score += warrantContribution;
+  breakdown.warrant_throughput = warrantContribution;
+
+  if (rec.health === "stalled") {
+    score -= opts.stallPenalty;
+    breakdown.stall_penalty = -opts.stallPenalty;
+  }
+
+  if (rec.health === "lost") {
+    const silence_sec = Math.min(
+      (now_ms - rec.last_seen_at_ms) / 1000,
+      opts.silenceCapSec,
+    );
+    const penalty = silence_sec * opts.silencePenaltyPerSec;
+    score -= penalty;
+    breakdown.silence_penalty = -penalty;
+  }
+
+  if (rec.health === "unknown") {
+    // Mild penalty: we don't know enough yet to trust them.
+    score -= 5;
+    breakdown.unknown_penalty = -5;
+  }
+
+  // Score is never negative; clamp to 0.
+  if (score < 0) score = 0;
+
+  return {
+    spore_id: rec.spore_id,
+    score,
+    health: rec.health,
+    eligible: rec.health !== "forked",
+    breakdown,
+  };
 }
 
 /**
@@ -149,17 +150,19 @@ export function scoreOne(
  * deterministic tie-breaking.
  */
 export function rankNeighbors(
-    aggregator: LivenessAggregator,
-    now_ms: number,
-    opts: ReputationOptions = DEFAULT_OPTS,
+  aggregator: LivenessAggregator,
+  now_ms: number,
+  opts: ReputationOptions = DEFAULT_OPTS,
 ): ReputationScore[] {
-    aggregator.sweep(now_ms);
-    const scores = aggregator.snapshot().map(rec => scoreOne(rec, now_ms, opts));
-    scores.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return a.spore_id.localeCompare(b.spore_id);
-    });
-    return scores;
+  aggregator.sweep(now_ms);
+  const scores = aggregator.snapshot().map((rec) =>
+    scoreOne(rec, now_ms, opts)
+  );
+  scores.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.spore_id.localeCompare(b.spore_id);
+  });
+  return scores;
 }
 
 /**
@@ -167,14 +170,14 @@ export function rankNeighbors(
  * practice — a microcontroller's neighbor table is tiny.
  */
 export function pickTopK(
-    aggregator: LivenessAggregator,
-    now_ms: number,
-    k: number,
-    opts: ReputationOptions = DEFAULT_OPTS,
+  aggregator: LivenessAggregator,
+  now_ms: number,
+  k: number,
+  opts: ReputationOptions = DEFAULT_OPTS,
 ): ReputationScore[] {
-    return rankNeighbors(aggregator, now_ms, opts)
-        .filter(s => s.eligible)
-        .slice(0, k);
+  return rankNeighbors(aggregator, now_ms, opts)
+    .filter((s) => s.eligible)
+    .slice(0, k);
 }
 
 /**
@@ -182,12 +185,12 @@ export function pickTopK(
  * or null if none are eligible.
  */
 export function pickBest(
-    aggregator: LivenessAggregator,
-    now_ms: number,
-    opts: ReputationOptions = DEFAULT_OPTS,
+  aggregator: LivenessAggregator,
+  now_ms: number,
+  opts: ReputationOptions = DEFAULT_OPTS,
 ): ReputationScore | null {
-    const top = pickTopK(aggregator, now_ms, 1, opts);
-    return top.length > 0 ? top[0] : null;
+  const top = pickTopK(aggregator, now_ms, 1, opts);
+  return top.length > 0 ? top[0] : null;
 }
 
 /**
@@ -195,7 +198,7 @@ export function pickBest(
  * surface them to the operator.
  */
 export function listExcludedForks(aggregator: LivenessAggregator): string[] {
-    return aggregator.forkedSpores();
+  return aggregator.forkedSpores();
 }
 
 /** Re-export helpful constants for callers. */

@@ -24,26 +24,34 @@ export const BITS_PER_ENTROPY_Q10 = (1.0 / 1024.0) as Bits;
  * thermodynamic heat death.
  */
 export function calculateFreeEnergy(
-    totalAmplitudeEnergy: number,
-    entropyQ10: number,
-    sectorHeat: number
+  totalAmplitudeEnergy: number,
+  entropyQ10: number,
+  sectorHeat: number,
 ): Joules {
-    const internalEnergy = (totalAmplitudeEnergy * ATP_PER_ENERGY_UNIT) as Joules;
+  const internalEnergy = (totalAmplitudeEnergy * ATP_PER_ENERGY_UNIT) as Joules;
 
-    // Convert mathematical Sector Heat (0.0 to 10.0) into thermodynamic Kelvin-equivalent stress
-    const T = (sectorHeat * 25.0) as Celsius;
-    const entropyBits = (entropyQ10 * BITS_PER_ENTROPY_Q10) as Bits;
+  // Convert mathematical Sector Heat (0.0 to 10.0) into thermodynamic Kelvin-equivalent stress
+  const T = (sectorHeat * 25.0) as Celsius;
+  const entropyBits = (entropyQ10 * BITS_PER_ENTROPY_Q10) as Bits;
 
-    // Entropic drag: Work cost scales linearly with localized temperature
-    const thermalEnergy = (entropyBits * T) as Joules;
+  // Entropic drag: Work cost scales linearly with localized temperature
+  const thermalEnergy = (entropyBits * T) as Joules;
 
-    return (internalEnergy - thermalEnergy) as Joules;
+  return (internalEnergy - thermalEnergy) as Joules;
 }
 
 /**
  * Type-safe wrappers for casting engine scalars into Physical Dimensions
  */
-export function asJoules(value: number): Joules { return value as Joules; }
-export function asBits(value: number): Bits { return value as Bits; }
-export function asHertz(value: number): Hertz { return value as Hertz; }
-export function asCelsius(value: number): Celsius { return value as Celsius; }
+export function asJoules(value: number): Joules {
+  return value as Joules;
+}
+export function asBits(value: number): Bits {
+  return value as Bits;
+}
+export function asHertz(value: number): Hertz {
+  return value as Hertz;
+}
+export function asCelsius(value: number): Celsius {
+  return value as Celsius;
+}

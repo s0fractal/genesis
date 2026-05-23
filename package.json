@@ -10,10 +10,10 @@
   "scripts": {
     "dev": "vite",
     "export": "deno run -A tools/export_omega.ts",
-        "build:wasm": "deno run -A tools/build_v2.ts",
+    "build:wasm": "deno run -A tools/build_v2.ts",
     "build": "npm run build:wasm && vite build && npm run verify:dist",
     "serve": "vite preview",
-        "verify:dist": "deno run -A tools/verify_dist.ts"
+    "verify:dist": "deno run -A tools/verify_dist.ts"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.38",

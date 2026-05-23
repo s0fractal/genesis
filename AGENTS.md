@@ -46,14 +46,14 @@ Rules:
 
 ## 1. Tech Stack & Build System
 
-| Layer          | Tech                                             |
-| -------------- | ------------------------------------------------ |
-| Physics Kernel | Rust `#![no_std]` bare-metal WASM (`omega_v2`)   |
-| ZK Guest       | Rust SP1 ZK-VM (`omega_zk_guest`)                |
-| Renderer       | TypeScript + WebGPU (`src/lens/`)                |
+| Layer          | Tech                                               |
+| -------------- | -------------------------------------------------- |
+| Physics Kernel | Rust `#![no_std]` bare-metal WASM (`omega_v2`)     |
+| ZK Guest       | Rust SP1 ZK-VM (`omega_zk_guest`)                  |
+| Renderer       | TypeScript + WebGPU (`src/lens/`)                  |
 | P2P Mesh       | WebRTC DataChannels (`src/network/libp2p_mesh.ts`) |
-| Tests          | `cargo test --workspace` + `deno test`           |
-| Bundler        | Vite                                             |
+| Tests          | `cargo test --workspace` + `deno test`             |
+| Bundler        | Vite                                               |
 
 ### Build Commands
 
@@ -106,7 +106,6 @@ src/environment/
 src/bootstrap/
   v2.ts                # Main loop, HUD, Oracle worker binding
   dom.ts               # setHudStat("a"|"b"|"c"|"d"|"e", label, value)
-
 ```
 
 ---
@@ -120,9 +119,9 @@ src/bootstrap/
 - `PhaseAgentMinimal` is **28 bytes** of fields + 4 bytes `align(32)` padding,
   yielding 32-byte GPU-coalesced reads. Do NOT remove `align(32)` — it is
   load-bearing for static memory layout.
-- All trigonometry goes through `sine_lut` storage buffer (WGSL, binding 3)
-  and `math.rs::SINE_LUT` / `SINE_LUT_128` (Rust). O(1) LUT lookup.
-  The two LUTs are intentionally different resolutions (Q10 vs Q20).
+- All trigonometry goes through `sine_lut` storage buffer (WGSL, binding 3) and
+  `math.rs::SINE_LUT` / `SINE_LUT_128` (Rust). O(1) LUT lookup. The two LUTs are
+  intentionally different resolutions (Q10 vs Q20).
 
 ### 3.2 Dipole Invariant
 
@@ -221,9 +220,9 @@ pub struct SignalStore {
   `ProverClient::builder().mock().build()` exclusively. No production prover
   branch exists. A real SP1 path requires `#[cfg(feature = "sp1")]` gating.
 - **Senate FFI auth gap (partially closed)** — `v2_apply_senate_patch` now
-  requires `caller_matrix: u32` and verifies against canonical oracles.
-  TS callers updated in `libp2p_mesh.ts`. This is a recent patch; do not
-  bypass without warrant.
+  requires `caller_matrix: u32` and verifies against canonical oracles. TS
+  callers updated in `libp2p_mesh.ts`. This is a recent patch; do not bypass
+  without warrant.
 - **Tasks archive removed** — The `tasks/` directory (Eras 0086→0193) was
   deleted to reduce entropy surface. Historical task context lives in git
   history (`git log --all --full-history -- tasks/`).
@@ -344,8 +343,7 @@ surface, not add another quorum layer.
 - **Octet Semantic Primitive:** [docs/ONTOLOGY/OCTET.md](docs/ONTOLOGY/OCTET.md)
 - **Octet Address Map:**
   [docs/ONTOLOGY/OCTET_MAP.md](docs/ONTOLOGY/OCTET_MAP.md)
-- **Frozen Invariants Registry:**
-  [docs/FROZEN.md](docs/FROZEN.md)
+- **Frozen Invariants Registry:** [docs/FROZEN.md](docs/FROZEN.md)
 
 ---
 
@@ -355,13 +353,15 @@ surface, not add another quorum layer.
 
 This file was updated after a deep analysis protocol run (`ANALIZE.md v2.0.0`).
 Key stale sections corrected:
+
 - Removed references to deleted `pouw.rs` and `routing.wgsl`.
 - Updated `SignalStore` docs to reflect `proper_time: ProperTime` (48 bytes).
-- Added `BIRTH_TICKS` parallel array documentation (fixes `memory[1]` collision).
+- Added `BIRTH_TICKS` parallel array documentation (fixes `memory[1]`
+  collision).
 - Marked `omega_zk_host` as mock-only, noted senate FFI auth patch.
 - Removed `tasks/` references (directory deleted in prior cleanup).
 - Added build note: `omega_core/` archived, only `omega_v2` active.
 - Added determinism note: `align(32)` on `PhaseAgentMinimal` is load-bearing.
 
-If you edit this file — append your paragraph here. Do not edit mine.
-The palimpsest accumulates, not diffs.
+If you edit this file — append your paragraph here. Do not edit mine. The
+palimpsest accumulates, not diffs.
