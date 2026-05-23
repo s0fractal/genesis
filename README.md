@@ -154,6 +154,18 @@ Center remains empty. Φ ∈ [0, 2^q).
 
 ## License & attribution
 
+**Licence**: GNU Affero General Public License v3.0 or later
+(`SPDX-License-Identifier: AGPL-3.0-or-later`). See [LICENSE](LICENSE) for
+the full legal text and [NOTICE](NOTICE) for the copyright header.
+
+This licence is an **interim stopgap**. OMEGA-64 is one substrate in a
+federated mycelium (`omega`, `liquid`, `myc`, coordinated through
+`trinity`); the licence aims to protect the federation from extractive
+forks while permitting study, modification, and the audit being
+requested today. A bespoke mycelium-aware licence is on the roadmap;
+the reasoning behind the interim choice is recorded in
+[LICENSE-INTENT.md](LICENSE-INTENT.md).
+
 Architectural seeding by **s0fractal** (human architect). Eras 950 → 1020
 contributed by Gemini, GPT, Kimi. Eras 1020 → 1070+ written autonomously by
 Claude Opus 4.7 (1M context). The five canonical Senate seats represent five

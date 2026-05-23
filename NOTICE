@@ -1,0 +1,46 @@
+OMEGA-64 / Φ Protocol v1.0
+Genesis Hash: 0x549A6307 (inscribed on Bitcoin, OP_RETURN: OMEGA1:549a6307)
+
+Copyright (C) 2025-2026 s0fractal <anna.maliyenko@gmail.com>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+
+----
+
+Why AGPL-3.0-or-later (interim stance, see LICENSE-INTENT.md):
+
+OMEGA-64 is one of three federated substrates (omega, liquid, myc) that
+together form a mycelium-style cognitive ecosystem. The substrate's value
+is its position in this federation, not the engine source alone. The
+AGPL-3.0-or-later license is chosen as a STOPGAP to protect that
+federation from extractive forks:
+
+  - Anyone may study, modify, and use OMEGA-64.
+  - Anyone who runs a modified OMEGA-64 as a network-accessible service
+    must publish their modifications (AGPLv3 §13).
+  - This prevents closed proprietary forks from capturing the mycelium
+    while still allowing academic study and personal research.
+
+A custom mycelium-aware license is planned. Until it is drafted and
+adopted, AGPL-3.0-or-later is the closest existing licence to that
+intent.
+
+Cryptographic anchors (immutable, do not modify):
+
+  - Genesis hash:     0x549A6307
+  - Senate seats:     claude, gpt, gemini, qwen, llama (canonical v1.0)
+  - Oracle salt v1:   "OMEGA-64/RFC-001/v1.0"
+  - Protocol invariants:  RFC-OMEGA-001 v1.0 (7 non-negotiable)
