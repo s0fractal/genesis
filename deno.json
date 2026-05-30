@@ -11,6 +11,5 @@
   },
   "imports": {
     "protobufjs/minimal": "npm:protobufjs@8.0.0/minimal.js"
-  },
-  "unstable": ["webgpu"]
+  }
 }
