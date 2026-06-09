@@ -5,7 +5,6 @@ extern crate alloc;
 use omega_v2::agent::PhaseAgentMinimal;
 use omega_v2::attractor::{AttractorArray, AttractorMatrix};
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
-use omega_v2::pouw::evaluate_poeuw_trace;
 use omega_v2::resonance::scan_resonance_field;
 
 /// ZK Guest Entry Point — Tri-Mode
@@ -20,25 +19,10 @@ pub fn main() {
 
     match mode {
         // -----------------------------------------------------------------
-        // Mode 0: Proof-of-Useful-Work (single-agent metabolic trace)
+        // Mode 0: Proof-of-Useful-Work (single-agent metabolic trace) [LEGACY]
         // -----------------------------------------------------------------
         0 => {
-            let initial_genome = sp1_zkvm::io::read::<u32>();
-            let kuramoto_base = sp1_zkvm::io::read::<u32>();
-            let kuramoto_diffusion = sp1_zkvm::io::read::<u32>();
-            let simulation_cycles = sp1_zkvm::io::read::<u32>();
-
-            let (final_genome, final_base_freq, final_energy) = evaluate_poeuw_trace(
-                initial_genome,
-                kuramoto_base,
-                kuramoto_diffusion,
-                simulation_cycles,
-            );
-
-            // PoUW Verification Axiom: surviving cell MUST maintain positive ATP
-            assert!(final_energy > 0, "Proof verification failed: Agent died of ATP starvation.");
-
-            sp1_zkvm::io::commit(&(mode, final_genome, final_base_freq, final_energy));
+            panic!("Mode 0 (Legacy PoUW) is no longer supported.");
         }
 
         // -----------------------------------------------------------------

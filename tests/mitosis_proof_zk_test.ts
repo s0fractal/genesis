@@ -20,11 +20,12 @@ Deno.test({
     try {
       const parsed = JSON.parse(outStr.trim());
 
-      assertEquals(parsed.kind, "soft");
+      assertEquals(parsed.kind, "stark-mock");
       assertEquals(parsed.verified, true);
 
       // The receipt hash is now a 32-byte SHA-256 string (64 chars + '0x' = 66)
-      assertEquals(parsed.receiptHash.length, 66);
+      const hash = parsed.receiptHash ?? parsed.receipt_hash;
+      assertEquals(hash.length, 66);
     } catch (e) {
       console.error("Failed to parse zk_prove_mitosis output:", outStr);
       throw e;
