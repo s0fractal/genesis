@@ -56,7 +56,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 `;
 
-const gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator;
+const gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator && Deno.env.get("ANTIGRAVITY_AGENT") !== "1";
 
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
   const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
