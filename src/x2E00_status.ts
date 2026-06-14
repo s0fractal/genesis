@@ -13,6 +13,7 @@ import {
   fromFileUrl,
   join,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { computeLawHash, lawHashHex } from "./shared/law_hash.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const OMEGA_ROOT = dirname(HERE);
@@ -42,12 +43,18 @@ if (import.meta.main) {
 
   const overall = ok === components.length ? "healthy" : "degraded";
 
+  // The physical-law version anchor (mirrors omega_v2 calculate_law_hash over
+  // the canonical topology). Surfaced so trinity status / the Substrate Court
+  // can compare that substrates run the same law without an FFI round-trip.
+  const law_hash = lawHashHex(await computeLawHash());
+
   const receipt = {
     type: "status",
     position: "2/E",
     action: "status",
     substrate: "omega",
     note: "OMEGA operational status",
+    law_hash,
     summary: {
       overall,
       health: {
