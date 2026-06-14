@@ -14,6 +14,7 @@ import {
   join,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
 import { computeLawHash, lawHashHex } from "./shared/law_hash.ts";
+import { type CborValue, wrap } from "./shared/envelope.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const OMEGA_ROOT = dirname(HERE);
@@ -48,7 +49,20 @@ if (import.meta.main) {
   // can compare that substrates run the same law without an FFI round-trip.
   const law_hash = lawHashHex(await computeLawHash());
 
-  const receipt = {
+  const substrate_health = {
+    type: "SubstrateHealth",
+    schema: "trinity.substrate-health.v0.1",
+    substrate: "omega",
+    overall,
+    law_hash,
+    own_components: {
+      ok,
+      fail: components.length - ok,
+      total: components.length,
+    },
+  };
+
+  const receipt: Record<string, unknown> = {
     type: "status",
     position: "2/E",
     action: "status",
@@ -64,7 +78,21 @@ if (import.meta.main) {
         total: components.length,
       },
     },
+    substrate_health,
   };
+
+  // --envelope: omega signs its OWN substrate_health as a ReceiptEnvelope
+  // (substrate_tag: omega), carrying its native law_hash. This is the second
+  // INDEPENDENT witness the Substrate Court needs — omega computes the law and
+  // wraps it itself, no trinity in the loop. See RECEIPT_ENVELOPE.v1.0.
+  if (Deno.args.includes("--envelope")) {
+    receipt.substrate_health_envelope = await wrap(
+      substrate_health as unknown as CborValue,
+      "substrate_health",
+      "omega",
+      { law_hash, created_at_logical: {} },
+    );
+  }
 
   console.log(JSON.stringify(receipt, null, 2));
 }
