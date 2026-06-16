@@ -56,7 +56,19 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 `;
 
-const gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator && Deno.env.get("ANTIGRAVITY_AGENT") !== "1";
+// Probe for an actual WebGPU ADAPTER, not just the API surface: Deno ships
+// `navigator.gpu` even on headless CI runners with no physical GPU, where
+// `requestAdapter()` returns null. Guarding on API-presence alone made this test
+// run-and-throw on GitHub Actions; probing the adapter lets it skip cleanly.
+const gpuAvailable = await (async () => {
+  if (typeof navigator === "undefined" || !("gpu" in navigator)) return false;
+  if (Deno.env.get("ANTIGRAVITY_AGENT") === "1") return false;
+  try {
+    return (await navigator.gpu.requestAdapter()) !== null;
+  } catch {
+    return false;
+  }
+})();
 
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
   const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
