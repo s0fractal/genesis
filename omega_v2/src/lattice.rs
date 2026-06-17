@@ -1309,13 +1309,25 @@ mod tests {
     #[test]
     fn test_tick_physics_determinism() {
         // Run two identical lattices independently — results must match bit-for-bit.
-        let mut setups: [(PhaseLattice, Vec<PhaseAgentMinimal>); 2] = {
-            let (l1, a1, _, _) = make_lattice(8);
-            let (l2, a2, _, _) = make_lattice(8);
-            [(l1, a1), (l2, a2)]
+        // Keep the snapshot + delta buffers IN `setups`: each lattice holds raw
+        // pointers into them (tick_snapshot_ptr), so dropping them before
+        // tick_physics is a use-after-free. The earlier bare-`_` discard freed
+        // them at the binding and aborted on glibc ("unaligned tcache chunk") /
+        // under ASAN (heap-use-after-free in tick_physics' copy_nonoverlapping).
+        let mut setups: [(
+            PhaseLattice,
+            Vec<PhaseAgentMinimal>,
+            Vec<PhaseAgentMinimal>,
+            Vec<DeltaItem>,
+        ); 2] = {
+            let (l1, a1, s1, d1) = make_lattice(8);
+            let (l2, a2, s2, d2) = make_lattice(8);
+            [(l1, a1, s1, d1), (l2, a2, s2, d2)]
         };
 
-        for (ref mut lattice, ref mut agents) in &mut setups {
+        for (ref mut lattice, ref mut agents, ref mut _snapshot, ref mut _deltas) in
+            &mut setups
+        {
             lattice.minimal_agents_ptr = agents.as_mut_ptr();
             lattice.signals.active_agent_count = 8;
             for i in 0..8 {
@@ -1326,8 +1338,8 @@ mod tests {
             lattice.tick_physics();
         }
 
-        let (_, ref agents1) = setups[0];
-        let (_, ref agents2) = setups[1];
+        let (_, ref agents1, _, _) = setups[0];
+        let (_, ref agents2, _, _) = setups[1];
         for i in 0..8 {
             assert_eq!(agents1[i].phase, agents2[i].phase, "Phase must be deterministic");
             assert_eq!(agents1[i].energy, agents2[i].energy, "Energy must be deterministic");
