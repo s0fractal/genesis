@@ -1,4 +1,4 @@
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 /// Computes the full 256-bit SHA-256 hash of the input data.
 /// Used for robust off-chain anchors (e.g., Genesis Inscription).

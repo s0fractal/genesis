@@ -50,7 +50,7 @@ export async function measureHardwareEnvironment(
 
   // 4. Upward Q-Power Gradient Search
   while (true) {
-    let currentAgents = (1 << q_sectors) * (1 << q_radial) *
+    const currentAgents = (1 << q_sectors) * (1 << q_radial) *
       (1 << q_harmonics) * tau_depth;
 
     // Priority 1: Expand Sectors to maximum 128 (q=7) as dictated by the 128-Sector sweet spot

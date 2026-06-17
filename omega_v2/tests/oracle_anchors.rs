@@ -3,12 +3,16 @@
 // and frozen here. JS mirror in tests/oracle_identity_test.ts MUST
 // produce identical values.
 
-use omega_v2::oracle_identity::{canonical_oracle_v1, ORACLE_SALT_V1, oracle_matrix};
+use omega_v2::oracle_identity::{canonical_oracle_v1, oracle_matrix, ORACLE_SALT_V1};
 
 fn print_oracle(name: &[u8]) -> u32 {
     let (m, inv) = canonical_oracle_v1(name);
-    eprintln!("oracle {:?}: matrix=0x{:08x} inverse=0x{:08x}",
-        core::str::from_utf8(name).unwrap_or("?"), m, inv);
+    eprintln!(
+        "oracle {:?}: matrix=0x{:08x} inverse=0x{:08x}",
+        core::str::from_utf8(name).unwrap_or("?"),
+        m,
+        inv
+    );
     assert_eq!(m ^ inv, 0xFFFF_FFFF);
     m
 }

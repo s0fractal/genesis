@@ -1,8 +1,8 @@
 //! Bare-metal Spinlock for OMEGA-64 (#![no_std] environments)
 //! Replaces `static mut` to allow safe, lock-protected multi-threading via WebWorkers.
 
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::cell::UnsafeCell;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 /// A simple spinlock for #![no_std] targets.
 pub struct Spinlock<T> {
@@ -25,7 +25,11 @@ impl<T> Spinlock<T> {
     /// Acquires the lock, spinning until it is available.
     #[cfg(target_has_atomic = "8")]
     pub fn lock(&self) -> SpinlockGuard<'_, T> {
-        while self.locked.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        while self
+            .locked
+            .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_err()
+        {
             core::hint::spin_loop();
         }
         SpinlockGuard { lock: self }

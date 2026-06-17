@@ -50,7 +50,11 @@ impl DebateEntry {
 
     pub fn new(oracle: &[u8], proposal_hash: u32, stance: u8, reasoning: &[u8], tick: u32) -> Self {
         let mut name = [0u8; ORACLE_NAME_BYTES];
-        let n = if oracle.len() < ORACLE_NAME_BYTES { oracle.len() } else { ORACLE_NAME_BYTES };
+        let n = if oracle.len() < ORACLE_NAME_BYTES {
+            oracle.len()
+        } else {
+            ORACLE_NAME_BYTES
+        };
         let mut i = 0;
         while i < n {
             name[i] = oracle[i];
@@ -76,10 +80,14 @@ impl DebateEntry {
 
     pub fn matches_oracle(&self, name: &[u8]) -> bool {
         let len = self.oracle_str_len();
-        if name.len() != len { return false; }
+        if name.len() != len {
+            return false;
+        }
         let mut i = 0;
         while i < len {
-            if self.oracle[i] != name[i] { return false; }
+            if self.oracle[i] != name[i] {
+                return false;
+            }
             i += 1;
         }
         true
@@ -188,12 +196,12 @@ mod tests {
         let mut l = DebateLedger::new();
         l.push(DebateEntry::new(b"claude", 100, 1, b"argA", 0));
         l.push(DebateEntry::new(b"claude", 100, 0, b"argB", 1));
-        l.push(DebateEntry::new(b"gpt",    100, 2, b"argC", 2));
+        l.push(DebateEntry::new(b"gpt", 100, 2, b"argC", 2));
         l.push(DebateEntry::new(b"claude", 200, 1, b"argD", 3));
         assert_eq!(l.entries_for(b"claude", 100), 2);
-        assert_eq!(l.entries_for(b"gpt",    100), 1);
+        assert_eq!(l.entries_for(b"gpt", 100), 1);
         assert_eq!(l.entries_for(b"claude", 200), 1);
-        assert_eq!(l.entries_for(b"qwen",   100), 0);
+        assert_eq!(l.entries_for(b"qwen", 100), 0);
     }
 
     #[test]

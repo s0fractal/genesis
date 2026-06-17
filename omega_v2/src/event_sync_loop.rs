@@ -35,12 +35,8 @@
 // — both substrates running this code reach byte-identical
 // convergence.
 
-use crate::forensic_event_sink::{
-    event_hash_set_hash,
-    ForensicEvent,
-    ForensicEventSink,
-};
-use crate::spore_frame::{FRAME_TYPE_EVENT_DELTA_CHUNK, SporeFrame};
+use crate::forensic_event_sink::{event_hash_set_hash, ForensicEvent, ForensicEventSink};
+use crate::spore_frame::{SporeFrame, FRAME_TYPE_EVENT_DELTA_CHUNK};
 
 pub const SYNC_LOOP_SCHEMA: &str = "OMEGA-1430/v1";
 
@@ -121,12 +117,18 @@ impl<const C: usize> EventDeltaAccumulator<C> {
     }
 
     pub fn is_complete(&self) -> bool {
-        if !self.armed || self.corrupted { return false; }
+        if !self.armed || self.corrupted {
+            return false;
+        }
         // Header (seq=0) + records (1..total) all present.
         let need = self.total as usize + 1;
-        if need > C { return false; }
+        if need > C {
+            return false;
+        }
         for i in 0..need {
-            if !self.present[i] { return false; }
+            if !self.present[i] {
+                return false;
+            }
         }
         true
     }
@@ -136,7 +138,9 @@ impl<const C: usize> EventDeltaAccumulator<C> {
     /// whole, `Ignored` for non-applicable frames, `Corruption`
     /// on conflicting-payload-at-same-sequence.
     pub fn ingest_frame(&mut self, f: SporeFrame) -> AccumulateOutcome {
-        if self.corrupted { return AccumulateOutcome::Ignored; }
+        if self.corrupted {
+            return AccumulateOutcome::Ignored;
+        }
         if f.frame_type != FRAME_TYPE_EVENT_DELTA_CHUNK {
             return AccumulateOutcome::Ignored;
         }
@@ -157,7 +161,9 @@ impl<const C: usize> EventDeltaAccumulator<C> {
             }
         }
         let idx = seq as usize;
-        if idx >= C { return AccumulateOutcome::Ignored; }
+        if idx >= C {
+            return AccumulateOutcome::Ignored;
+        }
         if self.present[idx] {
             // Duplicate: must be byte-identical.
             let existing = &self.frames[idx];
@@ -188,7 +194,9 @@ impl<const C: usize> EventDeltaAccumulator<C> {
     /// reconstructed entries' hash set must equal the claimed
     /// envelope_hash. Drift signals tampering.
     pub fn take_delta(&mut self) -> Option<ReassembledDelta<C>> {
-        if !self.is_complete() { return None; }
+        if !self.is_complete() {
+            return None;
+        }
         let total = self.total as usize;
         let header = &self.frames[0];
         let mut entries = [ForensicEvent::empty(); C];
@@ -200,7 +208,9 @@ impl<const C: usize> EventDeltaAccumulator<C> {
             let kind_word = f.payload_b;
             for i in 0..4 {
                 let b = ((kind_word >> (24 - 8 * i)) & 0xFF) as u8;
-                if b == 0 { break; }
+                if b == 0 {
+                    break;
+                }
                 e.kind_bytes[i] = b;
                 e.kind_len += 1;
             }
@@ -221,7 +231,9 @@ impl<const C: usize> EventDeltaAccumulator<C> {
             }
         }
         let recomputed = event_hash_set_hash(&hashes[..total]);
-        if recomputed != self.envelope_hash { return None; }
+        if recomputed != self.envelope_hash {
+            return None;
+        }
 
         let result = ReassembledDelta {
             envelope_hash: self.envelope_hash,
@@ -237,7 +249,11 @@ impl<const C: usize> EventDeltaAccumulator<C> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApplyOutcome {
-    Ok { added: u32, skipped: u32, new_anchor: u32 },
+    Ok {
+        added: u32,
+        skipped: u32,
+        new_anchor: u32,
+    },
     BadSchema,
     Collision,
 }
@@ -259,10 +275,9 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
     for i in 0..delta.entry_count {
         let e = &delta.entries[i];
         for existing in sink.entries() {
-            if existing.event_hash == e.event_hash
-                && existing.kind() != e.kind() {
-                    return ApplyOutcome::Collision;
-                }
+            if existing.event_hash == e.event_hash && existing.kind() != e.kind() {
+                return ApplyOutcome::Collision;
+            }
         }
     }
     // Step 2: count what's new vs idempotent.
@@ -272,7 +287,10 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
         let e = &delta.entries[i];
         let mut found = false;
         for existing in sink.entries() {
-            if existing.event_hash == e.event_hash { found = true; break; }
+            if existing.event_hash == e.event_hash {
+                found = true;
+                break;
+            }
         }
         if found {
             skipped += 1;
@@ -288,9 +306,7 @@ pub fn apply_event_delta<const C: usize, const N: usize>(
     }
 }
 
-
 // SCHEDULER
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct PeerSyncSlot {
@@ -352,7 +368,9 @@ pub fn record_sync_failure(slot: &mut PeerSyncSlot, opts: &SchedulerOpts, now_ms
     let mut backoff: u64 = opts.base_interval_ms as u64;
     for _ in 0..failures {
         backoff = backoff.saturating_mul(opts.backoff_multiplier as u64);
-        if backoff > opts.max_backoff_ms as u64 { backoff = opts.max_backoff_ms as u64; }
+        if backoff > opts.max_backoff_ms as u64 {
+            backoff = opts.max_backoff_ms as u64;
+        }
     }
     slot.next_attempt_ms = now_ms.saturating_add(backoff as u32);
 }
@@ -361,9 +379,7 @@ pub fn is_peer_cold(slot: &PeerSyncSlot, opts: &SchedulerOpts) -> bool {
     slot.consecutive_failures >= opts.failure_giveup_count
 }
 
-
 // HASH-LIST RESPONSE ACCUMULATOR
-
 
 /// Maximum hashes a single response envelope can carry on the
 /// spore. At 4 hashes per frame, this caps the per-response
@@ -422,30 +438,40 @@ impl<const C: usize> HashListAccumulator<C> {
         self.corrupted = false;
     }
 
-    pub fn current_request_id(&self) -> u32 { self.request_id }
+    pub fn current_request_id(&self) -> u32 {
+        self.request_id
+    }
 
     pub fn ingest_frame(&mut self, f: crate::spore_frame::SporeFrame) -> HashAccOutcome {
         use crate::spore_frame::FRAME_TYPE_EVENT_HASH_RESPONSE;
-        if self.corrupted { return HashAccOutcome::Ignored; }
+        if self.corrupted {
+            return HashAccOutcome::Ignored;
+        }
         if f.frame_type != FRAME_TYPE_EVENT_HASH_RESPONSE {
             return HashAccOutcome::Ignored;
         }
         let seq = ((f._reserved >> 24) & 0xFF) as u8;
         let total = ((f._reserved >> 16) & 0xFF) as u8;
-        if seq == 0 || seq > total { return HashAccOutcome::Ignored; }
+        if seq == 0 || seq > total {
+            return HashAccOutcome::Ignored;
+        }
         if !self.armed {
             self.request_id = f.tick;
             self.total = total;
             self.armed = true;
         } else {
-            if f.tick != self.request_id { return HashAccOutcome::Ignored; }
+            if f.tick != self.request_id {
+                return HashAccOutcome::Ignored;
+            }
             if total != self.total {
                 self.corrupted = true;
                 return HashAccOutcome::Corruption;
             }
         }
         let idx = (seq - 1) as usize;
-        if idx >= C { return HashAccOutcome::Ignored; }
+        if idx >= C {
+            return HashAccOutcome::Ignored;
+        }
         if self.present[idx] {
             let existing = &self.chunks[idx];
             if existing.proposal_or_target != f.proposal_or_target
@@ -469,17 +495,25 @@ impl<const C: usize> HashListAccumulator<C> {
     }
 
     pub fn is_complete(&self) -> bool {
-        if !self.armed || self.corrupted { return false; }
+        if !self.armed || self.corrupted {
+            return false;
+        }
         let need = self.total as usize;
-        if need == 0 || need > C { return false; }
+        if need == 0 || need > C {
+            return false;
+        }
         for i in 0..need {
-            if !self.present[i] { return false; }
+            if !self.present[i] {
+                return false;
+            }
         }
         true
     }
 
     pub fn take(&mut self) -> Option<ReassembledHashList> {
-        if !self.is_complete() { return None; }
+        if !self.is_complete() {
+            return None;
+        }
         let mut hashes = [0u32; MAX_RESPONSE_HASHES];
         let mut count = 0usize;
         for i in 0..(self.total as usize) {
@@ -523,7 +557,9 @@ pub fn compute_missing_indices(
     let mut count = 0usize;
     'outer: for (i, e) in local_entries.iter().enumerate() {
         for &h in peer_hashes {
-            if h == e.event_hash { continue 'outer; }
+            if h == e.event_hash {
+                continue 'outer;
+            }
         }
         if count < out_indices.len() {
             out_indices[count] = i;
@@ -566,7 +602,11 @@ mod tests {
 
     #[test]
     fn accumulator_handles_out_of_order() {
-        let entries = [mk_event(0x10, b"a"), mk_event(0x20, b"a"), mk_event(0x30, b"a")];
+        let entries = [
+            mk_event(0x10, b"a"),
+            mk_event(0x20, b"a"),
+            mk_event(0x30, b"a"),
+        ];
         let mut frames = [SporeFrame::empty(); 8];
         build_delta_chunk_frames(&entries, 0x42, 0, 0, 0, &mut frames);
 
@@ -637,7 +677,9 @@ mod tests {
         build_delta_chunk_frames(&entries, 0x42, 0, 100, 0, &mut frames);
 
         let mut acc: EventDeltaAccumulator<4> = EventDeltaAccumulator::new();
-        for f in &frames[..3] { let _ = acc.ingest_frame(*f); }
+        for f in &frames[..3] {
+            let _ = acc.ingest_frame(*f);
+        }
         let delta = acc.take_delta().expect("delta");
         let outcome = apply_event_delta(&mut sink, &delta, 200);
         match outcome {
@@ -662,7 +704,9 @@ mod tests {
         build_delta_chunk_frames(&entries, 0x42, 0, 100, 0, &mut frames);
 
         let mut acc: EventDeltaAccumulator<2> = EventDeltaAccumulator::new();
-        for f in &frames[..2] { let _ = acc.ingest_frame(*f); }
+        for f in &frames[..2] {
+            let _ = acc.ingest_frame(*f);
+        }
         let delta = acc.take_delta().expect("delta");
         let outcome = apply_event_delta(&mut sink, &delta, 200);
         assert_eq!(outcome, ApplyOutcome::Collision);
@@ -680,7 +724,9 @@ mod tests {
         build_delta_chunk_frames(&entries, 0x42, 0, 100, 0, &mut frames);
 
         let mut acc: EventDeltaAccumulator<2> = EventDeltaAccumulator::new();
-        for f in &frames[..2] { let _ = acc.ingest_frame(*f); }
+        for f in &frames[..2] {
+            let _ = acc.ingest_frame(*f);
+        }
         let delta = acc.take_delta().expect("delta");
         let outcome = apply_event_delta(&mut sink, &delta, 200);
         match outcome {
@@ -707,7 +753,9 @@ mod tests {
         let mut frames = [SporeFrame::empty(); 4];
         build_delta_chunk_frames(&to_a, 0x42, 0, 100, 0, &mut frames);
         let mut acc_a: EventDeltaAccumulator<4> = EventDeltaAccumulator::new();
-        for f in &frames[..2] { let _ = acc_a.ingest_frame(*f); }
+        for f in &frames[..2] {
+            let _ = acc_a.ingest_frame(*f);
+        }
         let delta_a = acc_a.take_delta().unwrap();
         let _ = apply_event_delta(&mut a, &delta_a, 100);
 
@@ -717,7 +765,9 @@ mod tests {
         let mut frames = [SporeFrame::empty(); 4];
         build_delta_chunk_frames(&to_b, 0x42, 0, 100, 0, &mut frames);
         let mut acc_b: EventDeltaAccumulator<4> = EventDeltaAccumulator::new();
-        for f in &frames[..2] { let _ = acc_b.ingest_frame(*f); }
+        for f in &frames[..2] {
+            let _ = acc_b.ingest_frame(*f);
+        }
         let delta_b = acc_b.take_delta().unwrap();
         let _ = apply_event_delta(&mut b, &delta_b, 100);
 
@@ -779,7 +829,10 @@ mod tests {
 
     #[test]
     fn scheduler_cold_after_threshold() {
-        let opts = SchedulerOpts { failure_giveup_count: 3, ..SchedulerOpts::defaults() };
+        let opts = SchedulerOpts {
+            failure_giveup_count: 3,
+            ..SchedulerOpts::defaults()
+        };
         let mut s = PeerSyncSlot::new(0xAA);
         for i in 0..3 {
             record_sync_failure(&mut s, &opts, i * 100);
@@ -797,7 +850,11 @@ mod tests {
     use crate::spore_frame::SporeFrame as SF;
 
     fn build_response_chunk(
-        request_id: u32, seq: u8, total: u8, valid: u8, hashes: &[u32; 4],
+        request_id: u32,
+        seq: u8,
+        total: u8,
+        valid: u8,
+        hashes: &[u32; 4],
     ) -> SF {
         SF::event_hash_response(request_id, seq, total, valid, hashes)
     }

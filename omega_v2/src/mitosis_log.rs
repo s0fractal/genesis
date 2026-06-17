@@ -45,12 +45,20 @@ impl MitosisReceipt {
     pub const fn empty() -> Self {
         Self {
             parent: PhaseAgentMinimal {
-                phase: 0, energy: 0, base_freq: 0, state_flags: 0,
-                genome: 0, memory: [0; 3],
+                phase: 0,
+                energy: 0,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0; 3],
             },
             child: PhaseAgentMinimal {
-                phase: 0, energy: 0, base_freq: 0, state_flags: 0,
-                genome: 0, memory: [0; 3],
+                phase: 0,
+                energy: 0,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0; 3],
             },
             attractors: AttractorArray::new(),
             q_phase: 0,
@@ -120,7 +128,8 @@ impl MitosisLog {
             return None;
         }
         // head points to NEXT slot; the most recent entry is at head-1.
-        let slot = ((self.head as i64 - lookback as i64).rem_euclid(MITOSIS_LOG_CAPACITY as i64)) as usize;
+        let slot =
+            ((self.head as i64 - lookback as i64).rem_euclid(MITOSIS_LOG_CAPACITY as i64)) as usize;
         Some(self.entries[slot])
     }
 }

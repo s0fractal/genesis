@@ -157,12 +157,7 @@ impl SporeFrame {
 
     /// Build a WARRANT_VOTE frame. The kernel-side handler will route this
     /// to `warrant_issuance::vote(proposal_hash, oracle_bit, aye)`.
-    pub fn warrant_vote(
-        proposal_hash: u32,
-        oracle_bit: u8,
-        aye: bool,
-        tick: u32,
-    ) -> Self {
+    pub fn warrant_vote(proposal_hash: u32, oracle_bit: u8, aye: bool, tick: u32) -> Self {
         let mut f = Self::empty();
         f.frame_type = FRAME_TYPE_WARRANT_VOTE;
         f.oracle_bit = oracle_bit;
@@ -266,15 +261,22 @@ impl SporeFrame {
         diff_q16: u32,
         window_end_ms_low32: u32,
     ) -> Self {
-        let r16 = if replayed_q16 > 0xFFFF { 0xFFFFu32 } else { replayed_q16 };
-        let d16 = if diff_q16 > 0xFFFF { 0xFFFFu32 } else { diff_q16 };
+        let r16 = if replayed_q16 > 0xFFFF {
+            0xFFFFu32
+        } else {
+            replayed_q16
+        };
+        let d16 = if diff_q16 > 0xFFFF {
+            0xFFFFu32
+        } else {
+            diff_q16
+        };
         let mut f = Self::empty();
         f.frame_type = FRAME_TYPE_QUORUM_VERDICT;
         f.proposal_or_target = quorum_digest;
         f.payload_a = source_relay_id;
-        f.payload_b = (verdict_code as u32)
-            | ((relay_count as u32) << 8)
-            | ((overlap_pct as u32) << 16);
+        f.payload_b =
+            (verdict_code as u32) | ((relay_count as u32) << 8) | ((overlap_pct as u32) << 16);
         f.payload_c = (r16 << 16) | (d16 & 0xFFFF);
         f.tick = window_end_ms_low32;
         f.crc32 = f.compute_crc();
@@ -371,10 +373,7 @@ impl SporeFrame {
     /// initiator picks (typically a tick or counter); the peer
     /// echoes it back in the response so concurrent requests
     /// don't collide.
-    pub fn event_hash_request(
-        sender_relay_id: u32,
-        request_id: u32,
-    ) -> Self {
+    pub fn event_hash_request(sender_relay_id: u32, request_id: u32) -> Self {
         let mut f = Self::empty();
         f.frame_type = FRAME_TYPE_EVENT_HASH_REQUEST;
         f.proposal_or_target = sender_relay_id;
@@ -398,8 +397,7 @@ impl SporeFrame {
         f.payload_b = hashes[2];
         f.payload_c = hashes[3];
         f.tick = request_id;
-        f._reserved =
-            ((seq as u32) << 24) | ((total as u32) << 16) | ((valid as u32) << 8);
+        f._reserved = ((seq as u32) << 24) | ((total as u32) << 16) | ((valid as u32) << 8);
         f.crc32 = f.compute_crc();
         f
     }
@@ -422,12 +420,7 @@ impl SporeFrame {
     }
 
     /// Build a LORA_LONG_RANGE frame.
-    pub fn lora_long_range(
-        sender_id: u32,
-        target_id: u32,
-        payload_hash: u32,
-        tick: u32,
-    ) -> Self {
+    pub fn lora_long_range(sender_id: u32, target_id: u32, payload_hash: u32, tick: u32) -> Self {
         let mut f = Self::empty();
         f.frame_type = FRAME_TYPE_LORA_LONG_RANGE;
         f.proposal_or_target = target_id;
@@ -556,16 +549,14 @@ mod tests {
     /// event_delta_chunk header frame round-trips.
     #[test]
     fn event_delta_chunk_header_round_trips() {
-        let f = SporeFrame::event_delta_chunk_header(
-            0x42, 0xDEAD_BEEF, 0xAAAA_BBBB, 99, 7, 5,
-        );
+        let f = SporeFrame::event_delta_chunk_header(0x42, 0xDEAD_BEEF, 0xAAAA_BBBB, 99, 7, 5);
         let bytes = f.as_bytes();
         let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
         assert_eq!(parsed.frame_type, FRAME_TYPE_EVENT_DELTA_CHUNK);
         assert_eq!(parsed.oracle_bit, 0x42);
         assert_eq!(parsed.proposal_or_target, 0xDEAD_BEEF);
         assert_eq!(parsed.tick, 0xDEAD_BEEF); // envelope_hash
-        // sequence = 0, total = 5 in reserved.
+                                              // sequence = 0, total = 5 in reserved.
         assert_eq!(parsed._reserved & 0xFFFF, 5);
         assert_eq!((parsed._reserved >> 16) & 0xFFFF, 0);
     }
@@ -574,7 +565,13 @@ mod tests {
     #[test]
     fn event_delta_chunk_record_round_trips() {
         let f = SporeFrame::event_delta_chunk_record(
-            0x42, 0xDEAD_BEEF, 0x10, SporeFrame::pack_kind_tag(b"alrm"), 0xCAFE, 1, 3,
+            0x42,
+            0xDEAD_BEEF,
+            0x10,
+            SporeFrame::pack_kind_tag(b"alrm"),
+            0xCAFE,
+            1,
+            3,
         );
         let bytes = f.as_bytes();
         let parsed = SporeFrame::from_bytes(&bytes).expect("valid");
@@ -613,7 +610,7 @@ mod tests {
         assert_eq!(parsed.tick, 99);
         assert_eq!((parsed._reserved >> 24) & 0xFF, 2); // seq
         assert_eq!((parsed._reserved >> 16) & 0xFF, 5); // total
-        assert_eq!((parsed._reserved >> 8) & 0xFF, 4);  // valid
+        assert_eq!((parsed._reserved >> 8) & 0xFF, 4); // valid
     }
 
     /// HASH_RESPONSE handles partial chunks (valid < 4).
@@ -742,7 +739,7 @@ mod tests {
         assert_eq!(bytes[1], 0x46);
         assert_eq!(bytes[2], 1); // FRAME_TYPE_WARRANT_VOTE
         assert_eq!(bytes[3], 0); // claude
-        // Anchor on the CRC.
+                                 // Anchor on the CRC.
         eprintln!("rust crc = 0x{:08x}", f.crc32);
         assert_eq!(f.crc32, 0xdf38_2f50);
     }

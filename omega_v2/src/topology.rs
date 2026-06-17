@@ -17,8 +17,14 @@ pub struct OntologicalIntent {
 impl OntologicalIntent {
     pub fn empty() -> Self {
         Self {
-            focus_x: 0, focus_y: 0, mass: 0, radius: 0,
-            semantic_genome: 0, op_mode: 0, _pad1: 0, _pad2: 0
+            focus_x: 0,
+            focus_y: 0,
+            mass: 0,
+            radius: 0,
+            semantic_genome: 0,
+            op_mode: 0,
+            _pad1: 0,
+            _pad2: 0,
         }
     }
 }
@@ -55,8 +61,14 @@ impl PhaseTopology {
     /// CRIT-6 FIX: q_phase must be in [2, 7] for the 128-element SINE_LUT.
     /// q_sectors/q_radial must be < usize::BITS to prevent shift overflow.
     pub fn new(q_phase: u32, q_sectors: u32, q_radial: u32, q_math: u32) -> Self {
-        assert!((2..=7).contains(&q_phase), "q_phase must be in [2, 7] for 128-element LUT");
-        assert!(q_sectors < 32 && q_radial < 32, "q_sectors/q_radial must be < 32");
+        assert!(
+            (2..=7).contains(&q_phase),
+            "q_phase must be in [2, 7] for 128-element LUT"
+        );
+        assert!(
+            q_sectors < 32 && q_radial < 32,
+            "q_sectors/q_radial must be < 32"
+        );
         Self {
             q_phase,
             q_sectors,
@@ -71,7 +83,9 @@ impl PhaseTopology {
 
     /// Returns half the phase range (π offset for child mitosis).
     #[inline(always)]
-    pub fn half_phase(&self) -> u32 { 1u32 << self.q_phase.saturating_sub(1) }
+    pub fn half_phase(&self) -> u32 {
+        1u32 << self.q_phase.saturating_sub(1)
+    }
 
     /// Evaluates the total geometrical boundaries of a world based entirely on shifts.
     #[inline(always)]
@@ -136,7 +150,10 @@ impl PhaseTopology {
     /// With MAX_ATP=4096: threshold = 32.
     #[inline(always)]
     pub fn delta_energy_threshold(&self) -> u32 {
-        core::cmp::max(1, crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR)
+        core::cmp::max(
+            1,
+            crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR,
+        )
     }
 }
 
@@ -148,22 +165,38 @@ mod tests {
     fn test_delta_phase_threshold_adaptive() {
         // q_phase=2 (mask=3): threshold = max(1, 3/8) = 1
         let t2 = PhaseTopology::new(2, 2, 2, 20);
-        assert_eq!(t2.delta_phase_threshold(), 1, "Low q_phase should have minimum threshold");
+        assert_eq!(
+            t2.delta_phase_threshold(),
+            1,
+            "Low q_phase should have minimum threshold"
+        );
 
         // q_phase=5 (mask=31): threshold = max(1, 31/8) = 3
         let t5 = PhaseTopology::new(5, 5, 5, 20);
-        assert_eq!(t5.delta_phase_threshold(), 3, "q_phase=5 threshold should be 3");
+        assert_eq!(
+            t5.delta_phase_threshold(),
+            3,
+            "q_phase=5 threshold should be 3"
+        );
 
         // q_phase=7 (mask=127): threshold = max(1, 127/8) = 15
         let t7 = PhaseTopology::new(7, 7, 7, 20);
-        assert_eq!(t7.delta_phase_threshold(), 15, "q_phase=7 threshold should be 15");
+        assert_eq!(
+            t7.delta_phase_threshold(),
+            15,
+            "q_phase=7 threshold should be 15"
+        );
     }
 
     #[test]
     fn test_delta_energy_threshold_constant() {
         let t = PhaseTopology::new(7, 7, 7, 20);
         // MAX_ATP=4096, DIVISOR=128 -> 4096/128 = 32
-        assert_eq!(t.delta_energy_threshold(), 32, "Energy threshold should be MAX_ATP/DIVISOR");
+        assert_eq!(
+            t.delta_energy_threshold(),
+            32,
+            "Energy threshold should be MAX_ATP/DIVISOR"
+        );
     }
 
     #[test]

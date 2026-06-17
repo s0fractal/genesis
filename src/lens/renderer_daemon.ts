@@ -188,8 +188,8 @@ export class RendererDaemon {
         const rng = createSeededRng(this.daemonTickCounter + activeCount);
         if (activeCount < 100000) {
           this.daemonState = "INTERVENING (GENESIS)";
-          const gx = rng.nextRange(window.innerWidth);
-          const gy = rng.nextRange(window.innerHeight);
+          const gx = rng.nextRange(globalThis.innerWidth);
+          const gy = rng.nextRange(globalThis.innerHeight);
           let hash = 5381;
           const word = "AUTOPOIESIS";
           for (let i = 0; i < word.length; i++) {
@@ -199,8 +199,8 @@ export class RendererDaemon {
           this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_FRAMES;
         } else if (activeCount > 900000) {
           this.daemonState = "INTERVENING (CULLING)";
-          const gx = rng.nextRange(window.innerWidth);
-          const gy = rng.nextRange(window.innerHeight);
+          const gx = rng.nextRange(globalThis.innerWidth);
+          const gy = rng.nextRange(globalThis.innerHeight);
           const packedMass = (3 << 24) | (0 << 16) | 2000;
           setIntent(1, gx, gy, packedMass, 300, 0, 0);
           this.daemonIntentDeadline = now + this.DAEMON_INTENT_DURATION_FRAMES;

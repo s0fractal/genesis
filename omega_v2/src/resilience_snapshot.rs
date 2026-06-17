@@ -127,15 +127,19 @@ impl ResilienceSnapshot {
             magic: u16::from_be_bytes([buf[0], buf[1]]),
             version: buf[2],
             _reserved: buf[3],
-            total_intents:        u32::from_be_bytes([buf[4],  buf[5],  buf[6],  buf[7]]),
-            single_witness:       u32::from_be_bytes([buf[8],  buf[9],  buf[10], buf[11]]),
-            double_witness:       u32::from_be_bytes([buf[12], buf[13], buf[14], buf[15]]),
-            triple_plus:          u32::from_be_bytes([buf[16], buf[17], buf[18], buf[19]]),
-            redundancy_rate_q16:  u32::from_be_bytes([buf[20], buf[21], buf[22], buf[23]]),
+            total_intents: u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]),
+            single_witness: u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]),
+            double_witness: u32::from_be_bytes([buf[12], buf[13], buf[14], buf[15]]),
+            triple_plus: u32::from_be_bytes([buf[16], buf[17], buf[18], buf[19]]),
+            redundancy_rate_q16: u32::from_be_bytes([buf[20], buf[21], buf[22], buf[23]]),
             proven_carrier_count: u32::from_be_bytes([buf[24], buf[25], buf[26], buf[27]]),
-            crc32:                u32::from_be_bytes([buf[28], buf[29], buf[30], buf[31]]),
+            crc32: u32::from_be_bytes([buf[28], buf[29], buf[30], buf[31]]),
         };
-        if s.is_valid() { Some(s) } else { None }
+        if s.is_valid() {
+            Some(s)
+        } else {
+            None
+        }
     }
 }
 

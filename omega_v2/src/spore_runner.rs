@@ -33,19 +33,15 @@
 // converge against each other in-process — the test for end-to-end
 // substrate-only convergence over a real byte stream.
 
-use crate::event_broadcast::{
-    build_hash_list_frame, build_delta_chunk_frames,
-};
+use crate::event_broadcast::{build_delta_chunk_frames, build_hash_list_frame};
 use crate::event_sync_loop::{
-    apply_event_delta, AccumulateOutcome, ApplyOutcome,
-    EventDeltaAccumulator, HashAccOutcome, HashListAccumulator,
-    ReassembledHashList,
+    apply_event_delta, AccumulateOutcome, ApplyOutcome, EventDeltaAccumulator, HashAccOutcome,
+    HashListAccumulator, ReassembledHashList,
 };
 use crate::forensic_event_sink::{ForensicEvent, ForensicEventSink};
 use crate::spore_frame::{
-    SporeFrame, FRAME_TYPE_EVENT_DELTA_CHUNK,
-    FRAME_TYPE_EVENT_HASH_LIST, FRAME_TYPE_EVENT_HASH_REQUEST,
-    FRAME_TYPE_EVENT_HASH_RESPONSE, SPORE_FRAME_BYTES,
+    SporeFrame, FRAME_TYPE_EVENT_DELTA_CHUNK, FRAME_TYPE_EVENT_HASH_LIST,
+    FRAME_TYPE_EVENT_HASH_REQUEST, FRAME_TYPE_EVENT_HASH_RESPONSE, SPORE_FRAME_BYTES,
 };
 
 pub const RUNNER_SCHEMA: &str = "OMEGA-1450/v1";
@@ -135,17 +131,25 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
     }
 
     /// Number of events the local sink currently holds.
-    pub fn sink_len(&self) -> usize { self.sink.len() }
+    pub fn sink_len(&self) -> usize {
+        self.sink.len()
+    }
 
     /// Cross-substrate-stable anchor over the current sink.
-    pub fn anchor(&self) -> u32 { self.sink.event_chain_anchor() }
+    pub fn anchor(&self) -> u32 {
+        self.sink.event_chain_anchor()
+    }
 
     fn drain_rx<D: WireDriver>(&mut self, driver: &mut D, now_ms: u32) {
         loop {
             let space = self.rx_staging.len() - self.rx_staging_len;
-            if space == 0 { break; }
+            if space == 0 {
+                break;
+            }
             let read = driver.read(&mut self.rx_staging[self.rx_staging_len..]);
-            if read == 0 { break; }
+            if read == 0 {
+                break;
+            }
             self.rx_staging_len += read;
             self.process_staged(now_ms);
         }
@@ -229,12 +233,10 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
                     if let Some(delta) = self.accumulator.take_delta() {
                         match apply_event_delta(&mut self.sink, &delta, now_ms) {
                             ApplyOutcome::Ok { added, .. } => {
-                                self.frames_applied =
-                                    self.frames_applied.wrapping_add(added);
+                                self.frames_applied = self.frames_applied.wrapping_add(added);
                             }
                             ApplyOutcome::Collision => {
-                                self.apply_collisions =
-                                    self.apply_collisions.wrapping_add(1);
+                                self.apply_collisions = self.apply_collisions.wrapping_add(1);
                             }
                             ApplyOutcome::BadSchema => {}
                         }
@@ -258,11 +260,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
     /// Ship a single HASH_REQUEST frame. Receiver echoes
     /// `request_id` in its HASH_RESPONSE so concurrent requests don't
     /// mix.
-    pub fn ship_hash_request<D: WireDriver>(
-        &self,
-        driver: &mut D,
-        request_id: u32,
-    ) -> bool {
+    pub fn ship_hash_request<D: WireDriver>(&self, driver: &mut D, request_id: u32) -> bool {
         let f = SporeFrame::event_hash_request(self.self_relay_id, request_id);
         let bytes = f.as_bytes();
         driver.write(&bytes) == bytes.len()
@@ -270,11 +268,7 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
 
     /// Ship our full hash list as chunked HASH_RESPONSE
     /// frames. `request_id` should echo the originating REQUEST.
-    pub fn ship_hash_list<D: WireDriver>(
-        &self,
-        driver: &mut D,
-        request_id: u32,
-    ) -> bool {
+    pub fn ship_hash_list<D: WireDriver>(&self, driver: &mut D, request_id: u32) -> bool {
         let n = self.sink.len();
         // Sort the hashes ascending into a scratch buffer.
         let mut hashes = [0u32; 64];
@@ -291,7 +285,9 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
         }
         // Compute number of 4-hash chunks (at least 1, even when empty).
         let total = if take == 0 { 1 } else { take.div_ceil(4) };
-        if total > 0xFF { return false; }
+        if total > 0xFF {
+            return false;
+        }
 
         let mut buf = [0u8; 64 * SPORE_FRAME_BYTES];
         let mut offset = 0usize;
@@ -299,7 +295,9 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
             let start = chunk * 4;
             let valid = if take > start {
                 core::cmp::min(4, take - start)
-            } else { 0 };
+            } else {
+                0
+            };
             let mut slot = [0u32; 4];
             for k in 0..valid {
                 slot[k] = hashes[start + k];
@@ -321,11 +319,10 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
 
     /// If a peer's HASH_REQUEST is pending, respond with
     /// our full hash list. Returns true if a response was sent.
-    pub fn maybe_answer_pending_request<D: WireDriver>(
-        &mut self,
-        driver: &mut D,
-    ) -> bool {
-        if self.pending_hash_request_id == 0 { return false; }
+    pub fn maybe_answer_pending_request<D: WireDriver>(&mut self, driver: &mut D) -> bool {
+        if self.pending_hash_request_id == 0 {
+            return false;
+        }
         let id = self.pending_hash_request_id;
         let ok = self.ship_hash_list(driver, id);
         if ok {
@@ -363,7 +360,9 @@ impl<const N: usize, const C: usize> SporeRunner<N, C> {
             0,
             &mut frames,
         );
-        if n == usize::MAX { return false; }
+        if n == usize::MAX {
+            return false;
+        }
         let mut buf = [0u8; 16 * SPORE_FRAME_BYTES];
         for (i, f) in frames[..n].iter().enumerate() {
             let off = i * SPORE_FRAME_BYTES;
@@ -392,14 +391,21 @@ impl Default for LoopbackDriver {
 
 impl LoopbackDriver {
     pub const fn new() -> Self {
-        Self { rx_buf: [0u8; 256], rx_len: 0 }
+        Self {
+            rx_buf: [0u8; 256],
+            rx_len: 0,
+        }
     }
 
     /// Push bytes into this driver's RX buffer (called by the linked
     /// peer's TX path). Returns bytes accepted; drops on overflow.
     pub fn deliver(&mut self, bytes: &[u8]) -> usize {
         let space = self.rx_buf.len() - self.rx_len;
-        let n = if bytes.len() < space { bytes.len() } else { space };
+        let n = if bytes.len() < space {
+            bytes.len()
+        } else {
+            space
+        };
         self.rx_buf[self.rx_len..self.rx_len + n].copy_from_slice(&bytes[..n]);
         self.rx_len += n;
         n
@@ -408,7 +414,11 @@ impl LoopbackDriver {
 
 impl WireDriver for LoopbackDriver {
     fn read(&mut self, buf: &mut [u8]) -> usize {
-        let n = if buf.len() < self.rx_len { buf.len() } else { self.rx_len };
+        let n = if buf.len() < self.rx_len {
+            buf.len()
+        } else {
+            self.rx_len
+        };
         buf[..n].copy_from_slice(&self.rx_buf[..n]);
         // Slide.
         for i in 0..(self.rx_len - n) {
@@ -441,7 +451,11 @@ mod tests {
 
     impl PairedDriver {
         const fn new() -> Self {
-            Self { local: LoopbackDriver::new(), tx_log: [0u8; 512], tx_len: 0 }
+            Self {
+                local: LoopbackDriver::new(),
+                tx_log: [0u8; 512],
+                tx_len: 0,
+            }
         }
         fn deliver_to_peer(&mut self, peer: &mut PairedDriver) {
             peer.local.deliver(&self.tx_log[..self.tx_len]);
@@ -450,7 +464,9 @@ mod tests {
     }
 
     impl WireDriver for PairedDriver {
-        fn read(&mut self, buf: &mut [u8]) -> usize { self.local.read(buf) }
+        fn read(&mut self, buf: &mut [u8]) -> usize {
+            self.local.read(buf)
+        }
         fn write(&mut self, buf: &[u8]) -> usize {
             let space = self.tx_log.len() - self.tx_len;
             let n = if buf.len() < space { buf.len() } else { space };
@@ -488,10 +504,7 @@ mod tests {
         let mut runner: SporeRunner<8, 4> = SporeRunner::new(0xCC01, 100);
         let mut driver = PairedDriver::new();
 
-        let entries = [
-            mk_event(0x10, b"alrm"),
-            mk_event(0x20, b"alrm"),
-        ];
+        let entries = [mk_event(0x10, b"alrm"), mk_event(0x20, b"alrm")];
         let mut frames = [SporeFrame::empty(); 4];
         let n = build_delta_chunk_frames(&entries, 0x42, 0, 100, 0, &mut frames);
         let mut wire = [0u8; 4 * SPORE_FRAME_BYTES];
@@ -606,13 +619,12 @@ mod tests {
         assert_eq!(&peer.hashes[..3], &[0x10, 0x30, 0x40]);
 
         // 3. A computes which of its entries B is missing: 0x20 only.
-        let local_entries: [ForensicEvent; 2] = [
-            mk_event(0x10, b"alrm"),
-            mk_event(0x20, b"alrm"),
-        ];
+        let local_entries: [ForensicEvent; 2] = [mk_event(0x10, b"alrm"), mk_event(0x20, b"alrm")];
         let mut missing_indices = [0usize; 4];
         let n = crate::event_sync_loop::compute_missing_indices(
-            &local_entries, &peer.hashes[..peer.hash_count], &mut missing_indices,
+            &local_entries,
+            &peer.hashes[..peer.hash_count],
+            &mut missing_indices,
         );
         assert_eq!(n, 1);
         let to_ship = [local_entries[missing_indices[0]]];

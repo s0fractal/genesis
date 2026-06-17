@@ -10,11 +10,11 @@
 use crate::agent::PhaseAgentMinimal;
 
 // --- Message Type Constants ---
-pub const PHI_MSG_HEARTBEAT: u8 = 0;   // Golden Trace + absolute_tick
-pub const PHI_MSG_COMPOST: u8 = 1;     // Агент помер → його genome йде в compost
-pub const PHI_MSG_INTENT: u8 = 2;      // Інтент як φ (не координати)
-pub const PHI_MSG_DELTA: u8 = 3;       // Delta snapshot broadcast
-pub const PHI_MSG_GOVERNANCE: u8 = 4;  // Повідомлення Сенату (verdict)
+pub const PHI_MSG_HEARTBEAT: u8 = 0; // Golden Trace + absolute_tick
+pub const PHI_MSG_COMPOST: u8 = 1; // Агент помер → його genome йде в compost
+pub const PHI_MSG_INTENT: u8 = 2; // Інтент як φ (не координати)
+pub const PHI_MSG_DELTA: u8 = 3; // Delta snapshot broadcast
+pub const PHI_MSG_GOVERNANCE: u8 = 4; // Повідомлення Сенату (verdict)
 
 /// Уніфіковане φ-повідомлення.
 /// 16 байтів — ідеально для zero-copy у SharedArrayBuffer.
@@ -88,7 +88,9 @@ impl PhiMessage {
 
     /// Декодує heartbeat payload → (trace, tick)
     pub fn decode_heartbeat(&self) -> Option<(u32, u32)> {
-        if self.msg_type != PHI_MSG_HEARTBEAT { return None; }
+        if self.msg_type != PHI_MSG_HEARTBEAT {
+            return None;
+        }
         let trace = self.payload as u32;
         let tick = (self.payload >> 32) as u32;
         Some((trace, tick))
@@ -97,7 +99,9 @@ impl PhiMessage {
     /// Декодує compost payload → (genome, agent_id).
     /// Payload layout: (agent_id << 32) | genome
     pub fn decode_compost(&self) -> Option<(u32, u64)> {
-        if self.msg_type != PHI_MSG_COMPOST { return None; }
+        if self.msg_type != PHI_MSG_COMPOST {
+            return None;
+        }
         let genome = self.payload as u32;
         let agent_id = self.payload >> 32;
         Some((genome, agent_id))
@@ -105,14 +109,18 @@ impl PhiMessage {
 
     /// Декодує intent payload → (intent_phase, intent_energy, intent_id)
     pub fn decode_intent(&self) -> Option<(u32, u32, u32)> {
-        if self.msg_type != PHI_MSG_INTENT { return None; }
+        if self.msg_type != PHI_MSG_INTENT {
+            return None;
+        }
         let intent_id = (self.payload >> 32) as u32;
         Some((self.phi, self.energy, intent_id))
     }
 
     /// Декодує delta payload → (delta_count, tick)
     pub fn decode_delta(&self) -> Option<(u32, u32)> {
-        if self.msg_type != PHI_MSG_DELTA { return None; }
+        if self.msg_type != PHI_MSG_DELTA {
+            return None;
+        }
         let count = self.payload as u32;
         let tick = (self.payload >> 32) as u32;
         Some((count, tick))
@@ -120,7 +128,9 @@ impl PhiMessage {
 
     /// Декодує governance payload → (anchor, verdict)
     pub fn decode_governance(&self) -> Option<(u32, u32)> {
-        if self.msg_type != PHI_MSG_GOVERNANCE { return None; }
+        if self.msg_type != PHI_MSG_GOVERNANCE {
+            return None;
+        }
         let anchor = self.payload as u32;
         let verdict = (self.payload >> 32) as u32;
         Some((anchor, verdict))
@@ -207,8 +217,11 @@ impl PhiMessageBuffer {
     /// Peek на N-не повідомлення з хвоста (для sampling).
     pub fn peek_nth(&self, n: usize) -> Option<PhiMessage> {
         let available = self.len() as usize;
-        if n >= available { return None; }
-        let idx = ((self.write_head.wrapping_sub(1).wrapping_sub(n as u32)) as usize) % PHI_BUFFER_SIZE;
+        if n >= available {
+            return None;
+        }
+        let idx =
+            ((self.write_head.wrapping_sub(1).wrapping_sub(n as u32)) as usize) % PHI_BUFFER_SIZE;
         Some(self.messages[idx])
     }
 

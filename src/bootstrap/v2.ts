@@ -88,7 +88,7 @@ export async function bootstrapV2() {
 
   const canvas = configureCanvas();
   let device: GPUDevice | null = null;
-  let format: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
+  const format: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
 
   try {
     if (!navigator.gpu) throw new Error("WebGPU API missing");
@@ -745,8 +745,8 @@ ${debateMd || "(no recorded arguments)"}
                   rng ^= (rng << 17) >>> 0;
                   return rng >>> 0;
                 };
-                const gx = xorshift64() % window.innerWidth;
-                const gy = xorshift64() % window.innerHeight;
+                const gx = xorshift64() % globalThis.innerWidth;
+                const gy = xorshift64() % globalThis.innerHeight;
 
                 setIntent(2, gx, gy, 0, 500, hash >>> 0, 1);
                 setTimeout(() => {

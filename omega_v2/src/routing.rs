@@ -25,7 +25,10 @@ pub struct PhaseAddress {
 impl PhaseAddress {
     /// Build from raw u32 and ortho_deviation.
     pub const fn from_raw(raw: u32, ortho_deviation: u8) -> Self {
-        Self { raw, ortho_deviation }
+        Self {
+            raw,
+            ortho_deviation,
+        }
     }
 
     /// Derive address from an agent.
@@ -99,7 +102,12 @@ impl PhaseAddress {
     /// 3D Toroidal hyperbolic distance treating time (tau/Bitcoin Block Height) as the radial z-axis.
     /// In a Poincaré disk model, radial distance increases exponentially.
     /// Here, the z-axis acts as an exponential curvature penalty (ATP Cost) for out-of-sync nodes.
-    pub fn hyperbolic_distance_toroidal_3d_scaled(self, tau_self: u32, other: Self, tau_other: u32) -> u32 {
+    pub fn hyperbolic_distance_toroidal_3d_scaled(
+        self,
+        tau_self: u32,
+        other: Self,
+        tau_other: u32,
+    ) -> u32 {
         let base_distance = self.hyperbolic_distance_toroidal_scaled(other);
         let tau_diff = core::cmp::min(tau_self.abs_diff(tau_other), 64);
 
@@ -134,7 +142,7 @@ impl PhaseAddress {
         let o = step(self.ortho_deviation, target.ortho_deviation);
         Self::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
-            o
+            o,
         )
     }
 
@@ -143,12 +151,7 @@ impl PhaseAddress {
     /// Formula: f(x + Δ) ≈ f(x) + Δ + curvature · Δ²/2
     /// For integer-only execution Δ²/2 is approximated as (Δ * Δ) >> 1,
     /// and curvature is treated as a signed 8-bit coefficient.
-    pub fn taylor_step_with_curvature(
-        self,
-        target: Self,
-        max_step: u8,
-        curvature: Self,
-    ) -> Self {
+    pub fn taylor_step_with_curvature(self, target: Self, max_step: u8, curvature: Self) -> Self {
         let step = |a: u8, b: u8, curv: i8| -> u8 {
             let delta = b as i16 - a as i16;
             let clamped = if delta > max_step as i16 {
@@ -163,16 +166,34 @@ impl PhaseAddress {
             let sq = (clamped * clamped) >> 1;
             let second = (curv as i32 * (sq as i32)) >> 7; // curvature is Q7 signed
             let result = (a as i32) + (clamped as i32) + second;
-            if result < 0 { 0 } else if result > 255 { 255 } else { result as u8 }
+            if result < 0 {
+                0
+            } else if result > 255 {
+                255
+            } else {
+                result as u8
+            }
         };
-        let c = step(self.consensus(), target.consensus(), curvature.consensus() as i8);
+        let c = step(
+            self.consensus(),
+            target.consensus(),
+            curvature.consensus() as i8,
+        );
         let s = step(self.social(), target.social(), curvature.social() as i8);
-        let p = step(self.personal(), target.personal(), curvature.personal() as i8);
+        let p = step(
+            self.personal(),
+            target.personal(),
+            curvature.personal() as i8,
+        );
         let m = step(self.micro(), target.micro(), curvature.micro() as i8);
-        let o = step(self.ortho_deviation, target.ortho_deviation, curvature.ortho_deviation as i8);
+        let o = step(
+            self.ortho_deviation,
+            target.ortho_deviation,
+            curvature.ortho_deviation as i8,
+        );
         Self::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
-            o
+            o,
         )
     }
 
@@ -191,7 +212,11 @@ impl PhaseAddress {
                 found = true;
             }
         }
-        if found { Some(best_idx) } else { None }
+        if found {
+            Some(best_idx)
+        } else {
+            None
+        }
     }
 
     /// Encode the address as a 32-bit phi value for the Bitcoin anchor chain.
@@ -211,7 +236,6 @@ impl PhaseAddress {
     }
 }
 
-
 // Tests
 
 #[cfg(test)]
@@ -221,7 +245,7 @@ mod tests {
     fn addr(c: u8, s: u8, p: u8, m: u8, o: u8) -> PhaseAddress {
         PhaseAddress::from_raw(
             ((c as u32) << 24) | ((s as u32) << 16) | ((p as u32) << 8) | (m as u32),
-            o
+            o,
         )
     }
 
@@ -357,8 +381,10 @@ mod tests {
         let flat = src.taylor_step_toward(dst, 10);
         let curved = src.taylor_step_with_curvature(dst, 10, addr(127, 0, 0, 0, 0));
         // Positive curvature on consensus should push further than flat step
-        assert!(curved.consensus() >= flat.consensus(),
-            "Positive curvature should not reduce step");
+        assert!(
+            curved.consensus() >= flat.consensus(),
+            "Positive curvature should not reduce step"
+        );
     }
 
     #[test]
@@ -368,9 +394,11 @@ mod tests {
         let dst = addr(100, 0, 0, 0, 0);
         let flat = src.taylor_step_toward(dst, 10);
         let curved = src.taylor_step_with_curvature(dst, 10, addr(128, 0, 0, 0, 0)); // -128 in i8
-        // Negative curvature on consensus should reduce step or stay same
-        assert!(curved.consensus() <= flat.consensus(),
-            "Negative curvature should not increase step");
+                                                                                     // Negative curvature on consensus should reduce step or stay same
+        assert!(
+            curved.consensus() <= flat.consensus(),
+            "Negative curvature should not increase step"
+        );
     }
 
     #[test]
@@ -428,7 +456,11 @@ mod tests {
             }
         }
 
-        assert_eq!(current, target, "Greedy routing should reach target within {} hops", max_hops);
+        assert_eq!(
+            current, target,
+            "Greedy routing should reach target within {} hops",
+            max_hops
+        );
         // Expected path: 0 → 32 → 64 → 96 (rightward, shortest linear path)
         assert_eq!(path.len(), 3, "Expected 3 hops for 0→96 greedy route");
         assert_eq!(path[0], agents[1]);

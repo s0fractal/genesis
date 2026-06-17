@@ -20,9 +20,22 @@
 pub fn oracle_matrix(name: &[u8], salt: &[u8]) -> u32 {
     let mut buf = [0u8; 128];
     let mut idx = 0;
-    for &b in name { if idx < buf.len() { buf[idx] = b; idx += 1; } }
-    if idx < buf.len() { buf[idx] = b':'; idx += 1; }
-    for &b in salt { if idx < buf.len() { buf[idx] = b; idx += 1; } }
+    for &b in name {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
+    if idx < buf.len() {
+        buf[idx] = b':';
+        idx += 1;
+    }
+    for &b in salt {
+        if idx < buf.len() {
+            buf[idx] = b;
+            idx += 1;
+        }
+    }
     crate::crypto::sha256_u32(&buf[..idx])
 }
 
@@ -62,10 +75,10 @@ mod tests {
     #[test]
     fn distinct_names_produce_distinct_matrices() {
         let claude = oracle_matrix(b"claude", ORACLE_SALT_V1);
-        let gpt    = oracle_matrix(b"gpt",    ORACLE_SALT_V1);
+        let gpt = oracle_matrix(b"gpt", ORACLE_SALT_V1);
         let gemini = oracle_matrix(b"gemini", ORACLE_SALT_V1);
-        let qwen   = oracle_matrix(b"qwen",   ORACLE_SALT_V1);
-        let llama  = oracle_matrix(b"llama",  ORACLE_SALT_V1);
+        let qwen = oracle_matrix(b"qwen", ORACLE_SALT_V1);
+        let llama = oracle_matrix(b"llama", ORACLE_SALT_V1);
         // No collisions across the five canonical oracles.
         let all = [claude, gpt, gemini, qwen, llama];
         for i in 0..5 {
@@ -93,7 +106,11 @@ mod tests {
     fn canonical_v1_oracles_have_non_zero_matrices() {
         for name in [b"claude" as &[u8], b"gpt", b"gemini", b"qwen", b"llama"] {
             let (m, inv) = canonical_oracle_v1(name);
-            assert_ne!(m, 0, "matrix for {:?} must not collide with the null dipole", name);
+            assert_ne!(
+                m, 0,
+                "matrix for {:?} must not collide with the null dipole",
+                name
+            );
             assert_eq!(m ^ inv, 0xFFFF_FFFF);
         }
     }

@@ -9,7 +9,8 @@ const computeToroidalSrc = await Deno.readTextFile(
 );
 
 // Skip if WebGPU is unavailable (CI/headless environments).
-let gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator && Deno.env.get("ANTIGRAVITY_AGENT") !== "1";
+let gpuAvailable = typeof navigator !== "undefined" && "gpu" in navigator &&
+  Deno.env.get("ANTIGRAVITY_AGENT") !== "1";
 let device: GPUDevice;
 let pipeline: GPUComputePipeline;
 let wasm: WebAssembly.Instance;
@@ -41,7 +42,9 @@ if (gpuAvailable) {
     if (!adapter) throw new Error("WebGPU adapter unavailable");
     device = await adapter.requestDevice();
     device.pushErrorScope("validation");
-    const shaderModule = device.createShaderModule({ code: computeToroidalSrc });
+    const shaderModule = device.createShaderModule({
+      code: computeToroidalSrc,
+    });
     pipeline = await device.createComputePipelineAsync({
       layout: "auto",
       compute: { module: shaderModule, entryPoint: "compute_main" },
@@ -52,7 +55,10 @@ if (gpuAvailable) {
     }
 
     // Dry-run bind group creation to verify WebIDL bindings compatibility
-    const dummyBuf = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.STORAGE });
+    const dummyBuf = device.createBuffer({
+      size: 192,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.STORAGE,
+    });
     const dummyBind = device.createBindGroup({
       layout: pipeline.getBindGroupLayout(0),
       entries: [

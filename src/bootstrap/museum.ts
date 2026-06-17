@@ -18,7 +18,7 @@ let lastStatsUpdate = 0;
 let currentSeed = 0;
 let framesSinceLastStat = 0;
 let adapterLabel = "Unknown";
-let computeMode = "toroidal";
+const computeMode = "toroidal";
 let wasmHash = "pending...";
 
 // Attractor presets (matrix, inverse, pulseFreq, pulseAmp)

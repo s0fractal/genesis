@@ -54,8 +54,11 @@ fn darwinian_mitosis_records_verifiable_receipt() {
 
         // Some replications should have occurred at this population.
         assert!(replications > 0, "expected at least one mitosis event");
-        assert_eq!(total_after - total_before, replications,
-            "log entries must equal reported replications");
+        assert_eq!(
+            total_after - total_before,
+            replications,
+            "log entries must equal reported replications"
+        );
 
         // Read the log via FFI pointer (zero-copy, just like JS).
         let log_ptr = v2_mitosis_log_ptr() as *const MitosisLog;
@@ -74,11 +77,27 @@ fn darwinian_mitosis_records_verifiable_receipt() {
         while idx < log.total_written {
             let r: MitosisReceipt = log.get(idx).expect("entry within window");
             let rederived = derive_mitosis_child(&r.parent, &r.attractors, r.q_phase);
-            assert_eq!(rederived.phase, r.child.phase, "phase mismatch at idx {}", idx);
-            assert_eq!(rederived.genome, r.child.genome, "genome mismatch at idx {}", idx);
-            assert_eq!(rederived.energy, r.child.energy, "energy mismatch at idx {}", idx);
-            assert_eq!(r.receipt_hash, child_receipt_hash(&r.child),
-                "receipt hash mismatch at idx {}", idx);
+            assert_eq!(
+                rederived.phase, r.child.phase,
+                "phase mismatch at idx {}",
+                idx
+            );
+            assert_eq!(
+                rederived.genome, r.child.genome,
+                "genome mismatch at idx {}",
+                idx
+            );
+            assert_eq!(
+                rederived.energy, r.child.energy,
+                "energy mismatch at idx {}",
+                idx
+            );
+            assert_eq!(
+                r.receipt_hash,
+                child_receipt_hash(&r.child),
+                "receipt hash mismatch at idx {}",
+                idx
+            );
             verified += 1;
             idx += 1;
         }

@@ -21,9 +21,7 @@
 // communication at all.
 
 use crate::crypto::sha256_u32;
-use crate::spore_frame::{
-    SporeFrame, FRAME_TYPE_HEARTBEAT, FRAME_TYPE_WARRANT_VOTE,
-};
+use crate::spore_frame::{SporeFrame, FRAME_TYPE_HEARTBEAT, FRAME_TYPE_WARRANT_VOTE};
 
 /// Default TTL on a freshly-emitted frame. 4 hops covers a small ring
 /// of spores; relays normally short-circuit after 1 hop.
@@ -31,7 +29,7 @@ pub const DEFAULT_TTL: u8 = 4;
 
 /// Frames carry their TTL in the high byte of `payload_c`.
 const TTL_SHIFT: u32 = 24;
-const TTL_MASK:  u32 = 0xFF00_0000;
+const TTL_MASK: u32 = 0xFF00_0000;
 
 /// Trail digest lives in `payload_b`; mixing rule is FNV-1a over
 /// (existing_digest_BE || spore_id_be) reduced to 32 bits.
@@ -61,11 +59,11 @@ pub fn stamp_origin(mut f: SporeFrame, ttl: u8) -> SporeFrame {
 }
 
 /// Routing decision codes returned by `decide_forward`.
-pub const FWD_DROP_TTL_ZERO: u8 = 0;     // TTL exhausted
-pub const FWD_DROP_LOOP: u8 = 1;         // we already touched this frame
+pub const FWD_DROP_TTL_ZERO: u8 = 0; // TTL exhausted
+pub const FWD_DROP_LOOP: u8 = 1; // we already touched this frame
 pub const FWD_DROP_NOT_FORWARDABLE: u8 = 2; // frame_type isn't relayable
-pub const FWD_FORWARD: u8 = 3;           // forward, with TTL-1 + new trail
-pub const FWD_DELIVER_LOCAL: u8 = 4;     // forward AND consume locally
+pub const FWD_FORWARD: u8 = 3; // forward, with TTL-1 + new trail
+pub const FWD_DELIVER_LOCAL: u8 = 4; // forward AND consume locally
 
 /// A spore-routing decision plus the frame to retransmit (if any).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,9 +98,7 @@ pub fn decide_forward(
     }
 
     // (2) Drop forked HEARTBEATs at the wire — don't propagate drift.
-    if ft == FRAME_TYPE_HEARTBEAT
-        && incoming.proposal_or_target != our_genesis_for_local_consume
-    {
+    if ft == FRAME_TYPE_HEARTBEAT && incoming.proposal_or_target != our_genesis_for_local_consume {
         return RoutingDecision {
             code: FWD_DROP_NOT_FORWARDABLE,
             forwarded_frame: out,
@@ -155,7 +151,10 @@ pub fn decide_forward(
         FWD_FORWARD
     };
 
-    RoutingDecision { code, forwarded_frame: out }
+    RoutingDecision {
+        code,
+        forwarded_frame: out,
+    }
 }
 
 #[cfg(test)]
@@ -276,7 +275,10 @@ mod tests {
         // Must be parseable from bytes (CRC checks out).
         let bytes = d.forwarded_frame.as_bytes();
         let parsed = SporeFrame::from_bytes(&bytes);
-        assert!(parsed.is_some(), "forwarded frame must round-trip through CRC");
+        assert!(
+            parsed.is_some(),
+            "forwarded frame must round-trip through CRC"
+        );
     }
 
     #[test]

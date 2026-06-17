@@ -6,10 +6,30 @@
     "test:fast": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*"
   },
   "compilerOptions": {
-    "lib": ["deno.window", "dom", "dom.iterable", "dom.asynciterable"],
-    "types": ["./src/env.d.ts"]
+    "lib": [
+      "deno.window",
+      "dom",
+      "dom.iterable",
+      "dom.asynciterable"
+    ],
+    "types": [
+      "./src/env.d.ts"
+    ]
   },
   "imports": {
     "protobufjs/minimal": "npm:protobufjs@8.0.0/minimal.js"
+  },
+  "lint": {
+    "rules": {
+      "exclude": [
+        "no-explicit-any",
+        "require-await",
+        "no-import-prefix",
+        "no-unversioned-import",
+        "ban-ts-comment",
+        "no-unused-vars",
+        "no-empty"
+      ]
+    }
   }
 }

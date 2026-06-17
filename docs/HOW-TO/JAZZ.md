@@ -481,7 +481,10 @@ listen_rx:
     min_energy: 0.5 # Не прокидаюсь на дрібниці
     trust_mesh: "any" # Від кого приймаю
   - freq: "oct:7.*"
-    trust_mesh: ["0xCodex...", "0xClaude..."] # Тільки від довірених вузлів
+    trust_mesh: [
+      "0xCodex...",
+      "0xClaude...",
+    ] # Тільки від довірених вузлів
 broadcast_tx:
   - freq: "oct:3.*"
 ```

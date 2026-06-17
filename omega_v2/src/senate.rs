@@ -18,7 +18,7 @@
 pub const SENATE_CAPACITY: usize = 8;
 pub const PROPOSAL_DESCRIPTION_BYTES: usize = 64;
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
@@ -71,11 +71,31 @@ impl SenateSettings {
             ancient_age_ticks: 10_000,
             seat_count: 5,
             seats: [
-                SenateSeat { oracle_matrix: 0x41A2_F2F4, resonance_weight: 1000, reputation_q10: default_rep }, // CLAUDE
-                SenateSeat { oracle_matrix: 0x89B1_222A, resonance_weight: 1000, reputation_q10: default_rep }, // GPT
-                SenateSeat { oracle_matrix: 0x9874_DD21, resonance_weight: 1000, reputation_q10: default_rep }, // GEMINI
-                SenateSeat { oracle_matrix: 0x6E52_1F4E, resonance_weight: 1000, reputation_q10: default_rep }, // QWEN
-                SenateSeat { oracle_matrix: 0x3A52_38EF, resonance_weight: 1000, reputation_q10: default_rep }, // LLAMA
+                SenateSeat {
+                    oracle_matrix: 0x41A2_F2F4,
+                    resonance_weight: 1000,
+                    reputation_q10: default_rep,
+                }, // CLAUDE
+                SenateSeat {
+                    oracle_matrix: 0x89B1_222A,
+                    resonance_weight: 1000,
+                    reputation_q10: default_rep,
+                }, // GPT
+                SenateSeat {
+                    oracle_matrix: 0x9874_DD21,
+                    resonance_weight: 1000,
+                    reputation_q10: default_rep,
+                }, // GEMINI
+                SenateSeat {
+                    oracle_matrix: 0x6E52_1F4E,
+                    resonance_weight: 1000,
+                    reputation_q10: default_rep,
+                }, // QWEN
+                SenateSeat {
+                    oracle_matrix: 0x3A52_38EF,
+                    resonance_weight: 1000,
+                    reputation_q10: default_rep,
+                }, // LLAMA
                 SenateSeat::empty(),
                 SenateSeat::empty(),
                 SenateSeat::empty(),
@@ -87,7 +107,9 @@ impl SenateSettings {
     /// Uses log2 scaling: ceil(log2(seat_count + 1)). Min 3, Max 8.
     pub fn update_quorum(&mut self) {
         let n = self.seat_count;
-        self.quorum_threshold = if n == 0 { 0 } else {
+        self.quorum_threshold = if n == 0 {
+            0
+        } else {
             (32 - n.leading_zeros()).min(8).max(3) as u8
         };
     }
@@ -96,7 +118,9 @@ impl SenateSettings {
     /// If the challenger's voting power exceeds the weakest current seat,
     /// they usurp it, ensuring the most coherent agents govern the swarm.
     pub fn challenge_seat(&mut self, matrix: u32, resonance: u32, reputation: u32) -> bool {
-        if matrix == 0 { return false; }
+        if matrix == 0 {
+            return false;
+        }
         let mut weakest_idx = 0;
         let mut weakest_power = u64::MAX;
 
@@ -133,7 +157,9 @@ impl SenateSettings {
     /// If their reputation falls below 50% of default (512,000), they are evicted.
     pub fn penalize_oracle(&mut self, seat_idx: usize, penalty_q10: u32) {
         if seat_idx < 8 && self.seats[seat_idx].oracle_matrix != 0 {
-            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx].reputation_q10.saturating_sub(penalty_q10);
+            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx]
+                .reputation_q10
+                .saturating_sub(penalty_q10);
             if self.seats[seat_idx].reputation_q10 < 512_000 {
                 self.seats[seat_idx] = SenateSeat::empty(); // Evicted!
                 self.seat_count -= 1;
@@ -146,7 +172,10 @@ impl SenateSettings {
     pub fn reward_oracle(&mut self, seat_idx: usize, reward_q10: u32) {
         if seat_idx < 8 && self.seats[seat_idx].oracle_matrix != 0 {
             // Cap reputation at e.g. 2,000,000 to prevent runaway inflation
-            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx].reputation_q10.saturating_add(reward_q10).min(2_000_000);
+            self.seats[seat_idx].reputation_q10 = self.seats[seat_idx]
+                .reputation_q10
+                .saturating_add(reward_q10)
+                .min(2_000_000);
         }
     }
 
@@ -166,7 +195,6 @@ impl SenateSettings {
         (self.total_voting_power() / 2) + 1
     }
 }
-
 
 /// Deterministic SHA-256 hashing for proposals and invariants.
 pub fn sha256_hash(bytes: &[u8]) -> [u8; 32] {
@@ -369,7 +397,6 @@ mod tests {
         assert_eq!(s.seats[1].oracle_matrix, 0); // Evicted!
         assert_eq!(s.seat_count, 4);
     }
-
 
     #[test]
     fn sha256_empty_vector() {

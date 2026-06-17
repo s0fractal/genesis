@@ -66,11 +66,7 @@ pub fn derive_mitosis_child(
     // Mutation mask + state flags.
     let (genome, memory0, mut state_flags) = if birth_near_attractor {
         let new_state_flags = parent.state_flags | BIRTH_NEAR_ATTRACTOR_FLAG;
-        (
-            parent.genome ^ best_matrix,
-            best_matrix,
-            new_state_flags,
-        )
+        (parent.genome ^ best_matrix, best_matrix, new_state_flags)
     } else {
         // Epigenetic Inheritance
         // The parent's lived experience (memory) and stress (energy) alters the mutation vector.
@@ -82,11 +78,7 @@ pub fn derive_mitosis_child(
         // Use the lower 8 bits of mut_seed to look up a biologically plausible mutation mask
         let index = (mut_seed & 0xFF) as usize;
         let mask = crate::math::MUTATION_LUT[index];
-        (
-            parent.genome ^ mask,
-            parent.memory[0],
-            parent.state_flags,
-        )
+        (parent.genome ^ mask, parent.memory[0], parent.state_flags)
     };
 
     // Species Specialization
@@ -96,7 +88,8 @@ pub fn derive_mitosis_child(
     // Thermodynamic Epistemology (Landauer's Principle):
     // Deduct exact energy cost for every bit flipped during mitosis.
     let flipped_bits = (parent.genome ^ genome).count_ones();
-    let mut energy = CHILD_ENERGY_SEED.saturating_sub(flipped_bits * crate::constants::LANDAUER_BIT_COST);
+    let mut energy =
+        CHILD_ENERGY_SEED.saturating_sub(flipped_bits * crate::constants::LANDAUER_BIT_COST);
     if energy == 0 {
         energy = 1; // Always give the child a minimal chance
     }
@@ -173,7 +166,9 @@ mod tests {
         let arr = empty_array();
         let c = derive_mitosis_child(&p, &arr, 7);
         let flipped = (p.genome ^ c.genome).count_ones();
-        let expected = CHILD_ENERGY_SEED.saturating_sub(flipped * crate::constants::LANDAUER_BIT_COST).max(1);
+        let expected = CHILD_ENERGY_SEED
+            .saturating_sub(flipped * crate::constants::LANDAUER_BIT_COST)
+            .max(1);
         assert_eq!(c.energy, expected);
     }
 
@@ -222,7 +217,10 @@ mod tests {
         // Attractor far away (distance >> quarter_phase).
         let far_phase = (p.phase + 64) & 0x7F; // half-circle away on q_phase=7
         let attractor_matrix = far_phase;
-        arr.set(0, AttractorMatrix::new(attractor_matrix, !attractor_matrix, 256, 512));
+        arr.set(
+            0,
+            AttractorMatrix::new(attractor_matrix, !attractor_matrix, 256, 512),
+        );
         let c = derive_mitosis_child(&p, &arr, 7);
         assert_eq!(c.state_flags & BIRTH_NEAR_ATTRACTOR_FLAG, 0);
     }
@@ -233,7 +231,10 @@ mod tests {
         let mut arr = empty_array();
         // pulse_amp = 0 means the attractor is dormant — must be ignored.
         let attractor_matrix = (0xABCD_0000u32) | p.phase;
-        arr.set(0, AttractorMatrix::new(attractor_matrix, !attractor_matrix, 256, 0));
+        arr.set(
+            0,
+            AttractorMatrix::new(attractor_matrix, !attractor_matrix, 256, 0),
+        );
         let c = derive_mitosis_child(&p, &arr, 7);
         // Should fall through to xorshift path.
         assert_eq!(c.state_flags & BIRTH_NEAR_ATTRACTOR_FLAG, 0);

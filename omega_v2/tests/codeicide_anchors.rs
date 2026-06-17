@@ -2,9 +2,7 @@
 // Mirror constants in tests/codeicide_law_test.ts. Drift on either side
 // fails CI on both.
 
-use omega_v2::codeicide_law::{
-    warrant_hash, quorum_hash, ACTION_TERMINATE,
-};
+use omega_v2::codeicide_law::{quorum_hash, warrant_hash, ACTION_TERMINATE};
 
 #[test]
 fn anchor_quorum_claude_gpt_gemini() {

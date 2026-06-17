@@ -130,7 +130,7 @@ function rotr(n: number, b: number) {
 }
 
 export function sha256_hash(data: Uint8Array): Uint8Array {
-  let H = new Uint32Array([
+  const H = new Uint32Array([
     0x6a09e667,
     0xbb67ae85,
     0x3c6ef372,

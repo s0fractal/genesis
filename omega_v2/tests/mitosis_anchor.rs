@@ -54,4 +54,3 @@ fn anchor_with_dominant_attractor() {
     // Anchored to keep both languages in sync.
     assert_ne!(h, [0; 32]);
 }
-

@@ -29,9 +29,8 @@
 // the table.
 
 use crate::event_sync_loop::{
-    compute_missing_indices, is_peer_cold, record_sync_attempt,
-    record_sync_failure, record_sync_success, should_sync_now,
-    PeerSyncSlot, SchedulerOpts,
+    compute_missing_indices, is_peer_cold, record_sync_attempt, record_sync_failure,
+    record_sync_success, should_sync_now, PeerSyncSlot, SchedulerOpts,
 };
 use crate::forensic_event_sink::ForensicEvent;
 use crate::spore_runner::{SporeRunner, WireDriver};
@@ -109,12 +108,7 @@ impl<const M: usize> ConvergenceDriver<M> {
     /// whose schedule allows another sync attempt. Returns up to
     /// `out.len()` peer_ids in priority order (oldest last_attempt
     /// first).
-    pub fn select_targets(
-        &mut self,
-        local_anchor: u32,
-        now_ms: u32,
-        out: &mut [u32],
-    ) -> usize {
+    pub fn select_targets(&mut self, local_anchor: u32, now_ms: u32, out: &mut [u32]) -> usize {
         let mut count = 0usize;
         // Two-pass: collect candidates (idx, last_attempt_ms), sort,
         // then materialize. Bounded M is small so a manual sort is fine.
@@ -122,9 +116,15 @@ impl<const M: usize> ConvergenceDriver<M> {
         let mut idx_count = 0usize;
         let cap = if out.len() < 32 { out.len() } else { 32 };
         for (i, entry) in self.peers.iter().enumerate() {
-            if !entry.used { continue; }
-            if entry.last_seen_anchor == local_anchor { continue; }
-            if is_peer_cold(&entry.slot, &self.opts) { continue; }
+            if !entry.used {
+                continue;
+            }
+            if entry.last_seen_anchor == local_anchor {
+                continue;
+            }
+            if is_peer_cold(&entry.slot, &self.opts) {
+                continue;
+            }
             if !should_sync_now(&entry.slot, now_ms) {
                 self.schedule_blocked = self.schedule_blocked.wrapping_add(1);
                 continue;
@@ -141,7 +141,12 @@ impl<const M: usize> ConvergenceDriver<M> {
             while j > 0 {
                 let a = self.peers[indices[j - 1] as usize].slot.last_attempt_ms;
                 let b = self.peers[indices[j] as usize].slot.last_attempt_ms;
-                if a > b { indices.swap(j - 1, j); j -= 1; } else { break; }
+                if a > b {
+                    indices.swap(j - 1, j);
+                    j -= 1;
+                } else {
+                    break;
+                }
             }
         }
         let take = if idx_count < cap { idx_count } else { cap };
@@ -164,7 +169,11 @@ impl<const M: usize> ConvergenceDriver<M> {
         entries: &[ForensicEvent],
         now_ms: u32,
     ) -> bool {
-        let slot_idx = match self.peers.iter().position(|e| e.used && e.peer_id == peer_id) {
+        let slot_idx = match self
+            .peers
+            .iter()
+            .position(|e| e.used && e.peer_id == peer_id)
+        {
             Some(i) => i,
             None => return false,
         };
@@ -202,9 +211,7 @@ impl<const M: usize> ConvergenceDriver<M> {
     }
 }
 
-
 // AUTO-PIPELINE
-
 
 /// Encapsulated state for the bandwidth-efficient HASH_REQUEST →
 /// HASH_RESPONSE → DIFF_SHIP dance. Wraps `ConvergenceDriver` with
@@ -260,9 +267,7 @@ impl<const M: usize> AutoPipeline<M> {
     ) {
         // Step 1: completed hash-list response?
         if let Some(peer_hashes) = runner.take_peer_hashes() {
-            if peer_hashes.request_id == self.pending_request_id
-                && self.pending_request_id != 0
-            {
+            if peer_hashes.request_id == self.pending_request_id && self.pending_request_id != 0 {
                 let mut indices = [0usize; 32];
                 let n = compute_missing_indices(
                     local_entries,
@@ -276,8 +281,7 @@ impl<const M: usize> AutoPipeline<M> {
                     // Build a small entries array on the stack with
                     // just the missing ones.
                     let take = if n > 16 { 16 } else { n };
-                    let mut to_ship: [ForensicEvent; 16] =
-                        [ForensicEvent::empty(); 16];
+                    let mut to_ship: [ForensicEvent; 16] = [ForensicEvent::empty(); 16];
                     for i in 0..take {
                         to_ship[i] = local_entries[indices[i]];
                     }
@@ -299,8 +303,7 @@ impl<const M: usize> AutoPipeline<M> {
 
         // Step 2: timeout stale request.
         if self.pending_request_id != 0
-            && now_ms.saturating_sub(self.pending_request_started_ms)
-                >= self.request_timeout_ms
+            && now_ms.saturating_sub(self.pending_request_started_ms) >= self.request_timeout_ms
         {
             self.fail_request(now_ms);
         }
@@ -308,7 +311,9 @@ impl<const M: usize> AutoPipeline<M> {
         // Step 3: idle — pick next target and issue REQUEST.
         if self.pending_request_id == 0 {
             let mut peers = [0u32; 1];
-            let n = self.driver.select_targets(runner.anchor(), now_ms, &mut peers);
+            let n = self
+                .driver
+                .select_targets(runner.anchor(), now_ms, &mut peers);
             if n > 0 {
                 let peer_id = peers[0];
                 let request_id = generate_request_id(runner.self_relay_id, now_ms);
@@ -334,9 +339,7 @@ impl<const M: usize> AutoPipeline<M> {
 
     fn fail_request(&mut self, now_ms: u32) {
         // record_sync_failure on the peer's slot.
-        if let Some(slot) =
-            find_slot_mut(&mut self.driver.peers, self.pending_request_peer_id)
-        {
+        if let Some(slot) = find_slot_mut(&mut self.driver.peers, self.pending_request_peer_id) {
             record_sync_failure(slot, &self.driver.opts, now_ms);
         }
         self.pending_request_id = 0;
@@ -345,10 +348,7 @@ impl<const M: usize> AutoPipeline<M> {
     }
 }
 
-fn find_slot_mut(
-    peers: &mut [PeerEntry],
-    peer_id: u32,
-) -> Option<&mut PeerSyncSlot> {
+fn find_slot_mut(peers: &mut [PeerEntry], peer_id: u32) -> Option<&mut PeerSyncSlot> {
     for e in peers.iter_mut() {
         if e.used && e.peer_id == peer_id {
             return Some(&mut e.slot);
@@ -370,7 +370,11 @@ fn generate_request_id(self_relay_id: u32, now_ms: u32) -> u32 {
     buf[7] = now_ms as u8;
     let h = sha256_u32(&buf);
     // Avoid 0 — that's our "no pending" sentinel.
-    if h == 0 { 1 } else { h }
+    if h == 0 {
+        1
+    } else {
+        h
+    }
 }
 
 #[cfg(test)]
@@ -509,7 +513,7 @@ mod tests {
         record_sync_attempt(&mut d.peers[0].slot, 100); // 0xAA
         record_sync_attempt(&mut d.peers[1].slot, 200); // 0xBB
         record_sync_attempt(&mut d.peers[2].slot, 150); // 0xCC
-        // ... then everyone's anchor now mismatches.
+                                                        // ... then everyone's anchor now mismatches.
         let mut out = [0u32; 4];
         let n = d.select_targets(0x999, 1_000_000, &mut out);
         assert_eq!(n, 3);
@@ -534,7 +538,11 @@ mod tests {
     }
     impl PD {
         const fn new() -> Self {
-            Self { local: LoopbackDriver::new(), tx_log: [0u8; 1024], tx_len: 0 }
+            Self {
+                local: LoopbackDriver::new(),
+                tx_log: [0u8; 1024],
+                tx_len: 0,
+            }
         }
         fn deliver(&mut self, peer: &mut PD) {
             peer.local.deliver(&self.tx_log[..self.tx_len]);
@@ -542,7 +550,9 @@ mod tests {
         }
     }
     impl WireDriver for PD {
-        fn read(&mut self, buf: &mut [u8]) -> usize { self.local.read(buf) }
+        fn read(&mut self, buf: &mut [u8]) -> usize {
+            self.local.read(buf)
+        }
         fn write(&mut self, buf: &[u8]) -> usize {
             let space = self.tx_log.len() - self.tx_len;
             let n = if buf.len() < space { buf.len() } else { space };
@@ -561,8 +571,7 @@ mod tests {
     #[test]
     fn auto_pipeline_issues_request_on_anchor_mismatch() {
         let mut runner: SporeRunner<8, 8> = SporeRunner::new(0xCC01, 1000);
-        let mut pipeline: AutoPipeline<4> =
-            AutoPipeline::new(SchedulerOpts::defaults(), 5000);
+        let mut pipeline: AutoPipeline<4> = AutoPipeline::new(SchedulerOpts::defaults(), 5000);
         let mut driver = PD::new();
         // Register a peer with a mismatching anchor.
         pipeline.driver.observe_peer_anchor(0xAA, 0xDEAD);
@@ -584,16 +593,12 @@ mod tests {
         b.observe_local_event(b"alrm", 0x10, 0);
         // (B is missing 0x20.)
 
-        let mut pipeline: AutoPipeline<4> =
-            AutoPipeline::new(SchedulerOpts::defaults(), 5000);
+        let mut pipeline: AutoPipeline<4> = AutoPipeline::new(SchedulerOpts::defaults(), 5000);
         let mut da = PD::new();
         let mut db = PD::new();
         pipeline.driver.observe_peer_anchor(0xBB, b.anchor());
 
-        let local = [
-            mk_event(0x10, b"alrm"),
-            mk_event(0x20, b"alrm"),
-        ];
+        let local = [mk_event(0x10, b"alrm"), mk_event(0x20, b"alrm")];
 
         // Step 1: A's pipeline issues HASH_REQUEST to B.
         pipeline.step(&mut a, &mut da, &local, 100);
@@ -621,8 +626,7 @@ mod tests {
     #[test]
     fn auto_pipeline_times_out_stale_request() {
         let mut runner: SporeRunner<8, 8> = SporeRunner::new(0xCC01, 1000);
-        let mut pipeline: AutoPipeline<4> =
-            AutoPipeline::new(SchedulerOpts::defaults(), 1000);
+        let mut pipeline: AutoPipeline<4> = AutoPipeline::new(SchedulerOpts::defaults(), 1000);
         let mut driver = PD::new();
         pipeline.driver.observe_peer_anchor(0xAA, 0xDEAD);
         let local: [ForensicEvent; 0] = [];
@@ -654,8 +658,7 @@ mod tests {
         a.observe_local_event(b"alrm", 0x10, 0);
         b.observe_local_event(b"alrm", 0x10, 0);
 
-        let mut pipeline: AutoPipeline<4> =
-            AutoPipeline::new(SchedulerOpts::defaults(), 5000);
+        let mut pipeline: AutoPipeline<4> = AutoPipeline::new(SchedulerOpts::defaults(), 5000);
         pipeline.driver.observe_peer_anchor(0xBB, 0xDEAD);
 
         let mut da = PD::new();

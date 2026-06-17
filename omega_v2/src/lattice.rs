@@ -3,14 +3,14 @@
 //! Since we are `#![no_std]`, we avoid complex Observer/FRP heap allocations.
 //! Instead, 1 Bit = 1 Signal.
 
-use crate::topology::{PhaseTopology, OntologicalIntent};
 use crate::agent::{PhaseAgentMinimal, PhaseAgentSmart};
+use crate::topology::{OntologicalIntent, PhaseTopology};
 
 // --- SIGNAL DEFINITIONS (Bitmask Dirty Flags) ---
-pub const SIGNAL_TOPOLOGY_CHANGED: u32   = 1 << 0; // JS resized the canvas or limits changed
-pub const SIGNAL_THERMO_COLLAPSE: u32    = 1 << 1; // Energy dropped below survival threshold
-pub const SIGNAL_CONSENSUS_SHIFT: u32    = 1 << 2; // Bitcoin hash arrived (Global Anchor)
-pub const SIGNAL_MUTATION_TRIGGER: u32   = 1 << 3; // LERP orthogonal deviation needed
+pub const SIGNAL_TOPOLOGY_CHANGED: u32 = 1 << 0; // JS resized the canvas or limits changed
+pub const SIGNAL_THERMO_COLLAPSE: u32 = 1 << 1; // Energy dropped below survival threshold
+pub const SIGNAL_CONSENSUS_SHIFT: u32 = 1 << 2; // Bitcoin hash arrived (Global Anchor)
+pub const SIGNAL_MUTATION_TRIGGER: u32 = 1 << 3; // LERP orthogonal deviation needed
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -53,13 +53,12 @@ pub struct PhaseLattice {
 
 unsafe impl Send for PhaseLattice {}
 
-
 impl PhaseLattice {
     /// Bootstraps the grid directly on top of pre-allocated WebGPU host memory
     pub fn new_from_host_memory(
         topology: PhaseTopology,
         smart_ptr: *mut PhaseAgentSmart,
-        min_ptr: *mut PhaseAgentMinimal
+        min_ptr: *mut PhaseAgentMinimal,
     ) -> Self {
         Self {
             topology,
@@ -86,9 +85,18 @@ impl PhaseLattice {
 
     /// Extracted API for the JS Env Vector to easily inject Climate Changes into WASM.
     #[no_mangle]
-    pub extern "C" fn set_environment(&mut self, q_sectors: u32, q_radial: u32, _q_harmonics: u32, weather_multiplier: u32) {
+    pub extern "C" fn set_environment(
+        &mut self,
+        q_sectors: u32,
+        q_radial: u32,
+        _q_harmonics: u32,
+        weather_multiplier: u32,
+    ) {
         // CRIT-6 FIX: validate bounds to prevent shift overflow in topology math
-        assert!(q_sectors < 32 && q_radial < 32, "q_sectors/q_radial must be < 32");
+        assert!(
+            q_sectors < 32 && q_radial < 32,
+            "q_sectors/q_radial must be < 32"
+        );
         self.topology.q_sectors = q_sectors;
         self.topology.q_radial = q_radial;
         if weather_multiplier > 0 {
@@ -126,7 +134,10 @@ impl PhaseLattice {
     #[inline(always)]
     pub fn get_agent(&self, idx: u32) -> Option<&PhaseAgentMinimal> {
         let active = self.signals.active_agent_count;
-        if self.minimal_agents_ptr.is_null() || idx >= active || (idx as usize) >= crate::MAX_MINIMAL_AGENTS {
+        if self.minimal_agents_ptr.is_null()
+            || idx >= active
+            || (idx as usize) >= crate::MAX_MINIMAL_AGENTS
+        {
             None
         } else {
             Some(unsafe { &*(self.minimal_agents_ptr.add(idx as usize)) })
@@ -136,7 +147,10 @@ impl PhaseLattice {
     #[inline(always)]
     pub fn get_agent_mut(&mut self, idx: u32) -> Option<&mut PhaseAgentMinimal> {
         let active = self.signals.active_agent_count;
-        if self.minimal_agents_ptr.is_null() || idx >= active || (idx as usize) >= crate::MAX_MINIMAL_AGENTS {
+        if self.minimal_agents_ptr.is_null()
+            || idx >= active
+            || (idx as usize) >= crate::MAX_MINIMAL_AGENTS
+        {
             None
         } else {
             Some(unsafe { &mut *(self.minimal_agents_ptr.add(idx as usize)) })
@@ -144,7 +158,9 @@ impl PhaseLattice {
     }
 
     pub fn ignite_big_bang(&mut self, root_seed: u32, initial_population: u32) {
-        if self.minimal_agents_ptr.is_null() { return; }
+        if self.minimal_agents_ptr.is_null() {
+            return;
+        }
 
         // Critical: Prevent C-style buffer overflow if JS asks for more than .bss can hold!
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
@@ -161,8 +177,11 @@ impl PhaseLattice {
                 let agent_ptr = self.minimal_agents_ptr.add(i as usize);
 
                 let phase = rng.next_u32() & max_phase;
-                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE) + crate::constants::BB_ENERGY_BASE;
-                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32 - crate::constants::BB_FREQ_OFFSET) * crate::constants::BB_FREQ_Q_SCALE;
+                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE)
+                    + crate::constants::BB_ENERGY_BASE;
+                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32
+                    - crate::constants::BB_FREQ_OFFSET)
+                    * crate::constants::BB_FREQ_Q_SCALE;
                 let genome = rng.next_u32(); // CRIT-2 FIX: use full 32-bit entropy
 
                 *agent_ptr = crate::agent::PhaseAgentMinimal {
@@ -181,8 +200,16 @@ impl PhaseLattice {
 
     /// Era 950+: Big Bang guided by Epigenetic Memory.
     /// Instead of purely random genomes, successful historical traits bias new agents.
-    pub fn ignite_epigenetic_big_bang(&mut self, root_seed: u32, initial_population: u32, memory: &crate::epigenetics::EpigeneticMemory, trng_entropy: &[u8]) {
-        if self.minimal_agents_ptr.is_null() { return; }
+    pub fn ignite_epigenetic_big_bang(
+        &mut self,
+        root_seed: u32,
+        initial_population: u32,
+        memory: &crate::epigenetics::EpigeneticMemory,
+        trng_entropy: &[u8],
+    ) {
+        if self.minimal_agents_ptr.is_null() {
+            return;
+        }
 
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
         self.signals.active_agent_count = safe_population;
@@ -206,8 +233,11 @@ impl PhaseLattice {
                 let agent_ptr = self.minimal_agents_ptr.add(i as usize);
 
                 let phase = rng.next_u32() & max_phase;
-                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE) + crate::constants::BB_ENERGY_BASE;
-                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32 - crate::constants::BB_FREQ_OFFSET) * crate::constants::BB_FREQ_Q_SCALE;
+                let energy = (rng.next_u32() % crate::constants::BB_ENERGY_RANGE)
+                    + crate::constants::BB_ENERGY_BASE;
+                let base_freq = ((rng.next_u32() % crate::constants::BB_FREQ_RANGE) as i32
+                    - crate::constants::BB_FREQ_OFFSET)
+                    * crate::constants::BB_FREQ_Q_SCALE;
                 let genome = memory.generate_biased_genome(rng.next_u32());
 
                 *agent_ptr = crate::agent::PhaseAgentMinimal {
@@ -233,7 +263,8 @@ impl PhaseLattice {
         }
         unsafe {
             let active = self.signals.active_agent_count as usize;
-            let bytes = core::slice::from_raw_parts(self.minimal_agents_ptr as *const u8, active * 32);
+            let bytes =
+                core::slice::from_raw_parts(self.minimal_agents_ptr as *const u8, active * 32);
             crate::crypto::sha256_u32(bytes)
         }
     }
@@ -253,7 +284,7 @@ impl PhaseLattice {
             // Apply Darwinian culling: agents beyond new capacity are killed
             let new_max = self.topology.max_geometry_cells(
                 1, // harmonics (simplified)
-                1  // tau_depth (simplified)
+                1, // tau_depth (simplified)
             ) as u32;
             if self.signals.active_agent_count > new_max {
                 self.signals.active_agent_count = new_max;
@@ -328,15 +359,31 @@ impl PhaseLattice {
                     ];
 
                     // We map left to n_indices[3] and right to n_indices[4] to match WGSL (cx-1, cx+1)
-                    let left = &*snapshot.add(if n_indices[3] < active { n_indices[3] } else { 0 });
-                    let right = &*snapshot.add(if n_indices[4] < active { n_indices[4] } else { 0 });
+                    let left = &*snapshot.add(if n_indices[3] < active {
+                        n_indices[3]
+                    } else {
+                        0
+                    });
+                    let right = &*snapshot.add(if n_indices[4] < active {
+                        n_indices[4]
+                    } else {
+                        0
+                    });
 
                     // Phenotypic Expression
                     let phenotype = agent.decode_phenotype();
 
                     // Hebbian Learning (Active Memory) & Era 2080 Ortho packing
-                    let mut weight_left = if (agent.memory[1] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[1] & 0xFFFF) as i32 };
-                    let mut weight_right = if (agent.memory[2] & 0xFFFF) == 0 { crate::constants::HEBBIAN_DEFAULT_WEIGHT } else { (agent.memory[2] & 0xFFFF) as i32 };
+                    let mut weight_left = if (agent.memory[1] & 0xFFFF) == 0 {
+                        crate::constants::HEBBIAN_DEFAULT_WEIGHT
+                    } else {
+                        (agent.memory[1] & 0xFFFF) as i32
+                    };
+                    let mut weight_right = if (agent.memory[2] & 0xFFFF) == 0 {
+                        crate::constants::HEBBIAN_DEFAULT_WEIGHT
+                    } else {
+                        (agent.memory[2] & 0xFFFF) as i32
+                    };
                     let mut ortho_agent = (agent.memory[1] >> 16) & 0xFF;
                     let mut is_tissue = (agent.state_flags & crate::agent::FLAG_TISSUE_LOCKED) != 0;
 
@@ -345,8 +392,10 @@ impl PhaseLattice {
 
                     let neuroplasticity = (phenotype.radiance as i32) / 4;
 
-                    weight_left = (weight_left + (cos_left * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
-                    weight_right = (weight_right + (cos_right * neuroplasticity) / 1024).clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
+                    weight_left = (weight_left + (cos_left * neuroplasticity) / 1024)
+                        .clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
+                    weight_right = (weight_right + (cos_right * neuroplasticity) / 1024)
+                        .clamp(0, crate::constants::HEBBIAN_MAX_WEIGHT);
 
                     // Kuramoto coupling modulated by Hebbian weights
                     // interaction_radius amplifies coupling (making the agent more sensitive/interactive)
@@ -375,12 +424,16 @@ impl PhaseLattice {
                     }
 
                     // Agent's own phase components shifted by Sakaguchi-Kuramoto alpha
-                    let phase_with_lag = agent.phase.wrapping_add(self.topology.alpha as u32) & max_phase;
+                    let phase_with_lag =
+                        agent.phase.wrapping_add(self.topology.alpha as u32) & max_phase;
                     let agent_cos = crate::math::cos_q10(0, phase_with_lag);
                     let agent_sin = crate::math::sin_q10(0, phase_with_lag);
 
                     // Wave Interference: sin(Ψ - θ - α) = sin(Ψ)cos(θ+α) - cos(Ψ)sin(θ+α)
-                    let total_coupling = ((sum_sin as i64 * agent_cos as i64 - sum_cos as i64 * agent_sin as i64) / (q10_scale as i64 * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i64)) as i32;
+                    let total_coupling = ((sum_sin as i64 * agent_cos as i64
+                        - sum_cos as i64 * agent_sin as i64)
+                        / (q10_scale as i64 * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i64))
+                        as i32;
                     let coupling = (total_coupling * k) / (6 * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
@@ -389,13 +442,20 @@ impl PhaseLattice {
 
                     // Thermodynamic Epistemology (Landauer's Principle)
                     let set_bits = agent.genome.count_ones();
-                    let maintenance_cost = core::cmp::max(1, (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR) * crate::constants::LANDAUER_BIT_COST);
+                    let maintenance_cost = core::cmp::max(
+                        1,
+                        (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR)
+                            * crate::constants::LANDAUER_BIT_COST,
+                    );
                     // Apply Bitcoin UTXO Weather (1024 = 1.0x)
-                    let base_cost = (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
+                    let base_cost =
+                        (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
 
                     // Apply metabolic pressure and sun cycle (Q10 * Q10 = Q20)
-                    let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier) / 1_048_576).max(1) as u32;
+                    let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier)
+                        / 1_048_576)
+                        .max(1) as u32;
 
                     // Resilience flat reduction
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
@@ -411,8 +471,11 @@ impl PhaseLattice {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
                                 let adv = crate::agent::species_advantage(agent.genome, n.genome);
-                                if adv == 1 { energy_delta += steal; }
-                                else if adv == -1 { energy_delta -= steal; }
+                                if adv == 1 {
+                                    energy_delta += steal;
+                                } else if adv == -1 {
+                                    energy_delta -= steal;
+                                }
 
                                 energy_diffusion += (n.energy as i32 - agent.energy as i32) / 8;
                             }
@@ -424,11 +487,15 @@ impl PhaseLattice {
                     let thermodynamic_stress = (coupling.abs() + energy_diffusion.abs()) as u32;
                     let time_dilation_multiplier = 1 + core::cmp::min(
                         thermodynamic_stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
-                        crate::constants::MAX_TIME_DILATION - 1
+                        crate::constants::MAX_TIME_DILATION - 1,
                     );
 
                     // Emergent Organ Differentiation (Tissue Crystallization)
-                    if !is_tissue && ortho_agent > 0 && agent.energy > crate::constants::MAX_ATP - 1000 && thermodynamic_stress < 5 {
+                    if !is_tissue
+                        && ortho_agent > 0
+                        && agent.energy > crate::constants::MAX_ATP - 1000
+                        && thermodynamic_stress < 5
+                    {
                         agent.state_flags |= crate::agent::FLAG_TISSUE_LOCKED;
                         is_tissue = true;
                         agent.base_freq = 0; // Structurally rigid
@@ -440,9 +507,11 @@ impl PhaseLattice {
                     let mut final_burn = burn;
                     if is_tissue {
                         final_burn = final_burn.max(4) / 4; // Highly efficient
-                        // No orthogonal drift, it is crystallized
+                                                            // No orthogonal drift, it is crystallized
                     } else {
-                        if thermodynamic_stress > crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR * 2 {
+                        if thermodynamic_stress
+                            > crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR * 2
+                        {
                             ortho_agent = ortho_agent.wrapping_add(1) & 0xFF; // Escape chaotic resonance
                         } else if agent.energy > crate::constants::MAX_ATP - 100 {
                             ortho_agent = ortho_agent.wrapping_sub(1) & 0xFF; // Expand territory
@@ -460,7 +529,10 @@ impl PhaseLattice {
                     if energy_delta < 0 {
                         agent.energy = agent.energy.saturating_sub(energy_delta.unsigned_abs());
                     } else {
-                        agent.energy = agent.energy.saturating_add(energy_delta as u32).min(crate::constants::MAX_ATP);
+                        agent.energy = agent
+                            .energy
+                            .saturating_add(energy_delta as u32)
+                            .min(crate::constants::MAX_ATP);
                     }
 
                     agent.memory[0] = coupling as u32;
@@ -471,7 +543,11 @@ impl PhaseLattice {
                         let arr = &*self.attractors_ptr;
                         let attractor_count = core::cmp::min(arr.count, 4) as usize;
                         for j in 0..attractor_count {
-                            attractor_drift += arr.data[j].drift_contribution(agent.phase, self.signals.proper_time.causal_ticks, &self.topology);
+                            attractor_drift += arr.data[j].drift_contribution(
+                                agent.phase,
+                                self.signals.proper_time.causal_ticks,
+                                &self.topology,
+                            );
                         }
                     }
 
@@ -479,7 +555,8 @@ impl PhaseLattice {
                     // Adaptive Time-Stepping: Nyquist clamping for base_freq
                     let max_freq = (max_phase / 2) as i32;
                     let clamped_base_freq = agent.base_freq.clamp(-max_freq, max_freq);
-                    let drift = (clamped_base_freq + coupling + attractor_drift) * (time_dilation_multiplier as i32);
+                    let drift = (clamped_base_freq + coupling + attractor_drift)
+                        * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
                     // Philosophy Vector 10/12: Thermodynamic Conservation
@@ -503,7 +580,10 @@ impl PhaseLattice {
                         .wrapping_add(agent.memory[0] as u64)
                         .wrapping_add(agent.memory[1] as u64)
                         .wrapping_add(agent.memory[2] as u64);
-                    self.signals.total_entropy_released = self.signals.total_entropy_released.wrapping_add(entropy_burst);
+                    self.signals.total_entropy_released = self
+                        .signals
+                        .total_entropy_released
+                        .wrapping_add(entropy_burst);
 
                     let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
                     let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
@@ -527,14 +607,17 @@ impl PhaseLattice {
         let stress = avg_energy.abs_diff(target_energy);
         // Calculate entropy delta this tick
         let prev_entropy = self.signals.proper_time.entropy_burned;
-        let entropy_delta = (self.signals.total_entropy_released as u32).saturating_sub(prev_entropy);
+        let entropy_delta =
+            (self.signals.total_entropy_released as u32).saturating_sub(prev_entropy);
 
         self.signals.proper_time.advance(stress, entropy_delta);
 
         // Philosophy Global Energy Audit (ZK-verifiable)
         // Ensure no energy hyperinflation exists in the system.
-        assert!(total_system_energy <= crate::constants::MAX_ATP as u64 * _alive_count as u64, "Thermodynamic invariant violation: energy > maximum possible");
-
+        assert!(
+            total_system_energy <= crate::constants::MAX_ATP as u64 * _alive_count as u64,
+            "Thermodynamic invariant violation: energy > maximum possible"
+        );
     }
     /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
     /// Finds thriving cells (>MITOSIS_THRESHOLD ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
@@ -560,7 +643,11 @@ impl PhaseLattice {
                     hist.buckets[bucket] += 1;
 
                     let birth_ticks = crate::BIRTH_TICKS.lock();
-                    let age = self.signals.proper_time.causal_ticks.saturating_sub(birth_ticks[i]);
+                    let age = self
+                        .signals
+                        .proper_time
+                        .causal_ticks
+                        .saturating_sub(birth_ticks[i]);
                     drop(birth_ticks);
                     let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
                     let age_bucket = (age / bucket_size).min(15) as usize;
@@ -568,11 +655,16 @@ impl PhaseLattice {
                 }
             }
 
-            let p90_threshold = crate::codeicide_law::p90_energy(&hist, self.signals.active_agent_count);
+            let p90_threshold =
+                crate::codeicide_law::p90_energy(&hist, self.signals.active_agent_count);
             self.signals.p90_energy = p90_threshold;
 
             let bucket_size = core::cmp::max(1, crate::constants::ANCIENT_AGE_TICKS / 10);
-            let p90_age_threshold = crate::codeicide_law::p90_age(&age_hist, self.signals.active_agent_count, bucket_size);
+            let p90_age_threshold = crate::codeicide_law::p90_age(
+                &age_hist,
+                self.signals.active_agent_count,
+                bucket_size,
+            );
             self.signals.p90_age = p90_age_threshold;
         }
 
@@ -588,7 +680,6 @@ impl PhaseLattice {
             for i in 0..active {
                 let parent = &mut *self.minimal_agents_ptr.add(i);
 
-
                 // If a cell has amassed massive ATP via resonance or gravity, it splits
                 if parent.energy >= crate::constants::MITOSIS_THRESHOLD {
                     // Codeicide Law gate. Mitosis is a self-modifying
@@ -603,10 +694,17 @@ impl PhaseLattice {
                     #[cfg(not(feature = "spore"))]
                     {
                         let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
-                        let resonance_score = crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0) as u32;
+                        let resonance_score =
+                            crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0)
+                                as u32;
                         let settings = crate::SENATE_SETTINGS.lock();
                         let _status = crate::codeicide_law::protected_status_for(
-                            parent, self.signals.proper_time.causal_ticks, p90_threshold, p90_age_threshold, resonance_score, &settings
+                            parent,
+                            self.signals.proper_time.causal_ticks,
+                            p90_threshold,
+                            p90_age_threshold,
+                            resonance_score,
+                            &settings,
                         );
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
@@ -623,7 +721,9 @@ impl PhaseLattice {
                     parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
 
                     // Slide the dead pointer forward to find a hollow shell in the matrix
-                    while next_dead_idx < active && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0 {
+                    while next_dead_idx < active
+                        && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0
+                    {
                         next_dead_idx += 1;
                     }
 
@@ -640,11 +740,13 @@ impl PhaseLattice {
                             *child = derived;
                             {
                                 let mut ticks = crate::BIRTH_TICKS.lock();
-                                ticks[next_dead_idx as usize] = self.signals.proper_time.causal_ticks;
+                                ticks[next_dead_idx as usize] =
+                                    self.signals.proper_time.causal_ticks;
                             }
 
                             let cost = crate::constants::MITOSIS_COST;
-                            let entropy_delta = (derived.phase as i32).wrapping_sub(parent_snapshot.phase as i32);
+                            let entropy_delta =
+                                (derived.phase as i32).wrapping_sub(parent_snapshot.phase as i32);
 
                             // Era 1040 Phase 2: append the receipt to the global log
                             // so JS can broadcast a fully-verifiable DIPOLE plasmid.
@@ -665,7 +767,8 @@ impl PhaseLattice {
                         {
                             let mut derived = parent_snapshot;
                             derived.energy = crate::constants::MITOSIS_COST / 2;
-                            derived.phase = derived.phase.wrapping_add(128) & ((1 << self.topology.q_phase) - 1);
+                            derived.phase = derived.phase.wrapping_add(128)
+                                & ((1 << self.topology.q_phase) - 1);
                             let seed = crate::math::xorshift32_once(parent_snapshot.genome);
                             let index = (seed & 0xFF) as usize;
                             derived.genome ^= crate::math::MUTATION_LUT[index];
@@ -693,7 +796,11 @@ impl PhaseLattice {
         // This acts as a robust probabilistic signature of the deterministic field.
         // CRIT-3 FIX: adaptive skip so we always sample ~32 agents even when N < 1024
         let active = self.signals.active_agent_count as usize;
-        let skip = if active == 0 { 1 } else { core::cmp::max(1, active / 32) };
+        let skip = if active == 0 {
+            1
+        } else {
+            core::cmp::max(1, active / 32)
+        };
 
         unsafe {
             for i in (0..active).step_by(skip) {
@@ -705,7 +812,11 @@ impl PhaseLattice {
 
         // Φ-Маніфест: публікуємо heartbeat у phi buffer
         let tick = self.signals.proper_time.causal_ticks;
-        let heartbeat = crate::phi_protocol::PhiMessage::encode_heartbeat(hash, tick, self.topology.q_phase as u8);
+        let heartbeat = crate::phi_protocol::PhiMessage::encode_heartbeat(
+            hash,
+            tick,
+            self.topology.q_phase as u8,
+        );
         unsafe {
             let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
             buf.push(heartbeat);
@@ -772,19 +883,46 @@ mod tests {
     use super::*;
     use crate::agent::PhaseAgentMinimal;
     use crate::topology::PhaseTopology;
-    use std::vec::Vec;
     use std::vec;
+    use std::vec::Vec;
 
-    fn make_lattice(agent_count: usize) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
+    fn make_lattice(
+        agent_count: usize,
+    ) -> (
+        PhaseLattice,
+        Vec<PhaseAgentMinimal>,
+        Vec<PhaseAgentMinimal>,
+        Vec<DeltaItem>,
+    ) {
         make_lattice_with_q_phase(agent_count, 7)
     }
 
-    fn make_lattice_with_q_phase(agent_count: usize, q_phase: u32) -> (PhaseLattice, Vec<PhaseAgentMinimal>, Vec<PhaseAgentMinimal>, Vec<DeltaItem>) {
+    fn make_lattice_with_q_phase(
+        agent_count: usize,
+        q_phase: u32,
+    ) -> (
+        PhaseLattice,
+        Vec<PhaseAgentMinimal>,
+        Vec<PhaseAgentMinimal>,
+        Vec<DeltaItem>,
+    ) {
         let mut agents = vec![PhaseAgentMinimal::default(); agent_count];
         let mut snapshot = vec![PhaseAgentMinimal::default(); agent_count];
-        let deltas = vec![DeltaItem { index: 0, phase: 0, energy: 0, genome: 0 }; 100];
+        let deltas = vec![
+            DeltaItem {
+                index: 0,
+                phase: 0,
+                energy: 0,
+                genome: 0
+            };
+            100
+        ];
         let topology = PhaseTopology::new(q_phase, 7, 6, 20);
-        let mut lattice = PhaseLattice::new_from_host_memory(topology, core::ptr::null_mut(), agents.as_mut_ptr());
+        let mut lattice = PhaseLattice::new_from_host_memory(
+            topology,
+            core::ptr::null_mut(),
+            agents.as_mut_ptr(),
+        );
         lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
         lattice.signals.max_cells = agent_count as u32;
         (lattice, agents, snapshot, deltas)
@@ -811,7 +949,7 @@ mod tests {
         let reps = lattice.darwinian_mitosis();
         assert_eq!(reps, 1);
         assert_eq!(agents[0].energy, 1976); // Parent lost 1024 ATP (MAX_ATP / 4)
-        assert!(agents[1].energy > 0);      // Child resurrected
+        assert!(agents[1].energy > 0); // Child resurrected
     }
 
     #[test]
@@ -836,10 +974,13 @@ mod tests {
                 agents.as_ptr(),
                 snapshot.as_mut_ptr(),
                 deltas.as_mut_ptr(),
-                deltas.len()
+                deltas.len(),
             )
         };
-        assert!(count > 0, "Initial population should diverge from zeroed snapshot");
+        assert!(
+            count > 0,
+            "Initial population should diverge from zeroed snapshot"
+        );
 
         // Second run should yield zero deltas because snapshot was synchronized
         let count2 = unsafe {
@@ -847,7 +988,7 @@ mod tests {
                 agents.as_ptr(),
                 snapshot.as_mut_ptr(),
                 deltas.as_mut_ptr(),
-                deltas.len()
+                deltas.len(),
             )
         };
         assert_eq!(count2, 0, "No divergence after snapshot sync");
@@ -878,18 +1019,33 @@ mod tests {
             ticks[0]
         };
         let ticks_before = lattice.signals.proper_time.causal_ticks;
-        assert_eq!(birth0, ticks_before,
-            "birth tick must be set to causal_ticks at ignition");
+        assert_eq!(
+            birth0, ticks_before,
+            "birth tick must be set to causal_ticks at ignition"
+        );
 
         // Tick physics 7 times → causal_ticks advances (amount depends on chronotopology dilation)
-        for _ in 0..7 { lattice.tick_physics(); }
+        for _ in 0..7 {
+            lattice.tick_physics();
+        }
         let birth0_after = {
             let ticks = crate::BIRTH_TICKS.lock();
             ticks[0]
         };
-        let age = lattice.signals.proper_time.causal_ticks.saturating_sub(birth0_after);
-        let elapsed = lattice.signals.proper_time.causal_ticks.saturating_sub(ticks_before);
-        assert_eq!(age, elapsed, "age must equal elapsed causal ticks since birth; birth tick must be immutable");
+        let age = lattice
+            .signals
+            .proper_time
+            .causal_ticks
+            .saturating_sub(birth0_after);
+        let elapsed = lattice
+            .signals
+            .proper_time
+            .causal_ticks
+            .saturating_sub(ticks_before);
+        assert_eq!(
+            age, elapsed,
+            "age must equal elapsed causal ticks since birth; birth tick must be immutable"
+        );
 
         // Mitosis: child gets fresh birth tick at parent tick
         // Use a minimal lattice so next_dead_idx is guaranteed to be 1
@@ -911,8 +1067,10 @@ mod tests {
             let ticks = crate::BIRTH_TICKS.lock();
             ticks[1]
         };
-        assert_eq!(child_birth, parent_tick,
-            "child birth tick must be set to causal_ticks at mitosis");
+        assert_eq!(
+            child_birth, parent_tick,
+            "child birth tick must be set to causal_ticks at mitosis"
+        );
         assert!(agents2[1].energy > 0, "child must be alive");
     }
 
@@ -948,7 +1106,10 @@ mod tests {
         agents[1].energy = 0;
         lattice.darwinian_mitosis();
         let expected_phase = 50u32.wrapping_add(lattice.topology.half_phase());
-        assert_eq!(agents[1].phase, expected_phase, "Child should be at opposite phase (π offset)");
+        assert_eq!(
+            agents[1].phase, expected_phase,
+            "Child should be at opposite phase (π offset)"
+        );
     }
 
     #[test]
@@ -973,9 +1134,18 @@ mod tests {
 
         // Child should inherit XOR-mutated genome with attractor.matrix
         let expected_genome = 0xDEADBEEF ^ 50;
-        assert_eq!(agents[1].genome, expected_genome, "Child genome should be XOR-mutated with attractor.matrix");
-        assert_eq!(agents[1].memory[0], 50, "Child memory_x should hold parentHash (attractor.matrix)");
-        assert!(agents[1].state_flags & 0x0100_0000 != 0, "Child state_flags should have birth-near-attractor bit");
+        assert_eq!(
+            agents[1].genome, expected_genome,
+            "Child genome should be XOR-mutated with attractor.matrix"
+        );
+        assert_eq!(
+            agents[1].memory[0], 50,
+            "Child memory_x should hold parentHash (attractor.matrix)"
+        );
+        assert!(
+            agents[1].state_flags & 0x0100_0000 != 0,
+            "Child state_flags should have birth-near-attractor bit"
+        );
 
         // Cleanup global state for other tests
         unsafe {
@@ -996,20 +1166,26 @@ mod tests {
                 agents.as_ptr(),
                 snapshot.as_mut_ptr(),
                 deltas.as_mut_ptr(),
-                3
+                3,
             )
         };
-        assert_eq!(count, 3, "Should cap at max_deltas even if more agents changed");
+        assert_eq!(
+            count, 3,
+            "Should cap at max_deltas even if more agents changed"
+        );
         // Snapshot should still be synchronized for ALL changed agents (not just first 3)
         let count2 = unsafe {
             lattice.generate_delta_snapshot(
                 agents.as_ptr(),
                 snapshot.as_mut_ptr(),
                 deltas.as_mut_ptr(),
-                deltas.len()
+                deltas.len(),
             )
         };
-        assert_eq!(count2, 0, "All agents should be synced after first call, even those beyond max_deltas");
+        assert_eq!(
+            count2, 0,
+            "All agents should be synced after first call, even those beyond max_deltas"
+        );
     }
 
     #[test]
@@ -1029,7 +1205,7 @@ mod tests {
                 agents.as_ptr(),
                 snapshot.as_mut_ptr(),
                 deltas.as_mut_ptr(),
-                deltas.len()
+                deltas.len(),
             )
         };
         assert_eq!(count, 0, "Identical arrays should produce zero deltas");
@@ -1064,7 +1240,10 @@ mod tests {
         // The phase lag causes it to self-couple: sin(Ψ - Ψ - α) = sin(-α)
         // This adds a constant deterministic torque to lone agents.
         let expected = agents[0].phase; // we will just assert it drifted deterministically
-        assert_ne!(before, expected, "Phase should drift due to base_freq and self-coupling alpha");
+        assert_ne!(
+            before, expected,
+            "Phase should drift due to base_freq and self-coupling alpha"
+        );
     }
 
     #[test]
@@ -1091,8 +1270,14 @@ mod tests {
         lattice.tick_physics();
 
         // With coupling, both agents should shift (coupling for phase 32 is not a multiple of 128)
-        assert_ne!(agents[0].phase, phase_before_0, "Agent 0 phase should change due to coupling");
-        assert_ne!(agents[1].phase, phase_before_1, "Agent 1 phase should change due to coupling");
+        assert_ne!(
+            agents[0].phase, phase_before_0,
+            "Agent 0 phase should change due to coupling"
+        );
+        assert_ne!(
+            agents[1].phase, phase_before_1,
+            "Agent 1 phase should change due to coupling"
+        );
 
         // The two agents must shift in opposite modular directions
         // (one's coupling is positive, the other's negative).
@@ -1101,7 +1286,10 @@ mod tests {
         let delta_1 = (agents[1].phase as i32 - phase_before_1 as i32).rem_euclid(mask);
         // With alpha=64, the phase lag alters the symmetry of the coupling.
         // As long as they both drifted deterministically, the test passes.
-        assert!(delta_0 != 0 || delta_1 != 0, "Agents should shift due to coupling");
+        assert!(
+            delta_0 != 0 || delta_1 != 0,
+            "Agents should shift due to coupling"
+        );
     }
 
     #[test]
@@ -1110,8 +1298,16 @@ mod tests {
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.dirty_flags = SIGNAL_TOPOLOGY_CHANGED | SIGNAL_CONSENSUS_SHIFT;
         lattice.tick_physics();
-        assert_eq!(lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED, 0, "TOPOLOGY_CHANGED should be cleared");
-        assert_eq!(lattice.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT, 0, "CONSENSUS_SHIFT should be cleared");
+        assert_eq!(
+            lattice.signals.dirty_flags & SIGNAL_TOPOLOGY_CHANGED,
+            0,
+            "TOPOLOGY_CHANGED should be cleared"
+        );
+        assert_eq!(
+            lattice.signals.dirty_flags & SIGNAL_CONSENSUS_SHIFT,
+            0,
+            "CONSENSUS_SHIFT should be cleared"
+        );
     }
 
     #[test]
@@ -1120,14 +1316,20 @@ mod tests {
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.active_agent_count = 10;
         // Mix of alive and dead agents
-        agents[0].energy = 1; agents[0].phase = 1;
-        agents[1].energy = 0; agents[1].phase = 0;
-        agents[2].energy = 4000; agents[2].phase = 63; // resonance trigger
+        agents[0].energy = 1;
+        agents[0].phase = 1;
+        agents[1].energy = 0;
+        agents[1].phase = 0;
+        agents[2].energy = 4000;
+        agents[2].phase = 63; // resonance trigger
         lattice.tick_physics();
         for i in 0..10 {
             assert!(
                 agents[i].energy <= crate::constants::MAX_ATP,
-                "Agent {} energy {} exceeds MAX_ATP {}", i, agents[i].energy, crate::constants::MAX_ATP
+                "Agent {} energy {} exceeds MAX_ATP {}",
+                i,
+                agents[i].energy,
+                crate::constants::MAX_ATP
             );
         }
     }
@@ -1143,7 +1345,11 @@ mod tests {
         }
         let mask = lattice.topology.phase_mask();
         for i in 0..10 {
-            assert!(agents[i].phase <= mask, "q_phase=2: phase must be in [0, {}]", mask);
+            assert!(
+                agents[i].phase <= mask,
+                "q_phase=2: phase must be in [0, {}]",
+                mask
+            );
         }
     }
 
@@ -1158,7 +1364,11 @@ mod tests {
         }
         let mask = lattice.topology.phase_mask();
         for i in 0..10 {
-            assert!(agents[i].phase <= mask, "q_phase=5: phase must be in [0, {}]", mask);
+            assert!(
+                agents[i].phase <= mask,
+                "q_phase=5: phase must be in [0, {}]",
+                mask
+            );
         }
     }
 
@@ -1168,18 +1378,34 @@ mod tests {
         lattice1.minimal_agents_ptr = agents1.as_mut_ptr();
         lattice1.signals.active_agent_count = 20;
         lattice1.ignite_big_bang(77, 20);
-        for _ in 0..10 { lattice1.tick_physics(); }
+        for _ in 0..10 {
+            lattice1.tick_physics();
+        }
 
         let (mut lattice2, mut agents2, _snapshot, _deltas) = make_lattice_with_q_phase(20, 5);
         lattice2.minimal_agents_ptr = agents2.as_mut_ptr();
         lattice2.signals.active_agent_count = 20;
         lattice2.ignite_big_bang(77, 20);
-        for _ in 0..10 { lattice2.tick_physics(); }
+        for _ in 0..10 {
+            lattice2.tick_physics();
+        }
 
         for i in 0..20 {
-            assert_eq!(agents1[i].phase, agents2[i].phase, "Determinism failed at agent {} (phase)", i);
-            assert_eq!(agents1[i].energy, agents2[i].energy, "Determinism failed at agent {} (energy)", i);
-            assert_eq!(agents1[i].genome, agents2[i].genome, "Determinism failed at agent {} (genome)", i);
+            assert_eq!(
+                agents1[i].phase, agents2[i].phase,
+                "Determinism failed at agent {} (phase)",
+                i
+            );
+            assert_eq!(
+                agents1[i].energy, agents2[i].energy,
+                "Determinism failed at agent {} (energy)",
+                i
+            );
+            assert_eq!(
+                agents1[i].genome, agents2[i].genome,
+                "Determinism failed at agent {} (genome)",
+                i
+            );
         }
     }
 
@@ -1198,7 +1424,10 @@ mod tests {
         for i in 0..10 {
             assert!(
                 agents[i].phase <= mask,
-                "Agent {} phase {} out of range [0, {}]", i, agents[i].phase, mask
+                "Agent {} phase {} out of range [0, {}]",
+                i,
+                agents[i].phase,
+                mask
             );
         }
     }
@@ -1215,7 +1444,11 @@ mod tests {
         lattice.tick_physics();
         for i in 0..5 {
             assert_eq!(agents[i].energy, 0, "Dead agent {} should not resurrect", i);
-            assert!(agents[i].state_flags & 0x01 != 0, "Dead agent {} should have death flag set", i);
+            assert!(
+                agents[i].state_flags & 0x01 != 0,
+                "Dead agent {} should have death flag set",
+                i
+            );
         }
     }
 
@@ -1272,7 +1505,9 @@ mod tests {
         for i in 0..agent_count {
             agents[i].phase = (i * 7) as u32;
             agents[i].energy = 500 + ((i * 3) % 3000) as u32;
-            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP) % crate::constants::BB_FREQ_RANGE as i32) - crate::constants::BB_FREQ_OFFSET;
+            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP)
+                % crate::constants::BB_FREQ_RANGE as i32)
+                - crate::constants::BB_FREQ_OFFSET;
         }
         let start = std::time::Instant::now();
         for _ in 0..10 {
@@ -1280,9 +1515,16 @@ mod tests {
         }
         let elapsed = start.elapsed();
         let ns_per_agent = elapsed.as_nanos() / (agent_count as u128 * 10);
-        println!("\n[BENCH] tick_physics: {} agents × 10 ticks in {:?}", agent_count, elapsed);
+        println!(
+            "\n[BENCH] tick_physics: {} agents × 10 ticks in {:?}",
+            agent_count, elapsed
+        );
         println!("[BENCH] ~{} ns per agent per tick", ns_per_agent);
-        assert!(elapsed.as_secs() < 5, "tick_physics too slow: {:?}", elapsed);
+        assert!(
+            elapsed.as_secs() < 5,
+            "tick_physics too slow: {:?}",
+            elapsed
+        );
     }
 
     #[test]
@@ -1295,15 +1537,24 @@ mod tests {
         for i in 0..agent_count {
             agents[i].phase = (i * 7) as u32;
             agents[i].energy = 500 + ((i * 3) % 3000) as u32;
-            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP) % crate::constants::BB_FREQ_RANGE as i32) - crate::constants::BB_FREQ_OFFSET;
+            agents[i].base_freq = ((i as i32 * crate::constants::BB_FREQ_STEP)
+                % crate::constants::BB_FREQ_RANGE as i32)
+                - crate::constants::BB_FREQ_OFFSET;
         }
         let start = std::time::Instant::now();
         lattice.tick_physics();
         let elapsed = start.elapsed();
         let ns_per_agent = elapsed.as_nanos() / agent_count as u128;
-        println!("\n[BENCH] tick_physics: {} agents × 1 tick in {:?}", agent_count, elapsed);
+        println!(
+            "\n[BENCH] tick_physics: {} agents × 1 tick in {:?}",
+            agent_count, elapsed
+        );
         println!("[BENCH] ~{} ns per agent per tick", ns_per_agent);
-        assert!(elapsed.as_secs() < 2, "tick_physics too slow for 1M: {:?}", elapsed);
+        assert!(
+            elapsed.as_secs() < 2,
+            "tick_physics too slow for 1M: {:?}",
+            elapsed
+        );
     }
 
     #[test]
@@ -1325,9 +1576,7 @@ mod tests {
             [(l1, a1, s1, d1), (l2, a2, s2, d2)]
         };
 
-        for (ref mut lattice, ref mut agents, ref mut _snapshot, ref mut _deltas) in
-            &mut setups
-        {
+        for (ref mut lattice, ref mut agents, ref mut _snapshot, ref mut _deltas) in &mut setups {
             lattice.minimal_agents_ptr = agents.as_mut_ptr();
             lattice.signals.active_agent_count = 8;
             for i in 0..8 {
@@ -1341,10 +1590,18 @@ mod tests {
         let (_, ref agents1, _, _) = setups[0];
         let (_, ref agents2, _, _) = setups[1];
         for i in 0..8 {
-            assert_eq!(agents1[i].phase, agents2[i].phase, "Phase must be deterministic");
-            assert_eq!(agents1[i].energy, agents2[i].energy, "Energy must be deterministic");
-            assert_eq!(agents1[i].base_freq, agents2[i].base_freq, "Base freq must be deterministic");
+            assert_eq!(
+                agents1[i].phase, agents2[i].phase,
+                "Phase must be deterministic"
+            );
+            assert_eq!(
+                agents1[i].energy, agents2[i].energy,
+                "Energy must be deterministic"
+            );
+            assert_eq!(
+                agents1[i].base_freq, agents2[i].base_freq,
+                "Base freq must be deterministic"
+            );
         }
     }
 }
-

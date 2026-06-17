@@ -1,6 +1,6 @@
 // Era 1090: cross-language anchor for the WarrantProposal hash.
-use omega_v2::warrant_issuance::WarrantProposal;
 use omega_v2::codeicide_law::ACTION_TERMINATE;
+use omega_v2::warrant_issuance::WarrantProposal;
 
 #[test]
 fn anchor_proposal_hash_cafebabe_terminate_reason() {

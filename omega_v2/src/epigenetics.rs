@@ -154,7 +154,10 @@ mod tests {
         let perfect = 1 << 7; // bit 7 = 1, bit 3 = 0
         let score = mem.alignment_score(perfect);
         // bit 7 should match (dominant 1), bit 3 should match (dominant 0)
-        assert!(score >= 30, "Alignment score should be very high for dominant pattern");
+        assert!(
+            score >= 30,
+            "Alignment score should be very high for dominant pattern"
+        );
     }
 
     #[test]

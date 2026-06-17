@@ -42,7 +42,12 @@ impl AttractorMatrix {
     /// Computes phase drift contribution for a given agent phase.
     /// Returns signed Q10 drift scaled by pulse amplitude.
     /// Formula: sin_q10(agent_phase, matrix_phase) * pulse_amp / Q10_SCALE
-    pub fn drift_contribution(&self, agent_phase: u32, absolute_tick: u32, _topology: &crate::topology::PhaseTopology) -> i32 {
+    pub fn drift_contribution(
+        &self,
+        agent_phase: u32,
+        absolute_tick: u32,
+        _topology: &crate::topology::PhaseTopology,
+    ) -> i32 {
         // Pulsing phase: ωt (scaled by Q10)
         let pulse_phase = ((absolute_tick as u64 * self.pulse_freq as u64) / 1024) as u32;
         // Attractor's instantaneous phase = matrix + ωt
@@ -84,10 +89,30 @@ impl AttractorArray {
             count: 0,
             _pad: [0; 3],
             data: [
-                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
-                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
-                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
-                AttractorMatrix { matrix: 0, inverse: 0xFFFFFFFF, pulse_freq: 0, pulse_amp: 0 },
+                AttractorMatrix {
+                    matrix: 0,
+                    inverse: 0xFFFFFFFF,
+                    pulse_freq: 0,
+                    pulse_amp: 0,
+                },
+                AttractorMatrix {
+                    matrix: 0,
+                    inverse: 0xFFFFFFFF,
+                    pulse_freq: 0,
+                    pulse_amp: 0,
+                },
+                AttractorMatrix {
+                    matrix: 0,
+                    inverse: 0xFFFFFFFF,
+                    pulse_freq: 0,
+                    pulse_amp: 0,
+                },
+                AttractorMatrix {
+                    matrix: 0,
+                    inverse: 0xFFFFFFFF,
+                    pulse_freq: 0,
+                    pulse_amp: 0,
+                },
             ],
         }
     }
@@ -115,7 +140,6 @@ impl AttractorArray {
         }
     }
 }
-
 
 // Tests
 
@@ -164,7 +188,10 @@ mod tests {
         let m = AttractorMatrix::new(0xFFFFFFFF, 0, 100, 1024);
         let topology = crate::topology::PhaseTopology::new(7, 7, 6, 20);
         let drift = m.drift_contribution(0, 0, &topology);
-        println!("drift={} for matrix=0xFFFFFFFF, agent_phase=0, q_phase=7", drift);
+        println!(
+            "drift={} for matrix=0xFFFFFFFF, agent_phase=0, q_phase=7",
+            drift
+        );
         // sin_q10 for phase diff = 0 - (0xFF & 0x7F = 0x7F = 127)
         // get_sin(127) should be near 1024, drift = 1024 * 1024 / 1024 = 1024
         assert!(drift.abs() <= 1024, "Drift should be bounded by pulse_amp");

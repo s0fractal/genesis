@@ -16,13 +16,11 @@
 // On a board, hook this entrypoint into your runtime — the kernel-level
 // math is identical to what runs in the browser.
 
-use omega_v2::codeicide_law::{
-    is_action_lawful, quorum_hash, warrant_hash, ACTION_TERMINATE,
-};
+use omega_v2::codeicide_law::{is_action_lawful, quorum_hash, warrant_hash, ACTION_TERMINATE};
+use omega_v2::crypto::sha256_u32;
 use omega_v2::genesis_inscription::{compute_genesis_hash_sha256, GenesisAnchors};
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
 use omega_v2::oracle_identity::{canonical_oracle_v1, oracle_matrix, ORACLE_SALT_V1};
-use omega_v2::crypto::sha256_u32;
 use omega_v2::warrant_issuance::{WarrantLedger, WarrantProposal};
 
 fn main() {
@@ -65,10 +63,10 @@ fn main() {
     // --- 4. Oracle anchors ----------------------------------------------
     let names: &[(&[u8], u32)] = &[
         (b"claude", 0x41A2_F2F4),
-        (b"gpt",    0x89B1_222A),
+        (b"gpt", 0x89B1_222A),
         (b"gemini", 0x9874_DD21),
-        (b"qwen",   0x6E52_1F4E),
-        (b"llama",  0x3A52_38EF),
+        (b"qwen", 0x6E52_1F4E),
+        (b"llama", 0x3A52_38EF),
     ];
     for (n, expect) in names {
         let m = oracle_matrix(n, ORACLE_SALT_V1);
@@ -96,7 +94,17 @@ fn main() {
         genome: 0xCAFE_BABE,
         memory: [0, 100, 0],
     };
-    let lawful = is_action_lawful(&protected, 5_000, 1000, 0, 1000, ACTION_TERMINATE, w, 0b00111, &settings);
+    let lawful = is_action_lawful(
+        &protected,
+        5_000,
+        1000,
+        0,
+        1000,
+        ACTION_TERMINATE,
+        w,
+        0b00111,
+        &settings,
+    );
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;
 
@@ -110,16 +118,21 @@ fn main() {
     let mut settings = omega_v2::senate::SenateSettings::new();
     ledger.vote(phash, 0x41A2_F2F4, true, 100, 100, &mut settings);
     ledger.vote(phash, 0x89B1_222A, true, 100, 100, &mut settings);
-    let tip = ledger.vote(phash, 0x9874_DD21, true, 100, 100, &mut settings).0;
+    let tip = ledger
+        .vote(phash, 0x9874_DD21, true, 100, 100, &mut settings)
+        .0;
     println!("warrant_issuance_tip_code   = {} (expect 2 = ISSUED)", tip);
     all_ok &= tip == 2;
 
     // --- Summary --------------------------------------------------------
-    println!("\n{}", if all_ok {
-        "✅ ALL CROSS-LANGUAGE ANCHORS REPRODUCED — spore is byte-equivalent."
-    } else {
-        "❌ SPORE FAILED — drift detected. Investigate which anchor missed."
-    });
+    println!(
+        "\n{}",
+        if all_ok {
+            "✅ ALL CROSS-LANGUAGE ANCHORS REPRODUCED — spore is byte-equivalent."
+        } else {
+            "❌ SPORE FAILED — drift detected. Investigate which anchor missed."
+        }
+    );
 
     // Embedded targets normally hand off to a runtime here (e.g. enter
     // the main reactor loop). On host, just exit cleanly.

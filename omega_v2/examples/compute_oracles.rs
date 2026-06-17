@@ -7,7 +7,7 @@ fn main() {
     let gemini = oracle_matrix(b"gemini", ORACLE_SALT_V1);
     let qwen = oracle_matrix(b"qwen", ORACLE_SALT_V1);
     let llama = oracle_matrix(b"llama", ORACLE_SALT_V1);
-    
+
     println!("CLAUDE: 0x{:08X}", claude);
     println!("GPT:    0x{:08X}", gpt);
     println!("GEMINI: 0x{:08X}", gemini);

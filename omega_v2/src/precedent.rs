@@ -44,7 +44,13 @@ impl PrecedentLedger {
         }
     }
 
-    pub fn record(&mut self, proposal_hash: u32, warrant_hash: u32, absolute_tick: u32, aye_bits: u8) {
+    pub fn record(
+        &mut self,
+        proposal_hash: u32,
+        warrant_hash: u32,
+        absolute_tick: u32,
+        aye_bits: u8,
+    ) {
         let idx = (self.head % 256) as usize;
         self.cases[idx] = SenatePrecedent {
             proposal_hash,
@@ -72,7 +78,7 @@ mod tests {
         // 300 % 256 = 44, so index 43 should have been written last
         assert_eq!(ledger.cases[43].proposal_hash, 299);
         assert_eq!(ledger.cases[44].proposal_hash, 44); // overwritten from earlier loop? Wait, 44 was overwritten by 256+44 = 300, which is the 301st item. We inserted up to i=299.
-        // Wait, 299 % 256 = 43.
-        // So cases[43] is 299. cases[44] is 44!
+                                                        // Wait, 299 % 256 = 43.
+                                                        // So cases[43] is 299. cases[44] is 44!
     }
 }

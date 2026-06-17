@@ -51,9 +51,13 @@ pub const LOCKED_ENVELOPE_HASH: u32 = 0x0adf_dc42;
 /// Returns the count parsed; rejects on bad CRC anywhere or
 /// truncated trailing bytes.
 pub fn parse_envelope_stream(buf: &[u8], out: &mut [SporeFrame]) -> Option<usize> {
-    if !buf.len().is_multiple_of(SPORE_FRAME_BYTES) { return None; }
+    if !buf.len().is_multiple_of(SPORE_FRAME_BYTES) {
+        return None;
+    }
     let n = buf.len() / SPORE_FRAME_BYTES;
-    if n > out.len() { return None; }
+    if n > out.len() {
+        return None;
+    }
     for i in 0..n {
         let off = i * SPORE_FRAME_BYTES;
         let mut bytes = [0u8; SPORE_FRAME_BYTES];
@@ -116,7 +120,9 @@ mod tests {
         let mut frames = [SporeFrame::empty(); 4];
         parse_envelope_stream(&LOCKED_ENVELOPE_BYTES, &mut frames).unwrap();
         let mut acc: EventDeltaAccumulator<8> = EventDeltaAccumulator::new();
-        for f in &frames[..4] { let _ = acc.ingest_frame(*f); }
+        for f in &frames[..4] {
+            let _ = acc.ingest_frame(*f);
+        }
         let delta = acc.take_delta().expect("delta");
 
         let mut sink: ForensicEventSink<8> = ForensicEventSink::new();

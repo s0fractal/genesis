@@ -30,8 +30,11 @@ pub fn main() {
         // -----------------------------------------------------------------
         1 => {
             let agent_count = sp1_zkvm::io::read::<u32>() as usize;
-            assert!(agent_count > 0 && agent_count <= 16,
-                "ZK resonance verification supports 1..16 agents, got {}", agent_count);
+            assert!(
+                agent_count > 0 && agent_count <= 16,
+                "ZK resonance verification supports 1..16 agents, got {}",
+                agent_count
+            );
 
             let mut agents = [PhaseAgentMinimal::default(); 16];
             for i in 0..agent_count {
@@ -48,9 +51,18 @@ pub fn main() {
             assert!(r_q10 <= 1024, "Invalid order parameter: {} > 1024", r_q10);
 
             // Additional invariant: at least one living agent contributed
-            assert!(field.active_count > 0, "No living agents in resonance field");
+            assert!(
+                field.active_count > 0,
+                "No living agents in resonance field"
+            );
 
-            sp1_zkvm::io::commit(&(mode, r_q10, field.sum_cos as i64, field.sum_sin as i64, field.total_energy));
+            sp1_zkvm::io::commit(&(
+                mode,
+                r_q10,
+                field.sum_cos as i64,
+                field.sum_sin as i64,
+                field.total_energy,
+            ));
         }
 
         // -----------------------------------------------------------------
@@ -111,8 +123,14 @@ pub fn main() {
             // Bit-for-bit equivalence is the proof axiom.
             assert_eq!(derived.phase, claimed_child.phase, "phase mismatch");
             assert_eq!(derived.energy, claimed_child.energy, "energy mismatch");
-            assert_eq!(derived.base_freq, claimed_child.base_freq, "base_freq mismatch");
-            assert_eq!(derived.state_flags, claimed_child.state_flags, "state_flags mismatch");
+            assert_eq!(
+                derived.base_freq, claimed_child.base_freq,
+                "base_freq mismatch"
+            );
+            assert_eq!(
+                derived.state_flags, claimed_child.state_flags,
+                "state_flags mismatch"
+            );
             assert_eq!(derived.genome, claimed_child.genome, "genome mismatch");
             assert_eq!(derived.memory, claimed_child.memory, "memory mismatch");
 
@@ -136,7 +154,7 @@ pub fn main() {
             let q_radial = sp1_zkvm::io::read::<u32>();
             let q_math = sp1_zkvm::io::read::<u32>();
             let weather_multiplier = sp1_zkvm::io::read::<u32>();
-            
+
             let topology = omega_v2::topology::PhaseTopology {
                 q_phase,
                 q_sectors,
@@ -149,7 +167,10 @@ pub fn main() {
             };
 
             let active_count = sp1_zkvm::io::read::<u32>();
-            assert!(active_count > 0 && active_count <= 2048, "active_count out of bounds for rollup");
+            assert!(
+                active_count > 0 && active_count <= 2048,
+                "active_count out of bounds for rollup"
+            );
 
             let mut snapshot = alloc::vec::Vec::with_capacity(active_count as usize);
             for _ in 0..active_count {
@@ -198,8 +219,9 @@ pub fn main() {
             // Execute Physics Tick
             let mut agents_out = snapshot.clone();
             // We need a dummy smart agent array, though it isn't strictly used for physics ticks in V2 minimal loop.
-            let mut smart_agents = alloc::vec![omega_v2::agent::PhaseAgentSmart::default(); active_count as usize];
-            
+            let mut smart_agents =
+                alloc::vec![omega_v2::agent::PhaseAgentSmart::default(); active_count as usize];
+
             let mut lattice = omega_v2::lattice::PhaseLattice::new_from_host_memory(
                 topology,
                 smart_agents.as_mut_ptr(),
@@ -227,7 +249,10 @@ pub fn main() {
             }
             let final_hash = omega_v2::senate::sha256_hash(&final_bytes);
 
-            assert!(initial_hash != final_hash || active_count == 0, "Static state, skipping ZK proof");
+            assert!(
+                initial_hash != final_hash || active_count == 0,
+                "Static state, skipping ZK proof"
+            );
 
             // Commit the rollup proof bundle
             sp1_zkvm::io::commit(&(mode, q_phase, initial_hash, final_hash, active_count));

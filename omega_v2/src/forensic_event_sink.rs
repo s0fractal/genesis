@@ -114,18 +114,19 @@ impl<const N: usize> ForensicEventSink<N> {
         }
     }
 
-    pub fn capacity(&self) -> usize { N }
-    pub fn len(&self) -> usize { self.len }
-    pub fn is_empty(&self) -> bool { self.len == 0 }
+    pub fn capacity(&self) -> usize {
+        N
+    }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     /// Append a new event. Returns the freshly-built envelope. On
     /// overflow, the oldest entry is silently evicted (FIFO).
-    pub fn append(
-        &mut self,
-        kind: &[u8],
-        event_hash: u32,
-        now_ms: u32,
-    ) -> ForensicEvent {
+    pub fn append(&mut self, kind: &[u8], event_hash: u32, now_ms: u32) -> ForensicEvent {
         let sequence = self.next_sequence;
         self.next_sequence = self.next_sequence.wrapping_add(1);
         let prev = self.live_tail_chain_hash;
@@ -168,11 +169,15 @@ impl<const N: usize> ForensicEventSink<N> {
     /// Verify chain integrity. Returns the sequence number of the
     /// first broken entry, or `None` when intact.
     pub fn verify_chain(&self) -> Option<u32> {
-        if self.len == 0 { return None; }
+        if self.len == 0 {
+            return None;
+        }
         let mut prev = self.entries[0].prev_chain_hash;
         for i in 0..self.len {
             let e = &self.entries[i];
-            if e.prev_chain_hash != prev { return Some(e.sequence); }
+            if e.prev_chain_hash != prev {
+                return Some(e.sequence);
+            }
             let recomputed = compute_chain_hash(
                 e.kind(),
                 e.event_hash,
@@ -180,7 +185,9 @@ impl<const N: usize> ForensicEventSink<N> {
                 e.sequence,
                 e.prev_chain_hash,
             );
-            if recomputed != e.chain_hash { return Some(e.sequence); }
+            if recomputed != e.chain_hash {
+                return Some(e.sequence);
+            }
             prev = e.chain_hash;
         }
         None

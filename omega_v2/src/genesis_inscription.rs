@@ -44,11 +44,11 @@ pub struct GenesisAnchors {
 impl GenesisAnchors {
     /// The values frozen for OMEGA-64 v1.0. Any drift = different protocol.
     pub const V1_0: Self = Self {
-        senate_hash_empty:        0xF5A5_FD42,
-        senate_hash_short:        0x1530_2EC1,
-        first_proposal_hash:      0x3008_3117,
-        mitosis_receipt_no_attr:  0xF73D_B063,
-        mitosis_receipt_attr:     0x8C3A_C082,
+        senate_hash_empty: 0xF5A5_FD42,
+        senate_hash_short: 0x1530_2EC1,
+        first_proposal_hash: 0x3008_3117,
+        mitosis_receipt_no_attr: 0xF73D_B063,
+        mitosis_receipt_attr: 0x8C3A_C082,
     };
 
     pub fn as_bytes(&self) -> [u8; 20] {
@@ -166,9 +166,15 @@ const fn compute_genesis_hash_const() -> u32 {
     let total_len = version_len + 28;
     let mut buf = [0u8; 64];
     let mut i = 0;
-    while i < version_len { buf[i] = PROTOCOL_VERSION[i]; i += 1; }
+    while i < version_len {
+        buf[i] = PROTOCOL_VERSION[i];
+        i += 1;
+    }
     let mut j = 0;
-    while j < 20 { buf[version_len + j] = anchor_bytes[j]; j += 1; }
+    while j < 20 {
+        buf[version_len + j] = anchor_bytes[j];
+        j += 1;
+    }
     let dipole_be = [0xFFu8, 0xFF, 0xFF, 0xFF];
     let toroidal_be = [0u8, 0, 1, 0];
     let mut k = 0;
@@ -193,9 +199,9 @@ const fn compute_genesis_hash_const() -> u32 {
 pub fn format_inscription(hash: u32) -> [u8; 15] {
     let mut out = *b"OMEGA1:00000000";
     let hex = b"0123456789abcdef";
-    out[7]  = hex[((hash >> 28) & 0xF) as usize];
-    out[8]  = hex[((hash >> 24) & 0xF) as usize];
-    out[9]  = hex[((hash >> 20) & 0xF) as usize];
+    out[7] = hex[((hash >> 28) & 0xF) as usize];
+    out[8] = hex[((hash >> 24) & 0xF) as usize];
+    out[9] = hex[((hash >> 20) & 0xF) as usize];
     out[10] = hex[((hash >> 16) & 0xF) as usize];
     out[11] = hex[((hash >> 12) & 0xF) as usize];
     out[12] = hex[((hash >> 8) & 0xF) as usize];

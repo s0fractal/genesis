@@ -28,13 +28,9 @@
 // inputs — both sides reach the same wire bytes for the same
 // logical envelope.
 
-use crate::forensic_event_sink::{
-    event_hash_set_hash,
-    ForensicEvent,
-    ForensicEventSink,
-};
-use crate::spore_frame::{SporeFrame, SPORE_FRAME_BYTES};
 use crate::crypto::sha256_u32;
+use crate::forensic_event_sink::{event_hash_set_hash, ForensicEvent, ForensicEventSink};
+use crate::spore_frame::{SporeFrame, SPORE_FRAME_BYTES};
 
 /// Schema constant — keep in lockstep with JS `EVENT_WIRE_SCHEMA`.
 pub const BROADCAST_SCHEMA: &str = "OMEGA-1420/v1";
@@ -88,9 +84,15 @@ impl<const N: usize> BroadcastBuffer<N> {
         self.len = 0;
     }
 
-    pub fn len(&self) -> usize { self.len }
-    pub fn is_empty(&self) -> bool { self.len == 0 }
-    pub fn capacity(&self) -> usize { N }
+    pub fn len(&self) -> usize {
+        self.len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+    pub fn capacity(&self) -> usize {
+        N
+    }
 }
 
 /// Build a single EVENT_HASH_LIST frame announcing the sink's full
@@ -141,8 +143,12 @@ pub fn build_delta_chunk_frames(
     out: &mut [SporeFrame],
 ) -> usize {
     let total = entries.len();
-    if total > 0xFFFF { return usize::MAX; }
-    if out.len() < total + 1 { return usize::MAX; }
+    if total > 0xFFFF {
+        return usize::MAX;
+    }
+    if out.len() < total + 1 {
+        return usize::MAX;
+    }
 
     // envelope_hash = FNV-1a over the sorted event_hash set of
     // missing entries (matches JS `eventHashSetHash`).
@@ -193,7 +199,9 @@ pub fn build_delta_chunk_frames(
 /// written, or `usize::MAX` on insufficient capacity.
 pub fn serialize_frames(frames: &[SporeFrame], out: &mut [u8]) -> usize {
     let needed = frames.len() * SPORE_FRAME_BYTES;
-    if out.len() < needed { return usize::MAX; }
+    if out.len() < needed {
+        return usize::MAX;
+    }
     for (i, f) in frames.iter().enumerate() {
         let bytes = f.as_bytes();
         let off = i * SPORE_FRAME_BYTES;
@@ -222,8 +230,8 @@ pub fn broadcast_tick(monotonic_counter: u32, relay_id: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spore_frame::FRAME_TYPE_EVENT_HASH_LIST;
     use crate::spore_frame::FRAME_TYPE_EVENT_DELTA_CHUNK;
+    use crate::spore_frame::FRAME_TYPE_EVENT_HASH_LIST;
 
     #[test]
     fn buffer_push_drain() {
@@ -276,7 +284,7 @@ mod tests {
         let mut out = [SporeFrame::empty(); 4];
         let n = build_delta_chunk_frames(&entries, 0x42, 0xAAAA, 99, 0, &mut out);
         assert_eq!(n, 3); // 1 header + 2 records
-        // Header at [0]
+                          // Header at [0]
         assert_eq!(out[0].frame_type, FRAME_TYPE_EVENT_DELTA_CHUNK);
         assert_eq!((out[0]._reserved >> 16) & 0xFFFF, 0);
         assert_eq!(out[0]._reserved & 0xFFFF, 2);

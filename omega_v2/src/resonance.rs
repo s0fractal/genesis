@@ -134,7 +134,11 @@ mod tests {
         // Single agent at phase 0: cos=1024, sin=0
         // sum_cos = 1024 * 1000 = 1,024,000
         // r = 1,024,000 / 1000 = 1024 (perfect sync)
-        assert_eq!(field.order_parameter_r_q10(), 1024, "Single agent should have r=1.0");
+        assert_eq!(
+            field.order_parameter_r_q10(),
+            1024,
+            "Single agent should have r=1.0"
+        );
         assert_eq!(field.total_energy, 1000);
         assert_eq!(field.active_count, 1);
     }
@@ -142,8 +146,22 @@ mod tests {
     #[test]
     fn test_resonance_field_two_agents_opposite() {
         let agents = [
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 64, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 64,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
         ];
         let field = scan_resonance_field(&agents);
         // Agent 0: cos=1024, sin=0
@@ -153,43 +171,101 @@ mod tests {
         // norm = sqrt(2) * 1,024,000 ≈ 1,448,155
         // r = 1,448,155 / 2000 ≈ 724 (Q10)
         let r = field.order_parameter_r_q10();
-        assert!(r > 700 && r < 750, "Orthogonal agents should have r≈0.707 (724 Q10), got {}", r);
+        assert!(
+            r > 700 && r < 750,
+            "Orthogonal agents should have r≈0.707 (724 Q10), got {}",
+            r
+        );
     }
 
     #[test]
     fn test_resonance_field_two_agents_anti() {
         let agents = [
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 128, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 128,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
         ];
         let field = scan_resonance_field(&agents);
         // Agent 0: cos=1024, sin=0
         // Agent 1 (phase=128=π): cos=-1024, sin=0
         // sum_cos = 0, sum_sin = 0
         // r = 0
-        assert_eq!(field.order_parameter_r_q10(), 0, "Anti-phase agents should have r=0");
+        assert_eq!(
+            field.order_parameter_r_q10(),
+            0,
+            "Anti-phase agents should have r=0"
+        );
     }
 
     #[test]
     fn test_resonance_field_skips_dead() {
         let agents = [
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 0, energy: 0, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 0,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
         ];
         let field = scan_resonance_field(&agents);
-        assert_eq!(field.order_parameter_r_q10(), 1024, "Dead agent should be skipped");
+        assert_eq!(
+            field.order_parameter_r_q10(),
+            1024,
+            "Dead agent should be skipped"
+        );
         assert_eq!(field.active_count, 1);
     }
 
     #[test]
     fn test_resonance_score_aligned() {
         let agents = [
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
         ];
         let field = scan_resonance_field(&agents);
         let score = field.resonance_score(&agents[0]);
-        assert!(score > 1000, "Aligned agent should have high positive resonance score, got {}", score);
+        assert!(
+            score > 1000,
+            "Aligned agent should have high positive resonance score, got {}",
+            score
+        );
     }
 
     #[test]
@@ -197,14 +273,43 @@ mod tests {
         // Three agents: two aligned at phase 0, one anti-phase at 128.
         // Global phase Ψ ≈ 0 (majority rules), so anti-phase agent should be negative.
         let agents = [
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 0, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
-            PhaseAgentMinimal { phase: 128, energy: 1000, base_freq: 0, state_flags: 0, genome: 0, memory: [0, 0, 0] },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 0,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
+            PhaseAgentMinimal {
+                phase: 128,
+                energy: 1000,
+                base_freq: 0,
+                state_flags: 0,
+                genome: 0,
+                memory: [0, 0, 0],
+            },
         ];
         let field = scan_resonance_field(&agents);
         let r = field.order_parameter_r_q10();
-        assert!(r > 300, "Three agents with 2:1 split should have r > 0.3, got {}", r);
+        assert!(
+            r > 300,
+            "Three agents with 2:1 split should have r > 0.3, got {}",
+            r
+        );
         let score = field.resonance_score(&agents[2]);
-        assert!(score < -500, "Anti-phase agent should have negative resonance score, got {}", score);
+        assert!(
+            score < -500,
+            "Anti-phase agent should have negative resonance score, got {}",
+            score
+        );
     }
 }

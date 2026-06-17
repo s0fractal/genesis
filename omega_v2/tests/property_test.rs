@@ -1,5 +1,5 @@
-use omega_v2::topology::PhaseTopology;
 use omega_v2::math::xorshift32_once;
+use omega_v2::topology::PhaseTopology;
 
 #[test]
 fn test_property_phase_wraparound() {
@@ -24,13 +24,16 @@ fn test_property_phase_wraparound() {
             phase_b - phase_a
         };
 
-        let shortest = if diff > half {
-            (mask + 1) - diff
-        } else {
-            diff
-        };
+        let shortest = if diff > half { (mask + 1) - diff } else { diff };
 
-        assert!(shortest <= half, "Shortest distance ({}) exceeded half-phase ({}) for {} and {}", shortest, half, phase_a, phase_b);
+        assert!(
+            shortest <= half,
+            "Shortest distance ({}) exceeded half-phase ({}) for {} and {}",
+            shortest,
+            half,
+            phase_a,
+            phase_b
+        );
 
         // Test trig lookups
         let sin_a = t.get_sin(phase_a);
@@ -47,7 +50,7 @@ fn test_property_energy_decay() {
 
     for _ in 0..100_000 {
         // Landauer decay simulation (as described in docs)
-        let decay = energy >> 6; 
+        let decay = energy >> 6;
         energy = energy.saturating_sub(decay);
     }
 
@@ -58,17 +61,20 @@ fn test_property_energy_decay() {
 fn test_property_toroidal_distance() {
     let t = PhaseTopology::new(7, 7, 7, 20);
     let mask = t.phase_mask();
-    
+
     // Test boundaries
     let a = 0;
     let b = mask;
-    
+
     let diff = b - a;
     let shortest = if diff > t.half_phase() {
         (mask + 1) - diff
     } else {
         diff
     };
-    
-    assert_eq!(shortest, 1, "Distance across the boundary 0 to max_phase should be 1");
+
+    assert_eq!(
+        shortest, 1,
+        "Distance across the boundary 0 to max_phase should be 1"
+    );
 }

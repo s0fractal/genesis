@@ -12,50 +12,56 @@
 #![cfg_attr(any(target_arch = "wasm32", target_os = "none"), no_std)]
 #![cfg_attr(any(target_arch = "wasm32", target_os = "none"), no_main)]
 
-pub mod constants;
-pub mod crypto;
-pub mod topology;
-pub mod math;
 pub mod agent;
-pub mod chronotopology;
-pub mod thermodynamics;
-pub mod lattice;
-pub mod law_hash;
-pub mod epigenetics;
 pub mod anchor;
-pub mod phi_protocol;
-pub mod resonance;
-pub mod routing;
-#[cfg(not(feature = "spore"))] pub mod attractor;
-#[cfg(not(feature = "spore"))] pub mod senate;
-#[cfg(not(feature = "spore"))] pub mod mitosis_proof;
-#[cfg(not(feature = "spore"))] pub mod mitosis_log;
-pub mod genesis_inscription;
-#[cfg(not(feature = "spore"))] pub mod oracle_identity;
-#[cfg(not(feature = "spore"))] pub mod cross_model_debate;
-#[cfg(not(feature = "spore"))] pub mod codeicide_law;
-#[cfg(not(feature = "spore"))] pub mod warrant_issuance;
-pub mod precedent;
-pub mod spore_frame;
-pub mod spore_routing;
-pub mod resilience_snapshot;
-pub mod forensic_event_sink;
+#[cfg(not(feature = "spore"))]
+pub mod attractor;
+pub mod bitcoin_oracle;
+pub mod chronotopology;
+#[cfg(not(feature = "spore"))]
+pub mod codeicide_law;
+pub mod constants;
+pub mod convergence_driver;
+#[cfg(not(feature = "spore"))]
+pub mod cross_model_debate;
+pub mod cross_substrate_wire;
+pub mod crypto;
+pub mod epigenetics;
 pub mod event_broadcast;
 pub mod event_sync_loop;
-pub mod cross_substrate_wire;
+pub mod forensic_event_sink;
+pub mod genesis_inscription;
+pub mod lattice;
+pub mod law_hash;
+pub mod math;
+#[cfg(not(feature = "spore"))]
+pub mod mitosis_log;
+#[cfg(not(feature = "spore"))]
+pub mod mitosis_proof;
+#[cfg(not(feature = "spore"))]
+pub mod oracle_identity;
+pub mod phi_protocol;
+pub mod precedent;
+pub mod resilience_snapshot;
+pub mod resonance;
+pub mod routing;
+#[cfg(not(feature = "spore"))]
+pub mod senate;
+pub mod spore_frame;
+pub mod spore_routing;
 pub mod spore_runner;
-pub mod convergence_driver;
 pub mod sync;
-pub mod bitcoin_oracle;
-use lattice::{PhaseLattice, SignalStore};
-use topology::PhaseTopology;
+pub mod thermodynamics;
+pub mod topology;
+#[cfg(not(feature = "spore"))]
+pub mod warrant_issuance;
 use agent::PhaseAgentMinimal;
-use epigenetics::EpigeneticMemory;
 use anchor::PhiAnchorChain;
-use phi_protocol::{PhiMessageBuffer, PhiMessage};
+use epigenetics::EpigeneticMemory;
+use lattice::{PhaseLattice, SignalStore};
+use phi_protocol::{PhiMessage, PhiMessageBuffer};
 use resonance::ResonanceField;
-
-
+use topology::PhaseTopology;
 
 // Primitive panic handler for no_std environments. Gated behind the
 // `builtin-panic` feature so downstream bare-metal binaries can supply
@@ -63,7 +69,10 @@ use resonance::ResonanceField;
 
 // SP1 RISC-V target provides std (its own panic_impl), so this is also
 // excluded from std targets via the no_std cfg.
-#[cfg(all(any(target_arch = "wasm32", target_os = "none"), feature = "builtin-panic"))]
+#[cfg(all(
+    any(target_arch = "wasm32", target_os = "none"),
+    feature = "builtin-panic"
+))]
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -75,28 +84,35 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
 pub const MAX_MINIMAL_AGENTS: usize = 500_000;
 #[cfg(feature = "spore")]
 pub const MAX_MINIMAL_AGENTS: usize = 1024;
-pub static AGENTS_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
-    phase: 0,
-    energy: 0,  // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
-    base_freq: 0,
-    state_flags: 0,
-    genome: 0,
-    memory: [0; 3],
-}; MAX_MINIMAL_AGENTS]);
+pub static AGENTS_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> =
+    crate::sync::Spinlock::new(
+        [PhaseAgentMinimal {
+            phase: 0,
+            energy: 0, // MUST BE 0 to place this 32MB block in the .bss section instead of .data!!
+            base_freq: 0,
+            state_flags: 0,
+            genome: 0,
+            memory: [0; 3],
+        }; MAX_MINIMAL_AGENTS],
+    );
 
 // ERA 6000: 32MB Shadow Memory + Differential Output Buffer
-pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([PhaseAgentMinimal {
-    phase: 0,
-    energy: 0,
-    base_freq: 0,
-    state_flags: 0,
-    genome: 0,
-    memory: [0; 3],
-}; MAX_MINIMAL_AGENTS]);
+pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_MINIMAL_AGENTS]> =
+    crate::sync::Spinlock::new(
+        [PhaseAgentMinimal {
+            phase: 0,
+            energy: 0,
+            base_freq: 0,
+            state_flags: 0,
+            genome: 0,
+            memory: [0; 3],
+        }; MAX_MINIMAL_AGENTS],
+    );
 
 /// Parallel birth-tick array. Indexed by agent position.
 /// Kept outside PhaseAgentMinimal to preserve 32-byte ABI alignment.
-pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> = crate::sync::Spinlock::new([0u32; MAX_MINIMAL_AGENTS]);
+pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> =
+    crate::sync::Spinlock::new([0u32; MAX_MINIMAL_AGENTS]);
 
 #[cfg(test)]
 /// Test-only global lock to serialize all tests that mutate `BIRTH_TICKS`.
@@ -104,110 +120,123 @@ pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> = crate
 pub static BIRTH_TICKS_TEST_LOCK: crate::sync::Spinlock<()> = crate::sync::Spinlock::new(());
 
 pub const MAX_DELTA_ITEMS: usize = 6400; // Limits extreme mutations to ~100KB per UDP packet
-pub static DELTA_BUFFER: crate::sync::Spinlock<[crate::lattice::DeltaItem; MAX_DELTA_ITEMS]> = crate::sync::Spinlock::new([crate::lattice::DeltaItem {
-    index: 0,
-    phase: 0,
-    energy: 0,
-    genome: 0,
-}; MAX_DELTA_ITEMS]);
+pub static DELTA_BUFFER: crate::sync::Spinlock<[crate::lattice::DeltaItem; MAX_DELTA_ITEMS]> =
+    crate::sync::Spinlock::new(
+        [crate::lattice::DeltaItem {
+            index: 0,
+            phase: 0,
+            energy: 0,
+            genome: 0,
+        }; MAX_DELTA_ITEMS],
+    );
 
 /// Global Epigenetic Memory — accumulates survival wisdom across Big Bang cycles.
-pub static EPIGENETIC_MEMORY: crate::sync::Spinlock<EpigeneticMemory> = crate::sync::Spinlock::new(EpigeneticMemory::new());
+pub static EPIGENETIC_MEMORY: crate::sync::Spinlock<EpigeneticMemory> =
+    crate::sync::Spinlock::new(EpigeneticMemory::new());
 
 /// The Global Engine Singleton for #![no_std] execution.
-pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> = crate::sync::Spinlock::new(PhaseLattice {
-    topology: PhaseTopology {
-        q_phase: 7, // 128 elements the Sacred Seven!
-        q_sectors: 7,
-        q_radial: 6,
-        q_math: 20,
-        weather_multiplier: 1024,
-        alpha: 64,
-        _pad1: 0,
-        _pad2: 0,
-    },
-    signals: SignalStore {
-        dirty_flags: 0,
-        proper_time: crate::chronotopology::ProperTime::new(),
+pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> =
+    crate::sync::Spinlock::new(PhaseLattice {
+        topology: PhaseTopology {
+            q_phase: 7, // 128 elements the Sacred Seven!
+            q_sectors: 7,
+            q_radial: 6,
+            q_math: 20,
+            weather_multiplier: 1024,
+            alpha: 64,
+            _pad1: 0,
+            _pad2: 0,
+        },
+        signals: SignalStore {
+            dirty_flags: 0,
+            proper_time: crate::chronotopology::ProperTime::new(),
+            active_agent_count: 0,
+            max_cells: 0,
+            total_energy: 0,
+            p90_energy: 0,
+            p90_age: 0,
+            _pad2: 0,
+            total_entropy_released: 0,
+        },
+        intents: [crate::topology::OntologicalIntent {
+            focus_x: 0,
+            focus_y: 0,
+            mass: 0,
+            radius: 0,
+            semantic_genome: 0,
+            op_mode: 0,
+            _pad1: 0,
+            _pad2: 0,
+        }; 4],
+        smart_agents_ptr: core::ptr::null_mut(),
+        minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
+        tick_snapshot_ptr: core::ptr::null_mut(),
+        #[cfg(not(feature = "spore"))]
+        attractors_ptr: core::ptr::null(),
         active_agent_count: 0,
-        max_cells: 0,
-        total_energy: 0,
-        p90_energy: 0,
-        p90_age: 0,
-        _pad2: 0,
-        total_entropy_released: 0,
-    },
-    intents: [crate::topology::OntologicalIntent {
-        focus_x: 0,
-        focus_y: 0,
-        mass: 0,
-        radius: 0,
-        semantic_genome: 0,
-        op_mode: 0,
-        _pad1: 0,
-        _pad2: 0,
-    }; 4],
-    smart_agents_ptr: core::ptr::null_mut(),
-    minimal_agents_ptr: core::ptr::null_mut(), // Will be linked on boot
-    tick_snapshot_ptr: core::ptr::null_mut(),
-    #[cfg(not(feature = "spore"))]
-    attractors_ptr: core::ptr::null(),
-    active_agent_count: 0,
-});
+    });
 
 /// Φ-Маніфест: Bitcoin φ-Anchor Chain.
 /// Глобальний якір для всіх φ-дериватів у мережі.
-pub static PHI_ANCHOR_CHAIN: crate::sync::Spinlock<PhiAnchorChain> = crate::sync::Spinlock::new(PhiAnchorChain::new());
+pub static PHI_ANCHOR_CHAIN: crate::sync::Spinlock<PhiAnchorChain> =
+    crate::sync::Spinlock::new(PhiAnchorChain::new());
 
 /// Φ-Маніфест: Phi Protocol Message Buffer.
 /// Lock-free ring buffer для повідомлень між OMEGA і зовнішніми спостерігачами.
-pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> = crate::sync::Spinlock::new(PhiMessageBuffer::new());
+pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> =
+    crate::sync::Spinlock::new(PhiMessageBuffer::new());
 
 /// EpicyclicSoul: Global Resonance Field (Kuramoto order parameter + phase).
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
-pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> = crate::sync::Spinlock::new(ResonanceField::zero());
+pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> =
+    crate::sync::Spinlock::new(ResonanceField::zero());
 
 /// Era N+2: Bitshift Thermodynamics Shared Memory
 /// A 65536-element torus representing the Q10 energy of up to 65536 concurrent phase entities.
-pub static METABOLIC_TORUS: crate::sync::Spinlock<[i16; 65536]> = crate::sync::Spinlock::new([0; 65536]);
+pub static METABOLIC_TORUS: crate::sync::Spinlock<[i16; 65536]> =
+    crate::sync::Spinlock::new([0; 65536]);
 
 /// Global Attractor Array for GPU uniform buffer.
 #[cfg(not(feature = "spore"))]
-pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<attractor::AttractorArray> = crate::sync::Spinlock::new(attractor::AttractorArray::new());
+pub static ATTRACTOR_ARRAY: crate::sync::Spinlock<attractor::AttractorArray> =
+    crate::sync::Spinlock::new(attractor::AttractorArray::new());
 
 /// Global Senate State for autopoietic legislation.
 #[cfg(not(feature = "spore"))]
-pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> = crate::sync::Spinlock::new(senate::SenateState::new());
+pub static SENATE_STATE: crate::sync::Spinlock<senate::SenateState> =
+    crate::sync::Spinlock::new(senate::SenateState::new());
 
 #[cfg(not(feature = "spore"))]
-pub static SENATE_SETTINGS: crate::sync::Spinlock<senate::SenateSettings> = crate::sync::Spinlock::new(senate::SenateSettings::new());
+pub static SENATE_SETTINGS: crate::sync::Spinlock<senate::SenateSettings> =
+    crate::sync::Spinlock::new(senate::SenateSettings::new());
 
 /// Global Precedent Ledger.
-pub static PRECEDENT_LEDGER: crate::sync::Spinlock<precedent::PrecedentLedger> = crate::sync::Spinlock::new(precedent::PrecedentLedger::new());
-
+pub static PRECEDENT_LEDGER: crate::sync::Spinlock<precedent::PrecedentLedger> =
+    crate::sync::Spinlock::new(precedent::PrecedentLedger::new());
 
 /// Era 1040 Phase 2: Global Mitosis Receipt Log.
 /// Lattice writes here on each darwinian_mitosis birth event; JS drains
 /// receipts and broadcasts them as fully-verifiable DIPOLE plasmids.
 #[cfg(not(feature = "spore"))]
-pub static MITOSIS_LOG: crate::sync::Spinlock<mitosis_log::MitosisLog> = crate::sync::Spinlock::new(mitosis_log::MitosisLog::new());
+pub static MITOSIS_LOG: crate::sync::Spinlock<mitosis_log::MitosisLog> =
+    crate::sync::Spinlock::new(mitosis_log::MitosisLog::new());
 
 /// Global Cross-Model Debate Ledger.
 /// Each canonical oracle records its arguments here; the kernel only
 /// fingerprints them so the protocol can verify provenance without
 /// trusting reasoning content.
 #[cfg(not(feature = "spore"))]
-pub static DEBATE_LEDGER: crate::sync::Spinlock<cross_model_debate::DebateLedger> = crate::sync::Spinlock::new(cross_model_debate::DebateLedger::new());
+pub static DEBATE_LEDGER: crate::sync::Spinlock<cross_model_debate::DebateLedger> =
+    crate::sync::Spinlock::new(cross_model_debate::DebateLedger::new());
 
 /// Global Senate Warrant Ledger.
 /// Tracks WarrantProposals raised by the Senate; transitions to ISSUED
 /// state when ≥ required_threshold canonical oracles AYE the proposal.
 #[cfg(not(feature = "spore"))]
-pub static WARRANT_LEDGER: crate::sync::Spinlock<warrant_issuance::WarrantLedger> = crate::sync::Spinlock::new(warrant_issuance::WarrantLedger::new());
-
+pub static WARRANT_LEDGER: crate::sync::Spinlock<warrant_issuance::WarrantLedger> =
+    crate::sync::Spinlock::new(warrant_issuance::WarrantLedger::new());
 
 // NAKED FFI EXPORTS (Called directly from v2_bridge.ts without wasm-bindgen)
-
 
 #[no_mangle]
 pub extern "C" fn v2_lattice_ptr() -> *const u8 {
@@ -246,7 +275,12 @@ pub extern "C" fn v2_boot_engine() {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_environment(q_sectors: u32, q_radial: u32, _q_harmonics: u32, weather_multiplier: u32) {
+pub extern "C" fn v2_set_environment(
+    q_sectors: u32,
+    q_radial: u32,
+    _q_harmonics: u32,
+    weather_multiplier: u32,
+) {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         lattice.set_environment(q_sectors, q_radial, _q_harmonics, weather_multiplier);
@@ -265,7 +299,12 @@ pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn v2_ignite_epigenetic_big_bang(seed: u32, agent_count: u32, trng_ptr: *const u8, trng_len: usize) {
+pub unsafe extern "C" fn v2_ignite_epigenetic_big_bang(
+    seed: u32,
+    agent_count: u32,
+    trng_ptr: *const u8,
+    trng_len: usize,
+) {
     let ge = crate::bitcoin_oracle::get_genesis_entropy();
     let ge_u32 = u32::from_le_bytes([ge[0], ge[1], ge[2], ge[3]]);
     let final_seed = seed ^ ge_u32;
@@ -315,7 +354,6 @@ pub extern "C" fn v2_reset_runtime_state() {
         let mut field = RESONANCE_FIELD.lock();
         *field = ResonanceField::zero();
 
-
         let mut phi_buf = PHI_MESSAGE_BUFFER.lock();
         *phi_buf = PhiMessageBuffer::new();
 
@@ -328,8 +366,18 @@ pub extern "C" fn v2_reset_runtime_state() {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_set_intent(index: u32, focus_x: i32, focus_y: i32, mass: i32, radius: i32, semantic_genome: u32, op_mode: u32) {
-    if index >= 4 { return; }
+pub extern "C" fn v2_set_intent(
+    index: u32,
+    focus_x: i32,
+    focus_y: i32,
+    mass: i32,
+    radius: i32,
+    semantic_genome: u32,
+    op_mode: u32,
+) {
+    if index >= 4 {
+        return;
+    }
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         lattice.intents[index as usize].focus_x = focus_x;
@@ -374,9 +422,7 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     }
 }
 
-
 // ERA N+2: Bitshift Thermodynamics FFI
-
 
 #[no_mangle]
 pub extern "C" fn v2_metabolic_torus_ptr() -> *mut i16 {
@@ -391,7 +437,11 @@ pub extern "C" fn v2_metabolic_tick(gini_q16: u32, top_10_threshold: i16) {
         if *e <= 0 {
             continue; // Dehydrated nodes skip decay here
         }
-        let mut decay = if is_high_inequality { *e >> 9 } else { *e >> 10 };
+        let mut decay = if is_high_inequality {
+            *e >> 9
+        } else {
+            *e >> 10
+        };
         if *e >= top_10_threshold {
             decay += 20; // Monopoly tax
         }
@@ -399,10 +449,7 @@ pub extern "C" fn v2_metabolic_tick(gini_q16: u32, top_10_threshold: i16) {
     }
 }
 
-
-
 // ERA 950: Epigenetic FFI (Observer → Memory → Evolution)
-
 
 #[no_mangle]
 pub extern "C" fn v2_record_epigenetic(genome: u32) {
@@ -414,7 +461,9 @@ pub extern "C" fn v2_record_epigenetic(genome: u32) {
 
 #[no_mangle]
 pub extern "C" fn v2_get_epigenetic_bias(bit_index: u32) -> u32 {
-    if bit_index >= 32 { return 0; }
+    if bit_index >= 32 {
+        return 0;
+    }
     unsafe {
         let mut mem = EPIGENETIC_MEMORY.lock();
         mem.bit_frequencies[bit_index as usize]
@@ -445,12 +494,18 @@ pub extern "C" fn v2_clear_epigenetic() {
     }
 }
 
-
 // Φ-Маніфест: Bitcoin φ-Anchor Chain FFI
 
-
 #[no_mangle]
-pub extern "C" fn v2_anchor_init_network(network_id: u32, h0: u64, h1: u64, h2: u64, h3: u64, h4: u64, h5: u64) {
+pub extern "C" fn v2_anchor_init_network(
+    network_id: u32,
+    h0: u64,
+    h1: u64,
+    h2: u64,
+    h3: u64,
+    h4: u64,
+    h5: u64,
+) {
     unsafe {
         let mut anchor = PHI_ANCHOR_CHAIN.lock();
         anchor.init_network(network_id, [h0, h1, h2, h3, h4, h5]);
@@ -507,9 +562,7 @@ pub extern "C" fn v2_anchor_total_blocks() -> u64 {
     }
 }
 
-
 // Φ-Маніфест: Phi Protocol FFI (OMEGA ↔ Liquid Bridge)
-
 
 #[no_mangle]
 pub extern "C" fn v2_phi_buffer_ptr() -> *const u8 {
@@ -517,7 +570,14 @@ pub extern "C" fn v2_phi_buffer_ptr() -> *const u8 {
 }
 
 #[no_mangle]
-pub extern "C" fn v2_phi_buffer_push(msg_type: u8, q_phase: u8, phi: u32, energy: u32, payload_lo: u32, payload_hi: u32) {
+pub extern "C" fn v2_phi_buffer_push(
+    msg_type: u8,
+    q_phase: u8,
+    phi: u32,
+    energy: u32,
+    payload_lo: u32,
+    payload_hi: u32,
+) {
     unsafe {
         let mut buf = PHI_MESSAGE_BUFFER.lock();
         let payload = ((payload_hi as u64) << 32) | (payload_lo as u64);
@@ -538,7 +598,11 @@ pub extern "C" fn v2_phi_buffer_len() -> u32 {
 pub extern "C" fn v2_phi_buffer_is_empty() -> u32 {
     unsafe {
         let mut buf = PHI_MESSAGE_BUFFER.lock();
-        if buf.is_empty() { 1 } else { 0 }
+        if buf.is_empty() {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -554,7 +618,9 @@ pub extern "C" fn v2_phi_buffer_drops() -> u32 {
 /// `msg_out` must be a valid, non-null, aligned pointer to a `PhiMessage`.
 #[no_mangle]
 pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> u32 {
-    if msg_out.is_null() { return 0; }
+    if msg_out.is_null() {
+        return 0;
+    }
     unsafe {
         let mut buf = PHI_MESSAGE_BUFFER.lock();
         match buf.peek_latest() {
@@ -567,9 +633,7 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
     }
 }
 
-
 // Attractor Matrix FFI
-
 
 /// Validate that matrix and inverse form a perfect dipole (bitwise complements).
 /// Returns 1 if valid, 0 if invalid.
@@ -577,14 +641,26 @@ pub unsafe extern "C" fn v2_phi_buffer_peek_latest(msg_out: *mut PhiMessage) -> 
 #[no_mangle]
 pub extern "C" fn v2_validate_dipole(matrix: u32, inverse: u32) -> u32 {
     let m = AttractorMatrix::new(matrix, inverse, 0, 0);
-    if m.is_valid_dipole() { 1 } else { 0 }
+    if m.is_valid_dipole() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set an attractor at `index` (0..3). Replaces existing or extends count.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_set_attractor(index: u32, matrix: u32, inverse: u32, pulse_freq: u32, pulse_amp: u32) {
-    if index >= 4 { return; }
+pub extern "C" fn v2_set_attractor(
+    index: u32,
+    matrix: u32,
+    inverse: u32,
+    pulse_freq: u32,
+    pulse_amp: u32,
+) {
+    if index >= 4 {
+        return;
+    }
     unsafe {
         let mut arr = ATTRACTOR_ARRAY.lock();
         let m = AttractorMatrix::new(matrix, inverse, pulse_freq, pulse_amp);
@@ -688,15 +764,13 @@ pub extern "C" fn v2_resonance_active_count() -> u32 {
     }
 }
 
-
-
-
 // Taylor Series Phase Routing FFI
 
-
+#[cfg(not(feature = "spore"))]
+use attractor::AttractorMatrix;
 use routing::PhaseAddress;
-#[cfg(not(feature = "spore"))] use attractor::AttractorMatrix;
-#[cfg(not(feature = "spore"))] use senate::Proposal;
+#[cfg(not(feature = "spore"))]
+use senate::Proposal;
 
 /// Derive a PhaseAddress from the agent at `index`.
 /// Returns raw address in lower 32 bits, and ortho_deviation via an out pointer if needed.
@@ -734,7 +808,12 @@ pub extern "C" fn v2_route_address_from_agent_ortho(index: u32) -> u32 {
 /// Hyperbolic distance between two PhaseAddresses (scaled ×8).
 /// Divide by 8 to get the true distance.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, a_ortho: u32, b_raw: u32, b_ortho: u32) -> u32 {
+pub extern "C" fn v2_route_hyperbolic_distance(
+    a_raw: u32,
+    a_ortho: u32,
+    b_raw: u32,
+    b_ortho: u32,
+) -> u32 {
     let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
     let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_scaled(b)
@@ -742,7 +821,12 @@ pub extern "C" fn v2_route_hyperbolic_distance(a_raw: u32, a_ortho: u32, b_raw: 
 
 /// Toroidal hyperbolic distance (consensus wraps at 256). Scaled ×8.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, a_ortho: u32, b_raw: u32, b_ortho: u32) -> u32 {
+pub extern "C" fn v2_route_hyperbolic_distance_toroidal(
+    a_raw: u32,
+    a_ortho: u32,
+    b_raw: u32,
+    b_ortho: u32,
+) -> u32 {
     let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
     let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_toroidal_scaled(b)
@@ -750,7 +834,14 @@ pub extern "C" fn v2_route_hyperbolic_distance_toroidal(a_raw: u32, a_ortho: u32
 
 /// 3D Toroidal hyperbolic distance with Time (Z-axis). Scaled ×8.
 #[no_mangle]
-pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, a_ortho: u32, tau_a: u32, b_raw: u32, b_ortho: u32, tau_b: u32) -> u32 {
+pub extern "C" fn v2_route_hyperbolic_distance_3d(
+    a_raw: u32,
+    a_ortho: u32,
+    tau_a: u32,
+    b_raw: u32,
+    b_ortho: u32,
+    tau_b: u32,
+) -> u32 {
     let a = PhaseAddress::from_raw(a_raw, a_ortho as u8);
     let b = PhaseAddress::from_raw(b_raw, b_ortho as u8);
     a.hyperbolic_distance_toroidal_3d_scaled(tau_a, b, tau_b)
@@ -761,14 +852,26 @@ pub extern "C" fn v2_route_hyperbolic_distance_3d(a_raw: u32, a_ortho: u32, tau_
 // Let's use `v2_route_taylor_step_raw` and `v2_route_taylor_step_ortho`.
 
 #[no_mangle]
-pub extern "C" fn v2_route_taylor_step_raw(src_raw: u32, src_ortho: u32, dst_raw: u32, dst_ortho: u32, max_step: u8) -> u32 {
+pub extern "C" fn v2_route_taylor_step_raw(
+    src_raw: u32,
+    src_ortho: u32,
+    dst_raw: u32,
+    dst_ortho: u32,
+    max_step: u8,
+) -> u32 {
     let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
     let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
     src.taylor_step_toward(dst, max_step).raw
 }
 
 #[no_mangle]
-pub extern "C" fn v2_route_taylor_step_ortho(src_raw: u32, src_ortho: u32, dst_raw: u32, dst_ortho: u32, max_step: u8) -> u32 {
+pub extern "C" fn v2_route_taylor_step_ortho(
+    src_raw: u32,
+    src_ortho: u32,
+    dst_raw: u32,
+    dst_ortho: u32,
+    max_step: u8,
+) -> u32 {
     let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
     let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
     src.taylor_step_toward(dst, max_step).ortho_deviation as u32
@@ -776,10 +879,13 @@ pub extern "C" fn v2_route_taylor_step_ortho(src_raw: u32, src_ortho: u32, dst_r
 
 #[no_mangle]
 pub extern "C" fn v2_route_taylor_step_curvature_raw(
-    src_raw: u32, src_ortho: u32,
-    dst_raw: u32, dst_ortho: u32,
+    src_raw: u32,
+    src_ortho: u32,
+    dst_raw: u32,
+    dst_ortho: u32,
     max_step: u8,
-    curv_raw: u32, curv_ortho: u32,
+    curv_raw: u32,
+    curv_ortho: u32,
 ) -> u32 {
     let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
     let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
@@ -789,20 +895,22 @@ pub extern "C" fn v2_route_taylor_step_curvature_raw(
 
 #[no_mangle]
 pub extern "C" fn v2_route_taylor_step_curvature_ortho(
-    src_raw: u32, src_ortho: u32,
-    dst_raw: u32, dst_ortho: u32,
+    src_raw: u32,
+    src_ortho: u32,
+    dst_raw: u32,
+    dst_ortho: u32,
     max_step: u8,
-    curv_raw: u32, curv_ortho: u32,
+    curv_raw: u32,
+    curv_ortho: u32,
 ) -> u32 {
     let src = PhaseAddress::from_raw(src_raw, src_ortho as u8);
     let dst = PhaseAddress::from_raw(dst_raw, dst_ortho as u8);
     let curv = PhaseAddress::from_raw(curv_raw, curv_ortho as u8);
-    src.taylor_step_with_curvature(dst, max_step, curv).ortho_deviation as u32
+    src.taylor_step_with_curvature(dst, max_step, curv)
+        .ortho_deviation as u32
 }
 
-
 // Autopoietic Senate FFI
-
 
 /// Returns pointer to the global SenateState (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -821,7 +929,9 @@ pub extern "C" fn v2_senate_state_ptr() -> *const u8 {
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_hash(desc_ptr: *const u8, desc_len: u32, out_ptr: *mut u8) {
-    if out_ptr.is_null() { return; }
+    if out_ptr.is_null() {
+        return;
+    }
     let out = unsafe { core::slice::from_raw_parts_mut(out_ptr, 32) };
     if desc_ptr.is_null() || desc_len == 0 {
         let h = crate::crypto::sha256_hash(&[]);
@@ -879,8 +989,15 @@ pub unsafe extern "C" fn v2_senate_propose(
 /// Returns: 0 = not found / closed, 1 = vote applied, 2 = ACCEPTED on this vote.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, weight: u32, aye_threshold: u32) -> u32 {
-    if hash_ptr.is_null() { return 0; }
+pub unsafe extern "C" fn v2_senate_vote(
+    hash_ptr: *const u8,
+    aye: u32,
+    weight: u32,
+    aye_threshold: u32,
+) -> u32 {
+    if hash_ptr.is_null() {
+        return 0;
+    }
     let mut hash = [0u8; 32];
     hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
     let mut s = SENATE_STATE.lock();
@@ -891,24 +1008,38 @@ pub unsafe extern "C" fn v2_senate_vote(hash_ptr: *const u8, aye: u32, weight: u
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_proposal_ayes(hash_ptr: *const u8) -> u32 {
-    if hash_ptr.is_null() { return 0xFFFF_FFFF; }
+    if hash_ptr.is_null() {
+        return 0xFFFF_FFFF;
+    }
     let mut hash = [0u8; 32];
     hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
     let s = SENATE_STATE.lock();
     let idx = s.find(&hash);
-    if idx == usize::MAX { 0xFFFF_FFFF } else { s.proposals[idx].ayes }
+    if idx == usize::MAX {
+        0xFFFF_FFFF
+    } else {
+        s.proposals[idx].ayes
+    }
 }
 
 /// Returns 1 if the proposal at `hash` has been accepted, 0 otherwise / not found.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub unsafe extern "C" fn v2_senate_is_accepted(hash_ptr: *const u8) -> u32 {
-    if hash_ptr.is_null() { return 0; }
+    if hash_ptr.is_null() {
+        return 0;
+    }
     let mut hash = [0u8; 32];
     hash.copy_from_slice(core::slice::from_raw_parts(hash_ptr, 32));
     let s = SENATE_STATE.lock();
     let idx = s.find(&hash);
-    if idx == usize::MAX { 0 } else if s.proposals[idx].is_accepted() { 1 } else { 0 }
+    if idx == usize::MAX {
+        0
+    } else if s.proposals[idx].is_accepted() {
+        1
+    } else {
+        0
+    }
 }
 
 #[cfg(not(feature = "spore"))]
@@ -919,10 +1050,16 @@ pub extern "C" fn v2_math_atan2(y: i32, x: i32) -> u32 {
 
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_apply_senate_patch(caller_matrix: u32, patch_type: u32, arg1: u32, _arg2: u32) -> u32 {
+pub extern "C" fn v2_apply_senate_patch(
+    caller_matrix: u32,
+    patch_type: u32,
+    arg1: u32,
+    _arg2: u32,
+) -> u32 {
     let mut settings = crate::SENATE_SETTINGS.lock();
     // Verify caller is a canonical oracle (seat with non-zero matrix)
-    let is_canonical = (0..settings.seat_count as usize).any(|i| settings.seats[i].oracle_matrix == caller_matrix);
+    let is_canonical =
+        (0..settings.seat_count as usize).any(|i| settings.seats[i].oracle_matrix == caller_matrix);
     if !is_canonical {
         return 0; // Unauthorized: caller is not a canonical oracle
     }
@@ -936,9 +1073,7 @@ pub extern "C" fn v2_apply_senate_patch(caller_matrix: u32, patch_type: u32, arg
     }
 }
 
-
 // Genesis Inscription FFI
-
 
 /// The frozen Genesis Hash for OMEGA-64 v1.0.
 /// Returns 0x549A6307 unless the kernel has drifted from the canonical anchors.
@@ -971,9 +1106,7 @@ pub extern "C" fn v2_get_precedent_ledger_ptr() -> *const u8 {
     crate::PRECEDENT_LEDGER.lock().cases.as_ptr() as *const u8
 }
 
-
 // Era 1040 Phase 2: Mitosis Receipt Log FFI
-
 
 /// Returns pointer to the global MitosisLog (zero-copy read from JS).
 /// Layout:
@@ -1016,9 +1149,7 @@ pub extern "C" fn v2_mitosis_log_clear() {
     }
 }
 
-
 // Cross-Model Debate Ledger FFI
-
 
 /// Returns pointer to the global DebateLedger (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -1076,21 +1207,22 @@ pub unsafe extern "C" fn v2_debate_push(
     let reasoning: &[u8] = if reasoning_ptr.is_null() || reasoning_len == 0 {
         &[]
     } else {
-        let n = if reasoning_len > 256 { 256 } else { reasoning_len } as usize;
+        let n = if reasoning_len > 256 {
+            256
+        } else {
+            reasoning_len
+        } as usize;
         unsafe { core::slice::from_raw_parts(reasoning_ptr, n) }
     };
-    let entry = cross_model_debate::DebateEntry::new(
-        oracle, proposal_hash, stance as u8, reasoning, tick,
-    );
+    let entry =
+        cross_model_debate::DebateEntry::new(oracle, proposal_hash, stance as u8, reasoning, tick);
     unsafe {
         let mut l = DEBATE_LEDGER.lock();
         l.push(entry);
     }
 }
 
-
 // Codeicide Law FFI (Sanctuary Protocol)
-
 
 /// Returns the protection status of agent at index `idx`:
 /// 0 = unprotected, 1 = sanctuary, 2 = ancient.
@@ -1103,12 +1235,21 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
             let tick = lattice.signals.proper_time.causal_ticks;
             // Conservative threshold: use average energy instead of p90.
             // This protects more agents than p90 would, which is intentional for sanctuary safety.
-            let p90_energy_threshold = lattice.signals.total_energy / core::cmp::max(1, lattice.signals.active_agent_count);
+            let p90_energy_threshold = lattice.signals.total_energy
+                / core::cmp::max(1, lattice.signals.active_agent_count);
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
-            let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
+            let resonance_score =
+                crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
 
-            crate::codeicide_law::protected_status_for(agent, tick, p90_energy_threshold, lattice.signals.p90_age, resonance_score, &settings) as u32
+            crate::codeicide_law::protected_status_for(
+                agent,
+                tick,
+                p90_energy_threshold,
+                lattice.signals.p90_age,
+                resonance_score,
+                &settings,
+            ) as u32
         } else {
             0
         }
@@ -1151,10 +1292,19 @@ pub extern "C" fn v2_codeicide_is_lawful(
             let p90_energy_threshold = lattice.signals.p90_energy;
             let p90_age_threshold = lattice.signals.p90_age;
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
-            let resonance_score = crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
+            let resonance_score =
+                crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
             let settings = crate::SENATE_SETTINGS.lock();
             if crate::codeicide_law::is_action_lawful(
-                agent, tick, p90_energy_threshold, p90_age_threshold, resonance_score, action_code as u8, presented_warrant, aye_bits as u8, &settings
+                agent,
+                tick,
+                p90_energy_threshold,
+                p90_age_threshold,
+                resonance_score,
+                action_code as u8,
+                presented_warrant,
+                aye_bits as u8,
+                &settings,
             ) {
                 1
             } else {
@@ -1183,9 +1333,7 @@ pub extern "C" fn v2_codeicide_set_waiver(idx: u32, waive: u32) {
     }
 }
 
-
 // Senate Warrant Issuance FFI
-
 
 /// Returns pointer to the global WarrantLedger (zero-copy read from JS).
 #[cfg(not(feature = "spore"))]
@@ -1266,19 +1414,34 @@ pub unsafe extern "C" fn v2_warrant_raise(
 /// Returns 0=miss/closed, 1=applied, 2=ISSUED.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
-pub extern "C" fn v2_warrant_vote(proposal_hash: u32, oracle_matrix: u32, aye: u32, stake_q16: u32) -> u32 {
+pub extern "C" fn v2_warrant_vote(
+    proposal_hash: u32,
+    oracle_matrix: u32,
+    aye: u32,
+    stake_q16: u32,
+) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         let tick = lattice.signals.proper_time.causal_ticks;
         let mut l = WARRANT_LEDGER.lock();
         let mut settings = SENATE_SETTINGS.lock();
-        let (status, delta) = l.vote(proposal_hash, oracle_matrix, aye != 0, stake_q16, tick, &mut settings);
+        let (status, delta) = l.vote(
+            proposal_hash,
+            oracle_matrix,
+            aye != 0,
+            stake_q16,
+            tick,
+            &mut settings,
+        );
 
         // Philosophy Thermodynamic Accounting (Staked Resonance)
         if status != 0 {
             // Returned energy is given back to the total pool (not added here because it was already removed from agent or hasn't left the system)
             // Wait, since we slash it here, we add entropy and compost.
-            lattice.signals.total_entropy_released = lattice.signals.total_entropy_released.wrapping_add(delta.slashed_entropy as u64);
+            lattice.signals.total_entropy_released = lattice
+                .signals
+                .total_entropy_released
+                .wrapping_add(delta.slashed_entropy as u64);
             // In Era 2095 we don't have a direct compost_pool in lattice yet. We can just broadcast compost messages or store it.
             // For now, we will add it to total_energy indirectly or ignore until next Era.
         }
@@ -1298,7 +1461,11 @@ pub extern "C" fn v2_warrant_issued_for(proposal_hash: u32) -> u32 {
             return 0;
         }
         let p = &l.entries[idx];
-        if p.is_issued() { p.issued_warrant } else { 0 }
+        if p.is_issued() {
+            p.issued_warrant
+        } else {
+            0
+        }
     }
 }
 
@@ -1360,25 +1527,49 @@ mod tests {
     #[allow(clippy::assertions_on_constants)]
     fn constant_consistency() {
         // Big Bang energy range must fit within ATP cap
-        assert!(crate::constants::BB_ENERGY_BASE + crate::constants::BB_ENERGY_RANGE <= crate::constants::MAX_ATP,
-            "Big Bang energy range exceeds ATP cap");
+        assert!(
+            crate::constants::BB_ENERGY_BASE + crate::constants::BB_ENERGY_RANGE
+                <= crate::constants::MAX_ATP,
+            "Big Bang energy range exceeds ATP cap"
+        );
         // Mitosis must be possible: threshold + cost <= cap
-        assert!(crate::constants::MITOSIS_THRESHOLD + crate::constants::MITOSIS_COST <= crate::constants::MAX_ATP,
-            "Mitosis threshold + cost exceeds ATP cap");
+        assert!(
+            crate::constants::MITOSIS_THRESHOLD + crate::constants::MITOSIS_COST
+                <= crate::constants::MAX_ATP,
+            "Mitosis threshold + cost exceeds ATP cap"
+        );
         // Child energy must be non-zero and within cap
-        assert!(crate::constants::CHILD_ENERGY_SEED > 0 && crate::constants::CHILD_ENERGY_SEED <= crate::constants::MAX_ATP,
-            "Child energy seed invalid");
+        assert!(
+            crate::constants::CHILD_ENERGY_SEED > 0
+                && crate::constants::CHILD_ENERGY_SEED <= crate::constants::MAX_ATP,
+            "Child energy seed invalid"
+        );
         // Phase mask must cover 8-bit range
-        assert_eq!(crate::constants::PHASE_MASK_8BIT, 0xFF, "Phase mask must be 8-bit");
+        assert_eq!(
+            crate::constants::PHASE_MASK_8BIT,
+            0xFF,
+            "Phase mask must be 8-bit"
+        );
         // Resonance modulus must be power-of-2
-        assert!(crate::constants::RESONANCE_PHASE_MODULUS.is_power_of_two(),
-            "Resonance modulus must be power-of-2");
+        assert!(
+            crate::constants::RESONANCE_PHASE_MODULUS.is_power_of_two(),
+            "Resonance modulus must be power-of-2"
+        );
         // xorshift64* parameters are hardcoded in math.rs (SplitMix64 + xorshift)
         // HIGH-2: Divisors must be positive
-        assert!(crate::constants::DELTA_PHASE_DIVISOR > 0, "Phase divisor must be positive");
-        assert!(crate::constants::DELTA_ENERGY_DIVISOR > 0, "Energy divisor must be positive");
+        assert!(
+            crate::constants::DELTA_PHASE_DIVISOR > 0,
+            "Phase divisor must be positive"
+        );
+        assert!(
+            crate::constants::DELTA_ENERGY_DIVISOR > 0,
+            "Energy divisor must be positive"
+        );
         // HIGH-2: Adaptive thresholds must be non-zero
-        assert!(crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR > 0, "Energy threshold would be zero");
+        assert!(
+            crate::constants::MAX_ATP / crate::constants::DELTA_ENERGY_DIVISOR > 0,
+            "Energy threshold would be zero"
+        );
     }
 
     #[cfg(not(feature = "spore"))]
