@@ -36,3 +36,27 @@ jobs:
 
       - name: Run Deno Unit Tests
         run: deno task test:unit
+
+  # Memory-safety guard for the unsafe-heavy kernel (FFI, `static mut`, raw
+  # pointers). AddressSanitizer catches heap UAF / overflows that glibc only
+  # sometimes aborts on and that macOS's allocator silently tolerates — it
+  # caught a real lattice use-after-free (fixed e820563). Separate job so a
+  # finding is isolated from the main test gate. Verified clean locally
+  # (aarch64) across the full workspace; ASan findings are arch-portable.
+  asan:
+    name: AddressSanitizer (memory safety)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup nightly Rust (rust-src for sanitizer std)
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Run cargo tests under AddressSanitizer
+        env:
+          RUSTFLAGS: "-Zsanitizer=address"
+        run: cargo +nightly test --workspace --lib --tests --target x86_64-unknown-linux-gnu
