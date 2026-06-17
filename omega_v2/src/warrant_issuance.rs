@@ -259,9 +259,6 @@ impl WarrantLedger {
         }
 
         // Calculate current accumulated power.
-        let mut current_power = 0;
-        let mut max_possible_power = 0;
-        // Calculate current accumulated power.
         // NOTE: Stake is saved in escrow but voting power comes from seat settings.
         // This decouples economic stake from governance weight — a known design gap.
         let mut current_power = 0;
