@@ -59,13 +59,13 @@ Rules:
 
 ```bash
 # Rust workspace (omega_v2 is the critical path)
-cargo test --workspace          # 307+ passed across omega_v2 + integration tests
+cargo test --workspace          # 306 passed across omega_v2 + integration tests
 cargo test -p omega_v2          # Fast feedback loop
 
 # Note: omega_core/ has been archived. Only omega_v2 is active.
 
 # TypeScript / Deno
-deno test --allow-read tests/   # 1258+ passed
+deno task test:unit             # 219 passed, 1 ignored (CI unit gate)
 deno check src/**/*.ts          # Type-check all TS
 
 # Note: wasm-pack is BYPASSED for v2. Omega_v2 is compiled via

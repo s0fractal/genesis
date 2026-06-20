@@ -69,11 +69,11 @@ within-model multiplicity.**
 
 ```bash
 # Rust workspace (omega_v2 is the critical path)
-cargo test --workspace          # 308+ passed across omega_core + omega_v2
+cargo test --workspace          # 306 passed; omega_core is archived
 cargo test -p omega_v2          # fast feedback loop
 
 # TypeScript / Deno
-deno test --allow-read tests/   # 1258+ passed
+deno task test:unit             # 219 passed, 1 ignored (CI unit gate)
 deno check src/**/*.ts          # type-check
 
 # Browser dev server
