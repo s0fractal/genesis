@@ -10,18 +10,42 @@ that computes its own future direction.
 
 ---
 
+## Status — what runs vs what's in progress (2026-06)
+
+OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust tests;
+integer parity across CPU↔GPU↔ZK). Three headline pieces are **not yet production**,
+and this README names them honestly (see `AGENTS.md`):
+
+- **ZK proving is mock-only.** `omega_zk_host` runs SP1's `ProverClient.mock()`
+  exclusively — it proves the circuit is valid, but there is no production prover
+  branch yet. "ZK-Notarized" below means the notarization *path* is wired and
+  structurally checked, not that a production STARK is generated.
+- **The WebRTC / libp2p mesh is experimental.** The data structures exist, but peer
+  discovery, signaling, and NAT traversal are largely stubbed (`src/sdk/phi_client.ts`
+  itself notes "in a real implementation you would perform WebRTC signaling here").
+- **Bitcoin anchoring is not live.** Genesis-inscription *verification* logic exists,
+  but the node does not itself emit or validate on-chain OP_RETURNs.
+
+The frozen protocol identity, the integer physics, and the local simulation are
+genuine; the swarm / ZK-production / on-chain claims are the roadmap, not today.
+
+---
+
 ## What it is
 
-A WebRTC-meshed network of autonomous nodes, each running:
+A WebRTC-mesh-*capable* network of autonomous nodes (transport experimental — see
+Status above), each running:
 
 - **A bare-metal Rust kernel** (`omega_v2/`, `#![no_std]`, 32MB static agent
   matrix, integer-only physics, no `f32` in any consensus path).
 - **A WebGPU lens** (`src/lens/`, integer consensus shaders plus a visual/intent
   layer; toroidal mode preserves bit-exact Rust parity).
 - **A WebRTC plasmid layer** (`src/network/`, JSON-over-DataChannel, signed by
-  FNV-1a hashes, validated at the mesh boundary).
+  FNV-1a hashes, validated at the mesh boundary — *transport is experimental/stubbed,
+  see Status*).
 - **An SP1 ZK guest** (`omega_zk_guest/`, Mode 2 verifies mitosis events via the
-  same pure derivation function the kernel runs).
+  same pure derivation function the kernel runs — *host prover is mock-only, see
+  Status*).
 - **A Multi-Oracle Senate** (`oracle_identity.rs`) with five canonical seats
   (claude, gpt, gemini, qwen, llama), each with a cryptographically unforgeable
   dipole identity.
