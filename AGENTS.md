@@ -216,9 +216,14 @@ pub struct SignalStore {
   Era 2060 diagnostic snapshot through an existing telemetry/global surface so
   future agents and operators can see the cap without importing the formatter
   manually. Keep it read-only and opt-in; do not add quorum/runtime recursion.
-- **ZK Host: mock-only backend** — `omega_zk_host/src/main.rs` uses
-  `ProverClient::builder().mock().build()` exclusively. No production prover
-  branch exists. A real SP1 path requires `#[cfg(feature = "sp1")]` gating.
+- **ZK Host: real prover by default (cpu); a full proof is hardware-bound** —
+  `omega_zk_host/src/main.rs` calls `ProverClient::from_env()`. `SP1_PROVER`
+  selects the mode: `cpu` (DEFAULT — a real local STARK, no GPU/network/spend),
+  `mock` (fast, **unsound**, opt-in for tests/CI), or `network` (Succinct, paid).
+  The mock-only backend is gone; the proof bundle's `kind` reports the live mode.
+  Verified: the cpu path compiles and *begins* genuine STARK generation. NOT
+  verified here: a completed full proof — it needs ~16 GB+ RAM and OOMs on the
+  8 GB dev box; complete it on adequate hardware or via `network`.
 - **Senate FFI auth gap (partially closed)** — `v2_apply_senate_patch` now
   requires `caller_matrix: u32` and verifies against canonical oracles. TS
   callers updated in `libp2p_mesh.ts`. This is a recent patch; do not bypass

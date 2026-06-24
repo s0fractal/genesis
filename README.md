@@ -13,13 +13,17 @@ that computes its own future direction.
 ## Status — what runs vs what's in progress (2026-06)
 
 OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust tests;
-integer parity across CPU↔GPU↔ZK). Three headline pieces are **not yet production**,
-and this README names them honestly (see `AGENTS.md`):
+integer parity across CPU↔GPU↔ZK). Three headline pieces carry **honest caveats**,
+named here (see `AGENTS.md`):
 
-- **ZK proving is mock-only.** `omega_zk_host` runs SP1's `ProverClient.mock()`
-  exclusively — it proves the circuit is valid, but there is no production prover
-  branch yet. "ZK-Notarized" below means the notarization *path* is wired and
-  structurally checked, not that a production STARK is generated.
+- **ZK proving: real prover wired (default), a full proof is hardware-bound.**
+  `omega_zk_host` selects its prover from `SP1_PROVER` (`ProverClient::from_env()`):
+  **`cpu` by default — a real local STARK** (no GPU / network / spend), `mock`
+  opt-in for fast dev, `network` (Succinct) for offload. The mock-only backend is
+  gone. The cpu path compiles and *begins* genuine STARK generation; **completing**
+  a full proof needs ~16 GB+ RAM (or `network`) and OOMs on an 8 GB box, so no
+  completed proof is checked in. "ZK-Notarized" below means the path is wired and
+  the prover is real — not that a STARK artifact is committed.
 - **The WebRTC / libp2p mesh is experimental.** The data structures exist, but peer
   discovery, signaling, and NAT traversal are largely stubbed (`src/sdk/phi_client.ts`
   itself notes "in a real implementation you would perform WebRTC signaling here").
@@ -27,7 +31,8 @@ and this README names them honestly (see `AGENTS.md`):
   but the node does not itself emit or validate on-chain OP_RETURNs.
 
 The frozen protocol identity, the integer physics, and the local simulation are
-genuine; the swarm / ZK-production / on-chain claims are the roadmap, not today.
+genuine; the swarm and on-chain claims are the roadmap, not today. ZK proving is
+now real by default (cpu), but completing a full proof is hardware-bound (above).
 
 ---
 
@@ -44,7 +49,8 @@ Status above), each running:
   FNV-1a hashes, validated at the mesh boundary — *transport is experimental/stubbed,
   see Status*).
 - **An SP1 ZK guest** (`omega_zk_guest/`, Mode 2 verifies mitosis events via the
-  same pure derivation function the kernel runs — *host prover is mock-only, see
+  same pure derivation function the kernel runs — *host prover is real cpu by
+  default, full proof is hardware-bound, see
   Status*).
 - **A Multi-Oracle Senate** (`oracle_identity.rs`) with five canonical seats
   (claude, gpt, gemini, qwen, llama), each with a cryptographically unforgeable

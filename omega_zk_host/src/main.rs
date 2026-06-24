@@ -1,9 +1,13 @@
-// 🌌 OMEGA-64: Era 1040 Phase 3 — Real SP1 STARK Prover
+// 🌌 OMEGA-64: Era 1040 Phase 3 — SP1 STARK Prover
 //
 // Reads a MitosisReceipt from stdin (JSON), feeds it into the SP1 ZK guest
-// in Mode 2, generates an actual STARK proof via the SP1 mock prover (which
-// produces real SP1 proofs without requiring a GPU/network), verifies it
-// locally, and emits the proof bundle as base64 JSON to stdout.
+// in Mode 2, generates a STARK proof, verifies it locally, and emits the
+// proof bundle as base64 JSON to stdout.
+//
+// Prover mode follows the SP1_PROVER env var (SP1's own convention):
+//   cpu (DEFAULT) — real local STARK proof; no GPU, no network, no spend (slow).
+//   mock          — fast development proof; NOT cryptographically sound.
+//   network       — Succinct Prover Network (needs NETWORK_PRIVATE_KEY; paid).
 //
 // Usage:
 //   echo '{"parent":...}' | omega_zk_host
@@ -21,6 +25,13 @@ use base64::Engine;
 const ELF_BYTES: &[u8] = include_bytes!(
     "../../target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest"
 );
+
+/// The active SP1 prover mode (`SP1_PROVER` env var; "cpu" by default — a real,
+/// locally-generated STARK proof). Used to label the proof bundle honestly so the
+/// `kind` field never claims more soundness than the prover that produced it.
+fn prover_mode() -> String {
+    std::env::var("SP1_PROVER").unwrap_or_else(|_| "cpu".to_string())
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 struct AgentJson {
@@ -182,9 +193,9 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
     stdin.write::<u32>(&claimed_child.memory[1]);
     stdin.write::<u32>(&claimed_child.memory[2]);
 
-    // SP1 mock prover: produces real STARK proofs in milliseconds, no GPU/network.
-    eprintln!("[zk_host] Initialising SP1 mock prover client…");
-    let prover = ProverClient::builder().mock().build();
+    // Real STARK proof under the default cpu mode (minutes, not ms); SP1_PROVER selects mode.
+    eprintln!("[zk_host] Initialising SP1 prover client…");
+    let prover = ProverClient::from_env(); // SP1_PROVER: cpu (default, real) | mock | network
     let elf = Elf::Static(ELF_BYTES);
     eprintln!("[zk_host] Setting up proving key from ELF ({} bytes)…", ELF_BYTES.len());
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
@@ -208,14 +219,15 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
         .map_err(|e| format!("public values serialization failed: {:?}", e))?;
 
     Ok(ProofBundle {
-        kind: "stark-mock".into(),
+        kind: format!("stark-{}", prover_mode()),
         receipt_hash: format!("0x{}", receipt.receipt_hash),
         parent_genome: format!("0x{:08x}", parent.genome),
         verified: true,
         proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
         public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
         note: Some(format!(
-            "SP1 mock prover; ELF {} bytes; proof {} bytes",
+            "SP1 {} prover; ELF {} bytes; proof {} bytes",
+            prover_mode(),
             ELF_BYTES.len(),
             proof_bytes.len()
         )),
@@ -223,8 +235,8 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
 }
 
 fn run_rollup(rollup: TickRollupJson) -> Result<ProofBundle, String> {
-    eprintln!("[zk_host_rollup] Initialising SP1 mock prover client for Mode 3…");
-    let prover = ProverClient::builder().mock().build();
+    eprintln!("[zk_host_rollup] Initialising SP1 prover client for Mode 3…");
+    let prover = ProverClient::from_env(); // SP1_PROVER: cpu (default, real) | mock | network
     let elf = Elf::Static(ELF_BYTES);
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
 
@@ -286,8 +298,8 @@ fn run_rollup(rollup: TickRollupJson) -> Result<ProofBundle, String> {
 }
 
 fn run_verify_only(bundle: ProofBundle) -> Result<ProofBundle, String> {
-    eprintln!("[zk_host] Initialising SP1 mock prover client for verification…");
-    let prover = ProverClient::builder().mock().build();
+    eprintln!("[zk_host] Initialising SP1 prover client for verification…");
+    let prover = ProverClient::from_env(); // SP1_PROVER: cpu (default, real) | mock | network
     let elf = Elf::Static(ELF_BYTES);
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
 
@@ -371,8 +383,8 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
     
     stdin.write::<u32>(&0u32); // attractor_count = 0
 
-    eprintln!("[zk_host] Initialising SP1 mock prover client for Rollup Test…");
-    let prover = ProverClient::builder().mock().build();
+    eprintln!("[zk_host] Initialising SP1 prover client for Rollup Test…");
+    let prover = ProverClient::from_env(); // SP1_PROVER: cpu (default, real) | mock | network
     let elf = Elf::Static(ELF_BYTES);
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
 
@@ -394,18 +406,23 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
         .map_err(|e| format!("public values serialization failed: {:?}", e))?;
 
     Ok(ProofBundle {
-        kind: "stark-mock-rollup".into(),
+        kind: format!("stark-{}-rollup", prover_mode()),
         receipt_hash: "0x0".into(), // Or parse from public values if needed
         parent_genome: "0x0".into(),
         verified: true,
         proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
         public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
-        note: Some(format!("SP1 Rollup mock prover; {} agents", active_count)),
+        note: Some(format!("SP1 Rollup {} prover; {} agents", prover_mode(), active_count)),
     })
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    eprintln!(
+        "[zk_host] SP1_PROVER={} — cpu is a REAL local STARK (~16 GB+ RAM, minutes); \
+         set SP1_PROVER=mock for fast/unsound dev, or =network for Succinct.",
+        prover_mode()
+    );
     if args.iter().any(|a| a == "--rollup-test") {
         match run_rollup_test() {
             Ok(bundle) => {

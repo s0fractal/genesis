@@ -41,7 +41,8 @@ cd omega_zk_host && cargo build --release
 cat receipt.json | ./target/release/omega_zk_host
 ```
 
-Self-test output:
+Self-test output (shown with `SP1_PROVER=mock`; a real `cpu` proof's bundle is
+far larger and takes minutes, not milliseconds):
 
 ```json
 {
@@ -92,14 +93,21 @@ same ELF (which is content-addressable).
 └─────────────────────┘
 ```
 
-## Production deployment
+## Prover modes (`SP1_PROVER`)
 
-For production use, swap the mock prover for one of:
+The prover is chosen at runtime from the `SP1_PROVER` env var (SP1's own
+convention) — the host calls `ProverClient::from_env()`, and **the default is
+real**:
 
-- `ProverClient::builder().cpu().build()` — local CPU STARKs (slow but real).
-- `ProverClient::builder().cuda().build()` — local GPU STARKs (fast).
-- `ProverClient::builder().network().build()` — Succinct's prover network.
+- `cpu` (DEFAULT) — a real local STARK; no GPU, no network, no spend. Slow and
+  RAM-heavy. **Honest caveat:** a full proof needs ~16 GB+ RAM; it OOMs on an
+  8 GB box. The cpu path compiles and *begins* genuine STARK generation, but a
+  full proof has not been completed on this project's 8 GB dev hardware — run it
+  on a ≥16 GB machine or use `network`.
+- `mock` — fast, deterministic, **NOT cryptographically sound**; for tests/CI
+  only. (This was previously the only backend — that is no longer true.)
+- `network` — Succinct's prover network (needs `NETWORK_PRIVATE_KEY`; paid).
 
-The mock prover used here produces proofs in milliseconds and is suitable for
-deterministic testing + CI; real cryptographic proofs require one of the three
-above.
+The proof bundle's `kind` field reports the active mode (`stark-cpu` /
+`stark-mock` / `stark-network`), so a consumer never reads more soundness into a
+proof than the prover that produced it.
