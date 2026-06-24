@@ -34,6 +34,11 @@ The frozen protocol identity, the integer physics, and the local simulation are
 genuine; the swarm and on-chain claims are the roadmap, not today. ZK proving is
 now real by default (cpu), but completing a full proof is hardware-bound (above).
 
+These two caveats are **executable** — `tests/honesty_triad_test.ts` locks them:
+if the mesh ever performs real signaling, or `bitcoin_anchor` ever broadcasts a
+transaction, or either claim here drifts from the code, that test goes red. The
+"not production" status cannot silently rot into a "mock in a real costume".
+
 ---
 
 ## What it is
