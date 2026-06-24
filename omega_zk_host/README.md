@@ -111,3 +111,14 @@ real**:
 The proof bundle's `kind` field reports the active mode (`stark-cpu` /
 `stark-mock` / `stark-network`), so a consumer never reads more soundness into a
 proof than the prover that produced it.
+
+### Validating a real proof (≥16 GB machine)
+
+`tests/real_proof.rs` is the completion of the real-prover work that an 8 GB box
+cannot run, so it is `#[ignore]`d (a normal `cargo test` skips it and never OOMs).
+On adequate hardware, run it to confirm omega generates a real, verified STARK and
+has not silently regressed to mock:
+
+```sh
+SP1_PROVER=cpu cargo test -p omega_zk_host --test real_proof -- --ignored --nocapture
+```
