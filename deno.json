@@ -7,6 +7,9 @@
     "verify:fast": "cargo test -p omega_v2 && deno check src/**/*.ts && deno task test:fast",
     "verify:slow": "deno task test:integration"
   },
+  "fmt": {
+    "exclude": ["**/*.html", "*.html"]
+  },
   "compilerOptions": {
     "lib": [
       "deno.window",

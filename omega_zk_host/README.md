@@ -100,8 +100,8 @@ convention) — the host calls `ProverClient::from_env()`, and **the default is
 real**:
 
 - `cpu` (DEFAULT) — a real local STARK; no GPU, no network, no spend. Slow and
-  RAM-heavy. **Honest caveat:** a full proof needs ~16 GB+ RAM; it OOMs on an
-  8 GB box. The cpu path compiles and *begins* genuine STARK generation, but a
+  RAM-heavy. **Honest caveat:** a full proof needs ~16 GB+ RAM; it OOMs on an 8
+  GB box. The cpu path compiles and _begins_ genuine STARK generation, but a
   full proof has not been completed on this project's 8 GB dev hardware — run it
   on a ≥16 GB machine or use `network`.
 - `mock` — fast, deterministic, **NOT cryptographically sound**; for tests/CI
@@ -115,9 +115,9 @@ proof than the prover that produced it.
 ### Validating a real proof (≥16 GB machine)
 
 `tests/real_proof.rs` is the completion of the real-prover work that an 8 GB box
-cannot run, so it is `#[ignore]`d (a normal `cargo test` skips it and never OOMs).
-On adequate hardware, run it to confirm omega generates a real, verified STARK and
-has not silently regressed to mock:
+cannot run, so it is `#[ignore]`d (a normal `cargo test` skips it and never
+OOMs). On adequate hardware, run it to confirm omega generates a real, verified
+STARK and has not silently regressed to mock:
 
 ```sh
 SP1_PROVER=cpu cargo test -p omega_zk_host --test real_proof -- --ignored --nocapture
