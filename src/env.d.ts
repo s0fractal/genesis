@@ -1,6 +1,13 @@
 // Ambient Types Header
 // These interfaces are globally available to the Deno LSP via deno.json configured "types" array.
 
+// Vite-style build-time env (src/shared/config.ts reads import.meta.env). Declared
+// here so the deno-check fast lane accepts the Vite-app files without pulling in Vite's
+// own types — declaration-merges with the built-in ImportMeta.
+interface ImportMeta {
+  env: Record<string, string | undefined>;
+}
+
 interface LatticeConfig {
   sectors: number;
   radialBins: number;

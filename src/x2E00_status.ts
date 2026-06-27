@@ -14,7 +14,10 @@ import {
   join,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
 import { computeLawHash, lawHashHex } from "./shared/law_hash.ts";
-import { type CborValue, wrap } from "./shared/envelope.ts";
+import { wrap } from "./shared/envelope.ts";
+// CborValue is re-declared (not re-exported) by envelope.ts; import it from the
+// canonical source so this organ type-checks under `deno check` (the fast lane).
+import type { CborValue } from "./shared/canonical_cbor.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const OMEGA_ROOT = dirname(HERE);
