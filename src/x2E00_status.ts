@@ -62,6 +62,38 @@ if (import.meta.main) {
     },
   };
 
+  // Proof readiness — the third leg of the boundary projection (codex's organ
+  // thesis + the omega audit): make ZK / golden-trace proof DEBT visible AT the
+  // boundary instead of buried in the core, so trinity can read omega's proof
+  // state without an FFI round-trip into omega internals. Honest by construction.
+  const zk_guest_present = await checkFile("omega_zk_guest/Cargo.toml");
+  const zk_host_present = await checkFile("omega_zk_host/Cargo.toml");
+  // Local build artifact (gitignored): present when the guest has been compiled
+  // here, absent in a fresh checkout / CI. Informative, environment-dependent —
+  // the load-bearing honesty is zk_cpu_proof_executed below.
+  const zk_guest_elf_built = await checkFile(
+    "target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest",
+  );
+  const golden_trace_test_present = await checkFile(
+    "tests/wgsl_golden_trace_test.ts",
+  );
+  const proof_readiness = {
+    type: "ProofReadiness",
+    zk_guest_present,
+    zk_host_present,
+    zk_guest_elf_built,
+    // honest, static: no completed cpu STARK proof exists. The validating test is
+    // #[ignore]d (needs ~16 GB) and CI runs the fast mock prover.
+    zk_cpu_proof_executed: false,
+    zk_ci_prover: "mock",
+    golden_trace_test_present,
+    note:
+      "ZK is wired (real SP1 guest + host crate deps) but NO completed cpu STARK " +
+      "proof exists — the validating test is #[ignore]d (needs ~16 GB) and CI runs " +
+      "SP1_PROVER=mock (fast, NOT cryptographically sound). This field keeps that " +
+      "proof debt visible at the boundary rather than hiding it.",
+  };
+
   const receipt: Record<string, unknown> = {
     type: "status",
     position: "2/E",
@@ -79,6 +111,7 @@ if (import.meta.main) {
       },
     },
     substrate_health,
+    proof_readiness,
   };
 
   // --envelope: omega signs its OWN substrate_health as a ReceiptEnvelope
