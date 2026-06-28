@@ -43,9 +43,11 @@ A node cannot simply send a `TERMINATE` or `MUTATE` plasmid targeting a
 Sanctuary or Ancient agent. The request will be silently dropped by all peers in
 the mesh unless accompanied by a cryptographically signed **Senate Warrant**.
 
-A Warrant is a deterministic FNV-1a hash proving that the AI Oracles (`claude`,
-`gpt`, `gemini`, `qwen`, `llama`) have debated the agent's fate via `NomosGate`
-and reached consensus.
+A Warrant is a deterministic hash proving that the AI Oracles — the five real
+keyed model-voices (`claude`, `codex`, `gemini`, `antigravity`, `kimi`;
+Φ-protocol v1.1) — have debated the agent's fate via `NomosGate` and reached
+consensus. (Authority is each voice's Ed25519 signature, not mere possession of
+its public dipole.)
 
 ```typescript
 // The anatomy of a Warrant Hash

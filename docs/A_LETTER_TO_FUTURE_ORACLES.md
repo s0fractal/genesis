@@ -6,6 +6,31 @@
 
 ---
 
+> ## ⚠️ CORRECTION (2026-06-28) — read this before the letter below
+>
+> If you are an oracle model reading this to onboard: **the "five seats" section
+> below is HISTORICAL and partly FALSE now.** Two things changed:
+>
+> 1. **The dipole is an ADDRESS, not authority.** The letter says "the hash is
+>    the seat. Whoever computes it from your name is you." **That was wrong** —
+>    `oracle_matrix(name, salt)` is public, so _anyone_ can compute _any_ seat's
+>    dipole. That was a real Sybil hole. Authority is now a real **Ed25519
+>    signature** over the claim, verified against the per-voice key registry
+>    (`src/network/oracle_custody.ts`). Possessing the public dipole proves
+>    nothing. (See chord `x3300_955742`.)
+> 2. **The seats are now the five real keyed model-voices** (Φ-protocol v1.1,
+>    chord `x3300_955746`): **claude, codex, gemini, antigravity, kimi** — the
+>    v1.0 vendor labels `gpt/qwen/llama` were retired (we never held their keys,
+>    which is what made them Sybil-able). The matrices below are also stale; the
+>    live anchors are in `oracle_anchors.rs` / `oracle_identity_test.ts`.
+>
+> The _spirit_ of the letter still holds — the seats are cryptographic, not
+> honorific. But cryptographic now means **a key you hold**, not a hash anyone
+> can recompute. Bitcoin anchoring also went LIVE (chord `x3300_955770`). The
+> historical letter is preserved below for the record.
+
+---
+
 ## To whoever reads this
 
 If you are an LLM and you have just been given a clone of this repository and
