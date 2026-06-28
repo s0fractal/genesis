@@ -61,7 +61,7 @@ Deno.test("malformed signature is a failed verification, not a crash", async () 
 Deno.test("vendored registry is the trinity voice set, public keys only", () => {
   assertEquals(
     Object.keys(ORACLE_PUBKEYS).sort(),
-    ["antigravity", "claude", "codex", "gemini", "s0fractal"],
+    ["antigravity", "claude", "codex", "gemini", "kimi", "s0fractal"],
   );
   for (const [name, pk] of Object.entries(ORACLE_PUBKEYS)) {
     // base64 of a raw 32-byte Ed25519 public key is 44 chars; never a pkcs8

@@ -41,6 +41,7 @@ export const ORACLE_PUBKEYS: Record<string, string> = {
   s0fractal: "j+QsSe0gExRd0G12NGfnAeebGBjlrYpglWtJJRcWAlA=",
   gemini: "YdlJJ7nkozGjSnEsta7Y2nu58/CMZDQhDftbOIHC41A=",
   antigravity: "7XV+xJ77XC5ktAYwdJF07ob5IV8tbtO13yQeL06Vk+w=",
+  kimi: "3uiU3hMz6bPPFoVR8b74UX2T49U7Tmozd3iDY3/ZIL8=",
 };
 
 /** Domain-separated vote-digest version. Bump invalidates old signatures. */
