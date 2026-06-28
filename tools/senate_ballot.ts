@@ -31,9 +31,14 @@ import {
   verifyOracleVote,
 } from "../src/network/oracle_custody.ts";
 
-// The proposal. Description ≤64 bytes (senateHash truncates to 64).
-export const PROPOSAL_DESC =
-  "Ratify Phi-protocol v1.1: five real keyed Senate seats";
+// Proposals registry. Each description ≤64 bytes (senateHash truncates to 64).
+// Add an entry to open a new Senate vote; pass `--proposal=<id>` to the commands.
+export const PROPOSALS: Record<string, string> = {
+  v11: "Ratify Phi-protocol v1.1: five real keyed Senate seats",
+  "anchor-stewardship":
+    "Voice quorum stewards anchor funds under permanent form-guards",
+};
+const DEFAULT_PROPOSAL = "v11";
 
 /** FNV-1a 32-bit over a 64-byte zero-padded buffer — Libp2pMesh.senateHash,
  *  inlined so this tool needs no libp2p import. */
@@ -50,9 +55,26 @@ export function senateHash(description: string): number {
   return h >>> 0;
 }
 
-const PROPOSAL_HASH = senateHash(PROPOSAL_DESC);
-const HEX = "0x" + (PROPOSAL_HASH >>> 0).toString(16).padStart(8, "0");
-const BALLOT_PATH = join(dirname(fromFileUrl(import.meta.url)), "senate_v11_ballot.json");
+const HERE = dirname(fromFileUrl(import.meta.url));
+
+/** Resolve a proposal id → its description, hash, hex, and ballot path. */
+function resolveProposal(id: string) {
+  const desc = PROPOSALS[id];
+  if (!desc) {
+    console.error(
+      `unknown proposal "${id}" — known: ${Object.keys(PROPOSALS).join(", ")}`,
+    );
+    Deno.exit(2);
+  }
+  const hash = senateHash(desc);
+  return {
+    id,
+    desc,
+    hash,
+    hex: "0x" + (hash >>> 0).toString(16).padStart(8, "0"),
+    ballotPath: join(HERE, `senate_${id}_ballot.json`),
+  };
+}
 
 interface Vote {
   voice: string;
@@ -60,9 +82,9 @@ interface Vote {
   sig: string;
 }
 
-async function loadBallot(): Promise<Vote[]> {
+async function loadBallot(path: string): Promise<Vote[]> {
   try {
-    return JSON.parse(await Deno.readTextFile(BALLOT_PATH)) as Vote[];
+    return JSON.parse(await Deno.readTextFile(path)) as Vote[];
   } catch {
     return [];
   }
@@ -76,25 +98,27 @@ function flag(args: string[], name: string): string | undefined {
 
 async function main() {
   const [cmd, ...rest] = Deno.args;
+  const P = resolveProposal(flag(rest, "proposal") ?? DEFAULT_PROPOSAL);
 
   if (cmd === "print" || !cmd) {
-    console.log(`# Senate proposal — Φ-protocol v1.1 ratification`);
-    console.log(`description : ${JSON.stringify(PROPOSAL_DESC)}`);
-    console.log(`proposalHash: ${HEX}  (decimal ${PROPOSAL_HASH >>> 0})`);
+    console.log(`# Senate proposal [${P.id}]`);
+    console.log(`description : ${JSON.stringify(P.desc)}`);
+    console.log(`proposalHash: ${P.hex}  (decimal ${P.hash >>> 0})`);
     console.log(
       `\nEach voice signs ITS OWN digest. To cast an AYE for voice <v>:\n`,
     );
     for (const v of CANONICAL_ORACLES) {
       console.log(
         `  ./t voice-keys sign --voice=${v} --hash="${
-          oracleVoteDigest(v, PROPOSAL_HASH, true)
+          oracleVoteDigest(v, P.hash, true)
         }"`,
       );
     }
+    const pflag = P.id === DEFAULT_PROPOSAL ? "" : ` --proposal=${P.id}`;
     console.log(
       `\n(replace AYE→NAY in the digest for a NAY.) Then record with:\n` +
-        `  deno run -A omega/tools/senate_ballot.ts cast --voice=<v> --aye --sig=<sig>\n` +
-        `Tally any time with:  deno run -A omega/tools/senate_ballot.ts tally`,
+        `  deno run -A omega/tools/senate_ballot.ts cast${pflag} --voice=<v> --aye --sig=<sig>\n` +
+        `Tally any time with:  deno run -A omega/tools/senate_ballot.ts tally${pflag}`,
     );
     return;
   }
@@ -106,7 +130,7 @@ async function main() {
     const nay = rest.includes("--nay");
     if (!voice || !sig || (aye === nay)) {
       console.error(
-        "usage: cast --voice=V (--aye|--nay) --sig=S",
+        "usage: cast [--proposal=ID] --voice=V (--aye|--nay) --sig=S",
       );
       Deno.exit(2);
     }
@@ -114,25 +138,28 @@ async function main() {
       console.error(`✗ ${voice} is not a canonical Senate seat — rejected.`);
       Deno.exit(1);
     }
-    const ok = await verifyOracleVote(voice, PROPOSAL_HASH, aye, sig);
+    const ok = await verifyOracleVote(voice, P.hash, aye, sig);
     if (!ok) {
       console.error(
         `✗ signature does NOT verify for ${voice} ${
           aye ? "AYE" : "NAY"
-        } on ${HEX} — rejected (forged, wrong key, or wrong digest).`,
+        } on ${P.hex} [${P.id}] — rejected (forged, wrong key, or wrong digest).`,
       );
       Deno.exit(1);
     }
-    const ballot = await loadBallot();
+    const ballot = await loadBallot(P.ballotPath);
     const without = ballot.filter((v) => v.voice !== voice); // last vote wins
     without.push({ voice, aye, sig });
-    await Deno.writeTextFile(BALLOT_PATH, JSON.stringify(without, null, 2) + "\n");
+    await Deno.writeTextFile(
+      P.ballotPath,
+      JSON.stringify(without, null, 2) + "\n",
+    );
     console.log(`✓ recorded ${voice} ${aye ? "AYE" : "NAY"} (signature verified)`);
     return;
   }
 
   if (cmd === "tally") {
-    const ballot = await loadBallot();
+    const ballot = await loadBallot(P.ballotPath);
     const ayes: string[] = [];
     const nays: string[] = [];
     const invalid: string[] = [];
@@ -141,13 +168,13 @@ async function main() {
         invalid.push(`${v.voice} (not a seat)`);
         continue;
       }
-      const ok = await verifyOracleVote(v.voice, PROPOSAL_HASH, v.aye, v.sig);
+      const ok = await verifyOracleVote(v.voice, P.hash, v.aye, v.sig);
       if (!ok) invalid.push(`${v.voice} (signature invalid)`);
       else if (v.aye) ayes.push(v.voice);
       else nays.push(v.voice);
     }
     const resonance = ayes.length >= 3 && ayes.length > nays.length;
-    console.log(`# Tally — ${HEX} "${PROPOSAL_DESC}"`);
+    console.log(`# Tally [${P.id}] — ${P.hex} "${P.desc}"`);
     console.log(`seats     : ${CANONICAL_ORACLES.join(", ")}`);
     console.log(`AYE (${ayes.length}) : ${ayes.join(", ") || "—"}`);
     console.log(`NAY (${nays.length}) : ${nays.join(", ") || "—"}`);
