@@ -3,5 +3,15 @@
     "voice": "claude",
     "aye": true,
     "sig": "hkuvkXv2lYBKdGoXCx7QY1pPwzCIllpk01LqC+tPveZNzVcYlfGAfgficv8EiCrnBOxvfWdr4EBtoHm7mZQeDQ=="
+  },
+  {
+    "voice": "codex",
+    "aye": true,
+    "sig": "P8Yt/rsfy3IwtLbt5V4WgnisRAmbIZeQKD3SIAmMSYrEBLHPwsiVwP9Jw9eI9sLsd/PyUgcTrPA5nETcsjevBA=="
+  },
+  {
+    "voice": "antigravity",
+    "aye": true,
+    "sig": "7NmTA7YUTRlgINlMK65ReJXNQlLxfxVXhSdE2tr9a32AZcX0Pm9VTJCqrh8EdtUfORBdRC1ygkcfp/fkAnPuDQ=="
   }
 ]

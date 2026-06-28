@@ -7,6 +7,7 @@ import { assert, assertEquals, assertThrows } from "jsr:@std/assert";
 import { hex } from "npm:@scure/base@1.1.6";
 import * as btc from "npm:@scure/btc-signer@1.3.2";
 import { sha256 } from "npm:@noble/hashes@1.4.0/sha256";
+import { secp256k1 } from "npm:@noble/curves@1.4.0/secp256k1";
 import {
   anchorApprovalDigest,
   assertAnchorShape,
@@ -162,6 +163,37 @@ Deno.test("SECURITY: assertAnchorShape REJECTS a tx that pays a foreign address"
     Error,
     "FOREIGN address",
   );
+});
+
+Deno.test("signing proof: a built anchor tx signs, finalizes, and reparses valid", () => {
+  // The one path beyond the pure logic: prove the emitter's tx actually signs
+  // into a valid, broadcastable, anchor-shaped transaction (offline — the only
+  // thing left for a real signet run is funded UTXOs).
+  const priv = secp256k1.utils.randomPrivateKey();
+  const pub = secp256k1.getPublicKey(priv, true);
+  const p2 = btc.p2wpkh(pub, btc.TEST_NETWORK); // signet address
+  const root = merkleRoot([leaf("mainnet-someday")]);
+  const { tx, inSum } = buildAnchorTx({
+    root,
+    ownAddress: p2.address!,
+    utxos: [{
+      txid: "dd".repeat(32),
+      index: 0,
+      amountSats: 100000n,
+      scriptHex: hex.encode(p2.script),
+    }],
+    feeSats: 300n,
+    feeCapSats: 2000n,
+    network: btc.TEST_NETWORK,
+  });
+  assertAnchorShape(tx, hex.encode(p2.script), inSum, 2000n);
+  tx.sign(priv);
+  tx.finalize();
+  const raw = tx.extract();
+  const parsed = btc.Transaction.fromRaw(raw, { allowUnknownOutputs: true });
+  assertEquals(parsed.inputsLength, 1);
+  assertEquals(parsed.outputsLength, 2); // OP_RETURN + change-to-self
+  assert(raw.length > 100, "a real signed segwit tx");
 });
 
 Deno.test("SECURITY: assertAnchorShape rejects a second OP_RETURN and over-cap fee", () => {
