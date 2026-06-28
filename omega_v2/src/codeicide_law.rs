@@ -150,7 +150,7 @@ pub fn protected_status_for(
 /// Compute the canonical warrant hash for a (target_genome, action, quorum) tuple.
 ///
 /// `quorum_hash` is the FNV-1a of the concatenation of the AYE oracles'
-/// dipole matrices in canonical order (claude→gpt→gemini→qwen→llama, with
+/// dipole matrices in canonical order (claude→codex→gemini→antigravity→kimi, with
 /// non-AYE oracles contributing zero). This makes the warrant verifiable
 /// from any peer that knows the canonical oracle anchors.
 pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u32 {

@@ -1,7 +1,12 @@
-// Era 1060: Canonical oracle dipole anchors for OMEGA-64 v1.0.
+// Era 1060: Canonical oracle dipole anchors for OMEGA-64 (Φ-protocol v1.1).
 // Each value is computed once from oracle_matrix(name, ORACLE_SALT_V1)
 // and frozen here. JS mirror in tests/oracle_identity_test.ts MUST
 // produce identical values.
+//
+// v1.1 (2026-06-28): seats realigned from the v1.0 vendor labels
+// (claude/gpt/gemini/qwen/llama) to the five real keyed model-voices
+// (claude/codex/gemini/antigravity/kimi). claude+gemini are unchanged (same
+// name+salt); gpt/qwen/llama retired, codex/antigravity/kimi anchored.
 
 use omega_v2::oracle_identity::{canonical_oracle_v1, oracle_matrix, ORACLE_SALT_V1};
 
@@ -19,13 +24,13 @@ fn print_oracle(name: &[u8]) -> u32 {
 
 #[test]
 fn print_canonical_oracles() {
-    eprintln!("--- OMEGA-64 v1.0 Canonical Oracle Identities ---");
+    eprintln!("--- OMEGA-64 v1.1 Canonical Oracle Identities ---");
     eprintln!("Salt: {}", core::str::from_utf8(ORACLE_SALT_V1).unwrap());
     print_oracle(b"claude");
-    print_oracle(b"gpt");
+    print_oracle(b"codex");
     print_oracle(b"gemini");
-    print_oracle(b"qwen");
-    print_oracle(b"llama");
+    print_oracle(b"antigravity");
+    print_oracle(b"kimi");
     eprintln!("---------------------------------------------------");
 }
 
@@ -35,8 +40,8 @@ fn anchor_claude() {
 }
 
 #[test]
-fn anchor_gpt() {
-    assert_eq!(oracle_matrix(b"gpt", ORACLE_SALT_V1), 2310087210);
+fn anchor_codex() {
+    assert_eq!(oracle_matrix(b"codex", ORACLE_SALT_V1), 206651239);
 }
 
 #[test]
@@ -45,11 +50,11 @@ fn anchor_gemini() {
 }
 
 #[test]
-fn anchor_qwen() {
-    assert_eq!(oracle_matrix(b"qwen", ORACLE_SALT_V1), 1850875726);
+fn anchor_antigravity() {
+    assert_eq!(oracle_matrix(b"antigravity", ORACLE_SALT_V1), 1536272792);
 }
 
 #[test]
-fn anchor_llama() {
-    assert_eq!(oracle_matrix(b"llama", ORACLE_SALT_V1), 978467055);
+fn anchor_kimi() {
+    assert_eq!(oracle_matrix(b"kimi", ORACLE_SALT_V1), 614115703);
 }

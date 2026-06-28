@@ -104,7 +104,7 @@ async function applyVote(
 }
 
 Deno.test("keyed resonance: 3 SIGNED oracles ratify without peer count", async () => {
-  const names = ["claude", "gpt", "gemini"];
+  const names = ["claude", "codex", "gemini"];
   const { pub, priv } = await mintKeys(names);
   const r = newRecord(0xCAFE);
   for (const name of names) {
@@ -116,10 +116,10 @@ Deno.test("keyed resonance: 3 SIGNED oracles ratify without peer count", async (
 });
 
 Deno.test("the real Sybil: correct PUBLIC dipole, NO signature → rejected", async () => {
-  const { pub } = await mintKeys(["claude", "gpt", "gemini"]);
+  const { pub } = await mintKeys(["claude", "codex", "gemini"]);
   const r = newRecord(0xBA5E);
   // Attacker knows the public dipole of every oracle but holds no key.
-  for (const name of ["claude", "gpt", "gemini"]) {
+  for (const name of ["claude", "codex", "gemini"]) {
     const { matrix, inverse } = oracleDipole(name);
     assertEquals((matrix ^ inverse) >>> 0, 0xFFFF_FFFF); // dipole is correct
     assertEquals(

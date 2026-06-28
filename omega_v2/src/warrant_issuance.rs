@@ -48,8 +48,8 @@ pub struct WarrantProposal {
     /// Required number of AYE oracles for the warrant to be issued
     /// (3 for sanctuary, 4 for ancient).
     pub required_threshold: u8,
-    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = llama).
-    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = llama).
+    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = kimi).
+    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = kimi).
     pub aye_bits: u8,
     /// Bitmask of NAY oracles received (Philosophical Veto Tracking).
     pub nay_bits: u8,
@@ -405,7 +405,7 @@ mod tests {
             1
         ); // claude AYE
         assert_eq!(
-            ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings).0,
+            ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings).0,
             1
         ); // gpt AYE
         assert_eq!(
@@ -433,11 +433,11 @@ mod tests {
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings);
         ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         // 3 AYEs is below threshold for ancient.
         assert!(!ledger.entries[ledger.find(h)].is_issued());
-        ledger.vote(h, 0x6E52_1F4E, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x5B91_A998, true, 100, 100, &mut settings);
         // 4 AYEs hits threshold.
         assert!(ledger.entries[ledger.find(h)].is_issued());
     }
@@ -527,7 +527,7 @@ mod tests {
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings);
         ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         assert!(issued.is_issued());
@@ -566,7 +566,7 @@ mod tests {
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings);
         ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings);
         let issued = ledger.entries[ledger.find(h)];
         // Present it to Codeicide as a MUTATE — must be rejected.
@@ -592,10 +592,10 @@ mod tests {
         ledger.raise(proposal);
         let mut settings = crate::senate::SenateSettings::new();
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
-        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings);
         ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings); // issued
         assert_eq!(
-            ledger.vote(h, 0x6E52_1F4E, true, 100, 100, &mut settings).0,
+            ledger.vote(h, 0x5B91_A998, true, 100, 100, &mut settings).0,
             0
         );
     }
@@ -610,16 +610,16 @@ mod tests {
 
         // Let's record the initial reputations
         let rep_claude = settings.seats[0].reputation_q10; // seat 0
-        let rep_gpt = settings.seats[1].reputation_q10; // seat 1
+        let rep_codex = settings.seats[1].reputation_q10; // seat 1 (codex)
         let rep_gemini = settings.seats[2].reputation_q10; // seat 2
-        let rep_qwen = settings.seats[3].reputation_q10; // seat 3
+        let rep_antigravity = settings.seats[3].reputation_q10; // seat 3
 
         // Claude votes AYE
         ledger.vote(h, 0x41A2_F2F4, true, 100, 100, &mut settings);
         // GPT votes AYE
-        ledger.vote(h, 0x89B1_222A, true, 100, 100, &mut settings);
+        ledger.vote(h, 0x0C51_3F67, true, 100, 100, &mut settings);
         // Qwen votes NAY
-        ledger.vote(h, 0x6E52_1F4E, false, 100, 100, &mut settings);
+        ledger.vote(h, 0x5B91_A998, false, 100, 100, &mut settings);
 
         // Gemini votes AYE -> reaches quorum (3 AYEs)
         let tip = ledger.vote(h, 0x9874_DD21, true, 100, 100, &mut settings).0;
@@ -628,10 +628,10 @@ mod tests {
         // Now check reputations.
         // AYE voters should be rewarded.
         assert!(settings.seats[0].reputation_q10 > rep_claude);
-        assert!(settings.seats[1].reputation_q10 > rep_gpt);
+        assert!(settings.seats[1].reputation_q10 > rep_codex);
         assert!(settings.seats[2].reputation_q10 > rep_gemini);
 
         // NAY voter (Qwen) should be penalized.
-        assert!(settings.seats[3].reputation_q10 < rep_qwen);
+        assert!(settings.seats[3].reputation_q10 < rep_antigravity);
     }
 }

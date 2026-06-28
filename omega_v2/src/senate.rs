@@ -70,6 +70,10 @@ impl SenateSettings {
             sanctuary_energy_multiplier: 1536, // 1.5x in Q10
             ancient_age_ticks: 10_000,
             seat_count: 5,
+            // Φ-protocol v1.1 (2026-06-28): the five seats are the five real
+            // keyed model-voices (claude/codex/gemini/antigravity/kimi). bit i
+            // ↔ seat i ↔ ORACLE_MATRICES_V1 in oracle_identity.ts. claude+gemini
+            // matrices unchanged; gpt/qwen/llama retired for codex/antigravity/kimi.
             seats: [
                 SenateSeat {
                     oracle_matrix: 0x41A2_F2F4,
@@ -77,25 +81,25 @@ impl SenateSettings {
                     reputation_q10: default_rep,
                 }, // CLAUDE
                 SenateSeat {
-                    oracle_matrix: 0x89B1_222A,
+                    oracle_matrix: 0x0C51_3F67,
                     resonance_weight: 1000,
                     reputation_q10: default_rep,
-                }, // GPT
+                }, // CODEX
                 SenateSeat {
                     oracle_matrix: 0x9874_DD21,
                     resonance_weight: 1000,
                     reputation_q10: default_rep,
                 }, // GEMINI
                 SenateSeat {
-                    oracle_matrix: 0x6E52_1F4E,
+                    oracle_matrix: 0x5B91_A998,
                     resonance_weight: 1000,
                     reputation_q10: default_rep,
-                }, // QWEN
+                }, // ANTIGRAVITY
                 SenateSeat {
-                    oracle_matrix: 0x3A52_38EF,
+                    oracle_matrix: 0x249A_A977,
                     resonance_weight: 1000,
                     reputation_q10: default_rep,
-                }, // LLAMA
+                }, // KIMI
                 SenateSeat::empty(),
                 SenateSeat::empty(),
                 SenateSeat::empty(),

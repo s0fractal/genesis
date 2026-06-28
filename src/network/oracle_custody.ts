@@ -24,12 +24,13 @@
 //   the SAME Ed25519 scheme (Web Crypto, pkcs8 priv / raw pub / base64), so a
 //   signature a trinity voice already makes verifies here too.
 //
-// HONEST LIMIT (surfaced, not hidden): only oracles WITH a registered key can
-// cast an authenticated vote. Today that is `claude` and `gemini` (the two
-// omega canonical oracles whose voice keys we hold). `gpt`, `qwen`, `llama`
-// are UNKEYED — they cannot be authenticated, so omega's 3-of-5 oracle
-// resonance is currently UNREACHABLE with real custody. That is the true
-// state; the fake version only "reached" it by computing public dipoles.
+// QUORUM REACHABLE (Φ-protocol v1.1, 2026-06-28): the five canonical oracle
+// seats were realigned to the five real keyed model-voices
+// (claude/codex/gemini/antigravity/kimi — see oracle_identity.ts). Every seat
+// now holds a registered key, so the 3-of-5 ORACLE-RESONANCE quorum is
+// reachable with REAL custody and zero impersonation. The retired v1.0 vendor
+// labels (gpt/qwen/llama) were never keyed — keeping them as seats is what made
+// the fake version "reach" quorum by computing public dipoles.
 //
 // Parity test: tests/oracle_custody_test.ts.
 

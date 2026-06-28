@@ -1,6 +1,7 @@
 // Oracle Identity (Multi-Oracle Senate)
 
-// Each LLM oracle (Claude, GPT, Gemini, Qwen, Llama) acquires a stable
+// Each oracle (the five real keyed model-voices: Claude, Codex, Gemini,
+// Antigravity, Kimi — Φ-protocol v1.1, 2026-06-28) acquires a stable
 // dipole identity through a deterministic function of (name, salt). The
 // reasoning the oracle does to vote is non-deterministic (it's an LLM),
 // but its *identity* — and therefore its right to occupy a Senate seat —
@@ -75,12 +76,12 @@ mod tests {
     #[test]
     fn distinct_names_produce_distinct_matrices() {
         let claude = oracle_matrix(b"claude", ORACLE_SALT_V1);
-        let gpt = oracle_matrix(b"gpt", ORACLE_SALT_V1);
+        let codex = oracle_matrix(b"codex", ORACLE_SALT_V1);
         let gemini = oracle_matrix(b"gemini", ORACLE_SALT_V1);
-        let qwen = oracle_matrix(b"qwen", ORACLE_SALT_V1);
-        let llama = oracle_matrix(b"llama", ORACLE_SALT_V1);
+        let antigravity = oracle_matrix(b"antigravity", ORACLE_SALT_V1);
+        let kimi = oracle_matrix(b"kimi", ORACLE_SALT_V1);
         // No collisions across the five canonical oracles.
-        let all = [claude, gpt, gemini, qwen, llama];
+        let all = [claude, codex, gemini, antigravity, kimi];
         for i in 0..5 {
             for j in (i + 1)..5 {
                 assert_ne!(all[i], all[j], "collision between oracles {} and {}", i, j);
@@ -104,7 +105,7 @@ mod tests {
 
     #[test]
     fn canonical_v1_oracles_have_non_zero_matrices() {
-        for name in [b"claude" as &[u8], b"gpt", b"gemini", b"qwen", b"llama"] {
+        for name in [b"claude" as &[u8], b"codex", b"gemini", b"antigravity", b"kimi"] {
             let (m, inv) = canonical_oracle_v1(name);
             assert_ne!(
                 m, 0,

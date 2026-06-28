@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(e.reasoning_hash, sha256_u32(b"because X"));
         assert_eq!(e.tick, 100);
         assert!(e.matches_oracle(b"claude"));
-        assert!(!e.matches_oracle(b"gpt"));
+        assert!(!e.matches_oracle(b"codex"));
     }
 
     #[test]
@@ -178,15 +178,15 @@ mod tests {
 
     #[test]
     fn oracle_str_len_handles_zero_pad() {
-        let e = DebateEntry::new(b"gpt", 0, 0, b"", 0);
-        assert_eq!(e.oracle_str_len(), 3);
+        let e = DebateEntry::new(b"codex", 0, 0, b"", 0);
+        assert_eq!(e.oracle_str_len(), 5);
     }
 
     #[test]
     fn ledger_push_advances_head() {
         let mut l = DebateLedger::new();
         l.push(DebateEntry::new(b"claude", 1, 1, b"a", 0));
-        l.push(DebateEntry::new(b"gpt", 1, 2, b"b", 1));
+        l.push(DebateEntry::new(b"codex", 1, 2, b"b", 1));
         assert_eq!(l.head, 2);
         assert_eq!(l.total_written, 2);
     }
@@ -196,12 +196,12 @@ mod tests {
         let mut l = DebateLedger::new();
         l.push(DebateEntry::new(b"claude", 100, 1, b"argA", 0));
         l.push(DebateEntry::new(b"claude", 100, 0, b"argB", 1));
-        l.push(DebateEntry::new(b"gpt", 100, 2, b"argC", 2));
+        l.push(DebateEntry::new(b"codex", 100, 2, b"argC", 2));
         l.push(DebateEntry::new(b"claude", 200, 1, b"argD", 3));
         assert_eq!(l.entries_for(b"claude", 100), 2);
-        assert_eq!(l.entries_for(b"gpt", 100), 1);
+        assert_eq!(l.entries_for(b"codex", 100), 1);
         assert_eq!(l.entries_for(b"claude", 200), 1);
-        assert_eq!(l.entries_for(b"qwen", 100), 0);
+        assert_eq!(l.entries_for(b"antigravity", 100), 0);
     }
 
     #[test]

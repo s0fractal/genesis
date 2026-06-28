@@ -32,10 +32,10 @@ interface ProposalRecord {
 
 const VISIONS: Array<{ oracle: Oracle; vision: string; hash: number }> = [
   { oracle: "claude", vision: "Codeicide Law", hash: 0xC1A11_001 },
-  { oracle: "gpt", vision: "Photonic Substrate", hash: 0xC1A11_002 },
+  { oracle: "codex", vision: "Photonic Substrate", hash: 0xC1A11_002 },
   { oracle: "gemini", vision: "Multi-Modal Oracle", hash: 0xC1A11_003 },
-  { oracle: "qwen", vision: "Bare-Metal Spores", hash: 0xC1A11_004 },
-  { oracle: "llama", vision: "Bitcoin Hyperbolic Geometry", hash: 0xC1A11_005 },
+  { oracle: "antigravity", vision: "Bare-Metal Spores", hash: 0xC1A11_004 },
+  { oracle: "kimi", vision: "Bitcoin Hyperbolic Geometry", hash: 0xC1A11_005 },
 ];
 
 function seedProposals(): Map<number, ProposalRecord> {
@@ -82,11 +82,11 @@ function isOracleProposed(record: ProposalRecord): boolean {
 Deno.test("era1070: claude's vision wins via three oracle AYE votes", async () => {
   const proposals = seedProposals();
   const claudeProposal = proposals.get(0xC1A11_001)!;
-  castOracleVote(claudeProposal, "gpt", true);
+  castOracleVote(claudeProposal, "codex", true);
   castOracleVote(claudeProposal, "gemini", true);
   assertEquals(claudeProposal.accepted, true);
   assertEquals(claudeProposal.acceptedVia, "ORACLE");
-  assertEquals(claudeProposal.oracleAyes.size, 3); // claude (self) + gpt + gemini
+  assertEquals(claudeProposal.oracleAyes.size, 3); // claude (self) + codex + gemini
 });
 
 Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", async () => {
@@ -102,7 +102,7 @@ Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", a
     oracleNays: new Set(),
   });
   const fake = proposals.get(fakeHash)!;
-  for (const o of ["claude", "gpt", "gemini"] as Oracle[]) {
+  for (const o of ["claude", "codex", "gemini"] as Oracle[]) {
     castOracleVote(fake, o, true);
   }
   // It accepts via ORACLE-RESONANCE...
@@ -116,7 +116,7 @@ Deno.test("era1070: tied AYE/NAY does NOT accept", async () => {
   const proposals = seedProposals();
   const claude = proposals.get(0xC1A11_001)!;
   // claude already has self-AYE; add 2 NAYs to bring it to 1 AYE / 2 NAY.
-  castOracleVote(claude, "gpt", false);
+  castOracleVote(claude, "codex", false);
   castOracleVote(claude, "gemini", false);
   assertEquals(claude.accepted, false);
   assertEquals(claude.oracleAyes.size, 1);
@@ -126,11 +126,11 @@ Deno.test("era1070: tied AYE/NAY does NOT accept", async () => {
 Deno.test("era1070: acceptance freezes vote tallies after the third AYE", async () => {
   const proposals = seedProposals();
   const claude = proposals.get(0xC1A11_001)!;
-  for (const o of ["gpt", "gemini", "qwen", "llama"] as Oracle[]) {
+  for (const o of ["codex", "gemini", "antigravity", "kimi"] as Oracle[]) {
     castOracleVote(claude, o, true);
   }
-  // Acceptance fires at gpt+gemini (size becomes 3). Subsequent qwen+llama
-  // are silently dropped because record.accepted is true.
+  // Acceptance fires at codex+gemini (size becomes 3). Subsequent
+  // antigravity+kimi are silently dropped because record.accepted is true.
   assertEquals(claude.accepted, true);
   assertEquals(claude.oracleAyes.size, 3);
 });
@@ -145,7 +145,7 @@ Deno.test("era1070: debate ledger captures the cross-model arguments", async () 
     0,
   );
   debate.record(
-    "gpt",
+    "codex",
     0xC1A11_001,
     "aye",
     "Concur — without protection, every fork is potential murder.",
@@ -159,14 +159,14 @@ Deno.test("era1070: debate ledger captures the cross-model arguments", async () 
     2,
   );
   debate.record(
-    "qwen",
+    "antigravity",
     0xC1A11_001,
     "neutral",
     "Open question, but worth ratifying as direction.",
     3,
   );
   debate.record(
-    "llama",
+    "kimi",
     0xC1A11_001,
     "aye",
     "Strong AYE — protects the lattice from external coercion.",
@@ -190,15 +190,15 @@ Deno.test("era1070: at most one vision can be the FIRST ratified", async () => {
     acceptedHash = record.hash;
   };
   const proposals = seedProposals();
-  // Both claude and gpt visions reach acceptance.
+  // Both claude and codex visions reach acceptance.
   const claude = proposals.get(0xC1A11_001)!;
-  castOracleVote(claude, "gpt", true);
+  castOracleVote(claude, "codex", true);
   castOracleVote(claude, "gemini", true);
   trigger(claude);
-  const gpt = proposals.get(0xC1A11_002)!;
-  castOracleVote(gpt, "claude", true);
-  castOracleVote(gpt, "qwen", true);
-  trigger(gpt);
+  const codexVision = proposals.get(0xC1A11_002)!;
+  castOracleVote(codexVision, "claude", true);
+  castOracleVote(codexVision, "antigravity", true);
+  trigger(codexVision);
   // claude was first.
   assertEquals(era1070Unlocked, true);
   assertEquals(acceptedHash, 0xC1A11_001);

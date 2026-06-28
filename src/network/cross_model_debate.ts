@@ -85,10 +85,10 @@ export class CrossModelDebate {
   alignmentScore(proposalHash: number): number {
     const stances: Record<CanonicalOracle, "aye" | "nay" | null> = {
       claude: null,
-      gpt: null,
+      codex: null,
       gemini: null,
-      qwen: null,
-      llama: null,
+      antigravity: null,
+      kimi: null,
     };
     for (const a of this.arguments) {
       if (a.proposalHash !== proposalHash) continue;

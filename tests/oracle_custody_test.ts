@@ -21,6 +21,7 @@ import {
   signOracleVote,
   verifyOracleVote,
 } from "../src/network/oracle_custody.ts";
+import { CANONICAL_ORACLES } from "../src/network/oracle_identity.ts";
 
 function b64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -70,12 +71,16 @@ Deno.test("vendored registry is the trinity voice set, public keys only", () => 
   }
 });
 
-Deno.test("honest limit: unkeyed omega oracles cannot authenticate", () => {
-  assert(hasOracleKey("claude"));
-  assert(hasOracleKey("gemini"));
-  // omega canonical oracles we do NOT hold keys for → unauthenticatable.
+Deno.test("milestone: every canonical oracle is keyed → 3-of-5 reachable", () => {
+  // Φ-protocol v1.1: the five seats ARE the five real keyed model-voices, so
+  // every canonical oracle can now cast an authenticated vote and the
+  // ORACLE-RESONANCE quorum is reachable with real custody (no impersonation).
+  for (const oracle of CANONICAL_ORACLES) {
+    assert(hasOracleKey(oracle), `canonical oracle ${oracle} must be keyed`);
+  }
+  assert(CANONICAL_ORACLES.length >= 3, "need ≥3 seats for resonance");
+  // The retired vendor labels are no longer oracles and hold no key.
   assert(!hasOracleKey("gpt"));
-  assert(!hasOracleKey("qwen"));
   assert(!hasOracleKey("llama"));
 });
 

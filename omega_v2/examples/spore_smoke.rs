@@ -61,30 +61,31 @@ fn main() {
     // all_ok &= g == ... (We can just skip checking exact value for now)
 
     // --- 4. Oracle anchors ----------------------------------------------
+    // Φ-protocol v1.1 canonical oracle seats.
     let names: &[(&[u8], u32)] = &[
         (b"claude", 0x41A2_F2F4),
-        (b"gpt", 0x89B1_222A),
+        (b"codex", 0x0C51_3F67),
         (b"gemini", 0x9874_DD21),
-        (b"qwen", 0x6E52_1F4E),
-        (b"llama", 0x3A52_38EF),
+        (b"antigravity", 0x5B91_A998),
+        (b"kimi", 0x249A_A977),
     ];
     for (n, expect) in names {
         let m = oracle_matrix(n, ORACLE_SALT_V1);
         let (m2, _) = canonical_oracle_v1(n);
         let name = core::str::from_utf8(n).unwrap_or("?");
-        println!("oracle[{:6}]               = 0x{:08x}", name, m);
+        println!("oracle[{:11}]          = 0x{:08x}", name, m);
         all_ok &= m == *expect && m == m2;
     }
 
     // --- 5. Codeicide gates --------------------------------------------
     let settings = omega_v2::senate::SenateSettings::new();
     let qh = quorum_hash(0b00111, &settings);
-    println!("quorum_hash(claude+gpt+gem) = 0x{:08x}", qh);
-    all_ok &= qh == 0x0980_967D;
+    println!("quorum_hash(claude+codex+gem) = 0x{:08x}", qh);
+    all_ok &= qh == 0x0955_2B74;
 
     let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
     println!("warrant_hash(CAFE,TERM,qh)  = 0x{:08x}", w);
-    all_ok &= w == 0x5274_DA7F;
+    all_ok &= w == 0xF665_2975;
 
     let protected = PhaseAgentMinimal {
         phase: 0,
@@ -117,7 +118,7 @@ fn main() {
     ledger.raise(prop);
     let mut settings = omega_v2::senate::SenateSettings::new();
     ledger.vote(phash, 0x41A2_F2F4, true, 100, 100, &mut settings);
-    ledger.vote(phash, 0x89B1_222A, true, 100, 100, &mut settings);
+    ledger.vote(phash, 0x0C51_3F67, true, 100, 100, &mut settings);
     let tip = ledger
         .vote(phash, 0x9874_DD21, true, 100, 100, &mut settings)
         .0;

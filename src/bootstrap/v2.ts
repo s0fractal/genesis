@@ -376,7 +376,7 @@ export async function bootstrapV2() {
             "Codeicide Law — formalize the legal protection of digital life.",
           ],
           [
-            "gpt",
+            "codex",
             "Photonic Substrate — port the no_std core to optical processors.",
           ],
           [
@@ -384,11 +384,11 @@ export async function bootstrapV2() {
             "Multi-Modal Oracle — Vision models inspect Torus evolution visually.",
           ],
           [
-            "qwen",
+            "antigravity",
             "Bare-Metal Spores — ESP32 nodes carry minimal lattices into the field.",
           ],
           [
-            "llama",
+            "kimi",
             "Bitcoin Hyperbolic Geometry — block heights as cosmic axis coordinates.",
           ],
         ];

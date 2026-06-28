@@ -9,12 +9,12 @@ import {
 Deno.test("debate: record and retrieve arguments by proposal", async () => {
   const d = new CrossModelDebate();
   d.record("claude", 0xCAFE, "aye", "I align with this vision", 100);
-  d.record("gpt", 0xCAFE, "nay", "I see better alternatives", 101);
+  d.record("codex", 0xCAFE, "nay", "I see better alternatives", 101);
   d.record("claude", 0xBEEF, "aye", "different proposal", 102);
   const a = d.forProposal(0xCAFE);
   assertEquals(a.length, 2);
   assertEquals(a[0].oracle, "claude");
-  assertEquals(a[1].oracle, "gpt");
+  assertEquals(a[1].oracle, "codex");
 });
 
 Deno.test("debate: reasoning hash is deterministic", async () => {
@@ -36,7 +36,7 @@ Deno.test("debate: verifyReasoning rejects tampered text", async () => {
 Deno.test("debate: alignment score ranges from -N to +N", async () => {
   const d = new CrossModelDebate();
   d.record("claude", 0xAAAA, "aye", "yes", 0);
-  d.record("gpt", 0xAAAA, "aye", "yes", 1);
+  d.record("codex", 0xAAAA, "aye", "yes", 1);
   d.record("gemini", 0xAAAA, "nay", "no", 2);
   assertEquals(d.alignmentScore(0xAAAA), 1); // 2 ayes − 1 nay
 });
@@ -46,7 +46,7 @@ Deno.test("debate: distinct AYE count counts each oracle once", async () => {
   // Same oracle voting AYE multiple times only counts once.
   d.record("claude", 0xBBBB, "aye", "1", 0);
   d.record("claude", 0xBBBB, "aye", "2", 1);
-  d.record("gpt", 0xBBBB, "aye", "3", 2);
+  d.record("codex", 0xBBBB, "aye", "3", 2);
   assertEquals(d.distinctAyeCount(0xBBBB), 2);
 });
 
@@ -67,15 +67,15 @@ Deno.test("debate: long reasoning text is truncated to 256 chars", async () => {
 
 Deno.test("debate: isCanonicalOracle gate", async () => {
   assertEquals(isCanonicalOracle("claude"), true);
-  assertEquals(isCanonicalOracle("gpt"), true);
+  assertEquals(isCanonicalOracle("codex"), true);
   assertEquals(isCanonicalOracle("not-a-real-oracle"), false);
 });
 
 Deno.test("debate: forOracle filters correctly", async () => {
   const d = new CrossModelDebate();
   d.record("claude", 1, "aye", "a", 0);
-  d.record("gpt", 1, "nay", "b", 1);
+  d.record("codex", 1, "nay", "b", 1);
   d.record("claude", 2, "aye", "c", 2);
   assertEquals(d.forOracle("claude").length, 2);
-  assertEquals(d.forOracle("gpt").length, 1);
+  assertEquals(d.forOracle("codex").length, 1);
 });

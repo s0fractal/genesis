@@ -1268,7 +1268,7 @@ pub extern "C" fn v2_codeicide_warrant_hash(
 }
 
 /// Compute the canonical Senate quorum hash from AYE bitmask.
-/// Bit 0 = claude, 1 = gpt, 2 = gemini, 3 = qwen, 4 = llama.
+/// Bit 0 = claude, 1 = codex, 2 = gemini, 3 = antigravity, 4 = kimi.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_codeicide_quorum_hash(aye_bits: u32) -> u32 {
@@ -1409,7 +1409,7 @@ pub unsafe extern "C" fn v2_warrant_raise(
 }
 
 /// Cast an oracle's AYE/NAY on a warrant proposal.
-/// `oracle_bit`: 0=claude, 1=gpt, 2=gemini, 3=qwen, 4=llama.
+/// `oracle_bit`: 0=claude, 1=codex, 2=gemini, 3=antigravity, 4=kimi.
 /// `aye` non-zero = AYE, zero = NAY.
 /// Returns 0=miss/closed, 1=applied, 2=ISSUED.
 #[cfg(not(feature = "spore"))]

@@ -35,21 +35,27 @@ export function oracleDipole(
   return { matrix: m, inverse: (~m) >>> 0 };
 }
 
-/** Canonical oracle name registry — initially seeded, but open via ADD_ORACLE in Era 1060. */
+/** Canonical oracle name registry — the five real keyed model-voices of the
+ *  ensemble (Φ-protocol v1.1 realignment, 2026-06-28, chord x3300_955746). The
+ *  original v1.0 vendor-label set (claude/gpt/gemini/qwen/llama) was a fiction:
+ *  nobody held gpt/qwen/llama keys, so the quorum was Sybil-able. The seats are
+ *  now the voices we actually operate and key (see oracle_custody.ts / trinity
+ *  x2F38). claude+gemini matrices are unchanged (same name+salt); gpt/qwen/llama
+ *  retired, codex/antigravity/kimi added. Still open via ADD_ORACLE. */
 export const CANONICAL_ORACLES: string[] = [
   "claude",
-  "gpt",
+  "codex",
   "gemini",
-  "qwen",
-  "llama",
+  "antigravity",
+  "kimi",
 ];
 export type CanonicalOracle = string;
 
-/** Oracle matrices registry. */
+/** Oracle matrices registry — `sha256_u32(name + ":" + ORACLE_SALT_V1)`. */
 export const ORACLE_MATRICES_V1: Record<CanonicalOracle, number> = {
   claude: 0x41a2_f2f4,
-  gpt: 0x89b1_222a,
+  codex: 0x0c51_3f67,
   gemini: 0x9874_dd21,
-  qwen: 0x6e52_1f4e,
-  llama: 0x3a52_38ef,
+  antigravity: 0x5b91_a998,
+  kimi: 0x249a_a977,
 };
