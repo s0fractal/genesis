@@ -110,6 +110,58 @@ async function main() {
     return;
   }
 
+  if (cmd === "autostamp") {
+    // Routine witness maintenance (NO quorum, NO spend): stamp every signed
+    // chord that isn't proven yet, then upgrade any proofs a Bitcoin block has
+    // since confirmed. Idempotent — safe to run on a schedule.
+    const chordsDir = flag(rest, "chords-dir") ??
+      join(dirname(dirname(dirname(fromFileUrl(import.meta.url)))), "src");
+    let stamped = 0, skipped = 0, failed = 0;
+    for await (const e of Deno.readDir(chordsDir)) {
+      if (!e.name.endsWith(".myc.md")) continue;
+      try {
+        const text = await Deno.readTextFile(join(chordsDir, e.name));
+        const m = text.match(/content_sig:[\s\S]*?payload:\s*"sha256:([0-9a-f]{64})"/);
+        if (!m) continue; // unsigned chord — nothing to anchor
+        const dHex = m[1];
+        try {
+          await Deno.stat(join(OTS_DIR, `${dHex}.ots`));
+          skipped++;
+          continue;
+        } catch { /* not yet stamped */ }
+        await stampDigest(fromHex(dHex));
+        stamped++;
+        console.log(`  ✓ stamped ${dHex.slice(0, 16)}…  ${e.name}`);
+      } catch (err) {
+        failed++;
+        console.error(`  ✗ ${e.name}: ${(err as Error).message}`);
+      }
+    }
+    // upgrade any pending proofs (Bitcoin block may have confirmed since stamp).
+    // Skip proofs already Bitcoin-attested — keeps recurring runs light (only
+    // touches genuinely-pending proofs, not all 278 every time).
+    let upgraded = 0;
+    for await (const e of Deno.readDir(OTS_DIR)) {
+      if (!e.name.endsWith(".ots")) continue;
+      const path = join(OTS_DIR, e.name);
+      try {
+        const detached = DetachedTimestampFile.deserialize(
+          Array.from(await Deno.readFile(path)),
+        );
+        if (attestedBlock(detached) !== null) continue; // already on Bitcoin
+        if (await OpenTimestamps.upgrade(detached)) {
+          await Deno.writeFile(path, new Uint8Array(detached.serializeToBytes()));
+          upgraded++;
+        }
+      } catch { /* upgrade best-effort; pending stays pending */ }
+    }
+    console.log(
+      `autostamp: stamped ${stamped}, already-proven ${skipped}, ` +
+        `upgraded ${upgraded}, failed ${failed}`,
+    );
+    return;
+  }
+
   if (cmd === "upgrade-all" || cmd === "verify-all") {
     let pending = 0, done = 0, missing = 0;
     for await (const e of Deno.readDir(OTS_DIR)) {

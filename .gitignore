@@ -15,3 +15,4 @@ omega_zk_host/Cargo.lock
 omega_spore/target/
 omega_spore/Cargo.lock
 history.jsonl
+ots/.autostamp.log
