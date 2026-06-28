@@ -10,16 +10,18 @@ import {
 // default; `tests/…/real_proof.rs`). Bitcoin anchoring went LIVE 2026-06-28
 // (first mainnet OMEGA1 anchor under a real 3-of-5 quorum; emission isolated to
 // the quorum-gated `tools/anchor_emit.ts`, verify-side `bitcoin_anchor.ts` stays
-// pure). The mesh is honestly NOT production. THESE GATES LOCK THAT: each
-// asserts the CODE state and the README claim AGREE, so neither can silently
-// drift into "a mock in a real costume". If you make the mesh signaling real,
-// or emission leaks into the verify-side, these red — forcing README + gate to
-// move in the same change. No costume.
+// pure). The libp2p mesh went LIVE too (relay relay.myc.md + content-sync +
+// self-discovery; tools/mesh.ts, docs/MESH_RELAY.md) — but the browser / WebRTC
+// path (phi_client SDP signaling) is honestly NOT production. THESE GATES LOCK
+// THAT: each asserts the CODE state and the README claim AGREE, so neither can
+// silently drift into "a mock in a real costume". If you make the browser SDP
+// signaling real, or emission leaks into the verify-side, these red — forcing
+// README + gate to move in the same change. No costume.
 
 const OMEGA = dirname(dirname(fromFileUrl(import.meta.url)));
 const read = (p: string) => Deno.readTextFileSync(join(OMEGA, p));
 
-Deno.test("honesty: the WebRTC/libp2p mesh is a stub, and the README says so", () => {
+Deno.test("honesty: the browser/WebRTC path (phi_client SDP) is a stub, and the README says so", () => {
   const client = read("src/sdk/phi_client.ts");
   // (a) the stub is honestly marked
   assert(
@@ -31,12 +33,14 @@ Deno.test("honesty: the WebRTC/libp2p mesh is a stub, and the README says so", (
   assert(
     !/\.(createOffer|createAnswer|setLocalDescription|setRemoteDescription)\(/
       .test(client),
-    "phi_client now performs real SDP signaling — the mesh may be real; update the README's 'mesh is experimental' claim and this gate",
+    "phi_client now performs real SDP signaling — the browser path may be real; update the README's 'browser / WebRTC path roadmap' claim and this gate",
   );
-  // (c) and the README still flags the mesh as experimental
+  // (c) and the README still flags the browser/WebRTC path as roadmap/experimental
+  //     (the libp2p relay mesh IS live — only the browser path stays stubbed)
   assert(
-    /mesh is experimental|transport is experimental/i.test(read("README.md")),
-    "README no longer flags the WebRTC/libp2p mesh as experimental — code (a stub) and docs disagree",
+    /WebRTC[\s\S]{0,80}(experimental|roadmap)|(experimental|roadmap)[\s\S]{0,80}WebRTC/i
+      .test(read("README.md")),
+    "README no longer flags the browser/WebRTC path as experimental/roadmap — code (a stub) and docs disagree",
   );
 });
 

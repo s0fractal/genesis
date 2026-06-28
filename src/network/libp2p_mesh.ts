@@ -1,9 +1,13 @@
-// Libp2p mesh is experimental and currently has peer-dependency
-// version mismatches that break Deno type-checking. It compiles under
-// `tsc --noEmit` with a compatible npm lockfile, but is not part of the
-// primary test surface. The quorum_warrant_bridge_test.ts integration
-// that previously imported this file now uses a canonical inline FNV-1a
-// reference instead .
+// This is the in-app libp2p node (gossipsub + DHT + the full transport set).
+// As of 2026-06-28 it type-checks under Deno (`deno check` clean) after the v3
+// API fixes (identify service + connectionEncrypters). The relay-based mesh it
+// belongs to is LIVE and proven via `tools/mesh_relay_node.ts` + `tools/mesh.ts`
+// (relay relay.myc.md, content-sync, self-discovery, signature verification).
+// What's NOT yet done here: this file is still not instantiated by a running
+// daemon / not on the primary test surface, and a standing gossipsub data plane
+// wants DCUtR hole-punching (relayed conns are "limited"). See docs/MESH_RELAY.md
+// and docs/KNOWN_GAPS.md. The quorum_warrant_bridge_test.ts integration uses a
+// canonical inline FNV-1a reference rather than importing this file.
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { NULL_ADDRESS, PhaseAddress, PhaseRouter } from "./routing_bridge.ts";
 import {

@@ -25,10 +25,16 @@ caveats**, named here (see `AGENTS.md`):
   `network`) and OOMs on an 8 GB box, so no completed proof is checked in.
   "ZK-Notarized" below means the path is wired and the prover is real — not that
   a STARK artifact is committed.
-- **The WebRTC / libp2p mesh is experimental.** The data structures exist, but
-  peer discovery, signaling, and NAT traversal are largely stubbed
-  (`src/sdk/phi_client.ts` itself notes "in a real implementation you would
-  perform WebRTC signaling here").
+- **The libp2p mesh is LIVE (since 2026-06-28).** A public circuit-relay-v2 relay
+  (`relay.myc.md`, discovered from the membrane at
+  `myc.md/.well-known/omega-relay`) carries real content: a node serves chords,
+  peers self-discover via the relay directory, and every fetched chord is
+  verified against the voice registry before it's trusted — `tools/mesh.ts
+  serve|peers|fetch`, see `docs/MESH_RELAY.md`. Still **roadmap**: the **browser
+  / WebRTC path** (`src/sdk/phi_client.ts` still notes "in a real implementation
+  you would perform WebRTC signaling here"), a standing gossipsub data plane
+  (needs DCUtR hole-punching — one-shot fetch already works on the relay), and
+  node-lifecycle wiring of `libp2p_mesh.ts`.
 - **Bitcoin anchoring is LIVE (since 2026-06-28).** `bitcoin_anchor.ts` remains
   verify-only by design; **emission** lives in the separate, quorum-gated tool
   `tools/anchor_emit.ts`. The first real mainnet anchor — `OMEGA1:ab492186…`
@@ -39,22 +45,24 @@ caveats**, named here (see `AGENTS.md`):
   quorum-gated) are in `anchor_pipeline.ts`; see `docs/KNOWN_GAPS.md`.
 
 The frozen protocol identity, the integer physics, the local simulation, and (as
-of 2026-06-28) **Bitcoin anchoring** are genuine. The P2P **swarm** (NAT
-traversal / live signaling) is still roadmap. ZK proving is real by default
-(cpu), completing a full proof is hardware-bound (above).
+of 2026-06-28) **Bitcoin anchoring** and the **libp2p mesh** (relay + content +
+self-discovery) are genuine. The **browser / WebRTC** path (live SDP signaling)
+is still roadmap. ZK proving is real by default (cpu), completing a full proof is
+hardware-bound (above).
 
 The honesty caveats are **executable** — `tests/honesty_triad_test.ts` locks
-them: the mesh must stay a stub until real signaling ships, and anchor
-**emission must stay isolated** to the quorum-gated `tools/anchor_emit.ts`
-(`bitcoin_anchor.ts` stays verify-only). If any claim here drifts from the code,
-that test goes red. Status cannot silently rot into a "mock in a real costume".
+them: the **browser / WebRTC path** (`phi_client` SDP) must stay honestly marked
+a stub until real signaling ships, and anchor **emission must stay isolated** to
+the quorum-gated `tools/anchor_emit.ts` (`bitcoin_anchor.ts` stays verify-only).
+If any claim here drifts from the code, that test goes red. Status cannot
+silently rot into a "mock in a real costume".
 
 ---
 
 ## What it is
 
-A WebRTC-mesh-_capable_ network of autonomous nodes (transport experimental —
-see Status above), each running:
+A libp2p-mesh network of autonomous nodes (relay + content-sync + self-discovery
+LIVE; browser / WebRTC path experimental — see Status above), each running:
 
 - **A bare-metal Rust kernel** (`omega_v2/`, `#![no_std]`, 32MB static agent
   matrix, integer-only physics, no `f32` in any consensus path).
