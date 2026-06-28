@@ -27,6 +27,23 @@ await n.start();
 console.log((await n.dial(multiaddr("/dns4/relay.myc.md/tcp/443/wss/p2p/12D3KooWRd5JMPNTBfpAAyG4bs3V9VhiM7CvgHotdQx5UNCRLsDN"))).remotePeer.toString());
 ```
 
+## Use it (the mesh client)
+
+`tools/mesh.ts` turns the relay into a usable content network — a node knows only
+the membrane URL:
+
+```
+deno run -A tools/mesh.ts serve          # join, serve your local chords (stay up)
+deno run -A tools/mesh.ts peers          # who is on the mesh right now
+deno run -A tools/mesh.ts fetch <coord>  # discover a peer, fetch + verify a chord
+```
+
+`fetch` discovers a serving peer from the relay directory (no hand-fed address),
+pulls the chord through the relay, and **verifies its Ed25519 `content_sig`
+against the committed registry `x2F38`** before printing it — trust the
+signature, not the host. (One-shot request/response; a standing gossipsub data
+plane would want DCUtR hole-punching, not yet wired.)
+
 ## How it's wired
 
 - **Relay node:** `omega/tools/mesh_relay_node.ts` (Deno). Persistent libp2p
