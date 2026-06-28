@@ -138,6 +138,7 @@ import { kadDHT } from "@libp2p/kad-dht";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
 import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
+import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 
 /**
  * The Mycelial Mesh
@@ -233,9 +234,15 @@ export class Libp2pMesh {
         // @ts-ignore
         circuitRelayTransport({ discoverRelays: 1 } as any),
       ],
-      connectionEncryption: [noise()],
+      // libp2p v3: key is `connectionEncrypters` (plural); the old
+      // `connectionEncryption` is silently ignored → no security transport →
+      // the node can't complete a connection. (Surfaced by the Phase-1 mesh
+      // proof, tools/mesh_p2p_proof.ts, chord x3300_955774.)
+      connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       services: {
+        // @ts-ignore
+        identify: identify(), // required by gossipsub on libp2p v3
         // @ts-ignore
         dht: kadDHT(),
         // @ts-ignore
