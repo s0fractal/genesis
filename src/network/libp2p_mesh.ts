@@ -23,6 +23,11 @@ import {
   ORACLE_MATRICES_V1,
   oracleDipole,
 } from "./oracle_identity.ts";
+import {
+  hasOracleKey,
+  signOracleVote,
+  verifyOracleVote,
+} from "./oracle_custody.ts";
 import { CrossModelDebate } from "./cross_model_debate.ts";
 import {
   buildAttractor,
@@ -82,6 +87,9 @@ export interface PlasmidPayload {
   // Multi-Oracle Senate vote attribution (VOTE plasmids only).
   oracleName?: CanonicalOracle; // The oracle casting this vote (claude/gpt/...)
   oracleReasoning?: string; // Optional human-readable reasoning trace (≤256 chars)
+  oracleSig?: string; // base64 Ed25519 signature over oracleVoteDigest — REAL
+  // custody. Without a valid sig the vote is NOT attributed to the oracle
+  // (see oracle_custody.ts; the public dipole alone is no longer authority).
   // Forensic event sync envelope. Carries serialized
   // BridgeMessage JSON  so the
   // mesh's plasmid pipeline can deliver event-convergence packets
@@ -782,13 +790,32 @@ export class Libp2pMesh {
     );
   }
 
-  private handleVote(plasmid: PlasmidPayload, fromPeer: string) {
+  private async handleVote(plasmid: PlasmidPayload, fromPeer: string) {
     if (!this.era1030Unlocked) return;
     if (plasmid.proposalHash === undefined || plasmid.voteAye === undefined) {
       return;
     }
     const record = this.senate.get(plasmid.proposalHash);
     if (!record || record.accepted) return;
+
+    // AUTHENTIC ORACLE = correct public dipole (addressing) AND a real Ed25519
+    // signature over the vote digest (custody). The public dipole alone is NOT
+    // authority — it is computable by anyone from the public name+salt, which
+    // is exactly why the old "3 distinct oracles ratify" quorum was Sybil-able
+    // by a single actor. The signature is what only the key holder can produce.
+    let oracleAuthentic = false;
+    if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
+      const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
+      const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
+        (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
+      oracleAuthentic = dipoleMatches &&
+        await verifyOracleVote(
+          plasmid.oracleName,
+          plasmid.proposalHash,
+          plasmid.voteAye,
+          plasmid.oracleSig,
+        );
+    }
 
     // Determine resonance weight
     let weight = 10; // Default peer weight
@@ -815,19 +842,15 @@ export class Libp2pMesh {
       }
     }
 
-    // Check if canonical oracle
+    // Oracle weight boost — only for an AUTHENTIC (signed) oracle vote, so a
+    // Sybil presenting a correct public dipole without the key gets no boost.
     let isOracle = false;
-    if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
-      const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
-      const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
-        (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
-      if (dipoleMatches) {
-        isOracle = true;
-        weight = 100;
-        if (this.debate) {
-          weight += this.debate.alignmentScore(plasmid.proposalHash) * 10;
-          if (weight < 50) weight = 50; // Minimum oracle weight
-        }
+    if (oracleAuthentic) {
+      isOracle = true;
+      weight = 100;
+      if (this.debate) {
+        weight += this.debate.alignmentScore(plasmid.proposalHash) * 10;
+        if (weight < 50) weight = 50; // Minimum oracle weight
       }
     }
 
@@ -849,16 +872,13 @@ export class Libp2pMesh {
       // For simplicity, skip WASM integration if it requires allocating memory for the hash
       // unless we have a pre-allocated buffer for it.
     }
-    // if the vote carries a canonical oracle name AND the voter
-    // dipole matches that oracle's deterministic identity, attribute the
-    // vote to the oracle. The dipole check makes spoofing impossible —
-    // a peer can only claim to be Claude if it actually carries Claude's
-    // (matrix, !matrix) pair, which only Claude can produce from the salt.
+    // Attribute the vote to the oracle ONLY when it is authentic: the correct
+    // public dipole (addressing) AND a valid Ed25519 signature over the vote
+    // digest (custody, verified against the registered public key). A vote
+    // bearing a correct-but-public dipole with no/invalid signature is the
+    // real Sybil — it is rejected here, not attributed.
     if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
-      const expected = ORACLE_MATRICES_V1[plasmid.oracleName];
-      const dipoleMatches = (plasmid.matrix >>> 0) === expected &&
-        (((plasmid.matrix ^ plasmid.inverse) >>> 0) === 0xFFFFFFFF);
-      if (dipoleMatches) {
+      if (oracleAuthentic) {
         record.oracleAyes ??= new Set();
         record.oracleNays ??= new Set();
         record.oracleReasoning ??= {};
@@ -876,13 +896,13 @@ export class Libp2pMesh {
         console.log(
           `🧠 [ORACLE-VOTE] ${plasmid.oracleName} ${
             plasmid.voteAye ? "AYE" : "NAY"
-          } on 0x${plasmid.proposalHash}`,
+          } on 0x${plasmid.proposalHash} (signature verified)`,
         );
       } else {
         console.warn(
-          `🧠 [ORACLE-VOTE] Spoof attempt: ${plasmid.oracleName} vote with mismatched dipole (matrix=0x${
-            plasmid.matrix.toString(16)
-          }); rejecting attribution.`,
+          `🧠 [ORACLE-VOTE] Unauthenticated ${plasmid.oracleName} vote ` +
+            `(no valid signature, or unkeyed oracle); rejecting attribution. ` +
+            `A public dipole is not authority.`,
         );
       }
     }
@@ -1004,35 +1024,61 @@ export class Libp2pMesh {
 
   /**
    * Cast a vote attributed to a canonical oracle identity.
-   * The (matrix, inverse) is derived deterministically from the oracle's
-   * name, so peers can verify the attribution without trusting the
-   * sender. The reasoning string is opaque to the protocol but visible
-   * for human inspection.
+   * The (matrix, inverse) dipole is the oracle's PUBLIC address; authority is
+   * the Ed25519 signature. An authentic oracle vote requires the voice's
+   * private key (pkcs8 base64) — supplied by the caller, never read by the
+   * mesh on its own (works in browser and Deno alike). Without a key for a
+   * keyed oracle, NO oracle self-attribution happens — only a plain peer vote.
+   * This makes the local view as honest as the remote one: you cannot cast an
+   * authentic oracle vote you cannot sign.
    */
-  public castOracleVote(
+  public async castOracleVote(
     oracleName: CanonicalOracle,
     proposalHash: number,
     aye: boolean,
     reasoning?: string,
+    privateKeyPkcs8B64?: string,
   ) {
     if (!this.era1030Unlocked) return;
     if (!CANONICAL_ORACLES.includes(oracleName)) return;
     const { matrix, inverse } = oracleDipole(oracleName);
     const record = this.senate.get(proposalHash);
     if (!record || record.accepted) return;
-    // Locally attribute first so the local view is consistent before
-    // the broadcast even leaves.
-    record.oracleAyes ??= new Set();
-    record.oracleNays ??= new Set();
-    record.oracleReasoning ??= {};
-    if (aye) {
-      record.oracleAyes.add(oracleName);
-      record.oracleNays.delete(oracleName);
+
+    // Sign iff we hold this oracle's key. No key (or unkeyed oracle) → the
+    // vote goes out as a plain peer vote with no oracle attribution.
+    let oracleSig: string | undefined;
+    if (privateKeyPkcs8B64 && hasOracleKey(oracleName)) {
+      oracleSig = await signOracleVote(
+        oracleName,
+        proposalHash,
+        aye,
+        privateKeyPkcs8B64,
+      );
     } else {
-      record.oracleNays.add(oracleName);
-      record.oracleAyes.delete(oracleName);
+      console.warn(
+        `🧠 [ORACLE-VOTE] ${oracleName}: no signing key supplied — casting as ` +
+          `an UNATTRIBUTED peer vote (a public dipole is not authority).`,
+      );
     }
-    if (reasoning) record.oracleReasoning[oracleName] = reasoning.slice(0, 256);
+
+    // Locally attribute only when authentic, so the local view matches what a
+    // remote peer would accept from this same plasmid.
+    if (oracleSig) {
+      record.oracleAyes ??= new Set();
+      record.oracleNays ??= new Set();
+      record.oracleReasoning ??= {};
+      if (aye) {
+        record.oracleAyes.add(oracleName);
+        record.oracleNays.delete(oracleName);
+      } else {
+        record.oracleNays.add(oracleName);
+        record.oracleAyes.delete(oracleName);
+      }
+      if (reasoning) {
+        record.oracleReasoning[oracleName] = reasoning.slice(0, 256);
+      }
+    }
     // Local peer counter as well so peerConsensus path can still fire.
     const selfId = this.localId || "self";
     if (aye) record.ayes.add(selfId);
@@ -1051,6 +1097,7 @@ export class Libp2pMesh {
       voteAye: aye,
       oracleName,
       oracleReasoning: reasoning,
+      oracleSig,
     });
   }
 

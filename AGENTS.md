@@ -229,6 +229,15 @@ pub struct SignalStore {
   requires `caller_matrix: u32` and verifies against canonical oracles. TS
   callers updated in `libp2p_mesh.ts`. This is a recent patch; do not bypass
   without warrant.
+- **Oracle votes are KEYED (Sybil hole closed)** — an oracle vote is attributed
+  only with a valid Ed25519 signature over the vote digest, verified against the
+  vendored voice-key registry (`src/network/oracle_custody.ts`, same keys as
+  trinity `x2F38`). The public dipole `(m,!m)` is an address, not authority — it
+  is computable by anyone, so it can no longer ratify on its own. Do NOT
+  re-introduce dipole-only attribution in `handleVote`/`castOracleVote`. Honest
+  limit: only `claude`/`gemini` are keyed today, so 3-of-5 oracle resonance is
+  not yet reachable with real custody. Locked by `oracle_custody_test.ts` +
+  `multi_oracle_senate_test.ts`.
 - **Tasks archive removed** — The `tasks/` directory (Eras 0086→0193) was
   deleted to reduce entropy surface. Historical task context lives in git
   history (`git log --all --full-history -- tasks/`).

@@ -1,8 +1,14 @@
 // end-to-end test — five oracle visions, three AYE oracles
 // on Claude's, ORACLE-RESONANCE acceptance, era1070-vision-ratified fires.
 
-// Pure logic test (no WebRTC scaffolding). Mirrors the acceptance rule
-// as it lives in WebRTCV2Mesh.handleVote + checkEra1070Trigger.
+// Pure logic test (no WebRTC scaffolding). Mirrors the acceptance TALLY rule
+// as it lives in WebRTCV2Mesh.handleVote + checkEra1070Trigger — i.e. the
+// resonance arithmetic AFTER a vote has been authenticated. The authority
+// layer (each oracle vote requires a valid Ed25519 signature; a public dipole
+// is not authority) is covered by oracle_custody_test.ts and
+// multi_oracle_senate_test.ts. The votes below are assumed already-authentic;
+// this file only checks that the post-authentication tallying, freezing, and
+// era1070 latch behave correctly.
 
 import { assert, assertEquals } from "jsr:@std/assert";
 import {

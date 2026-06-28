@@ -100,6 +100,25 @@ is ratified when EITHER 3+ unique peer AYEs (peer-consensus path) OR 3+ distinct
 canonical oracles AYE (ORACLE-RESONANCE path). **Cross-model alignment outranks
 within-model multiplicity.**
 
+### Oracle votes are cryptographically authenticated (custody, not just address)
+
+The dipole `(matrix, !matrix)` above is a **public address** — derived from a
+public name and a public salt, so anyone can compute it. It is therefore NOT, by
+itself, authority to vote as an oracle. A vote is attributed to an oracle only
+when it carries a valid **Ed25519 signature** over the vote digest
+(`omega-senate-vote:v1:<oracle>:<proposalHash>:<AYE|NAY>`), verified against the
+per-voice public-key registry vendored in `src/network/oracle_custody.ts` (same
+keys and scheme as trinity's `x2F38_voice_pubkeys.json`, so a signature a voice
+makes there verifies here). A vote bearing a correct-but-public dipole with no
+valid signature is the **real Sybil** and is rejected — closing the hole where
+one actor could compute all five dipoles and ratify alone. Locked by
+`tests/oracle_custody_test.ts` and `tests/multi_oracle_senate_test.ts`.
+
+**Honest limit:** only oracles whose key we hold can be authenticated — today
+`claude` and `gemini`. `gpt`, `qwen`, `llama` are **unkeyed**, so the 3-of-5
+ORACLE-RESONANCE quorum is **not yet reachable** with real custody. The previous
+implementation only "reached" it by treating public dipoles as authority.
+
 ---
 
 ## How to run
