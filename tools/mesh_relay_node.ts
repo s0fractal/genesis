@@ -65,6 +65,22 @@ const node = await createLibp2p({
 } as Parameters<typeof createLibp2p>[0]);
 
 await node.start();
+
+// Peer directory: any node reachable through this relay is connected to it, so
+// the relay's connection list IS the directory. A peer asks "who's here?" and
+// gets the current peer ids → constructs their circuit addrs → connects. This
+// makes the mesh self-organizing with no hand-fed addresses. (Runs on the direct
+// peer→relay connection, so it's not a "limited" relayed stream.)
+// deno-lint-ignore no-explicit-any
+await node.handle("/omega/peers/1.0.0", (arg: any) => {
+  const s = arg?.stream ?? arg;
+  s.addEventListener("message", () => {
+    // deno-lint-ignore no-explicit-any
+    const peers = [...new Set(node.getConnections().map((c: any) => c.remotePeer.toString()))];
+    s.send(new TextEncoder().encode(JSON.stringify({ peers })));
+  });
+});
+
 const id = node.peerId.toString();
 console.log(`# omega mesh relay — LIVE`);
 console.log(`peer id: ${id}`);
