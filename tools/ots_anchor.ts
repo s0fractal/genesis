@@ -51,19 +51,81 @@ function detachedFromDigest(digest: Uint8Array) {
   return DetachedTimestampFile.fromHash(new Ops.OpSHA256(), Array.from(digest));
 }
 
+/** Stamp a digest to the OTS calendars and write its .ots proof. Returns path. */
+async function stampDigest(digest: Uint8Array): Promise<string> {
+  const detached = detachedFromDigest(digest);
+  await OpenTimestamps.stamp(detached);
+  await Deno.mkdir(OTS_DIR, { recursive: true });
+  const out = join(OTS_DIR, `${toHex(digest)}.ots`);
+  await Deno.writeFile(out, new Uint8Array(detached.serializeToBytes()));
+  return out;
+}
+
 async function main() {
   const [cmd, ...rest] = Deno.args;
 
   if (cmd === "stamp") {
     const digest = await resolveDigest(rest);
-    const dHex = toHex(digest);
-    const detached = detachedFromDigest(digest);
-    await OpenTimestamps.stamp(detached);
-    await Deno.mkdir(OTS_DIR, { recursive: true });
-    const out = join(OTS_DIR, `${dHex}.ots`);
-    await Deno.writeFile(out, new Uint8Array(detached.serializeToBytes()));
-    console.log(`✓ stamped ${dHex}`);
+    const out = await stampDigest(digest);
+    console.log(`✓ stamped ${toHex(digest)}`);
     console.log(`  proof: ${out} (PENDING — upgrade after a Bitcoin block confirms)`);
+    return;
+  }
+
+  if (cmd === "stamp-batch") {
+    // Idempotent: stamp each chord file whose digest isn't already proven.
+    const files = rest.filter((x) => !x.startsWith("--"));
+    if (!files.length) { console.error("usage: stamp-batch <chord.myc.md>..."); Deno.exit(2); }
+    let stamped = 0, skipped = 0, failed = 0;
+    for (const f of files) {
+      try {
+        const digest = await resolveDigest([`--chord=${f}`]);
+        const dHex = toHex(digest);
+        try {
+          await Deno.stat(join(OTS_DIR, `${dHex}.ots`));
+          skipped++;
+          continue; // already stamped
+        } catch { /* not yet */ }
+        await stampDigest(digest);
+        stamped++;
+        console.log(`  ✓ ${dHex.slice(0, 16)}…  ${f.split("/").pop()}`);
+      } catch (e) {
+        failed++;
+        console.error(`  ✗ ${f}: ${(e as Error).message}`);
+      }
+    }
+    console.log(`\nstamped ${stamped}, already-proven ${skipped}, failed ${failed}`);
+    return;
+  }
+
+  if (cmd === "upgrade-all" || cmd === "verify-all") {
+    let pending = 0, done = 0, missing = 0;
+    for await (const e of Deno.readDir(OTS_DIR)) {
+      if (!e.name.endsWith(".ots")) continue;
+      const path = join(OTS_DIR, e.name);
+      const bytes = await Deno.readFile(path);
+      const detached = DetachedTimestampFile.deserialize(Array.from(bytes));
+      if (cmd === "upgrade-all") {
+        if (await OpenTimestamps.upgrade(detached)) {
+          await Deno.writeFile(path, new Uint8Array(detached.serializeToBytes()));
+          done++;
+          console.log(`  ✓ upgraded ${e.name}`);
+        } else pending++;
+      } else {
+        const digestHex = e.name.replace(/\.ots$/, "");
+        const original = detachedFromDigest(fromHex(digestHex));
+        const r = await OpenTimestamps.verify(detached, original);
+        if (r && r.bitcoin) {
+          done++;
+          console.log(`  ✓ ${digestHex.slice(0, 16)}… block ${r.bitcoin.height}`);
+        } else pending++;
+      }
+    }
+    console.log(
+      cmd === "upgrade-all"
+        ? `\nupgraded ${done}, still pending ${pending}`
+        : `\nverified ${done}, pending ${pending}`,
+    );
     return;
   }
 
