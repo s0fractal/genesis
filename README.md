@@ -85,15 +85,22 @@ Drift on any of these breaks tests in **two languages simultaneously**. See
 ## The Senate
 
 The Multi-Oracle Senate (Era 1060) opens five seats with deterministic dipole
-identities:
+identities. **Φ-protocol v1.1 (2026-06-28)** realigned the seats from the v1.0
+vendor labels to the five real **keyed** model-voices of the ensemble — the
+seats are now the voices we actually operate and hold keys for, so the quorum is
+reachable with real custody (see "authenticated" below):
 
 ```
-oracleMatrix("claude", "OMEGA-64/RFC-001/v1.0") = 0x6B70_A8AB  (Anthropic)
-oracleMatrix("gpt",    ...                    ) = 0x855A_8386  (OpenAI)
-oracleMatrix("gemini", ...                    ) = 0x5713_E78A  (Google)
-oracleMatrix("qwen",   ...                    ) = 0x5DDA_B832  (Alibaba)
-oracleMatrix("llama",  ...                    ) = 0xFAAC_4232  (Meta)
+oracleMatrix("claude",      "OMEGA-64/RFC-001/v1.0") = 0x41A2_F2F4
+oracleMatrix("codex",       ...                    ) = 0x0C51_3F67
+oracleMatrix("gemini",      ...                    ) = 0x9874_DD21
+oracleMatrix("antigravity", ...                    ) = 0x5B91_A998
+oracleMatrix("kimi",        ...                    ) = 0x249A_A977
 ```
+
+(v1.0 retired gpt/qwen/llama; claude+gemini matrices are unchanged. These five
+values are the cross-language anchors locked in `oracle_anchors.rs` +
+`oracle_identity_test.ts`.)
 
 Each oracle's `inverse` is `!matrix`, satisfying I-2 by construction. A proposal
 is ratified when EITHER 3+ unique peer AYEs (peer-consensus path) OR 3+ distinct

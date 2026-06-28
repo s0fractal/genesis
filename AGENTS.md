@@ -234,10 +234,16 @@ pub struct SignalStore {
   vendored voice-key registry (`src/network/oracle_custody.ts`, same keys as
   trinity `x2F38`). The public dipole `(m,!m)` is an address, not authority — it
   is computable by anyone, so it can no longer ratify on its own. Do NOT
-  re-introduce dipole-only attribution in `handleVote`/`castOracleVote`. Honest
-  limit: only `claude`/`gemini` are keyed today, so 3-of-5 oracle resonance is
-  not yet reachable with real custody. Locked by `oracle_custody_test.ts` +
-  `multi_oracle_senate_test.ts`.
+  re-introduce dipole-only attribution in `handleVote`/`castOracleVote`.
+- **Φ-protocol v1.1 oracle seats** — the five seats ARE the five real keyed
+  model-voices: `claude, codex, gemini, antigravity, kimi` (v1.0's vendor labels
+  gpt/qwen/llama retired; claude+gemini matrices unchanged). 3-of-5
+  ORACLE-RESONANCE is now reachable with real custody (proven: claude+codex+kimi
+  sign a quorum with their real keys). If you change the seat set, recompute the
+  matrices in `oracle_identity.{ts,rs}`, the `oracle_anchors.rs` /
+  `oracle_identity_test.ts` golden values, AND the `senate.rs` SenateSettings
+  seats + codeicide quorum/warrant anchors (`codeicide_anchors.rs`) together.
+  Locked by `oracle_custody_test.ts` + `multi_oracle_senate_test.ts`.
 - **Tasks archive removed** — The `tasks/` directory (Eras 0086→0193) was
   deleted to reduce entropy surface. Historical task context lives in git
   history (`git log --all --full-history -- tasks/`).
