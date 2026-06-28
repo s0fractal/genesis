@@ -96,7 +96,7 @@ async function main() {
         console.error(`✗ quorum NOT met: ${q.distinctKeys} distinct valid (need 3) [${q.valid}]`);
         Deno.exit(1);
       }
-      console.log(`✓ quorum: ${q.valid.join(", ")} (${q.distinctKeys} distinct keys)`);
+      console.error(`✓ quorum: ${q.valid.join(", ")} (${q.distinctKeys} distinct keys)`);
     } else if (isMainnet(network)) {
       console.error("✗ mainnet anchor REQUIRES --approvals with a verified 3-of-5 quorum");
       Deno.exit(1);

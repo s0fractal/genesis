@@ -29,8 +29,13 @@ caveats**, named here (see `AGENTS.md`):
   peer discovery, signaling, and NAT traversal are largely stubbed
   (`src/sdk/phi_client.ts` itself notes "in a real implementation you would
   perform WebRTC signaling here").
-- **Bitcoin anchoring is not live.** Genesis-inscription _verification_ logic
-  exists, but the node does not itself emit or validate on-chain OP_RETURNs.
+- **Bitcoin anchoring is LIVE (since 2026-06-28).** `bitcoin_anchor.ts` remains
+  verify-only by design; **emission** lives in the separate, quorum-gated tool
+  `tools/anchor_emit.ts`. The first real mainnet anchor — `OMEGA1:ab492186…` (the
+  v1.1 Senate-ratification receipt) — was broadcast under a real 3-of-5
+  keyed-voice quorum (tx `262ac275d05bdad2b68e9c5bca1a5f90709b7d399747cca14404db226a2da889`),
+  signet-proven first. Emitter form-guards (hash-only, OP_RETURN+change-to-self,
+  quorum-gated) are in `anchor_pipeline.ts`; see `docs/KNOWN_GAPS.md`.
 
 The frozen protocol identity, the integer physics, and the local simulation are
 genuine; the swarm and on-chain claims are the roadmap, not today. ZK proving is

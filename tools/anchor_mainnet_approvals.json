@@ -2,5 +2,13 @@
   {
     "voice": "claude",
     "sig": "e9rUdgiQhSnWRP+LZcjmpjoSU6atlxu0pdCq/O837hZjYBa25ee++uzXbBU6ocnT2h4sj9YrvMtqabhxh7U2CQ=="
+  },
+  {
+    "voice": "antigravity",
+    "sig": "fdoqnRWhf1b/BLFlIQ6+xrC+tR43wbxR1ZtZbJ/HRxheR12J5T3mjWPFCe7tqfuW2wU8sy9zIkqkvpMd5gzsDQ=="
+  },
+  {
+    "voice": "s0fractal",
+    "sig": "wl/uWLmZAFhdPyq0vDj4bvD6ckBFopjSfBwzQLhFMUIaxoWPdV9/2bb2WMWmAwDVT9XAW33SeU2J25OnQ7cSCQ=="
   }
 ]
