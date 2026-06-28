@@ -51,11 +51,27 @@ Deno.test("omega capabilities surface honest fidelity, no Bitcoin-inscription ov
     "genesis must state it is NOT a Bitcoin inscription — no silent on-chain over-claim",
   );
 
-  // the ZK host must be honestly mock
+  // the ZK host is a real cpu prover wired by default — honestly wired_unproven
+  // (real prover, but no completed STARK has run here: hardware-bound). It must
+  // NOT regress to claiming a completed proof, nor under-claim itself as 'mock'
+  // now that the mock-only backend is gone (AGENTS.md + omega_zk_host/src).
   const zkHost = r.capabilities.find((c) => c.name.includes("ZK Host"));
   assert(
-    zkHost != null && zkHost.fidelity === "mock",
-    "ZK host must be honestly mock",
+    zkHost != null && zkHost.fidelity === "wired_unproven",
+    "ZK host must be honestly wired_unproven (real cpu prover wired; full proof hardware-bound)",
+  );
+  assert(
+    zkHost!.caveat != null && /hardware-bound|16 ?GB/i.test(zkHost!.caveat),
+    "ZK host must keep its hardware-bound caveat — no silent 'completed proof' over-claim",
+  );
+
+  // the keyed cross-voice Senate is a REAL, exercised governance capability
+  // (Φ-protocol v1.1 ratified by a real 3-of-5 quorum). Locks it from
+  // regressing to a simulation claim.
+  const senate = r.capabilities.find((c) => c.name.includes("Senate"));
+  assert(
+    senate != null && senate.fidelity === "real",
+    "keyed Senate must be a real capability (exercised by a real quorum)",
   );
 
   // the summary surfaces the fidelity ratio so a consumer can gate on it

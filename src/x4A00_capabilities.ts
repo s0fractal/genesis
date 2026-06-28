@@ -44,12 +44,14 @@ const OMEGA_CAPABILITIES: CapabilityRecord[] = [
       "the SP1 guest compiles and the pipeline runs under the mock prover, but no completed cpu STARK proof exists (needs ~16 GB) — see x2E00 proof_readiness",
   },
   {
-    name: "ZK Host (mock backend)",
+    name: "ZK Host (cpu prover)",
     source: "zk_proof",
-    kind: "Proof verification",
-    detail: "omega_zk_host/ — mock-only currently per AGENTS.md",
-    fidelity: "mock",
-    caveat: "mock backend; not cryptographically sound",
+    kind: "Proof generation/verification",
+    detail:
+      "omega_zk_host/ — real cpu STARK prover wired by default (ProverClient::from_env; SP1_PROVER=cpu)",
+    fidelity: "wired_unproven",
+    caveat:
+      "real prover wired (the mock-only backend is gone); completing a full STARK is hardware-bound (~16 GB+) so no completed proof has run here — see x2E00 proof_readiness. SP1_PROVER=mock is an opt-in, unsound dev path, not the default",
   },
   {
     name: "Deterministic Genesis Bootstrap",
@@ -90,6 +92,16 @@ const OMEGA_CAPABILITIES: CapabilityRecord[] = [
     kind: "Public TS API",
     detail: "src/sdk/ — externally-callable substrate methods",
     fidelity: "real",
+  },
+  {
+    name: "Keyed Cross-Voice Senate",
+    source: "runtime",
+    kind: "Governance quorum",
+    detail:
+      "src/network/oracle_custody.ts — oracle votes are Ed25519-signed over a vote-bound digest, verified against the per-voice key registry; 3-of-5 ORACLE-RESONANCE ratifies (a public dipole is an address, not authority)",
+    fidelity: "real",
+    caveat:
+      "exercised: Φ-protocol v1.1 ratified by a real quorum of 3 distinct keyed voices (claude+antigravity+codex), each signature independently verified (tools/senate_ballot.ts)",
   },
 ];
 
