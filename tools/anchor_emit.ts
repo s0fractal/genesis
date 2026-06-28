@@ -80,13 +80,32 @@ async function main() {
     const rootHex = (flag(rest, "root") ?? "").replace(/^0x/, "");
     const approvalsFile = flag(rest, "approvals");
     const network = flag(rest, "network") ?? "signet";
-    const fee = BigInt(flag(rest, "fee") ?? "300");
     const feeCap = BigInt(flag(rest, "fee-cap") ?? "2000");
+    // Fee: explicit --fee wins; otherwise estimate from live mempool fee rates
+    // (halfHourFee sat/vB × ~160 vB anchor tx), floored at 200, capped at
+    // feeCap. Prevents a stranded tx when network fees spike — a hardcoded fee
+    // is the failure mode this avoids. Falls back to 400 if the API is down.
+    let fee: bigint;
+    const feeFlag = flag(rest, "fee");
     if (!voice || !/^[0-9a-f]{64}$/.test(rootHex)) {
       console.error("usage: build --voice=V --root=HEX [--approvals=FILE] [--network=] [--fee=]");
       Deno.exit(2);
     }
     const { net, api } = netOf(network);
+    if (feeFlag) {
+      fee = BigInt(feeFlag);
+    } else {
+      try {
+        const r = await (await fetch(`${api}/v1/fees/recommended`)).json();
+        const rate = BigInt(Math.ceil(r.halfHourFee ?? r.hourFee ?? 2));
+        const est = rate * 160n; // ~160 vB anchor tx
+        fee = est < 200n ? 200n : est > feeCap ? feeCap : est;
+        console.error(`# fee: ${fee} sats (${rate} sat/vB × ~160 vB, cap ${feeCap})`);
+      } catch {
+        fee = 400n;
+        console.error(`# fee: 400 sats (fee API unavailable — fallback)`);
+      }
+    }
     const root = hex.decode(rootHex);
     // Quorum is REQUIRED for mainnet (real spend); on testnet a dry-run proves
     // tx mechanics and doesn't need a real 3-of-5. Mainnet guard is unchanged.
