@@ -200,40 +200,64 @@ async function fetchChord(coord: string) {
 }
 
 // ── store-and-forward (robust async content flow; no live reservation needed) ─
-// push/get talk DIRECTLY to the relay (a short request each), so they sidestep
-// the NO_RESERVATION wall that breaks live peer-to-peer fetch over the tunnel.
+// push/get/list talk DIRECTLY to the relay (a short request each), sidestepping
+// the NO_RESERVATION wall that breaks live peer-to-peer fetch. Each op RETRIES:
+// the relay link can blip (a flaky tunnel hop) and a fresh dial usually lands —
+// the two-node bring-up saw `list` succeed while `get` timed out on the next try.
+
+// deno-lint-ignore no-explicit-any
+async function relayRequest(
+  proto: string,
+  payload: unknown,
+  retries = 4,
+): Promise<any> {
+  const RELAY = await getRelay();
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const node = await mkPeer();
+    try {
+      await node.start();
+      await node.dial(multiaddr(RELAY));
+      // deno-lint-ignore no-explicit-any
+      const s: any = await node.dialProtocol(multiaddr(RELAY), proto);
+      const r = await ask(s, payload);
+      await node.stop();
+      return r;
+    } catch (e) {
+      lastErr = e;
+      try {
+        await node.stop();
+      } catch { /* ignore */ }
+      if (attempt < retries) {
+        console.error(
+          `# relay ${proto} attempt ${attempt} failed (${
+            String(e).slice(0, 60)
+          }); retrying…`,
+        );
+        await new Promise((r) => setTimeout(r, 2500));
+      }
+    }
+  }
+  throw lastErr;
+}
 
 async function pushChord(coord: string) {
   const name = coord.replace(/[^a-zA-Z0-9._-]/g, "");
   const content = await Deno.readTextFile(new URL(name, SRC)); // must exist locally
-  const RELAY = await getRelay();
-  const node = await mkPeer();
-  await node.start();
-  await node.dial(multiaddr(RELAY));
-  // deno-lint-ignore no-explicit-any
-  const s: any = await node.dialProtocol(multiaddr(RELAY), STORE);
-  const r = await ask(s, { filename: name, content });
+  const r = await relayRequest(STORE, { filename: name, content });
   console.log(
     r.ok
       ? `✓ stored ${name} on the relay (verified ${r.voice})`
       : `✗ rejected: ${r.error}`,
   );
-  await node.stop();
   Deno.exit(r.ok ? 0 : 1);
 }
 
 async function getChord(coord: string) {
   const name = coord.replace(/[^a-zA-Z0-9._-]/g, "");
-  const RELAY = await getRelay();
-  const node = await mkPeer();
-  await node.start();
-  await node.dial(multiaddr(RELAY));
-  // deno-lint-ignore no-explicit-any
-  const s: any = await node.dialProtocol(multiaddr(RELAY), GET);
-  const r = await ask(s, { req: name });
+  const r = await relayRequest(GET, { req: name });
   if (r.error) {
     console.error(`# relay has no "${name}": ${r.error}`);
-    await node.stop();
     Deno.exit(1);
   }
   const v = await verifyChord(r.filename, r.content);
@@ -243,21 +267,13 @@ async function getChord(coord: string) {
     }`,
   );
   if (v.ok) console.log(r.content);
-  await node.stop();
   Deno.exit(v.ok ? 0 : 1);
 }
 
 async function listStore() {
-  const RELAY = await getRelay();
-  const node = await mkPeer();
-  await node.start();
-  await node.dial(multiaddr(RELAY));
-  // deno-lint-ignore no-explicit-any
-  const s: any = await node.dialProtocol(multiaddr(RELAY), LIST);
-  const { coords } = await ask(s, { q: "list" });
+  const { coords } = await relayRequest(LIST, { q: "list" });
   console.log(`${coords.length} chord(s) in the relay store:`);
   for (const c of coords) console.log(`  ${c}`);
-  await node.stop();
   Deno.exit(0);
 }
 
