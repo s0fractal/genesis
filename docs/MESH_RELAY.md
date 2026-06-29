@@ -71,6 +71,14 @@ plane would want DCUtR hole-punching — not yet wired.)
 - **Directory:** `/omega/peers` reports the relay's **reservation set** (the
   peers reachable via `/p2p-circuit`), not `getConnections()` — the latter is
   blind to reserved peers.
+- **HTTP gateway (browser path, Phase 1):** a plain-HTTP read surface beside the
+  libp2p listener (`127.0.0.1:9091`) — `GET /mesh/list`,
+  `GET /mesh/get/<coord>`, and the browser reader page at `/mesh/`
+  (`omega/web/mesh.html`). cloudflared routes `relay.myc.md/mesh*` here (path
+  rule) and `relay.myc.md/` to the ws. A browser fetches + **re-verifies** the
+  Ed25519 signature itself (registry from an independent source), so the gateway
+  is untrusted by design. Open **`https://relay.myc.md/mesh/`**. (chord
+  x3300_955983)
 - **Tunnel:** Cloudflare named tunnel `omega-relay`
   (`6d6dd544-117b-40aa-9450-ffda7d17e524`), config
   `~/.cloudflared/omega-relay.yml` (ingress

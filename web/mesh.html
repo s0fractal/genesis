@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>omega mesh — browser reader</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 880px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.2rem; } .sub { opacity: .7; font-size: .85rem; margin-top: -.5rem; }
+    ul { list-style: none; padding: 0; } li { margin: .25rem 0; }
+    button, a.coord { font: inherit; cursor: pointer; background: none; border: 1px solid currentColor; border-radius: 6px; padding: .2rem .5rem; opacity: .85; }
+    .verdict { padding: .4rem .6rem; border-radius: 6px; margin: .6rem 0; font-weight: 600; }
+    .ok { background: #0a04; } .bad { background: #a004; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #8881; padding: .8rem; border-radius: 8px; max-height: 60vh; overflow: auto; }
+    .muted { opacity: .6; }
+  </style>
+</head>
+<body>
+  <h1>omega mesh — browser reader</h1>
+  <p class="sub">Reads chords from the relay store and <b>verifies their Ed25519
+  signature in your browser</b> against the committed voice registry. Trust the
+  hash, not the host: the relay could lie, the signature can't.</p>
+
+  <p><button id="refresh">↻ list chords</button> <span id="status" class="muted"></span></p>
+  <ul id="list"></ul>
+  <div id="verdict"></div>
+  <pre id="content" class="muted">select a chord above</pre>
+
+  <script type="module">
+    // x2F38 from an INDEPENDENT source (GitHub raw) — never the same relay, so a
+    // malicious gateway can't swap in fake keys. This is the root of trust.
+    const REGISTRY_URL =
+      "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x2F38_voice_pubkeys.json";
+    const $ = (id) => document.getElementById(id);
+    const enc = new TextEncoder();
+    const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+    let registry = null;
+    async function getRegistry() {
+      if (!registry) registry = await (await fetch(REGISTRY_URL)).json();
+      return registry;
+    }
+
+    // Mirror of omega/src/network/chord_verify.ts, in Web Crypto.
+    function chordBody(full) {
+      const m = full.match(/^---\n[\s\S]*?\n---\n?/);
+      return m ? full.slice(m[0].length) : null;
+    }
+    async function payloadHash(filename, full) {
+      const body = chordBody(full);
+      if (body === null) return null;
+      const d = await crypto.subtle.digest("SHA-256", enc.encode(`${filename}\n${body}`));
+      return "sha256:" + [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    async function verifyChord(filename, full) {
+      const fm = (full.match(/^---\n([\s\S]*?)\n---/) || [])[1] || "";
+      const voice = (fm.match(/content_sig:[\s\S]*?\n\s+voice:\s*(\S+)/) || [])[1];
+      const pinned = (fm.match(/content_sig:[\s\S]*?\n\s+payload:\s*"([^"]+)"/) || [])[1];
+      const sig = (fm.match(/content_sig:[\s\S]*?\n\s+sig:\s*"([^"]+)"/) || [])[1];
+      if (!voice || !pinned || !sig) return { ok: false, reason: "no content_sig block" };
+      const recomputed = await payloadHash(filename, full);
+      if (recomputed !== pinned) return { ok: false, voice, reason: "payload mismatch (tampered)" };
+      const pubkey = (await getRegistry())?.keys?.[voice]?.pubkey;
+      if (!pubkey) return { ok: false, voice, reason: `voice ${voice} not in registry` };
+      try {
+        const key = await crypto.subtle.importKey("raw", unb64(pubkey), "Ed25519", false, ["verify"]);
+        const ok = await crypto.subtle.verify("Ed25519", key, unb64(sig), enc.encode(pinned));
+        return { ok, voice, reason: ok ? "valid signature" : "bad signature" };
+      } catch (e) {
+        return { ok: false, voice, reason: "crypto error: " + e.message };
+      }
+    }
+
+    async function list() {
+      $("status").textContent = "loading…";
+      try {
+        const { coords } = await (await fetch("./list")).json();
+        $("list").innerHTML = "";
+        for (const c of coords.sort()) {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.className = "coord"; a.textContent = c; a.href = "#";
+          a.onclick = (e) => { e.preventDefault(); fetchChord(c); };
+          li.appendChild(a); $("list").appendChild(li);
+        }
+        $("status").textContent = `${coords.length} chord(s) in the store`;
+      } catch (e) { $("status").textContent = "relay unreachable: " + e.message; }
+    }
+
+    async function fetchChord(coord) {
+      $("verdict").innerHTML = ""; $("content").textContent = "fetching…"; $("content").className = "muted";
+      try {
+        const full = await (await fetch("./get/" + encodeURIComponent(coord))).text();
+        const v = await verifyChord(coord, full);
+        $("verdict").className = "verdict " + (v.ok ? "ok" : "bad");
+        $("verdict").textContent = v.ok
+          ? `✓ VALID — signed by ${v.voice}, verified in your browser`
+          : `✗ NOT VERIFIED — ${v.reason}`;
+        $("content").textContent = full; $("content").className = "";
+      } catch (e) { $("content").textContent = "error: " + e.message; }
+    }
+
+    $("refresh").onclick = list;
+    list();
+  </script>
+</body>
+</html>

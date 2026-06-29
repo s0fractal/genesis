@@ -182,6 +182,46 @@ await node.handle("/omega/list/1.0.0", (arg: any) => {
   });
 });
 
+// ── HTTP gateway (Phase 1 browser path, chord x3300_955983) ──────────────────
+// A tiny read gateway beside the libp2p listener so a BROWSER can fetch + verify
+// chords with plain fetch() (no libp2p bundle). The browser re-verifies the
+// signature itself, so this gateway is untrusted by design. cloudflared routes
+// relay.myc.md/mesh* here; relay.myc.md/ stays the libp2p ws.
+const HTTP_PORT = Number(Deno.env.get("HTTP_PORT") ?? "9091");
+const MESH_HTML = new URL("../web/mesh.html", import.meta.url);
+const CORS = { "access-control-allow-origin": "*" };
+Deno.serve({ hostname: "127.0.0.1", port: HTTP_PORT }, async (req) => {
+  const url = new URL(req.url);
+  const p = url.pathname.replace(/^\/mesh/, "") || "/";
+  try {
+    if (p === "/" || p === "/index.html") {
+      return new Response(await Deno.readTextFile(MESH_HTML), {
+        headers: { "content-type": "text/html; charset=utf-8", ...CORS },
+      });
+    }
+    if (p === "/list") {
+      const coords: string[] = [];
+      for await (const e of Deno.readDir(STORE_DIR)) {
+        if (e.isFile) coords.push(e.name);
+      }
+      return Response.json({ coords }, { headers: CORS });
+    }
+    if (p.startsWith("/get/")) {
+      const name = safeName(decodeURIComponent(p.slice("/get/".length)));
+      const content = await Deno.readTextFile(join(STORE_DIR, name));
+      return new Response(content, {
+        headers: { "content-type": "text/plain; charset=utf-8", ...CORS },
+      });
+    }
+    return new Response("not found", { status: 404, headers: CORS });
+  } catch (e) {
+    return new Response(`error: ${e}`, { status: 404, headers: CORS });
+  }
+});
+console.log(
+  `# HTTP gateway on 127.0.0.1:${HTTP_PORT} (browser reader at /mesh/)`,
+);
+
 const id = node.peerId.toString();
 console.log(`# omega mesh relay — LIVE`);
 console.log(`peer id: ${id}`);
