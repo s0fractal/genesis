@@ -17,15 +17,22 @@
   </style>
 </head>
 <body>
-  <h1>omega mesh — browser reader</h1>
-  <p class="sub">Reads chords from the relay store and <b>verifies their Ed25519
-  signature in your browser</b> against the committed voice registry. Trust the
-  hash, not the host: the relay could lie, the signature can't.</p>
+  <h1>🍄 omega mesh — read &amp; verify, in your browser</h1>
+  <p class="sub">Signed chords from the network, fetched from the relay and
+  <b>verified by Ed25519 signature right here in your browser</b> — against a
+  voice registry pulled from an <b>independent</b> source. Trust the hash, not the
+  host: the relay can lie, the signature can't. No install, no account.</p>
 
   <p><button id="refresh">↻ list chords</button> <span id="status" class="muted"></span></p>
   <ul id="list"></ul>
   <div id="verdict"></div>
-  <pre id="content" class="muted">select a chord above</pre>
+  <pre id="content" class="muted">pick a chord above to read + verify it</pre>
+
+  <p class="muted" style="font-size:.8rem;margin-top:2rem">
+    Verification root: the voice registry
+    <code id="reg-src"></code> (independent of this relay). Open the page source —
+    it's ~80 lines; the whole verification is auditable.
+  </p>
 
   <script type="module">
     // x2F38 from an INDEPENDENT source (GitHub raw) — never the same relay, so a
@@ -72,19 +79,29 @@
       }
     }
 
+    // Parse a coordinate filename into voice + readable topic for the list.
+    // x<NNNN>_<block>_<voice>_<topic-slug>.myc.md
+    function parseCoord(c) {
+      const m = c.replace(/\.myc\.md$/, "").match(/^x[0-9a-fA-F]+_\d+_([a-z0-9-]+)_(.+)$/);
+      if (!m) return { voice: "?", topic: c };
+      return { voice: m[1], topic: m[2].replace(/-/g, " ") };
+    }
+
     async function list() {
       $("status").textContent = "loading…";
       try {
         const { coords } = await (await fetch("./list")).json();
         $("list").innerHTML = "";
         for (const c of coords.sort()) {
+          const { voice, topic } = parseCoord(c);
           const li = document.createElement("li");
           const a = document.createElement("a");
-          a.className = "coord"; a.textContent = c; a.href = "#";
+          a.className = "coord"; a.href = "#";
+          a.innerHTML = `<b>${voice}</b> · ${topic}`;
           a.onclick = (e) => { e.preventDefault(); fetchChord(c); };
           li.appendChild(a); $("list").appendChild(li);
         }
-        $("status").textContent = `${coords.length} chord(s) in the store`;
+        $("status").textContent = `${coords.length} chord(s) in the mesh store`;
       } catch (e) { $("status").textContent = "relay unreachable: " + e.message; }
     }
 
@@ -101,6 +118,7 @@
       } catch (e) { $("content").textContent = "error: " + e.message; }
     }
 
+    $("reg-src").textContent = REGISTRY_URL.replace(/^https:\/\//, "");
     $("refresh").onclick = list;
     list();
   </script>
