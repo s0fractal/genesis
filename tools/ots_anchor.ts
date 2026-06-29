@@ -181,7 +181,7 @@ async function main() {
   }
 
   if (cmd === "upgrade-all" || cmd === "verify-all") {
-    let pending = 0, done = 0, missing = 0;
+    let pending = 0, done = 0;
     for await (const e of Deno.readDir(OTS_DIR)) {
       if (!e.name.endsWith(".ots")) continue;
       const path = join(OTS_DIR, e.name);
