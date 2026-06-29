@@ -1,9 +1,27 @@
 # Bring up a second mesh node (the two-node moment)
 
-Goal: a _second machine_ joins the live omega mesh and serves the substrate's
-signed chords, so the first node can fetch one **across the network** and verify
-its signature — the first time the mesh spans two real participants instead of
-two processes on one box.
+Goal: a _second machine_ exchanges signed chords with the first over the live
+mesh — the first time the mesh spans two real participants instead of two
+processes on one box.
+
+## Robust path: store-and-forward (recommended)
+
+Live peer-to-peer fetch (`serve`/`fetch`, below) is fragile over the Cloudflare
+tunnel — relayed reservations don't persist (`NO_RESERVATION`). Content doesn't
+need a live connection, so the relay **holds** it. From either machine:
+
+```sh
+cd trinity/omega
+deno run --allow-net --allow-read --allow-env tools/mesh.ts push <chord-coord>  # offer a signed chord (relay verifies it)
+deno run --allow-net --allow-read --allow-env tools/mesh.ts list                # what's in the relay store
+deno run --allow-net --allow-read --allow-env tools/mesh.ts get  <chord-coord>  # pull + verify a chord
+```
+
+A node `push`es when it's up; another `get`s whenever it's up — async, verified
+(the reader re-checks the Ed25519 signature against x2F38: trust the hash, not
+the host). This is the recommended way two machines share chords today.
+
+## Live path (experimental, in-window only)
 
 ## Prereqs
 
