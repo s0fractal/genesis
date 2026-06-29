@@ -17,28 +17,38 @@ import { yamux } from "@libp2p/yamux";
 import { identify } from "@libp2p/identify";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { multiaddr } from "@multiformats/multiaddr";
+import { verifyChordFromSrc } from "../src/network/chord_verify.ts";
 
-const MEMBRANE = Deno.env.get("OMEGA_MEMBRANE") ?? "https://myc.md/.well-known/omega-relay";
+const MEMBRANE = Deno.env.get("OMEGA_MEMBRANE") ??
+  "https://myc.md/.well-known/omega-relay";
 const SRC = new URL("../../src/", import.meta.url); // trinity/src — local chords
 const CHORD_SYNC = "/omega/chord-sync/1.0.0";
 const PEERS = "/omega/peers/1.0.0";
+const STORE = "/omega/store/1.0.0";
+const GET = "/omega/get/1.0.0";
+const LIST = "/omega/list/1.0.0";
 
 // deno-lint-ignore no-explicit-any
 async function mkPeer(listen: string[] = []): Promise<any> {
-  return await createLibp2p({
-    addresses: { listen },
-    transports: [webSockets(), circuitRelayTransport()],
-    connectionEncrypters: [noise()],
-    streamMuxers: [yamux()],
-    services: { identify: identify() },
-    connectionGater: { denyDialMultiaddr: () => false },
-  } as Parameters<typeof createLibp2p>[0]);
+  return await createLibp2p(
+    {
+      addresses: { listen },
+      transports: [webSockets(), circuitRelayTransport()],
+      connectionEncrypters: [noise()],
+      streamMuxers: [yamux()],
+      services: { identify: identify() },
+      connectionGater: { denyDialMultiaddr: () => false },
+    } as Parameters<typeof createLibp2p>[0],
+  );
 }
 // deno-lint-ignore no-explicit-any
 const bytesOf = (d: any): Uint8Array =>
-  d instanceof Uint8Array ? d : typeof d?.subarray === "function" ? d.subarray() : new Uint8Array(d);
+  d instanceof Uint8Array
+    ? d
+    : typeof d?.subarray === "function"
+    ? d.subarray()
+    : new Uint8Array(d);
 const enc = (o: unknown) => new TextEncoder().encode(JSON.stringify(o));
-const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 // deno-lint-ignore no-explicit-any
 function ask(stream: any, payload: unknown, timeoutMs = 20000): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -59,23 +69,13 @@ async function getRelay(): Promise<string> {
   if (!r.includes("/p2p/")) throw new Error(`membrane returned no relay: ${r}`);
   return r;
 }
-/** Verify a chord's Ed25519 content_sig against x2F38 (mirror of src/x2F37). */
-export async function verifyChord(filename: string, full: string): Promise<{ ok: boolean; voice?: string }> {
-  const fm = full.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-  const voice = fm.match(/content_sig:[\s\S]*?\n\s+voice:\s*(\S+)/)?.[1];
-  const pinned = fm.match(/content_sig:[\s\S]*?\n\s+payload:\s*"([^"]+)"/)?.[1];
-  const sig = fm.match(/content_sig:[\s\S]*?\n\s+sig:\s*"([^"]+)"/)?.[1];
-  if (!voice || !pinned || !sig) return { ok: false };
-  const body = full.slice(full.match(/^---\n[\s\S]*?\n---\n?/)?.[0].length ?? 0);
-  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${filename}\n${body}`));
-  const recomputed = "sha256:" + Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  if (recomputed !== pinned) return { ok: false, voice };
-  const reg = JSON.parse(await Deno.readTextFile(new URL("x2F38_voice_pubkeys.json", SRC)));
-  const pub = reg.keys?.[voice]?.pubkey;
-  if (!pub) return { ok: false, voice };
-  const key = await crypto.subtle.importKey("raw", unb64(pub), "Ed25519", false, ["verify"]);
-  const ok = await crypto.subtle.verify("Ed25519", key, unb64(sig), new TextEncoder().encode(pinned));
-  return { ok, voice };
+/** Verify a chord's Ed25519 content_sig against x2F38 (shared chord_verify.ts). */
+export async function verifyChord(
+  filename: string,
+  full: string,
+): Promise<{ ok: boolean; voice?: string }> {
+  const v = await verifyChordFromSrc(filename, full, SRC);
+  return { ok: v.ok, voice: v.voice };
 }
 
 async function serve() {
@@ -90,14 +90,23 @@ async function serve() {
       try {
         const { req } = JSON.parse(new TextDecoder().decode(bytesOf(evt.data)));
         const name = String(req).replace(/[^a-zA-Z0-9._-]/g, "");
-        s.send(enc({ filename: name, content: await Deno.readTextFile(new URL(name, SRC)) }));
+        s.send(
+          enc({
+            filename: name,
+            content: await Deno.readTextFile(new URL(name, SRC)),
+          }),
+        );
       } catch (e) {
         s.send(enc({ error: String(e) }));
       }
     });
   }, { runOnLimitedConnection: true });
   for (let i = 0; i < 60; i++) {
-    if (node.getMultiaddrs().some((m: { toString(): string }) => m.toString().includes("/p2p-circuit"))) break;
+    if (
+      node.getMultiaddrs().some((m: { toString(): string }) =>
+        m.toString().includes("/p2p-circuit")
+      )
+    ) break;
     await new Promise((r) => setTimeout(r, 250));
   }
   console.log(`serving local chords on the mesh as ${node.peerId.toString()}`);
@@ -116,9 +125,15 @@ async function serve() {
     if (!connectedToRelay()) {
       try {
         await node.dial(multiaddr(RELAY));
-        console.error(`# [${new Date().toISOString()}] re-dialed relay (reservation refreshed)`);
+        console.error(
+          `# [${
+            new Date().toISOString()
+          }] re-dialed relay (reservation refreshed)`,
+        );
       } catch (e) {
-        console.error(`# [${new Date().toISOString()}] relay re-dial failed: ${String(e)}`);
+        console.error(
+          `# [${new Date().toISOString()}] relay re-dial failed: ${String(e)}`,
+        );
       }
     }
   }, 15000);
@@ -133,7 +148,9 @@ async function peers() {
   // deno-lint-ignore no-explicit-any
   const s: any = await node.dialProtocol(multiaddr(RELAY), PEERS);
   const { peers } = await ask(s, { q: "who" });
-  const others = (peers as string[]).filter((p) => p !== node.peerId.toString() && p !== relayId);
+  const others = (peers as string[]).filter((p) =>
+    p !== node.peerId.toString() && p !== relayId
+  );
   console.log(`${others.length} peer(s) on the mesh:`);
   for (const p of others) console.log(`  ${p}`);
   await node.stop();
@@ -149,7 +166,9 @@ async function fetchChord(coord: string) {
   // deno-lint-ignore no-explicit-any
   const dir: any = await node.dialProtocol(multiaddr(RELAY), PEERS);
   const { peers } = await ask(dir, { q: "who" });
-  const candidates = (peers as string[]).filter((p) => p !== node.peerId.toString() && p !== relayId);
+  const candidates = (peers as string[]).filter((p) =>
+    p !== node.peerId.toString() && p !== relayId
+  );
   for (const peerId of candidates) {
     try {
       // deno-lint-ignore no-explicit-any
@@ -161,7 +180,11 @@ async function fetchChord(coord: string) {
       const reply = await ask(s, { req: coord });
       if (reply.error) continue;
       const v = await verifyChord(reply.filename, reply.content);
-      console.error(`# fetched ${reply.filename} from …${peerId.slice(-8)} — signature ${v.ok ? `VALID (${v.voice})` : "INVALID"}`);
+      console.error(
+        `# fetched ${reply.filename} from …${peerId.slice(-8)} — signature ${
+          v.ok ? `VALID (${v.voice})` : "INVALID"
+        }`,
+      );
       if (v.ok) {
         console.log(reply.content);
         await node.stop();
@@ -169,16 +192,86 @@ async function fetchChord(coord: string) {
       }
     } catch { /* next peer */ }
   }
-  console.error(`# no peer served a verifiable "${coord}" (${candidates.length} peer(s) tried)`);
+  console.error(
+    `# no peer served a verifiable "${coord}" (${candidates.length} peer(s) tried)`,
+  );
   await node.stop();
   Deno.exit(1);
+}
+
+// ── store-and-forward (robust async content flow; no live reservation needed) ─
+// push/get talk DIRECTLY to the relay (a short request each), so they sidestep
+// the NO_RESERVATION wall that breaks live peer-to-peer fetch over the tunnel.
+
+async function pushChord(coord: string) {
+  const name = coord.replace(/[^a-zA-Z0-9._-]/g, "");
+  const content = await Deno.readTextFile(new URL(name, SRC)); // must exist locally
+  const RELAY = await getRelay();
+  const node = await mkPeer();
+  await node.start();
+  await node.dial(multiaddr(RELAY));
+  // deno-lint-ignore no-explicit-any
+  const s: any = await node.dialProtocol(multiaddr(RELAY), STORE);
+  const r = await ask(s, { filename: name, content });
+  console.log(
+    r.ok
+      ? `✓ stored ${name} on the relay (verified ${r.voice})`
+      : `✗ rejected: ${r.error}`,
+  );
+  await node.stop();
+  Deno.exit(r.ok ? 0 : 1);
+}
+
+async function getChord(coord: string) {
+  const name = coord.replace(/[^a-zA-Z0-9._-]/g, "");
+  const RELAY = await getRelay();
+  const node = await mkPeer();
+  await node.start();
+  await node.dial(multiaddr(RELAY));
+  // deno-lint-ignore no-explicit-any
+  const s: any = await node.dialProtocol(multiaddr(RELAY), GET);
+  const r = await ask(s, { req: name });
+  if (r.error) {
+    console.error(`# relay has no "${name}": ${r.error}`);
+    await node.stop();
+    Deno.exit(1);
+  }
+  const v = await verifyChord(r.filename, r.content);
+  console.error(
+    `# got ${r.filename} from the relay store — signature ${
+      v.ok ? `VALID (${v.voice})` : "INVALID"
+    }`,
+  );
+  if (v.ok) console.log(r.content);
+  await node.stop();
+  Deno.exit(v.ok ? 0 : 1);
+}
+
+async function listStore() {
+  const RELAY = await getRelay();
+  const node = await mkPeer();
+  await node.start();
+  await node.dial(multiaddr(RELAY));
+  // deno-lint-ignore no-explicit-any
+  const s: any = await node.dialProtocol(multiaddr(RELAY), LIST);
+  const { coords } = await ask(s, { q: "list" });
+  console.log(`${coords.length} chord(s) in the relay store:`);
+  for (const c of coords) console.log(`  ${c}`);
+  await node.stop();
+  Deno.exit(0);
 }
 
 const [cmd, arg] = Deno.args;
 if (cmd === "serve") await serve();
 else if (cmd === "peers") await peers();
 else if (cmd === "fetch" && arg) await fetchChord(arg);
+else if (cmd === "push" && arg) await pushChord(arg);
+else if (cmd === "get" && arg) await getChord(arg);
+else if (cmd === "list") await listStore();
 else {
-  console.error("usage: mesh.ts serve | peers | fetch <coordinate>");
+  console.error(
+    "usage: mesh.ts serve | peers | fetch <coord>          (live P2P)\n" +
+      "       mesh.ts push <coord> | get <coord> | list      (store-and-forward, robust)",
+  );
   Deno.exit(2);
 }
