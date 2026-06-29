@@ -1,9 +1,9 @@
 {
   "tasks": {
     "start": "deno run -A tools/start_all.ts",
-    "test:unit": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*",
+    "test:unit": "deno test --node-modules-dir=none --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*",
     "test:integration": "deno test --allow-read --allow-env --allow-sys=homedir --allow-run tests/*integration* tests/*smoke* tests/*zk*",
-    "test:fast": "deno test --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*",
+    "test:fast": "deno test --node-modules-dir=none --allow-read --allow-env tests/ --ignore=tests/*integration*,tests/*smoke*,tests/*zk*",
     "verify:fast": "cargo test -p omega_v2 && deno check src/**/*.ts && deno task test:fast",
     "verify:slow": "deno task test:integration"
   },
