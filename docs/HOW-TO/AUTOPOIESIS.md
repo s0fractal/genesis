@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T23:46:40Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/Genesis
+target_repo: /Users/s0fractal/trinity/omega
 target_commit: 32bdaf6
 companion_protocols:
   - docs/HOW-TO/ANALIZE.md
@@ -157,7 +157,7 @@ autopoiesis_event:
 model_observation:
   id: "obs-YYYYMMDD-model-short"
   event_id: "<event id>"
-  model: "<codex | claude | gemini | qwen | kimi | local | unknown>"
+  model: "<codex | claude | gemini | antigravity | kimi | local | unknown>"
   autonomy_level_used: "L0 | L1 | L2"
   octet: "oct:<address>"
   stance: "REVIEW | PATCH | QUARANTINE | COMPOST | ABSTAIN"

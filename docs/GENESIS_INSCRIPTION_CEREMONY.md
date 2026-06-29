@@ -83,9 +83,18 @@ inscribe).
 > Multiple independent inscriptions are valid and welcome. Each additional
 > inscription strengthens the anchor without forking.
 
-| Date                           | Network | TXID | Inscriber |
-| ------------------------------ | ------- | ---- | --------- |
-| _(awaiting first inscription)_ |         |      |           |
+| Date                                             | Network | TXID | Inscriber |
+| ------------------------------------------------ | ------- | ---- | --------- |
+| _(dedicated genesis-hash inscription: see note)_ |         |      |           |
+
+> **Note (2026-06-29):** the genesis hash `OMEGA1:549a6307` still awaits a
+> _dedicated_ inscription, but the ecosystem's **first real mainnet OMEGA1
+> anchor** is already live — the Φ-protocol v1.1 Senate-ratification receipt
+> `OMEGA1:ab492186…`, tx
+> `262ac275d05bdad2b68e9c5bca1a5f90709b7d399747cca14404db226a2da889`
+> (2026-06-28, broadcast under a real 3-of-5 keyed quorum). So Bitcoin anchoring
+> is LIVE; this specific genesis-hash row is what's still open. See
+> `docs/KNOWN_GAPS.md` (trinity) for the full anchoring record.
 
 ## Future Versions
 

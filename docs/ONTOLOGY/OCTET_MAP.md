@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T23:15:55Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/Genesis
+target_repo: /Users/s0fractal/trinity/omega
 target_commit: 32bdaf6
 companion_protocols:
   - docs/ONTOLOGY/OCTET.md
@@ -104,7 +104,13 @@ phase = last digit
 
 ## 3. Sparse Index
 
-Активна карта живе в:
+> ⚠️ _Proposed, not yet materialized:_ `tasks/octet-index.ndjson` does not exist
+> in the repo today. The grammar/math below is the live overlay
+> (`status:
+> experimental`); the machine index is a design that was never
+> populated.
+
+Карта _мала б жити_ в:
 
 ```text
 tasks/octet-index.ndjson

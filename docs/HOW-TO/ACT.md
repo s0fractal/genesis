@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T08:03:00Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/Genesis
+target_repo: /Users/s0fractal/trinity/omega
 companion_protocol: docs/HOW-TO/ANALIZE.md
 ---
 
@@ -23,7 +23,7 @@ companion_protocol: docs/HOW-TO/ANALIZE.md
 
 ## 0. Principle: Diversity Above, Invariants Below
 
-Не уніфікуйте мислення моделей. Claude, GPT, Gemini, Kimi, Qwen, Codex мають
+Не уніфікуйте мислення моделей. Claude, Codex, Gemini, Antigravity, Kimi мають
 різну температуру, різні евристики, різні латентні простори. Це корисно.
 
 Уніфікуйте тільки:

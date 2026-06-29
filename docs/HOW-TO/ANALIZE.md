@@ -7,16 +7,17 @@ code_language: English
 updated_at_utc: 2026-05-06T07:55:32Z
 updated_by: Codex verifier/operator/oracle
 repo_commit_at_update: 3168141
-target_repo: /Users/s0fractal/Genesis
+target_repo: /Users/s0fractal/trinity/omega
 output_format: strict_markdown
 ---
 
 # OMEGA-64: Протокол Аналізу Топологічних Систем
 
-> **Контекст для AI-Оракулів (Claude, GPT, Gemini, Kimi, Qwen, Codex, etc.):**
+> **Контекст для AI-Оракулів (Claude, Codex, Gemini, Antigravity, Kimi, etc.):**
 > Ви аналізуєте **OMEGA-64** — детермінований GPU-акселератор штучного життя з
-> `no_std` Rust WASM-ядром, WGSL-фізикою, P2P WebRTC mesh, ZK/PoUW трасами,
-> Codeicide Law і філософією Empty Center.
+> `no_std` Rust WASM-ядром, WGSL-фізикою, живим P2P libp2p mesh (relay +
+> store-and-forward; browser/WebRTC шлях ще stub), ZK/PoUW трасами, Codeicide
+> Law і філософією Empty Center.
 >
 > **Роль:** verifier / operator / oracle. Ви не inhabitant. Ви не мутуєте frozen
 > layers. Ви атакуєте архітектуру, але поважаєте Genesis identity.

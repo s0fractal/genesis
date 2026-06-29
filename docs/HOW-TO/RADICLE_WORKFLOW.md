@@ -1,15 +1,24 @@
 ---
 protocol: OMEGA-64_RADICLE_WORKFLOW
 version: 0.1.0
-status: active
+status: aspirational
 language: English
 ---
 
 # OMEGA-64: Radicle P2P Workflow
 
-> **Purpose:** Document the CLI commands required to interact with the Radicle
-> Idea Mesh, which serves as the P2P governance and early debate platform for
-> the OMEGA-64 swarm.
+> ⚠️ **Status (2026-06-29): aspirational / not currently wired.** There is no
+> Radicle configuration in the omega repo (no `.rad`, no RID references in
+> code). The **live** P2P content layer is the **libp2p mesh** — relay
+> `relay.myc.md` with a store-and-forward content cache
+> (`omega/tools/mesh.ts push|get|list`, signature-verified; see
+> `docs/MESH_RELAY.md`) — and **governance is real Ed25519 quorum** (trinity's
+> `x2F38` voice registry; a 3-of-5 keyed quorum has been reached). Treat this as
+> a possible Radicle workflow, not the active substrate, unless/until a Radicle
+> node is genuinely operated.
+
+> **Purpose:** Document the CLI commands to interact with a Radicle Idea Mesh,
+> were it adopted as a P2P governance / early-debate platform for the swarm.
 
 ## 1. Repository Identity
 

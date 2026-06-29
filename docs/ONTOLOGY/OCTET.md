@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T23:15:55Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/Genesis
+target_repo: /Users/s0fractal/trinity/omega
 target_commit: 32bdaf6
 companion_protocols:
   - docs/ONTOLOGY/OCTET_MAP.md
@@ -140,7 +140,8 @@ octet:
     7: "proposal mesh"
 ```
 
-Для машинного індексу використовується `tasks/octet-index.ndjson`.
+Для машинного індексу _пропонується_ `tasks/octet-index.ndjson` (поки що не
+матеріалізований — цей overlay має `status: experimental`).
 
 ---
 

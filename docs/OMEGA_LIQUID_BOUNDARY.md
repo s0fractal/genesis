@@ -12,8 +12,9 @@ OMEGA computes what can physically happen. It is the law of conservation.
 - **Agent Lattice**: Fixed 32-byte `PhaseAgentMinimal` arrays.
 - **Mitosis Proof**: Deterministic reproduction and thermodynamic limits.
 - **ZK Verification**: SP1 ZK-VM traces ensuring exact mathematical execution.
-- **Mesh Boundary Validation**: P2P network, WebRTC plasmids, strict dipole
-  validation.
+- **Mesh Boundary Validation**: live libp2p mesh (relay `relay.myc.md` +
+  store-and-forward content cache); WebRTC/browser plasmids still roadmap-stub;
+  strict dipole validation.
 - **Genesis Identity**: The immutable root hash.
 - **Bitcoin Clock**: Absolute, monotonic temporal anchoring.
 - **Protocol-level Senate**: Cryptographic consensus for constitutional
