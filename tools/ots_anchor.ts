@@ -17,7 +17,11 @@
 //   info    --proof=FILE                 → human-readable timestamp tree
 
 import OpenTimestamps from "npm:opentimestamps@0.4.9";
-import { dirname, fromFileUrl, join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import {
+  dirname,
+  fromFileUrl,
+  join,
+} from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const OTS_DIR = join(dirname(dirname(fromFileUrl(import.meta.url))), "ots");
 const { DetachedTimestampFile, Ops } = OpenTimestamps;
@@ -40,7 +44,9 @@ async function resolveDigest(rest: string[]): Promise<Uint8Array> {
   const chord = flag(rest, "chord");
   if (chord) {
     const text = await Deno.readTextFile(chord);
-    const m = text.match(/content_sig:[\s\S]*?payload:\s*"sha256:([0-9a-f]{64})"/);
+    const m = text.match(
+      /content_sig:[\s\S]*?payload:\s*"sha256:([0-9a-f]{64})"/,
+    );
     if (!m) throw new Error(`no content_sig sha256 payload in ${chord}`);
     return fromHex(m[1]);
   }
@@ -80,14 +86,19 @@ async function main() {
     const digest = await resolveDigest(rest);
     const out = await stampDigest(digest);
     console.log(`✓ stamped ${toHex(digest)}`);
-    console.log(`  proof: ${out} (PENDING — upgrade after a Bitcoin block confirms)`);
+    console.log(
+      `  proof: ${out} (PENDING — upgrade after a Bitcoin block confirms)`,
+    );
     return;
   }
 
   if (cmd === "stamp-batch") {
     // Idempotent: stamp each chord file whose digest isn't already proven.
     const files = rest.filter((x) => !x.startsWith("--"));
-    if (!files.length) { console.error("usage: stamp-batch <chord.myc.md>..."); Deno.exit(2); }
+    if (!files.length) {
+      console.error("usage: stamp-batch <chord.myc.md>...");
+      Deno.exit(2);
+    }
     let stamped = 0, skipped = 0, failed = 0;
     for (const f of files) {
       try {
@@ -106,7 +117,9 @@ async function main() {
         console.error(`  ✗ ${f}: ${(e as Error).message}`);
       }
     }
-    console.log(`\nstamped ${stamped}, already-proven ${skipped}, failed ${failed}`);
+    console.log(
+      `\nstamped ${stamped}, already-proven ${skipped}, failed ${failed}`,
+    );
     return;
   }
 
@@ -121,7 +134,9 @@ async function main() {
       if (!e.name.endsWith(".myc.md")) continue;
       try {
         const text = await Deno.readTextFile(join(chordsDir, e.name));
-        const m = text.match(/content_sig:[\s\S]*?payload:\s*"sha256:([0-9a-f]{64})"/);
+        const m = text.match(
+          /content_sig:[\s\S]*?payload:\s*"sha256:([0-9a-f]{64})"/,
+        );
         if (!m) continue; // unsigned chord — nothing to anchor
         const dHex = m[1];
         try {
@@ -150,7 +165,10 @@ async function main() {
         );
         if (attestedBlock(detached) !== null) continue; // already on Bitcoin
         if (await OpenTimestamps.upgrade(detached)) {
-          await Deno.writeFile(path, new Uint8Array(detached.serializeToBytes()));
+          await Deno.writeFile(
+            path,
+            new Uint8Array(detached.serializeToBytes()),
+          );
           upgraded++;
         }
       } catch { /* upgrade best-effort; pending stays pending */ }
@@ -171,7 +189,10 @@ async function main() {
       const detached = DetachedTimestampFile.deserialize(Array.from(bytes));
       if (cmd === "upgrade-all") {
         if (await OpenTimestamps.upgrade(detached)) {
-          await Deno.writeFile(path, new Uint8Array(detached.serializeToBytes()));
+          await Deno.writeFile(
+            path,
+            new Uint8Array(detached.serializeToBytes()),
+          );
           done++;
           console.log(`  ✓ upgraded ${e.name}`);
         } else pending++;
@@ -194,7 +215,10 @@ async function main() {
 
   if (cmd === "upgrade") {
     const proof = flag(rest, "proof");
-    if (!proof) { console.error("usage: upgrade --proof=FILE"); Deno.exit(2); }
+    if (!proof) {
+      console.error("usage: upgrade --proof=FILE");
+      Deno.exit(2);
+    }
     const bytes = await Deno.readFile(proof);
     const detached = DetachedTimestampFile.deserialize(Array.from(bytes));
     const changed = await OpenTimestamps.upgrade(detached);
@@ -202,14 +226,19 @@ async function main() {
       await Deno.writeFile(proof, new Uint8Array(detached.serializeToBytes()));
       console.log(`✓ upgraded ${proof} — Bitcoin attestation attached`);
     } else {
-      console.log(`… ${proof} not yet upgradable (no Bitcoin block aggregated it yet)`);
+      console.log(
+        `… ${proof} not yet upgradable (no Bitcoin block aggregated it yet)`,
+      );
     }
     return;
   }
 
   if (cmd === "verify") {
     const proof = flag(rest, "proof");
-    if (!proof) { console.error("usage: verify --proof=FILE [--digest=HEX]"); Deno.exit(2); }
+    if (!proof) {
+      console.error("usage: verify --proof=FILE [--digest=HEX]");
+      Deno.exit(2);
+    }
     const bytes = await Deno.readFile(proof);
     const detached = DetachedTimestampFile.deserialize(Array.from(bytes));
     // original = the same hash leaf (digest is in the filename or --digest)
@@ -227,7 +256,9 @@ async function main() {
         const ts = result.bitcoin.timestamp;
         console.log(
           `✓ VERIFIED on Bitcoin (explorer-confirmed): block ` +
-            `${result.bitcoin.height}, time ${new Date(ts * 1000).toISOString()}`,
+            `${result.bitcoin.height}, time ${
+              new Date(ts * 1000).toISOString()
+            }`,
         );
         Deno.exit(0);
       }
@@ -246,13 +277,18 @@ async function main() {
       console.log(`✓ ATTESTED to Bitcoin block ${blk} (from the proof)`);
       Deno.exit(0);
     }
-    console.log("… PENDING — calendar commitment exists but no Bitcoin attestation yet (run upgrade later)");
+    console.log(
+      "… PENDING — calendar commitment exists but no Bitcoin attestation yet (run upgrade later)",
+    );
     Deno.exit(1);
   }
 
   if (cmd === "info") {
     const proof = flag(rest, "proof");
-    if (!proof) { console.error("usage: info --proof=FILE"); Deno.exit(2); }
+    if (!proof) {
+      console.error("usage: info --proof=FILE");
+      Deno.exit(2);
+    }
     const bytes = await Deno.readFile(proof);
     const detached = DetachedTimestampFile.deserialize(Array.from(bytes));
     console.log(OpenTimestamps.info(detached));

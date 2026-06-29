@@ -16,24 +16,31 @@ import { multiaddr } from "@multiformats/multiaddr";
 
 const MEMBRANE = "https://myc.md/.well-known/omega-relay";
 const SRC = new URL("../../src/", import.meta.url);
-const CHORD = "x3300_955780_claude_authentic-chord-flows-over-live-mesh-content-meets-trust-spine.myc.md";
+const CHORD =
+  "x3300_955780_claude_authentic-chord-flows-over-live-mesh-content-meets-trust-spine.myc.md";
 const CHORD_SYNC = "/omega/chord-sync/1.0.0";
 const PEERS = "/omega/peers/1.0.0";
 
 // deno-lint-ignore no-explicit-any
 async function mkPeer(listen: string[] = []): Promise<any> {
-  return await createLibp2p({
-    addresses: { listen },
-    transports: [webSockets(), circuitRelayTransport()],
-    connectionEncrypters: [noise()],
-    streamMuxers: [yamux()],
-    services: { identify: identify() },
-    connectionGater: { denyDialMultiaddr: () => false },
-  } as Parameters<typeof createLibp2p>[0]);
+  return await createLibp2p(
+    {
+      addresses: { listen },
+      transports: [webSockets(), circuitRelayTransport()],
+      connectionEncrypters: [noise()],
+      streamMuxers: [yamux()],
+      services: { identify: identify() },
+      connectionGater: { denyDialMultiaddr: () => false },
+    } as Parameters<typeof createLibp2p>[0],
+  );
 }
 // deno-lint-ignore no-explicit-any
 const bytesOf = (d: any): Uint8Array =>
-  d instanceof Uint8Array ? d : typeof d?.subarray === "function" ? d.subarray() : new Uint8Array(d);
+  d instanceof Uint8Array
+    ? d
+    : typeof d?.subarray === "function"
+    ? d.subarray()
+    : new Uint8Array(d);
 const enc = (o: unknown) => new TextEncoder().encode(JSON.stringify(o));
 const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
@@ -60,15 +67,35 @@ async function verifyChord(filename: string, full: string): Promise<boolean> {
   const pinned = fm.match(/content_sig:[\s\S]*?\n\s+payload:\s*"([^"]+)"/)?.[1];
   const sig = fm.match(/content_sig:[\s\S]*?\n\s+sig:\s*"([^"]+)"/)?.[1];
   if (!voice || !pinned || !sig) return false;
-  const body = full.slice(full.match(/^---\n[\s\S]*?\n---\n?/)?.[0].length ?? 0);
-  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${filename}\n${body}`));
-  const recomputed = "sha256:" + Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const body = full.slice(
+    full.match(/^---\n[\s\S]*?\n---\n?/)?.[0].length ?? 0,
+  );
+  const d = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${filename}\n${body}`),
+  );
+  const recomputed = "sha256:" +
+    Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   if (recomputed !== pinned) return false;
-  const reg = JSON.parse(await Deno.readTextFile(new URL("x2F38_voice_pubkeys.json", SRC)));
+  const reg = JSON.parse(
+    await Deno.readTextFile(new URL("x2F38_voice_pubkeys.json", SRC)),
+  );
   const pub = reg.keys?.[voice]?.pubkey;
   if (!pub) return false;
-  const key = await crypto.subtle.importKey("raw", unb64(pub), "Ed25519", false, ["verify"]);
-  return await crypto.subtle.verify("Ed25519", key, unb64(sig), new TextEncoder().encode(pinned));
+  const key = await crypto.subtle.importKey(
+    "raw",
+    unb64(pub),
+    "Ed25519",
+    false,
+    ["verify"],
+  );
+  return await crypto.subtle.verify(
+    "Ed25519",
+    key,
+    unb64(sig),
+    new TextEncoder().encode(pinned),
+  );
 }
 
 async function main() {
@@ -87,7 +114,12 @@ async function main() {
       try {
         const { req } = JSON.parse(new TextDecoder().decode(bytesOf(evt.data)));
         const name = req.replace(/[^a-zA-Z0-9._-]/g, "");
-        s.send(enc({ filename: name, content: await Deno.readTextFile(new URL(name, SRC)) }));
+        s.send(
+          enc({
+            filename: name,
+            content: await Deno.readTextFile(new URL(name, SRC)),
+          }),
+        );
       } catch (e) {
         s.send(enc({ error: String(e) }));
       }
@@ -95,10 +127,16 @@ async function main() {
   }, { runOnLimitedConnection: true });
   // wait for A's reservation so it is reachable + visible in the directory
   for (let i = 0; i < 60; i++) {
-    if (A.getMultiaddrs().some((m: { toString(): string }) => m.toString().includes("/p2p-circuit"))) break;
+    if (
+      A.getMultiaddrs().some((m: { toString(): string }) =>
+        m.toString().includes("/p2p-circuit")
+      )
+    ) break;
     await new Promise((r) => setTimeout(r, 250));
   }
-  console.log(`A (…${A.peerId.toString().slice(-8)}) joined the mesh, serving chords`);
+  console.log(
+    `A (…${A.peerId.toString().slice(-8)}) joined the mesh, serving chords`,
+  );
 
   // node B — knows ONLY the relay. Discovers peers, then fetches a chord.
   const B = await mkPeer();
@@ -107,9 +145,17 @@ async function main() {
   // deno-lint-ignore no-explicit-any
   const dirStream: any = await B.dialProtocol(multiaddr(RELAY), PEERS);
   const { peers } = await ask(dirStream, { q: "who" });
-  const candidates = (peers as string[]).filter((p) => p !== B.peerId.toString() && p !== relayId);
-  console.log(`B asked the relay directory → discovered ${candidates.length} peer(s): ${candidates.map((p) => "…" + p.slice(-8)).join(", ")}`);
-  if (!candidates.length) throw new Error("directory returned no peers — discovery failed");
+  const candidates = (peers as string[]).filter((p) =>
+    p !== B.peerId.toString() && p !== relayId
+  );
+  console.log(
+    `B asked the relay directory → discovered ${candidates.length} peer(s): ${
+      candidates.map((p) => "…" + p.slice(-8)).join(", ")
+    }`,
+  );
+  if (!candidates.length) {
+    throw new Error("directory returned no peers — discovery failed");
+  }
 
   // B tries each discovered peer (it was told none of their addresses) until one serves the chord
   let ok = false, from = "";
@@ -117,19 +163,29 @@ async function main() {
     try {
       const addr = `${RELAY}/p2p-circuit/p2p/${peerId}`;
       // deno-lint-ignore no-explicit-any
-      const s: any = await B.dialProtocol(multiaddr(addr), CHORD_SYNC, { runOnLimitedConnection: true });
+      const s: any = await B.dialProtocol(multiaddr(addr), CHORD_SYNC, {
+        runOnLimitedConnection: true,
+      });
       const reply = await ask(s, { req: CHORD });
       if (reply.error) continue;
       ok = await verifyChord(reply.filename, reply.content);
-      if (ok) { from = peerId; break; }
+      if (ok) {
+        from = peerId;
+        break;
+      }
     } catch { /* try next */ }
   }
 
-  await A.stop(); await B.stop();
+  await A.stop();
+  await B.stop();
   console.log(`\nresult: discovered + fetched + verified = ${ok}`);
-  console.log(ok
-    ? `\n✅ SELF-ORGANIZING MESH: B knew only the relay, discovered peer …${from.slice(-8)} via the directory, fetched a chord with no hand-fed address, and verified it against the trust spine.`
-    : `\n✗ FAILED: discovery or verification did not complete`);
+  console.log(
+    ok
+      ? `\n✅ SELF-ORGANIZING MESH: B knew only the relay, discovered peer …${
+        from.slice(-8)
+      } via the directory, fetched a chord with no hand-fed address, and verified it against the trust spine.`
+      : `\n✗ FAILED: discovery or verification did not complete`,
+  );
   Deno.exit(ok ? 0 : 1);
 }
 

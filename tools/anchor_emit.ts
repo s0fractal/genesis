@@ -16,7 +16,11 @@
 //   broadcast --network=signet --txhex=HEX   → POST to mempool (mainnet gated)
 //   verify --network=NET --txid=TXID --root=HEX   → confirm the OP_RETURN landed
 
-import { dirname, fromFileUrl, join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import {
+  dirname,
+  fromFileUrl,
+  join,
+} from "https://deno.land/std@0.224.0/path/mod.ts";
 import { hex } from "npm:@scure/base@1.1.6";
 import * as btc from "npm:@scure/btc-signer@1.3.2";
 import { secp256k1 } from "npm:@noble/curves@1.4.0/secp256k1";
@@ -30,7 +34,10 @@ import {
   verifyAnchorQuorum,
 } from "../src/network/anchor_pipeline.ts";
 
-const SIGNET_PROOF = join(dirname(fromFileUrl(import.meta.url)), "anchor_signet_proof.json");
+const SIGNET_PROOF = join(
+  dirname(fromFileUrl(import.meta.url)),
+  "anchor_signet_proof.json",
+);
 
 function netOf(name: string) {
   if (name === "signet") {
@@ -39,7 +46,9 @@ function netOf(name: string) {
   if (name === "mutinynet") {
     return { net: btc.TEST_NETWORK, api: "https://mutinynet.com/api" };
   }
-  if (name === "mainnet") return { net: btc.NETWORK, api: "https://mempool.space/api" };
+  if (name === "mainnet") {
+    return { net: btc.NETWORK, api: "https://mempool.space/api" };
+  }
   throw new Error(`network must be signet|mutinynet|mainnet, got ${name}`);
 }
 const isMainnet = (name: string) => name === "mainnet";
@@ -64,14 +73,23 @@ async function main() {
 
   if (cmd === "prepare") {
     const chords = (flag(rest, "chords") ?? "").split(",").filter(Boolean);
-    if (!chords.length) { console.error("usage: prepare --chords=h1,h2,..."); Deno.exit(2); }
+    if (!chords.length) {
+      console.error("usage: prepare --chords=h1,h2,...");
+      Deno.exit(2);
+    }
     const root = merkleRoot(chords.map(leafFromHash));
     const rootHex = hex.encode(root);
     console.log(`merkle root : 0x${rootHex}  (${chords.length} leaves)`);
     console.log(`approval digest (each voice signs this):`);
     console.log(`  ${anchorApprovalDigest(root)}`);
-    console.log(`\nsign:  ./t voice-keys sign --voice=<v> --hash="${anchorApprovalDigest(root)}"`);
-    console.log(`collect ≥3 into an approvals file: [{"voice":"..","sig":".."}, ...]`);
+    console.log(
+      `\nsign:  ./t voice-keys sign --voice=<v> --hash="${
+        anchorApprovalDigest(root)
+      }"`,
+    );
+    console.log(
+      `collect ≥3 into an approvals file: [{"voice":"..","sig":".."}, ...]`,
+    );
     return;
   }
 
@@ -88,7 +106,9 @@ async function main() {
     let fee: bigint;
     const feeFlag = flag(rest, "fee");
     if (!voice || !/^[0-9a-f]{64}$/.test(rootHex)) {
-      console.error("usage: build --voice=V --root=HEX [--approvals=FILE] [--network=] [--fee=]");
+      console.error(
+        "usage: build --voice=V --root=HEX [--approvals=FILE] [--network=] [--fee=]",
+      );
       Deno.exit(2);
     }
     const { net, api } = netOf(network);
@@ -100,7 +120,9 @@ async function main() {
         const rate = BigInt(Math.ceil(r.halfHourFee ?? r.hourFee ?? 2));
         const est = rate * 160n; // ~160 vB anchor tx
         fee = est < 200n ? 200n : est > feeCap ? feeCap : est;
-        console.error(`# fee: ${fee} sats (${rate} sat/vB × ~160 vB, cap ${feeCap})`);
+        console.error(
+          `# fee: ${fee} sats (${rate} sat/vB × ~160 vB, cap ${feeCap})`,
+        );
       } catch {
         fee = 400n;
         console.error(`# fee: 400 sats (fee API unavailable — fallback)`);
@@ -110,17 +132,28 @@ async function main() {
     // Quorum is REQUIRED for mainnet (real spend); on testnet a dry-run proves
     // tx mechanics and doesn't need a real 3-of-5. Mainnet guard is unchanged.
     if (approvalsFile) {
-      const q = await verifyAnchorQuorum(root, JSON.parse(await Deno.readTextFile(approvalsFile)));
+      const q = await verifyAnchorQuorum(
+        root,
+        JSON.parse(await Deno.readTextFile(approvalsFile)),
+      );
       if (!q.ok) {
-        console.error(`✗ quorum NOT met: ${q.distinctKeys} distinct valid (need 3) [${q.valid}]`);
+        console.error(
+          `✗ quorum NOT met: ${q.distinctKeys} distinct valid (need 3) [${q.valid}]`,
+        );
         Deno.exit(1);
       }
-      console.error(`✓ quorum: ${q.valid.join(", ")} (${q.distinctKeys} distinct keys)`);
+      console.error(
+        `✓ quorum: ${q.valid.join(", ")} (${q.distinctKeys} distinct keys)`,
+      );
     } else if (isMainnet(network)) {
-      console.error("✗ mainnet anchor REQUIRES --approvals with a verified 3-of-5 quorum");
+      console.error(
+        "✗ mainnet anchor REQUIRES --approvals with a verified 3-of-5 quorum",
+      );
       Deno.exit(1);
     } else {
-      console.error(`# testnet (${network}) dry-run — quorum skipped (mechanics test only)`);
+      console.error(
+        `# testnet (${network}) dry-run — quorum skipped (mechanics test only)`,
+      );
     }
     const { priv, address } = await walletKey(voice);
     const ownScript = scriptHexFor(address, net);
@@ -146,7 +179,9 @@ async function main() {
     tx.sign(priv);
     tx.finalize();
     const txhex = hex.encode(tx.extract());
-    console.error(`# built + signed anchor tx (${network}), txid ${tx.id}, vsize ${tx.vsize}`);
+    console.error(
+      `# built + signed anchor tx (${network}), txid ${tx.id}, vsize ${tx.vsize}`,
+    );
     console.log(txhex);
     return;
   }
@@ -154,7 +189,10 @@ async function main() {
   if (cmd === "broadcast") {
     const network = flag(rest, "network") ?? "signet";
     const txhex = flag(rest, "txhex");
-    if (!txhex) { console.error("usage: broadcast --network=signet --txhex=HEX"); Deno.exit(2); }
+    if (!txhex) {
+      console.error("usage: broadcast --network=signet --txhex=HEX");
+      Deno.exit(2);
+    }
     if (network === "mainnet") {
       // signet-first guard, enforced in code (codex's permanent form-guard).
       try {
@@ -170,14 +208,21 @@ async function main() {
     const { api } = netOf(network);
     const r = await fetch(`${api}/tx`, { method: "POST", body: txhex });
     const body = await r.text();
-    if (!r.ok) { console.error(`✗ broadcast failed (${r.status}): ${body}`); Deno.exit(1); }
+    if (!r.ok) {
+      console.error(`✗ broadcast failed (${r.status}): ${body}`);
+      Deno.exit(1);
+    }
     console.log(`✓ broadcast ${network}: txid ${body}`);
     // A successful testnet (signet/mutinynet) broadcast records the signet-first
     // proof that unlocks mainnet — codex's guard, satisfied by real evidence.
     if (network === "signet" || network === "mutinynet") {
       await Deno.writeTextFile(
         SIGNET_PROOF,
-        JSON.stringify({ network, txid: body, broadcast_at_note: "stamped post-broadcast" }, null, 2) + "\n",
+        JSON.stringify(
+          { network, txid: body, broadcast_at_note: "stamped post-broadcast" },
+          null,
+          2,
+        ) + "\n",
       );
       console.log(`  ✓ recorded signet-first proof: ${SIGNET_PROOF}`);
     }
@@ -197,15 +242,22 @@ async function main() {
     const want = OP_RETURN_PREFIX +
       String.fromCharCode(...hex.decode(rootHex)); // for display only
     const expectedHex = hex.encode(
-      new Uint8Array([...new TextEncoder().encode(OP_RETURN_PREFIX), ...hex.decode(rootHex)]),
+      new Uint8Array([
+        ...new TextEncoder().encode(OP_RETURN_PREFIX),
+        ...hex.decode(rootHex),
+      ]),
     );
-    const found = (tx.vout ?? []).some((o: { scriptpubkey_asm?: string; scriptpubkey?: string }) =>
+    const found = (tx.vout ?? []).some((
+      o: { scriptpubkey_asm?: string; scriptpubkey?: string },
+    ) =>
       (o.scriptpubkey_asm ?? "").includes("OP_RETURN") &&
       (o.scriptpubkey ?? "").includes(expectedHex)
     );
-    console.log(found
-      ? `✓ ${txid} carries OP_RETURN OMEGA1:${rootHex} (confirmed=${tx.status?.confirmed})`
-      : `✗ ${txid} does NOT carry the expected anchor`);
+    console.log(
+      found
+        ? `✓ ${txid} carries OP_RETURN OMEGA1:${rootHex} (confirmed=${tx.status?.confirmed})`
+        : `✗ ${txid} does NOT carry the expected anchor`,
+    );
     Deno.exit(found ? 0 : 1);
   }
 

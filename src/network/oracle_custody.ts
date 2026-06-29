@@ -80,7 +80,9 @@ export function oracleVoteDigest(
   aye: boolean,
 ): string {
   const hex = (proposalHash >>> 0).toString(16).padStart(8, "0");
-  return `${ORACLE_VOTE_DIGEST_V1}:${oracleName}:0x${hex}:${aye ? "AYE" : "NAY"}`;
+  return `${ORACLE_VOTE_DIGEST_V1}:${oracleName}:0x${hex}:${
+    aye ? "AYE" : "NAY"
+  }`;
 }
 
 /**

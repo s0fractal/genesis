@@ -19,20 +19,22 @@ const PROTOCOL = "/omega/mesh-proof/1.0.0";
 
 // deno-lint-ignore no-explicit-any
 async function mkNode(listen?: string): Promise<any> {
-  return await createLibp2p({
-    addresses: listen ? { listen: [listen] } : { listen: [] },
-    transports: [webSockets({ filter: (mas: unknown[]) => mas })], // allow loopback ws (default rejects insecure)
-    // libp2p v3 API: `connectionEncrypters` (plural). NOTE: libp2p_mesh.ts still
-    // uses the pre-v3 `connectionEncryption` key — v3 ignores it, leaving the
-    // node with no security transport (a second reason the mesh never connected).
-    connectionEncrypters: [noise()],
-    streamMuxers: [yamux()],
-    services: {
-      identify: identify(),
-      pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
-    },
-    connectionGater: { denyDialMultiaddr: () => false }, // allow loopback dials
-  } as Parameters<typeof createLibp2p>[0]);
+  return await createLibp2p(
+    {
+      addresses: listen ? { listen: [listen] } : { listen: [] },
+      transports: [webSockets({ filter: (mas: unknown[]) => mas })], // allow loopback ws (default rejects insecure)
+      // libp2p v3 API: `connectionEncrypters` (plural). NOTE: libp2p_mesh.ts still
+      // uses the pre-v3 `connectionEncryption` key — v3 ignores it, leaving the
+      // node with no security transport (a second reason the mesh never connected).
+      connectionEncrypters: [noise()],
+      streamMuxers: [yamux()],
+      services: {
+        identify: identify(),
+        pubsub: gossipsub({ allowPublishToZeroTopicPeers: true }),
+      },
+      connectionGater: { denyDialMultiaddr: () => false }, // allow loopback dials
+    } as Parameters<typeof createLibp2p>[0],
+  );
 }
 
 const b64 = (u: ArrayBuffer | Uint8Array) => {
@@ -44,18 +46,27 @@ const b64 = (u: ArrayBuffer | Uint8Array) => {
 
 async function main() {
   // a real Ed25519 keypair for the signed frame (the "voice" speaking on the mesh)
-  const kp = await crypto.subtle.generateKey("Ed25519", true, ["sign", "verify"]) as CryptoKeyPair;
-  const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  const kp = await crypto.subtle.generateKey("Ed25519", true, [
+    "sign",
+    "verify",
+  ]) as CryptoKeyPair;
+  const pub = new Uint8Array(
+    await crypto.subtle.exportKey("raw", kp.publicKey),
+  );
 
   const A = await mkNode("/ip4/127.0.0.1/tcp/0/ws");
   const B = await mkNode();
   await A.start();
   await B.start();
-  const aAddr = A.getMultiaddrs().map((m: { toString(): string }) => m.toString())
+  const aAddr = A.getMultiaddrs().map((m: { toString(): string }) =>
+    m.toString()
+  )
     .find((s: string) => s.includes("/ws"));
   console.log(`node A: ${A.peerId.toString()}  listening ${aAddr}`);
   console.log(`node B: ${B.peerId.toString()}`);
-  if (!aAddr) throw new Error("node A has no ws listen address — transport didn't bind");
+  if (!aAddr) {
+    throw new Error("node A has no ws listen address — transport didn't bind");
+  }
 
   // A registers a direct protocol handler; the RECEIVER verifies the signed frame.
   // (A direct stream is the deterministic proof of real cross-node messaging; the
@@ -64,8 +75,15 @@ async function main() {
   // 'message' events. The receiver (A) verifies the signature.
   // deno-lint-ignore no-explicit-any
   const bytesOf = (d: any): Uint8Array =>
-    d instanceof Uint8Array ? d : typeof d?.subarray === "function" ? d.subarray() : new Uint8Array(d);
-  const received: { ok: boolean; verified: boolean } = { ok: false, verified: false };
+    d instanceof Uint8Array
+      ? d
+      : typeof d?.subarray === "function"
+      ? d.subarray()
+      : new Uint8Array(d);
+  const received: { ok: boolean; verified: boolean } = {
+    ok: false,
+    verified: false,
+  };
   const got = new Promise<void>((resolve) => {
     // deno-lint-ignore no-explicit-any
     A.handle(PROTOCOL, (arg: any) => {
@@ -75,9 +93,18 @@ async function main() {
         try {
           const msg = JSON.parse(new TextDecoder().decode(bytesOf(evt.data)));
           const sig = Uint8Array.from(atob(msg.sig), (c) => c.charCodeAt(0));
-          const key = await crypto.subtle.importKey("raw", pub, "Ed25519", false, ["verify"]);
+          const key = await crypto.subtle.importKey(
+            "raw",
+            pub,
+            "Ed25519",
+            false,
+            ["verify"],
+          );
           received.verified = await crypto.subtle.verify(
-            "Ed25519", key, sig, new TextEncoder().encode(msg.claim),
+            "Ed25519",
+            key,
+            sig,
+            new TextEncoder().encode(msg.claim),
           );
         } catch { /* verified stays false */ }
         resolve();
@@ -93,12 +120,23 @@ async function main() {
 
   // B sends a real Ed25519-signed frame
   const claim = `omega-mesh-proof:${A.peerId.toString()}:hello`;
-  const sig = await crypto.subtle.sign("Ed25519", kp.privateKey, new TextEncoder().encode(claim));
-  const frame = new TextEncoder().encode(JSON.stringify({ claim, sig: b64(sig), pub: b64(pub) }));
+  const sig = await crypto.subtle.sign(
+    "Ed25519",
+    kp.privateKey,
+    new TextEncoder().encode(claim),
+  );
+  const frame = new TextEncoder().encode(
+    JSON.stringify({ claim, sig: b64(sig), pub: b64(pub) }),
+  );
   await stream.send(frame);
   console.log(`✓ B sent a signed frame to A`);
 
-  const timeout = new Promise<void>((_, rej) => setTimeout(() => rej(new Error("timeout: A never received the frame")), 15000));
+  const timeout = new Promise<void>((_, rej) =>
+    setTimeout(
+      () => rej(new Error("timeout: A never received the frame")),
+      15000,
+    )
+  );
   await Promise.race([got, timeout]);
 
   console.log(`\nresult:`);
@@ -107,9 +145,13 @@ async function main() {
   await A.stop();
   await B.stop();
   const pass = received.ok && received.verified;
-  console.log(pass
-    ? `\n✅ REAL P2P PROVEN: two real libp2p nodes, real ws transport, direct protocol stream, signed frame verified cross-node`
-    : `\n✗ FAILED: ${received.ok ? "received but signature invalid" : "frame not received"}`);
+  console.log(
+    pass
+      ? `\n✅ REAL P2P PROVEN: two real libp2p nodes, real ws transport, direct protocol stream, signed frame verified cross-node`
+      : `\n✗ FAILED: ${
+        received.ok ? "received but signature invalid" : "frame not received"
+      }`,
+  );
   Deno.exit(pass ? 0 : 1);
 }
 

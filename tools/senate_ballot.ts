@@ -23,9 +23,7 @@ import {
   fromFileUrl,
   join,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
-import {
-  CANONICAL_ORACLES,
-} from "../src/network/oracle_identity.ts";
+import { CANONICAL_ORACLES } from "../src/network/oracle_identity.ts";
 import {
   oracleVoteDigest,
   verifyOracleVote,
@@ -154,7 +152,9 @@ async function main() {
       P.ballotPath,
       JSON.stringify(without, null, 2) + "\n",
     );
-    console.log(`✓ recorded ${voice} ${aye ? "AYE" : "NAY"} (signature verified)`);
+    console.log(
+      `✓ recorded ${voice} ${aye ? "AYE" : "NAY"} (signature verified)`,
+    );
     return;
   }
 

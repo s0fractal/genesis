@@ -31,7 +31,9 @@ export const OP_RETURN_PREFIX = "OMEGA1:"; // matches verifyGenesisInscription
 export function merkleRoot(leaves: Uint8Array[]): Uint8Array {
   if (leaves.length === 0) throw new Error("merkleRoot: no leaves");
   let level = leaves.map((l) => {
-    if (l.length !== 32) throw new Error("merkleRoot: each leaf must be 32 bytes");
+    if (l.length !== 32) {
+      throw new Error("merkleRoot: each leaf must be 32 bytes");
+    }
     return l;
   });
   while (level.length > 1) {
@@ -225,7 +227,9 @@ export function assertAnchorShape(
         throw new Error("OP_RETURN payload is not OMEGA1:<32-byte root>");
       }
       for (let k = 0; k < prefix.length; k++) {
-        if (data[k] !== prefix[k]) throw new Error("OP_RETURN prefix is not OMEGA1:");
+        if (data[k] !== prefix[k]) {
+          throw new Error("OP_RETURN prefix is not OMEGA1:");
+        }
       }
       if (amount !== 0n) throw new Error("OP_RETURN output must carry 0 sats");
     } else {
@@ -235,7 +239,9 @@ export function assertAnchorShape(
     }
   }
   if (opReturns !== 1) {
-    throw new Error(`anchor tx must have exactly one OP_RETURN (got ${opReturns})`);
+    throw new Error(
+      `anchor tx must have exactly one OP_RETURN (got ${opReturns})`,
+    );
   }
   const fee = inSum - outSum;
   if (fee < 0n) throw new Error("outputs exceed inputs");

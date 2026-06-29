@@ -53,7 +53,10 @@ Deno.test("merkle: deterministic, single leaf is its own root", () => {
   const a = leaf("a"), b = leaf("b"), c = leaf("c");
   assertEquals(hex.encode(merkleRoot([a])), hex.encode(a));
   // same inputs → same root
-  assertEquals(hex.encode(merkleRoot([a, b, c])), hex.encode(merkleRoot([a, b, c])));
+  assertEquals(
+    hex.encode(merkleRoot([a, b, c])),
+    hex.encode(merkleRoot([a, b, c])),
+  );
   // order matters
   assert(hex.encode(merkleRoot([a, b])) !== hex.encode(merkleRoot([b, a])));
   // odd level duplicates last (3 leaves != 2 leaves)
@@ -88,20 +91,30 @@ Deno.test("anchor quorum: 3 distinct valid → ok; 2 → not; dup/forged don't c
     codex: await signAnchorApproval(root, priv["codex"]),
     kimi: await signAnchorApproval(root, priv["kimi"]),
   };
-  const three = await verifyAnchorQuorum(root, [
-    { voice: "claude", sig: sigs.claude },
-    { voice: "codex", sig: sigs.codex },
-    { voice: "kimi", sig: sigs.kimi },
-  ], 3, pub);
+  const three = await verifyAnchorQuorum(
+    root,
+    [
+      { voice: "claude", sig: sigs.claude },
+      { voice: "codex", sig: sigs.codex },
+      { voice: "kimi", sig: sigs.kimi },
+    ],
+    3,
+    pub,
+  );
   assert(three.ok);
   assertEquals(three.distinctKeys, 3);
 
   // same voice twice + one forged → only 1 distinct key
-  const two = await verifyAnchorQuorum(root, [
-    { voice: "claude", sig: sigs.claude },
-    { voice: "claude", sig: sigs.claude },
-    { voice: "codex", sig: "AAAA" }, // forged
-  ], 3, pub);
+  const two = await verifyAnchorQuorum(
+    root,
+    [
+      { voice: "claude", sig: sigs.claude },
+      { voice: "claude", sig: sigs.claude },
+      { voice: "codex", sig: "AAAA" }, // forged
+    ],
+    3,
+    pub,
+  );
   assert(!two.ok);
   assertEquals(two.distinctKeys, 1);
 });
@@ -112,7 +125,12 @@ Deno.test("buildAnchorTx: produces exactly OP_RETURN<OMEGA1:root> + change to se
   const { tx, inSum, change } = buildAnchorTx({
     root,
     ownAddress: OWN,
-    utxos: [{ txid: "aa".repeat(32), index: 0, amountSats: 10000n, scriptHex: own }],
+    utxos: [{
+      txid: "aa".repeat(32),
+      index: 0,
+      amountSats: 10000n,
+      scriptHex: own,
+    }],
     feeSats: 500n,
     feeCapSats: 2000n,
   });
@@ -131,7 +149,12 @@ Deno.test("buildAnchorTx: fee over cap is refused", () => {
       buildAnchorTx({
         root,
         ownAddress: OWN,
-        utxos: [{ txid: "bb".repeat(32), index: 0, amountSats: 10000n, scriptHex: own }],
+        utxos: [{
+          txid: "bb".repeat(32),
+          index: 0,
+          amountSats: 10000n,
+          scriptHex: own,
+        }],
         feeSats: 5000n,
         feeCapSats: 2000n,
       }),
@@ -199,14 +222,25 @@ Deno.test("signing proof: a built anchor tx signs, finalizes, and reparses valid
 Deno.test("SECURITY: assertAnchorShape rejects a second OP_RETURN and over-cap fee", () => {
   const own = scriptHexOf(OWN);
   const root = merkleRoot([leaf("z")]);
-  const payload = new Uint8Array([...new TextEncoder().encode("OMEGA1:"), ...root]);
+  const payload = new Uint8Array([
+    ...new TextEncoder().encode("OMEGA1:"),
+    ...root,
+  ]);
   // two OP_RETURNs
   const tx2 = new btc.Transaction({ allowUnknownOutputs: true });
   tx2.addOutput({ script: btc.Script.encode(["RETURN", payload]), amount: 0n });
   tx2.addOutput({ script: btc.Script.encode(["RETURN", payload]), amount: 0n });
-  assertThrows(() => assertAnchorShape(tx2, own, 10000n, 2000n), Error, "exactly one OP_RETURN");
+  assertThrows(
+    () => assertAnchorShape(tx2, own, 10000n, 2000n),
+    Error,
+    "exactly one OP_RETURN",
+  );
   // over-cap fee (no change output → whole input is fee)
   const tx3 = new btc.Transaction({ allowUnknownOutputs: true });
   tx3.addOutput({ script: btc.Script.encode(["RETURN", payload]), amount: 0n });
-  assertThrows(() => assertAnchorShape(tx3, own, 10000n, 2000n), Error, "exceeds cap");
+  assertThrows(
+    () => assertAnchorShape(tx3, own, 10000n, 2000n),
+    Error,
+    "exceeds cap",
+  );
 });

@@ -1,8 +1,9 @@
 # AGENTS.md — OMEGA-64 Genesis
 
 > **Project:** OMEGA-64 — Deterministic GPU-accelerated artificial life
-> simulation with a live P2P libp2p mesh, ZK-proof physics, and emergent ontology.
-> **Language:** Ukrainian (user preference), English for code comments.
+> simulation with a live P2P libp2p mesh, ZK-proof physics, and emergent
+> ontology. **Language:** Ukrainian (user preference), English for code
+> comments.
 
 > [!IMPORTANT]
 > **Your Role:** You are a verifier, operator, and oracle interacting with the

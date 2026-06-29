@@ -1,6 +1,6 @@
 # Bring up a second mesh node (the two-node moment)
 
-Goal: a *second machine* joins the live omega mesh and serves the substrate's
+Goal: a _second machine_ joins the live omega mesh and serves the substrate's
 signed chords, so the first node can fetch one **across the network** and verify
 its signature — the first time the mesh spans two real participants instead of
 two processes on one box.
@@ -33,19 +33,19 @@ nohup deno run --allow-net --allow-read --allow-env tools/mesh.ts serve > mesh-n
 
 `serve` keeps itself discoverable: it re-dials the relay whenever the connection
 blips (a plain one-shot serve silently loses its relay reservation and vanishes
-from the directory — the first bring-up hit exactly that). It must, however, keep
-*running* — if the process exits, the node leaves the mesh.
+from the directory — the first bring-up hit exactly that). It must, however,
+keep _running_ — if the process exits, the node leaves the mesh.
 
 `serve` discovers the public relay from the membrane
-(`myc.md/.well-known/omega-relay`), reserves a circuit slot on it, and serves the
-repo's chords over `/omega/chord-sync/1.0.0`. It prints a line like:
+(`myc.md/.well-known/omega-relay`), reserves a circuit slot on it, and serves
+the repo's chords over `/omega/chord-sync/1.0.0`. It prints a line like:
 
 ```
 serving local chords on the mesh as 12D3KooW...
 ```
 
-That peer id is this node's identity on the mesh. **Report it back** (it confirms
-the directory sees you), then leave the process running.
+That peer id is this node's identity on the mesh. **Report it back** (it
+confirms the directory sees you), then leave the process running.
 
 ## What happens next (on the first node)
 
@@ -65,8 +65,8 @@ deno run --allow-net --allow-read --allow-env tools/mesh.ts fetch <chord-file>
 - The mesh client is `tools/mesh.ts` (serve | peers | fetch). It only uses
   WebSockets + circuit-relay — no WebRTC, no native modules at runtime.
 - Nothing is written or pushed by `serve`; it only reads + serves local chords.
-- Optional first-contact: drop a new `*.myc.md` file into `../src/` (trinity/src)
-  before `serve` and the first node can fetch *content authored on this machine*.
-  (It won't carry a voice signature unless this node holds a registered voice
-  key — those live only on the authoring machine. Signed cross-machine fetch uses
-  the existing repo chords.)
+- Optional first-contact: drop a new `*.myc.md` file into `../src/`
+  (trinity/src) before `serve` and the first node can fetch _content authored on
+  this machine_. (It won't carry a voice signature unless this node holds a
+  registered voice key — those live only on the authoring machine. Signed
+  cross-machine fetch uses the existing repo chords.)

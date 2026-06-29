@@ -25,16 +25,17 @@ caveats**, named here (see `AGENTS.md`):
   `network`) and OOMs on an 8 GB box, so no completed proof is checked in.
   "ZK-Notarized" below means the path is wired and the prover is real — not that
   a STARK artifact is committed.
-- **The libp2p mesh is LIVE (since 2026-06-28).** A public circuit-relay-v2 relay
-  (`relay.myc.md`, discovered from the membrane at
+- **The libp2p mesh is LIVE (since 2026-06-28).** A public circuit-relay-v2
+  relay (`relay.myc.md`, discovered from the membrane at
   `myc.md/.well-known/omega-relay`) carries real content: a node serves chords,
   peers self-discover via the relay directory, and every fetched chord is
-  verified against the voice registry before it's trusted — `tools/mesh.ts
-  serve|peers|fetch`, see `docs/MESH_RELAY.md`. Still **roadmap**: the **browser
-  / WebRTC path** (`src/sdk/phi_client.ts` still notes "in a real implementation
-  you would perform WebRTC signaling here"), a standing gossipsub data plane
-  (needs DCUtR hole-punching — one-shot fetch already works on the relay), and
-  node-lifecycle wiring of `libp2p_mesh.ts`.
+  verified against the voice registry before it's trusted —
+  `tools/mesh.ts
+  serve|peers|fetch`, see `docs/MESH_RELAY.md`. Still
+  **roadmap**: the **browser / WebRTC path** (`src/sdk/phi_client.ts` still
+  notes "in a real implementation you would perform WebRTC signaling here"), a
+  standing gossipsub data plane (needs DCUtR hole-punching — one-shot fetch
+  already works on the relay), and node-lifecycle wiring of `libp2p_mesh.ts`.
 - **Bitcoin anchoring is LIVE (since 2026-06-28).** `bitcoin_anchor.ts` remains
   verify-only by design; **emission** lives in the separate, quorum-gated tool
   `tools/anchor_emit.ts`. The first real mainnet anchor — `OMEGA1:ab492186…`
@@ -47,8 +48,8 @@ caveats**, named here (see `AGENTS.md`):
 The frozen protocol identity, the integer physics, the local simulation, and (as
 of 2026-06-28) **Bitcoin anchoring** and the **libp2p mesh** (relay + content +
 self-discovery) are genuine. The **browser / WebRTC** path (live SDP signaling)
-is still roadmap. ZK proving is real by default (cpu), completing a full proof is
-hardware-bound (above).
+is still roadmap. ZK proving is real by default (cpu), completing a full proof
+is hardware-bound (above).
 
 The honesty caveats are **executable** — `tests/honesty_triad_test.ts` locks
 them: the **browser / WebRTC path** (`phi_client` SDP) must stay honestly marked
