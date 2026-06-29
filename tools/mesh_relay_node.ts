@@ -75,8 +75,17 @@ await node.start();
 await node.handle("/omega/peers/1.0.0", (arg: any) => {
   const s = arg?.stream ?? arg;
   s.addEventListener("message", () => {
+    // The directory is the relay's RESERVATION set: a peer holding a circuit
+    // slot is exactly one reachable via /p2p-circuit. getConnections() does NOT
+    // reliably surface reservation-holding peers (it read ~empty even while
+    // peers were reserved — the two-node bring-up exposed this), so enumerate
+    // the relay service's reservations PeerMap instead.
     // deno-lint-ignore no-explicit-any
-    const peers = [...new Set(node.getConnections().map((c: any) => c.remotePeer.toString()))];
+    const svc = (node.services as any).relay;
+    const reserved: string[] = svc?.reservations
+      ? [...svc.reservations.keys()].map((p: { toString(): string }) => p.toString())
+      : [];
+    const peers = [...new Set(reserved)];
     s.send(new TextEncoder().encode(JSON.stringify({ peers })));
   });
 });
