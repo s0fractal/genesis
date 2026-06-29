@@ -199,6 +199,24 @@ const CORS = { "access-control-allow-origin": "*" };
 // with the relay out of the data path (empty center for the data plane).
 const rooms = new Map<string, Map<string, WebSocket>>();
 
+// Cloudflare Realtime TURN key — from env or a 0600 file OUTSIDE the repo
+// (`~/.trinity/keys/cf-turn.json`: {"token_id":"…","api_token":"…"}). Read per
+// request so the key can be dropped in without restarting. Empty → STUN-only.
+async function loadTurnKey(): Promise<{ id?: string; token?: string }> {
+  let id = Deno.env.get("CF_TURN_TOKEN_ID");
+  let token = Deno.env.get("CF_TURN_API_TOKEN");
+  if (!id || !token) {
+    try {
+      const f = JSON.parse(
+        await Deno.readTextFile(join(HOME, ".trinity", "keys", "cf-turn.json")),
+      );
+      id ??= f.token_id;
+      token ??= f.api_token;
+    } catch { /* no TURN key configured */ }
+  }
+  return { id, token };
+}
+
 Deno.serve({ hostname: "127.0.0.1", port: HTTP_PORT }, async (req) => {
   const url = new URL(req.url);
   const p = url.pathname.replace(/^\/mesh/, "") || "/";
@@ -241,6 +259,36 @@ Deno.serve({ hostname: "127.0.0.1", port: HTTP_PORT }, async (req) => {
       return new Response(await Deno.readTextFile(P2P_HTML), {
         headers: { "content-type": "text/html; charset=utf-8", ...CORS },
       });
+    }
+    // Short-lived TURN credentials for the browser, minted by Cloudflare Realtime
+    // (needed when direct/STUN can't traverse the NAT — hairpin-blocking routers,
+    // symmetric NAT). Returns {} when no key is configured → page stays STUN-only.
+    if (p === "/turn-creds") {
+      const { id, token } = await loadTurnKey();
+      if (!id || !token) {
+        return Response.json({ iceServers: [] }, { headers: CORS });
+      }
+      try {
+        const r = await fetch(
+          `https://rtc.live.cloudflare.com/v1/turn/keys/${id}/credentials/generate`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({ ttl: 86400 }),
+          },
+        );
+        return new Response(await r.text(), {
+          status: r.status,
+          headers: { "content-type": "application/json", ...CORS },
+        });
+      } catch (e) {
+        return Response.json({ iceServers: [], error: String(e) }, {
+          headers: CORS,
+        });
+      }
     }
     if (p === "/" || p === "/index.html") {
       return new Response(await Deno.readTextFile(MESH_HTML), {

@@ -40,7 +40,20 @@
     const REGISTRY_URL =
       "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x2F38_voice_pubkeys.json";
     const SIGNAL = `wss://${location.host}/mesh/signal`;
-    const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    let ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    // Pull short-lived TURN creds from the relay (Cloudflare Realtime). With them,
+    // peers behind hairpin-blocking/symmetric NAT still connect (TURN-relayed when
+    // direct fails). Without a key configured, this is a no-op (STUN-only).
+    let turnLoaded = false;
+    async function loadTurn() {
+      if (turnLoaded) return;
+      turnLoaded = true;
+      try {
+        const d = await (await fetch("./turn-creds")).json();
+        const turn = d.iceServers ? (Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]) : [];
+        if (turn.length) { ICE = { iceServers: [...ICE.iceServers, ...turn] }; console.log("TURN enabled:", turn.length, "server(s)"); }
+      } catch { /* stay STUN-only */ }
+    }
     const $ = (id) => document.getElementById(id);
     const enc = new TextEncoder();
     const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -124,7 +137,8 @@
       send({ to: from, type: "answer", sdp: a.sdp });
     }
 
-    function join() {
+    async function join() {
+      await loadTurn(); // ensure TURN creds are in the ICE config before connecting
       const room = $("room").value || "omega";
       setStatus("signaling…");
       ws = new WebSocket(`${SIGNAL}?room=${encodeURIComponent(room)}&id=${myId}`);
@@ -159,6 +173,7 @@
       } catch (e) { $("content").textContent = "couldn't load " + coord + ": " + e.message; }
     }
 
+    loadTurn(); // warm the TURN creds on load
     $("join").onclick = join;
     $("send").onclick = sendChord;
     // convenience: prefill a coord from the relay store
