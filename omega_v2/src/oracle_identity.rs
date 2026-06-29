@@ -105,7 +105,13 @@ mod tests {
 
     #[test]
     fn canonical_v1_oracles_have_non_zero_matrices() {
-        for name in [b"claude" as &[u8], b"codex", b"gemini", b"antigravity", b"kimi"] {
+        for name in [
+            b"claude" as &[u8],
+            b"codex",
+            b"gemini",
+            b"antigravity",
+            b"kimi",
+        ] {
             let (m, inv) = canonical_oracle_v1(name);
             assert_ne!(
                 m, 0,
