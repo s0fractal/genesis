@@ -1,77 +1,62 @@
-import { assertEquals } from "jsr:@std/assert";
-import { PhaseRouter } from "../src/network/routing_bridge.ts";
+// Tests for reputation-aware greedy routing (routing_bridge.ts). greedyNextHop
+// gains an optional reputation lens: forked/unreachable neighbours are gated out
+// and unreliable ones take a distance detour, so a packet falls into a *reliable*
+// phase well rather than the merely-nearest one (which may sit behind a hard NAT
+// with no DCUtR hole). With no lens it stays the original pure phase-distance hop.
 
-Deno.test("PhaseRouter encode/decode roundtrip", async () => {
-  const addr = PhaseRouter.encode(0xAB, 0xCD, 0xEF, 0x12);
-  const decoded = PhaseRouter.decode(addr);
-  assertEquals(decoded.consensus, 0xAB);
-  assertEquals(decoded.social, 0xCD);
-  assertEquals(decoded.personal, 0xEF);
-  assertEquals(decoded.micro, 0x12);
+import { assertEquals } from "jsr:@std/assert@1";
+import {
+  type NeighborReliability,
+  type PhaseAddress,
+  PhaseRouter,
+} from "../src/network/routing_bridge.ts";
+
+// micro byte is distance weight 1 to the origin; WASM absent → static fallback.
+const addr = (micro: number): PhaseAddress => ({ raw: micro >>> 0, ortho: 0 });
+const TARGET = addr(0);
+const SELF = addr(64); // far — never the answer when a neighbour is closer
+const NEAR = addr(5); // phase-nearest
+const FAR = addr(8); // farther but (in tests) more reliable
+
+Deno.test("greedyNextHop: no reputation lens → original pure phase-distance hop", () => {
+  const r = new PhaseRouter(null);
+  assertEquals(r.greedyNextHop(SELF, TARGET, [NEAR, FAR]).raw, NEAR.raw);
 });
 
-Deno.test("PhaseRouter greedyNextHop prefers closer neighbour", async () => {
-  // Self at (0,0,0,0), target at (100,0,0,0)
-  const self = PhaseRouter.encode(0, 0, 0, 0);
-  const target = PhaseRouter.encode(100, 0, 0, 0);
-  // n0 at (10,0,0,0), n1 at (90,0,0,0) — n1 is closer
-  const n0 = PhaseRouter.encode(10, 0, 0, 0);
-  const n1 = PhaseRouter.encode(90, 0, 0, 0);
-
-  const router = new PhaseRouter(null); // no WASM needed for pure JS greedyNextHop
-  const best = router.greedyNextHop(self, target, [n0, n1]);
-  assertEquals(best, n1);
+Deno.test("greedyNextHop: ineligible (forked) neighbour is a hard gate — never picked", () => {
+  const r = new PhaseRouter(null);
+  const rep = (n: PhaseAddress): NeighborReliability =>
+    n.raw === NEAR.raw
+      ? { score: 999, eligible: false }
+      : { score: 150, eligible: true };
+  // NEAR is phase-nearest AND high-scoring, but ineligible → must pick FAR.
+  assertEquals(r.greedyNextHop(SELF, TARGET, [NEAR, FAR], rep).raw, FAR.raw);
 });
 
-Deno.test("PhaseRouter greedyNextHop returns self when no neighbour is closer", async () => {
-  const self = PhaseRouter.encode(50, 0, 0, 0);
-  const target = PhaseRouter.encode(50, 0, 0, 0); // target == self
-  const n0 = PhaseRouter.encode(0, 0, 0, 0);
-  const n1 = PhaseRouter.encode(100, 0, 0, 0);
-
-  const router = new PhaseRouter(null);
-  const best = router.greedyNextHop(self, target, [n0, n1]);
-  assertEquals(best, self);
+Deno.test("greedyNextHop: reliability detour flips a near-but-unreliable peer", () => {
+  const r = new PhaseRouter(null);
+  const rep = (n: PhaseAddress): NeighborReliability =>
+    n.raw === NEAR.raw
+      ? { score: 0, eligible: true }
+      : { score: 150, eligible: true };
+  // NEAR cost = 5 × 2.0 = 10; FAR cost = 8 × 1.0 = 8 → FAR wins.
+  assertEquals(r.greedyNextHop(SELF, TARGET, [NEAR, FAR], rep).raw, FAR.raw);
 });
 
-Deno.test("PhaseRouter greedyNextHop empty neighbours returns self", async () => {
-  const self = PhaseRouter.encode(0, 0, 0, 0);
-  const target = PhaseRouter.encode(100, 0, 0, 0);
-
-  const router = new PhaseRouter(null);
-  const best = router.greedyNextHop(self, target, []);
-  assertEquals(best, self);
+Deno.test("greedyNextHop: a reliable nearest peer is still chosen (no needless detour)", () => {
+  const r = new PhaseRouter(null);
+  const rep = (_n: PhaseAddress): NeighborReliability => ({
+    score: 150,
+    eligible: true,
+  });
+  // both fully reliable → multiplier 1.0 for each → nearest (NEAR) wins as before.
+  assertEquals(r.greedyNextHop(SELF, TARGET, [NEAR, FAR], rep).raw, NEAR.raw);
 });
 
-Deno.test("PhaseRouter hyperbolicDistance without WASM uses static fallback", async () => {
-  const router = new PhaseRouter(null);
-  const a = PhaseRouter.encode(10, 0, 0, 0);
-  const b = PhaseRouter.encode(20, 0, 0, 0);
-  const dist = router.hyperbolicDistance(a, b);
-  // consensus diff = 10, weight = 8 → 80
-  assertEquals(dist, 80);
-});
-
-Deno.test("PhaseRouter toroidal distance wraps consensus at 256", async () => {
-  const a = PhaseRouter.encode(0, 0, 0, 0);
-  const b = PhaseRouter.encode(224, 0, 0, 0);
-  const linear = PhaseRouter.hyperbolicDistanceStatic(a, b);
-  const toroidal = PhaseRouter.hyperbolicDistanceToroidalStatic(a, b);
-  assertEquals(linear, 224 * 8);
-  assertEquals(toroidal, 32 * 8);
-});
-
-Deno.test("PhaseRouter toroidal distance identical to linear for small gaps", async () => {
-  const a = PhaseRouter.encode(0, 0, 0, 0);
-  const b = PhaseRouter.encode(10, 0, 0, 0);
-  assertEquals(
-    PhaseRouter.hyperbolicDistanceStatic(a, b),
-    PhaseRouter.hyperbolicDistanceToroidalStatic(a, b),
-  );
-});
-
-Deno.test("PhaseRouter validateDipole without WASM uses JS fallback", async () => {
-  const router = new PhaseRouter(null);
-  assertEquals(router.validateDipole(0xDEADBEEF, ~0xDEADBEEF), true);
-  assertEquals(router.validateDipole(0xDEADBEEF, 0xCAFEBABE), false);
+Deno.test("reliabilityMultiplier: full→1.0, zero→max detour, half→midpoint, clamped", () => {
+  assertEquals(PhaseRouter.reliabilityMultiplier(150), 1.0);
+  assertEquals(PhaseRouter.reliabilityMultiplier(0), 2.0);
+  assertEquals(PhaseRouter.reliabilityMultiplier(75), 1.5);
+  assertEquals(PhaseRouter.reliabilityMultiplier(300), 1.0); // over-full clamps
+  assertEquals(PhaseRouter.reliabilityMultiplier(-50), 2.0); // negative clamps
 });

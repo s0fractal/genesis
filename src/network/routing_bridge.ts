@@ -97,6 +97,17 @@ export type PhaseAddress = {
 
 export const NULL_ADDRESS: PhaseAddress = { raw: 0, ortho: 0 };
 
+/**
+ * What greedyNextHop needs to know about a neighbour to weigh reliability into
+ * the route. Shaped to drop straight in from reputation_routing.ts's
+ * ReputationScore ({ score, eligible }). `eligible: false` (e.g. a forked or
+ * lost peer) is a hard gate — never forwarded to.
+ */
+export interface NeighborReliability {
+  score: number;
+  eligible: boolean;
+}
+
 export class PhaseRouter {
   constructor(private wasm: WebAssembly.Instance | null) {}
 
@@ -285,17 +296,47 @@ export class PhaseRouter {
     selfAddress: PhaseAddress,
     targetAddress: PhaseAddress,
     neighbours: PhaseAddress[],
+    reputationOf?: (n: PhaseAddress) => NeighborReliability | null,
   ): PhaseAddress {
     let best = selfAddress;
-    let bestDist = this.hyperbolicDistance(selfAddress, targetAddress);
+    let bestCost = this.hyperbolicDistance(selfAddress, targetAddress);
     for (const n of neighbours) {
+      // Reputation gate + reliability detour. With no reputationOf this is the
+      // original pure phase-distance greedy hop. With it: forked / unreachable
+      // neighbours (eligible=false) are skipped entirely, and an unreliable
+      // neighbour's distance is inflated by a detour multiplier — so the packet
+      // falls into a *reliable* phase well, not just the nearest one. Prevents
+      // greedy dead-ends at a phase-nearest peer that sits behind a hard NAT
+      // (no DCUtR hole) once routing rides the live circuit-relay mesh.
+      const rep = reputationOf?.(n);
+      if (rep && !rep.eligible) continue; // hard gate, never picked
       const d = this.hyperbolicDistance(n, targetAddress);
-      if (d < bestDist) {
-        bestDist = d;
+      const cost = rep ? d * PhaseRouter.reliabilityMultiplier(rep.score) : d;
+      if (cost < bestCost) {
+        bestCost = cost;
         best = n;
       }
     }
     return best;
+  }
+
+  /** Healthy, eligible peer reaching this score earns NO detour (multiplier 1). */
+  static readonly REP_FULL_SCORE = 150;
+  /** Worst eligible peer's effective distance is inflated by up to this factor. */
+  static readonly REP_MAX_DETOUR = 1.0;
+
+  /**
+   * Map a reputation score (reputation_routing.ts: base 100, healthy ~150+) to a
+   * distance multiplier in [1, 1 + REP_MAX_DETOUR]. Full reputation → 1.0 (no
+   * detour); score 0 → max detour. Pure + deterministic so every node ranks
+   * hops identically.
+   */
+  static reliabilityMultiplier(score: number): number {
+    const reliability = Math.max(
+      0,
+      Math.min(1, score / PhaseRouter.REP_FULL_SCORE),
+    );
+    return 1 + PhaseRouter.REP_MAX_DETOUR * (1 - reliability);
   }
 
   /**

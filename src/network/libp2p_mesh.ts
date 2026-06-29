@@ -143,6 +143,7 @@ import { gossipsub } from "@chainsafe/libp2p-gossipsub";
 import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
+import { senateVoteWeight } from "./senate_weight.ts";
 
 /**
  * The Mycelial Mesh
@@ -828,42 +829,27 @@ export class Libp2pMesh {
         );
     }
 
-    // Determine resonance weight
-    let weight = 10; // Default peer weight
-
-    // Relativistic Senate (Hyperbolic Time Curvature)
-    // Old laws petrify and lose weight the further away they are in Bitcoin blocks (tau).
-    const currentTau = (this.engine as any).getAnchorTotalBlocks?.() ?? 0;
-    const proposedTau = (record as any).proposedAtTau ?? currentTau;
-    const tauDiff = Math.abs(currentTau - proposedTau);
-    const curvaturePenalty = (tauDiff * 8) +
-      Math.floor((tauDiff * tauDiff) / 1024);
-
-    weight = Math.max(0, weight - curvaturePenalty);
-
-    if (weight === 0) return; // Vote has petrified into dust
-    if (this.livenessAggregator) {
-      // Try to get score from aggregator snapshot
-      const rec = this.livenessAggregator.snapshot().find((s) =>
+    // Determine resonance weight via the pure, deterministic senateVoteWeight.
+    // No Bitcoin-time petrification here: this method already returns early for
+    // accepted laws (record.accepted), so it only ever tallies OPEN-proposal
+    // votes, and deliberation must not decay with time. (The removed time-
+    // curvature penalty ran with an early zero-return BEFORE the oracle/liveness
+    // weighting, silently dropping every vote — oracles included — on a proposal
+    // older than ~2 blocks.)
+    const liveness = this.livenessAggregator
+      ? this.livenessAggregator.snapshot().find((s) =>
         s.spore_id === fromPeer
-      );
-      if (rec) {
-        weight = 10 + (rec.heartbeat_count * 2) +
-          (rec.warrant_votes_observed * 5);
-      }
-    }
-
-    // Oracle weight boost — only for an AUTHENTIC (signed) oracle vote, so a
-    // Sybil presenting a correct public dipole without the key gets no boost.
-    let isOracle = false;
-    if (oracleAuthentic) {
-      isOracle = true;
-      weight = 100;
-      if (this.debate) {
-        weight += this.debate.alignmentScore(plasmid.proposalHash) * 10;
-        if (weight < 50) weight = 50; // Minimum oracle weight
-      }
-    }
+      ) ??
+        null
+      : null;
+    const oracleAlignmentBoost = oracleAuthentic && this.debate
+      ? this.debate.alignmentScore(plasmid.proposalHash) * 10
+      : 0;
+    const weight = senateVoteWeight({
+      liveness,
+      oracleAuthentic,
+      oracleAlignmentBoost,
+    });
 
     if (plasmid.voteAye) {
       if (!record.ayes.has(fromPeer)) {
