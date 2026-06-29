@@ -79,6 +79,13 @@ plane would want DCUtR hole-punching — not yet wired.)
   Ed25519 signature itself (registry from an independent source), so the gateway
   is untrusted by design. Open **`https://relay.myc.md/mesh/`**. (chord
   x3300_955983)
+- **WebRTC signaling switch (browser path, Phase 3):** `/mesh/signal`
+  (WebSocket) is a dumb rendezvous — browsers join a room and the relay forwards
+  SDP offers/answers + ICE between them; once WebRTC connects, content flows
+  browser↔browser DIRECTLY (relay out of the data path). The P2P page is at
+  `/mesh/p2p` (`omega/web/p2p.html`); STUN-only (no TURN yet), so symmetric-NAT
+  pairs fall back to store-and-forward. Signaling proven through Cloudflare; the
+  browser↔browser leg needs two real browsers to confirm.
 - **Tunnel:** Cloudflare named tunnel `omega-relay`
   (`6d6dd544-117b-40aa-9450-ffda7d17e524`), config
   `~/.cloudflared/omega-relay.yml` (ingress

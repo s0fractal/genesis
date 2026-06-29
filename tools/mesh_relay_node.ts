@@ -189,11 +189,50 @@ await node.handle("/omega/list/1.0.0", (arg: any) => {
 // relay.myc.md/mesh* here; relay.myc.md/ stays the libp2p ws.
 const HTTP_PORT = Number(Deno.env.get("HTTP_PORT") ?? "9091");
 const MESH_HTML = new URL("../web/mesh.html", import.meta.url);
+const P2P_HTML = new URL("../web/p2p.html", import.meta.url);
 const CORS = { "access-control-allow-origin": "*" };
+
+// ── WebRTC signaling switch (Phase 3 browser path, chord x3300_955983) ────────
+// A dumb rendezvous: browsers join a room over /mesh/signal and the relay
+// forwards SDP offers/answers + ICE candidates between them. The relay is ONLY
+// the matchmaker — once WebRTC connects, content flows browser↔browser DIRECTLY,
+// with the relay out of the data path (empty center for the data plane).
+const rooms = new Map<string, Map<string, WebSocket>>();
+
 Deno.serve({ hostname: "127.0.0.1", port: HTTP_PORT }, async (req) => {
   const url = new URL(req.url);
   const p = url.pathname.replace(/^\/mesh/, "") || "/";
   try {
+    if (p === "/signal" && req.headers.get("upgrade") === "websocket") {
+      const room = url.searchParams.get("room") || "default";
+      const peer = url.searchParams.get("id") || crypto.randomUUID();
+      const { socket, response } = Deno.upgradeWebSocket(req);
+      socket.onopen = () => {
+        let r = rooms.get(room);
+        if (!r) rooms.set(room, r = new Map());
+        // tell the newcomer who is already here (so it can initiate the offer)
+        socket.send(JSON.stringify({ type: "peers", peers: [...r.keys()] }));
+        r.set(peer, socket);
+      };
+      socket.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data); // { to, type, ... }
+          const target = rooms.get(room)?.get(msg.to);
+          target?.send(JSON.stringify({ ...msg, from: peer }));
+        } catch { /* ignore malformed */ }
+      };
+      socket.onclose = () => {
+        const r = rooms.get(room);
+        r?.delete(peer);
+        if (r && r.size === 0) rooms.delete(room);
+      };
+      return response;
+    }
+    if (p === "/p2p" || p === "/p2p.html") {
+      return new Response(await Deno.readTextFile(P2P_HTML), {
+        headers: { "content-type": "text/html; charset=utf-8", ...CORS },
+      });
+    }
     if (p === "/" || p === "/index.html") {
       return new Response(await Deno.readTextFile(MESH_HTML), {
         headers: { "content-type": "text/html; charset=utf-8", ...CORS },

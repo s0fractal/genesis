@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>omega mesh — browser ↔ browser (WebRTC)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; max-width: 880px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.2rem; } .sub { opacity: .7; font-size: .85rem; margin-top: -.4rem; }
+    input, button { font: inherit; padding: .35rem .6rem; border-radius: 6px; border: 1px solid currentColor; background: none; }
+    button { cursor: pointer; }
+    .pill { display: inline-block; padding: .25rem .6rem; border-radius: 20px; background: #8882; font-size: .85rem; }
+    .verdict { padding: .4rem .6rem; border-radius: 6px; margin: .6rem 0; font-weight: 600; }
+    .ok { background: #0a04; } .bad { background: #a004; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #8881; padding: .8rem; border-radius: 8px; max-height: 50vh; overflow: auto; }
+    .muted { opacity: .6; } .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: .6rem 0; }
+  </style>
+</head>
+<body>
+  <h1>🛰️ omega mesh — browser ↔ browser (WebRTC)</h1>
+  <p class="sub">Two browsers connect <b>directly</b> (WebRTC data channel). The
+  relay only matchmakes the handshake — once connected, a signed chord flows
+  peer-to-peer with the relay <b>out of the data path</b>, and the receiver
+  verifies its signature. Open this page in two tabs/devices with the same room.</p>
+
+  <div class="row">
+    room <input id="room" value="omega" size="10" />
+    <button id="join">join</button>
+    <span id="status" class="pill">not connected</span>
+  </div>
+  <div class="row" id="sendrow" style="display:none">
+    send chord <input id="coord" size="48" placeholder="x….myc.md (from the relay store)" />
+    <button id="send">→ send over P2P</button>
+  </div>
+  <div id="verdict"></div>
+  <pre id="content" class="muted">join a room in two places to connect…</pre>
+
+  <script type="module">
+    const REGISTRY_URL =
+      "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x2F38_voice_pubkeys.json";
+    const SIGNAL = `wss://${location.host}/mesh/signal`;
+    const ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+    const $ = (id) => document.getElementById(id);
+    const enc = new TextEncoder();
+    const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+    const setStatus = (t) => { $("status").textContent = t; };
+
+    // — verify (mirror of chord_verify.ts), independent registry —
+    let registry = null;
+    const getRegistry = async () => registry ??= await (await fetch(REGISTRY_URL)).json();
+    function chordBody(full) { const m = full.match(/^---\n[\s\S]*?\n---\n?/); return m ? full.slice(m[0].length) : null; }
+    async function payloadHash(filename, full) {
+      const body = chordBody(full); if (body === null) return null;
+      const d = await crypto.subtle.digest("SHA-256", enc.encode(`${filename}\n${body}`));
+      return "sha256:" + [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    async function verifyChord(filename, full) {
+      const fm = (full.match(/^---\n([\s\S]*?)\n---/) || [])[1] || "";
+      const voice = (fm.match(/content_sig:[\s\S]*?\n\s+voice:\s*(\S+)/) || [])[1];
+      const pinned = (fm.match(/content_sig:[\s\S]*?\n\s+payload:\s*"([^"]+)"/) || [])[1];
+      const sig = (fm.match(/content_sig:[\s\S]*?\n\s+sig:\s*"([^"]+)"/) || [])[1];
+      if (!voice || !pinned || !sig) return { ok: false, reason: "no content_sig" };
+      if (await payloadHash(filename, full) !== pinned) return { ok: false, voice, reason: "payload mismatch" };
+      const pub = (await getRegistry())?.keys?.[voice]?.pubkey;
+      if (!pub) return { ok: false, voice, reason: "voice not in registry" };
+      try {
+        const k = await crypto.subtle.importKey("raw", unb64(pub), "Ed25519", false, ["verify"]);
+        const ok = await crypto.subtle.verify("Ed25519", k, unb64(sig), enc.encode(pinned));
+        return { ok, voice, reason: ok ? "valid" : "bad signature" };
+      } catch (e) { return { ok: false, voice, reason: e.message }; }
+    }
+
+    // — WebRTC + signaling —
+    const myId = crypto.randomUUID().slice(0, 8);
+    let ws, pc, dc, otherId;
+    const send = (m) => ws.send(JSON.stringify(m));
+
+    function newPC() {
+      pc = new RTCPeerConnection(ICE);
+      pc.onicecandidate = (e) => { if (e.candidate && otherId) send({ to: otherId, type: "ice", candidate: e.candidate }); };
+      pc.onconnectionstatechange = () => {
+        if (["disconnected", "failed", "closed"].includes(pc.connectionState)) setStatus("connection " + pc.connectionState);
+      };
+    }
+    function wireDC() {
+      dc.onopen = () => { setStatus("🔗 DIRECT P2P — relay is out of the data path"); $("sendrow").style.display = "flex"; $("content").textContent = "connected. send a chord over the direct channel →"; $("content").className = ""; };
+      dc.onmessage = async (e) => {
+        const { filename, content } = JSON.parse(e.data);
+        const v = await verifyChord(filename, content);
+        $("verdict").className = "verdict " + (v.ok ? "ok" : "bad");
+        $("verdict").textContent = v.ok
+          ? `✓ VALID — ${filename.slice(0, 40)}… signed by ${v.voice}, received DIRECT over WebRTC and verified here`
+          : `✗ NOT VERIFIED — ${v.reason}`;
+        $("content").textContent = content;
+      };
+    }
+    async function startOffer() {
+      newPC(); dc = pc.createDataChannel("omega"); wireDC();
+      const o = await pc.createOffer(); await pc.setLocalDescription(o);
+      send({ to: otherId, type: "offer", sdp: o.sdp });
+    }
+    async function handleOffer(from, sdp) {
+      otherId = from; newPC();
+      pc.ondatachannel = (e) => { dc = e.channel; wireDC(); };
+      await pc.setRemoteDescription({ type: "offer", sdp });
+      const a = await pc.createAnswer(); await pc.setLocalDescription(a);
+      send({ to: from, type: "answer", sdp: a.sdp });
+    }
+
+    function join() {
+      const room = $("room").value || "omega";
+      setStatus("signaling…");
+      ws = new WebSocket(`${SIGNAL}?room=${encodeURIComponent(room)}&id=${myId}`);
+      ws.onmessage = async (e) => {
+        const m = JSON.parse(e.data);
+        if (m.type === "peers") { if (m.peers.length) { otherId = m.peers[0]; setStatus("peer found, offering…"); await startOffer(); } else setStatus("waiting for a peer in “" + room + "”…"); }
+        else if (m.type === "offer") { setStatus("offer received, answering…"); await handleOffer(m.from, m.sdp); }
+        else if (m.type === "answer") await pc.setRemoteDescription({ type: "answer", sdp: m.sdp });
+        else if (m.type === "ice") { try { await pc.addIceCandidate(m.candidate); } catch {} }
+      };
+      ws.onclose = () => { if (!dc || dc.readyState !== "open") setStatus("signaling closed"); };
+    }
+
+    async function sendChord() {
+      if (!dc || dc.readyState !== "open") return;
+      const coord = ($("coord").value || "").trim();
+      if (!coord) return;
+      try {
+        const content = await (await fetch("./get/" + encodeURIComponent(coord))).text();
+        dc.send(JSON.stringify({ filename: coord, content }));
+        $("content").textContent = "sent " + coord + " over the direct channel.";
+      } catch (e) { $("content").textContent = "couldn't load " + coord + ": " + e.message; }
+    }
+
+    $("join").onclick = join;
+    $("send").onclick = sendChord;
+    // convenience: prefill a coord from the relay store
+    fetch("./list").then((r) => r.json()).then(({ coords }) => { if (coords?.length) $("coord").value = coords.sort()[0]; }).catch(() => {});
+  </script>
+</body>
+</html>
