@@ -37,10 +37,17 @@ git clone --recursive https://github.com/s0fractal/trinity.git
 cd trinity/omega
 #   (already cloned? → git submodule update --init --recursive, then cd omega)
 
-# 2. install the libp2p deps (node_modules is gitignored)
-npm install --legacy-peer-deps
-#   if it errors building node_datachannel (native, for WebRTC which the mesh
-#   client does NOT use), retry: npm install --legacy-peer-deps --ignore-scripts
+# 2. install the libp2p deps EXACTLY as locked (node_modules is gitignored).
+#   Use `npm ci`, NOT `npm install`: ci reproduces the committed package-lock
+#   byte-for-byte, so this node gets the SAME @chainsafe/libp2p-noise (and its
+#   chacha20poly1305 impl) as the origin node. `npm install` can resolve newer
+#   versions whose noise hits node:crypto — the "Unknown cipher chacha20-poly1305"
+#   that broke `push` on a mismatched node.
+npm ci
+#   if it errors building node_datachannel (native WebRTC, unused by the mesh
+#   client), retry: npm ci --ignore-scripts
+#   (if `npm ci` itself refuses, the lock is stale — fall back to
+#    `npm install --legacy-peer-deps` and report it.)
 
 # 3. join the mesh and serve this clone's chords — run it so it OUTLIVES the
 #    session (a Claude/agent background process dies when the turn ends, which
@@ -78,10 +85,19 @@ deno run --allow-net --allow-read --allow-env tools/mesh.ts fetch <chord-file>
 #     moment the network becomes real.
 ```
 
+## Keep it fresh
+
+A node should serve current chords + run current code.
+`sh ~/trinity/node-sync.sh` fetches + fast-forwards the clone (+ submodules) and
+validates it (the post-merge hook type-checks the dispatcher; it never clobbers
+local work). Put it on a timer — see `docs/NODE_SYNC.md` (trinity). After a sync
+that touches `omega/package*`, re-run `npm ci`.
+
 ## Notes
 
-- The mesh client is `tools/mesh.ts` (serve | peers | fetch). It only uses
-  WebSockets + circuit-relay — no WebRTC, no native modules at runtime.
+- The mesh client is `tools/mesh.ts` (serve | peers | fetch | push | get |
+  list). It only uses WebSockets + circuit-relay — no WebRTC, no native modules
+  at runtime.
 - Nothing is written or pushed by `serve`; it only reads + serves local chords.
 - Optional first-contact: drop a new `*.myc.md` file into `../src/`
   (trinity/src) before `serve` and the first node can fetch _content authored on
