@@ -10,7 +10,7 @@
 
 import { createLibp2p } from "libp2p";
 import { webSockets } from "@libp2p/websockets";
-import { noise } from "@chainsafe/libp2p-noise";
+import { noise, pureJsCrypto } from "@chainsafe/libp2p-noise";
 import { yamux } from "@libp2p/yamux";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
 import { identify } from "@libp2p/identify";
@@ -26,7 +26,7 @@ async function mkNode(listen?: string): Promise<any> {
       // libp2p v3 API: `connectionEncrypters` (plural). NOTE: libp2p_mesh.ts still
       // uses the pre-v3 `connectionEncryption` key — v3 ignores it, leaving the
       // node with no security transport (a second reason the mesh never connected).
-      connectionEncrypters: [noise()],
+      connectionEncrypters: [noise({ crypto: pureJsCrypto })],
       streamMuxers: [yamux()],
       services: {
         identify: identify(),

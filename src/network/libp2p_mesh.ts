@@ -136,7 +136,7 @@ export interface SenateProposalRecord {
 
 import { createLibp2p, Libp2p } from "libp2p";
 import { webSockets } from "@libp2p/websockets";
-import { noise } from "@chainsafe/libp2p-noise";
+import { noise, pureJsCrypto } from "@chainsafe/libp2p-noise";
 import { yamux } from "@libp2p/yamux";
 import { kadDHT } from "@libp2p/kad-dht";
 import { gossipsub } from "@chainsafe/libp2p-gossipsub";
@@ -243,7 +243,7 @@ export class Libp2pMesh {
       // `connectionEncryption` is silently ignored → no security transport →
       // the node can't complete a connection. (Surfaced by the Phase-1 mesh
       // proof, tools/mesh_p2p_proof.ts, chord x3300_955774.)
-      connectionEncrypters: [noise()],
+      connectionEncrypters: [noise({ crypto: pureJsCrypto })],
       streamMuxers: [yamux()],
       services: {
         // @ts-ignore

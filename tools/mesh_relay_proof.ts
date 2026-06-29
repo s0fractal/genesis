@@ -8,7 +8,7 @@
 
 import { createLibp2p } from "libp2p";
 import { webSockets } from "@libp2p/websockets";
-import { noise } from "@chainsafe/libp2p-noise";
+import { noise, pureJsCrypto } from "@chainsafe/libp2p-noise";
 import { yamux } from "@libp2p/yamux";
 import { identify } from "@libp2p/identify";
 import {
@@ -26,7 +26,7 @@ async function mkRelay(listen: string): Promise<any> {
     {
       addresses: { listen: [listen] },
       transports: [wsAll],
-      connectionEncrypters: [noise()],
+      connectionEncrypters: [noise({ crypto: pureJsCrypto })],
       streamMuxers: [yamux()],
       services: {
         identify: identify(),
@@ -43,7 +43,7 @@ async function mkPeer(listen: string[] = []): Promise<any> {
     {
       addresses: { listen },
       transports: [wsAll, circuitRelayTransport()],
-      connectionEncrypters: [noise()],
+      connectionEncrypters: [noise({ crypto: pureJsCrypto })],
       streamMuxers: [yamux()],
       services: { identify: identify() },
       connectionGater: { denyDialMultiaddr: () => false },
