@@ -7,6 +7,12 @@ and trinity's `docs/KNOWN_GAPS.md` (the honest недопрацювання ledg
 palimpsest — the substrate moves faster; when a doc and the code disagree, the
 code wins.
 
+> **`CANONICAL.md`** (+ `.json`) is the single load-bearing truth-surface —
+> **generated** from code (`tools/export_canonical.ts`), so its frozen facts
+> (genesis hash, the five v1.1 oracle matrices, custody rule) can't drift, and
+> it points to the source for everything that legitimately changes. Read it
+> first if you just need "what is true." Regenerate / gate with `--check`.
+
 ## If you're an agent, act from here
 
 - **`HOW-TO/ACT.md`** — how to take an action (the action loop, boundaries,

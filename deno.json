@@ -8,7 +8,12 @@
     "verify:slow": "deno task test:integration"
   },
   "fmt": {
-    "exclude": ["**/*.html", "*.html"]
+    "exclude": [
+      "**/*.html",
+      "*.html",
+      "docs/CANONICAL.md",
+      "docs/CANONICAL.json"
+    ]
   },
   "compilerOptions": {
     "lib": [

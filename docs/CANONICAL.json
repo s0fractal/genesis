@@ -1,0 +1,33 @@
+{
+  "schema": "omega.canonical-surface.v0.1",
+  "generated_by": "tools/export_canonical.ts",
+  "genesis": {
+    "hash": "0x549a6307",
+    "op_return": "OMEGA1:549a6307",
+    "self_verifies": true
+  },
+  "senate_v1_1": {
+    "oracles": [
+      "claude",
+      "codex",
+      "gemini",
+      "antigravity",
+      "kimi"
+    ],
+    "matrices": {
+      "claude": "0x41a2f2f4",
+      "codex": "0x0c513f67",
+      "gemini": "0x9874dd21",
+      "antigravity": "0x5b91a998",
+      "kimi": "0x249aa977"
+    },
+    "custody": "The dipole (matrix, !matrix) is a public ADDRESS; authority is a real Ed25519 signature over the vote digest, verified against the keyed registry. The public dipole alone is NOT authority."
+  },
+  "authoritative_sources": {
+    "invariants": "docs/rfc/RFC-OMEGA-001-v1.0.md + docs/FROZEN.md",
+    "live_status": "README.md (omega) + docs/KNOWN_GAPS.md (trinity)",
+    "mesh": "docs/MESH_RELAY.md",
+    "docs_index": "docs/README.md",
+    "how_to_run": "README.md (omega)"
+  }
+}
