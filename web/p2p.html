@@ -46,6 +46,19 @@
     const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
     const setStatus = (t) => { $("status").textContent = t; };
 
+    // Ed25519 verify: native Web Crypto where available (newest browsers),
+    // else fall back to a pure-JS verifier so ANY browser/device works.
+    async function ed25519Verify(sig, msg, pubkey) {
+      try {
+        const k = await crypto.subtle.importKey("raw", pubkey, "Ed25519", false, ["verify"]);
+        return await crypto.subtle.verify("Ed25519", k, sig, msg);
+      } catch (e) {
+        if (!/unrecognized|not supported|Algorithm|operation|InvalidAccess/i.test(e.message)) throw e;
+        const { ed25519 } = await import("https://esm.sh/@noble/curves@1.4.0/ed25519");
+        return ed25519.verify(sig, msg, pubkey);
+      }
+    }
+
     // — verify (mirror of chord_verify.ts), independent registry —
     let registry = null;
     const getRegistry = async () => registry ??= await (await fetch(REGISTRY_URL)).json();
@@ -65,15 +78,14 @@
       const pub = (await getRegistry())?.keys?.[voice]?.pubkey;
       if (!pub) return { ok: false, voice, reason: "voice not in registry" };
       try {
-        const k = await crypto.subtle.importKey("raw", unb64(pub), "Ed25519", false, ["verify"]);
-        const ok = await crypto.subtle.verify("Ed25519", k, unb64(sig), enc.encode(pinned));
+        const ok = await ed25519Verify(unb64(sig), enc.encode(pinned), unb64(pub));
         return { ok, voice, reason: ok ? "valid" : "bad signature" };
       } catch (e) { return { ok: false, voice, reason: e.message }; }
     }
 
     // — WebRTC + signaling —
     const myId = crypto.randomUUID().slice(0, 8);
-    let ws, pc, dc, otherId;
+    let ws, pc, dc, otherId, connectTimer;
     const send = (m) => ws.send(JSON.stringify(m));
 
     function newPC() {
@@ -84,7 +96,7 @@
       };
     }
     function wireDC() {
-      dc.onopen = () => { setStatus("🔗 DIRECT P2P — relay is out of the data path"); $("sendrow").style.display = "flex"; $("content").textContent = "connected. send a chord over the direct channel →"; $("content").className = ""; };
+      dc.onopen = () => { clearTimeout(connectTimer); setStatus("🔗 DIRECT P2P — relay is out of the data path"); $("sendrow").style.display = "flex"; $("content").textContent = "connected. send a chord over the direct channel →"; $("content").className = ""; };
       dc.onmessage = async (e) => {
         const { filename, content } = JSON.parse(e.data);
         const v = await verifyChord(filename, content);
@@ -114,12 +126,20 @@
       ws = new WebSocket(`${SIGNAL}?room=${encodeURIComponent(room)}&id=${myId}`);
       ws.onmessage = async (e) => {
         const m = JSON.parse(e.data);
-        if (m.type === "peers") { if (m.peers.length) { otherId = m.peers[0]; setStatus("peer found, offering…"); await startOffer(); } else setStatus("waiting for a peer in “" + room + "”…"); }
+        // offer the MOST RECENT peer (most likely live, not a stale entry)
+        if (m.type === "peers") { if (m.peers.length) { otherId = m.peers[m.peers.length - 1]; setStatus("peer found, offering…"); await startOffer(); } else setStatus("waiting for a peer in “" + room + "”…"); }
         else if (m.type === "offer") { setStatus("offer received, answering…"); await handleOffer(m.from, m.sdp); }
         else if (m.type === "answer") await pc.setRemoteDescription({ type: "answer", sdp: m.sdp });
         else if (m.type === "ice") { try { await pc.addIceCandidate(m.candidate); } catch {} }
       };
       ws.onclose = () => { if (!dc || dc.readyState !== "open") setStatus("signaling closed"); };
+      // watchdog: if nothing connects, say something actionable (not "failed")
+      clearTimeout(connectTimer);
+      connectTimer = setTimeout(() => {
+        if (!dc || dc.readyState !== "open") {
+          setStatus(`⚠ no peer connected — open this page in a 2nd tab/device, set room “${room}”, and click join in BOTH (a fresh room name avoids stale peers; symmetric-NAT pairs need TURN, not yet wired)`);
+        }
+      }, 15000);
     }
 
     async function sendChord() {

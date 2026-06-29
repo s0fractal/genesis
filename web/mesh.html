@@ -51,6 +51,19 @@
       return registry;
     }
 
+    // Ed25519 verify: native Web Crypto where available (newest browsers), else
+    // fall back to a pure-JS verifier so ANY browser/device works.
+    async function ed25519Verify(sig, msg, pubkey) {
+      try {
+        const k = await crypto.subtle.importKey("raw", pubkey, "Ed25519", false, ["verify"]);
+        return await crypto.subtle.verify("Ed25519", k, sig, msg);
+      } catch (e) {
+        if (!/unrecognized|not supported|Algorithm|operation|InvalidAccess/i.test(e.message)) throw e;
+        const { ed25519 } = await import("https://esm.sh/@noble/curves@1.4.0/ed25519");
+        return ed25519.verify(sig, msg, pubkey);
+      }
+    }
+
     // Mirror of omega/src/network/chord_verify.ts, in Web Crypto.
     function chordBody(full) {
       const m = full.match(/^---\n[\s\S]*?\n---\n?/);
@@ -73,8 +86,7 @@
       const pubkey = (await getRegistry())?.keys?.[voice]?.pubkey;
       if (!pubkey) return { ok: false, voice, reason: `voice ${voice} not in registry` };
       try {
-        const key = await crypto.subtle.importKey("raw", unb64(pubkey), "Ed25519", false, ["verify"]);
-        const ok = await crypto.subtle.verify("Ed25519", key, unb64(sig), enc.encode(pinned));
+        const ok = await ed25519Verify(unb64(sig), enc.encode(pinned), unb64(pubkey));
         return { ok, voice, reason: ok ? "valid signature" : "bad signature" };
       } catch (e) {
         return { ok: false, voice, reason: "crypto error: " + e.message };
