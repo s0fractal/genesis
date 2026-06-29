@@ -90,8 +90,12 @@
 
     function newPC() {
       pc = new RTCPeerConnection(ICE);
-      pc.onicecandidate = (e) => { if (e.candidate && otherId) send({ to: otherId, type: "ice", candidate: e.candidate }); };
+      pc.onicecandidate = (e) => {
+        if (e.candidate) { console.log("local cand:", e.candidate.type, e.candidate.protocol, e.candidate.address); if (otherId) send({ to: otherId, type: "ice", candidate: e.candidate }); }
+      };
+      pc.oniceconnectionstatechange = () => console.log("ICE state:", pc.iceConnectionState);
       pc.onconnectionstatechange = () => {
+        console.log("PC state:", pc.connectionState);
         if (["disconnected", "failed", "closed"].includes(pc.connectionState)) setStatus("connection " + pc.connectionState);
       };
     }
@@ -124,10 +128,12 @@
       const room = $("room").value || "omega";
       setStatus("signaling…");
       ws = new WebSocket(`${SIGNAL}?room=${encodeURIComponent(room)}&id=${myId}`);
+      ws.onopen = () => setStatus("waiting for a peer in “" + room + "”…");
       ws.onmessage = async (e) => {
         const m = JSON.parse(e.data);
-        // offer the MOST RECENT peer (most likely live, not a stale entry)
-        if (m.type === "peers") { if (m.peers.length) { otherId = m.peers[m.peers.length - 1]; setStatus("peer found, offering…"); await startOffer(); } else setStatus("waiting for a peer in “" + room + "”…"); }
+        // a LIVE existing peer is told about each newcomer and initiates to it
+        // (ignore once already paired, so a 3rd tab can't break a live 2-peer link)
+        if (m.type === "newpeer") { if (dc && dc.readyState === "open") return; otherId = m.peer; setStatus("peer joined, offering…"); await startOffer(); }
         else if (m.type === "offer") { setStatus("offer received, answering…"); await handleOffer(m.from, m.sdp); }
         else if (m.type === "answer") await pc.setRemoteDescription({ type: "answer", sdp: m.sdp });
         else if (m.type === "ice") { try { await pc.addIceCandidate(m.candidate); } catch {} }

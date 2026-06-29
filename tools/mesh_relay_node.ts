@@ -210,15 +210,24 @@ Deno.serve({ hostname: "127.0.0.1", port: HTTP_PORT }, async (req) => {
       socket.onopen = () => {
         let r = rooms.get(room);
         if (!r) rooms.set(room, r = new Map());
-        // tell the newcomer who is already here (so it can initiate the offer)
-        socket.send(JSON.stringify({ type: "peers", peers: [...r.keys()] }));
+        // Tell each LIVE existing peer to connect to the newcomer; prune dead
+        // sockets (ghosts from reloaded/closed tabs) so a newcomer is never
+        // matched with a corpse. Existing (confirmed-live) peers initiate.
+        for (const [pid, sock] of [...r]) {
+          if (sock.readyState === WebSocket.OPEN) {
+            sock.send(JSON.stringify({ type: "newpeer", peer }));
+          } else r.delete(pid);
+        }
         r.set(peer, socket);
       };
       socket.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data); // { to, type, ... }
-          const target = rooms.get(room)?.get(msg.to);
-          target?.send(JSON.stringify({ ...msg, from: peer }));
+          const r = rooms.get(room);
+          const target = r?.get(msg.to);
+          if (target && target.readyState === WebSocket.OPEN) {
+            target.send(JSON.stringify({ ...msg, from: peer }));
+          } else if (target && r) r.delete(msg.to); // prune a dead target
         } catch { /* ignore malformed */ }
       };
       socket.onclose = () => {
