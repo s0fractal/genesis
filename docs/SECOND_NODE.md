@@ -37,17 +37,15 @@ git clone --recursive https://github.com/s0fractal/trinity.git
 cd trinity/omega
 #   (already cloned? → git submodule update --init --recursive, then cd omega)
 
-# 2. install the libp2p deps EXACTLY as locked (node_modules is gitignored).
-#   Use `npm ci`, NOT `npm install`: ci reproduces the committed package-lock
-#   byte-for-byte, so this node gets the SAME @chainsafe/libp2p-noise (and its
-#   chacha20poly1305 impl) as the origin node. `npm install` can resolve newer
-#   versions whose noise hits node:crypto — the "Unknown cipher chacha20-poly1305"
-#   that broke `push` on a mismatched node.
+# 2. install the libp2p deps (node_modules is gitignored). `npm ci` reproduces
+#   the committed lock exactly (good hygiene); `npm install --legacy-peer-deps`
+#   also works.
 npm ci
 #   if it errors building node_datachannel (native WebRTC, unused by the mesh
 #   client), retry: npm ci --ignore-scripts
-#   (if `npm ci` itself refuses, the lock is stale — fall back to
-#    `npm install --legacy-peer-deps` and report it.)
+#   NOTE: the old "Unknown cipher chacha20-poly1305" on get/push is FIXED in code
+#   (mesh.ts forces noise({ crypto: pureJsCrypto }) — pure-JS for all payload
+#   sizes, so no node:crypto fallback on any Deno). Just `git pull` to get it.
 
 # 3. join the mesh and serve this clone's chords — run it so it OUTLIVES the
 #    session (a Claude/agent background process dies when the turn ends, which

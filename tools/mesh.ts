@@ -1,14 +1,21 @@
 #!/usr/bin/env -S deno run --allow-net --allow-read --allow-env
-// mesh.ts — the omega mesh client. Turns the proven pieces (live relay +
-// directory + chord-sync + signature verification) into one usable tool.
+// mesh.ts — the omega mesh client.
 //
-//   deno run -A tools/mesh.ts serve            # join the mesh, serve local chords (stay up)
-//   deno run -A tools/mesh.ts peers            # who is on the mesh right now
-//   deno run -A tools/mesh.ts fetch <coord>    # discover a peer, fetch + verify a chord
+// Store-and-forward (RECOMMENDED — robust, async, no live connection needed):
+//   deno run -A tools/mesh.ts push <coord>   # offer a signed chord (relay verifies it)
+//   deno run -A tools/mesh.ts get  <coord>   # pull a chord from the relay store + verify
+//   deno run -A tools/mesh.ts list           # what's cached in the relay store
+//
+// Live peer-to-peer (experimental — fragile over the Cloudflare tunnel):
+//   deno run -A tools/mesh.ts serve          # join, serve local chords (stay up)
+//   deno run -A tools/mesh.ts peers          # who is reserved on the relay now
+//   deno run -A tools/mesh.ts fetch <coord>  # discover a serving peer, fetch + verify
 //
 // Relay is discovered from the membrane (myc.md/.well-known/omega-relay), so the
 // only thing a node needs to know is the membrane URL. Content is verified
 // against the committed voice registry (x2F38) — trust the signature, not the host.
+// (noise uses pureJsCrypto → chacha20-poly1305 works for any payload size on any
+// Deno; cross-machine loop closed both ways — chord x3300_955963.)
 
 import { createLibp2p } from "libp2p";
 import { webSockets } from "@libp2p/websockets";

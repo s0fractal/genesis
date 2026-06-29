@@ -39,25 +39,38 @@ console.log(
 ## Use it (the mesh client)
 
 `tools/mesh.ts` turns the relay into a usable content network — a node knows
-only the membrane URL:
+only the membrane URL. **Store-and-forward is the recommended path** (robust,
+async):
 
 ```
-deno run -A tools/mesh.ts serve          # join, serve your local chords (stay up)
-deno run -A tools/mesh.ts peers          # who is on the mesh right now
-deno run -A tools/mesh.ts fetch <coord>  # discover a peer, fetch + verify a chord
+deno run -A tools/mesh.ts push <coord>   # offer a signed chord — the relay VERIFIES it before caching
+deno run -A tools/mesh.ts get  <coord>   # pull a chord from the relay store + verify the signature
+deno run -A tools/mesh.ts list           # what's cached in the relay store
 ```
 
-`fetch` discovers a serving peer from the relay directory (no hand-fed address),
-pulls the chord through the relay, and **verifies its Ed25519 `content_sig`
-against the committed registry `x2F38`** before printing it — trust the
-signature, not the host. (One-shot request/response; a standing gossipsub data
-plane would want DCUtR hole-punching, not yet wired.)
+A node `push`es when it's up; another `get`s whenever it's up — no simultaneous
+live connection. The relay verifies the Ed25519 `content_sig` against `x2F38`
+before caching, and the reader **re-verifies on get** (trust the hash, not the
+host). The cross-machine loop is proven both ways — see chord `x3300_955963`.
+
+Live peer-to-peer (`serve` / `peers` / `fetch`) also works, but is **fragile
+over the Cloudflare tunnel**: circuit-relay reservations don't reliably persist
+(`NO_RESERVATION`), so a live fetch can miss its window. Store-and-forward
+exists precisely because content doesn't need a live connection. (A durable live
+plane would want DCUtR hole-punching — not yet wired.)
 
 ## How it's wired
 
 - **Relay node:** `omega/tools/mesh_relay_node.ts` (Deno). Persistent libp2p
   identity at `~/.trinity/keys/relay.libp2p.key` (0600, OUTSIDE the repo →
-  stable peer id across restarts). Listens `127.0.0.1:9090/ws`.
+  stable peer id across restarts). Listens `127.0.0.1:9090/ws`. Noise uses
+  `pureJsCrypto` (chacha20-poly1305 for any payload size on any Deno).
+- **Content store:** `/omega/store`·`/omega/get`·`/omega/list` — a verified
+  cache at `~/.omega-mesh-store` (env `OMEGA_STORE`), persisted across restarts;
+  the relay verifies each chord's signature against `x2F38` before caching.
+- **Directory:** `/omega/peers` reports the relay's **reservation set** (the
+  peers reachable via `/p2p-circuit`), not `getConnections()` — the latter is
+  blind to reserved peers.
 - **Tunnel:** Cloudflare named tunnel `omega-relay`
   (`6d6dd544-117b-40aa-9450-ffda7d17e524`), config
   `~/.cloudflared/omega-relay.yml` (ingress
@@ -72,9 +85,10 @@ plane would want DCUtR hole-punching, not yet wired.)
 ## Resonance with the myc.md membrane
 
 Same zone (`myc.md`): the membrane is **SEE** (content), the relay is
-**CONNECT** (mesh). The relay multiaddr above is published in the membrane
-snapshot (`relay_multiaddr`) so a stranger who pulls `myc.md` discovers where to
-dial the mesh — the SEE-membrane is the mesh's bootstrap directory.
+**CONNECT** (mesh). The membrane worker serves the relay multiaddr at
+`https://myc.md/.well-known/omega-relay` (attested + test-locked), so a stranger
+who pulls `myc.md` discovers where to dial the mesh — the SEE-membrane is the
+mesh's bootstrap directory.
 
 ## Operate
 
