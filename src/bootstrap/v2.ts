@@ -362,8 +362,9 @@ export async function bootstrapV2() {
       }) as EventListener,
     );
 
-    // Multi-Oracle Senate. Each canonical oracle (claude, gpt,
-    // gemini, qwen, llama) submits a 64-byte "vision proposal" describing
+    // Multi-Oracle Senate. Each canonical oracle (claude, codex,
+    // gemini, antigravity, kimi — Φ-protocol v1.1) submits a 64-byte "vision
+    // proposal" describing
     // what it believes OMEGA-64 should become next. Cross-oracle
     // resonance (3+ AYE oracles on the same proposal) ratifies the
     // future direction without requiring peer count majority.
@@ -459,10 +460,10 @@ export async function bootstrapV2() {
         } = e.detail;
         const eraDir: Record<string, string> = {
           claude: "Codeicide Law",
-          gpt: "Photonic Substrate",
+          codex: "Photonic Substrate",
           gemini: "Multi-Modal Oracle",
-          qwen: "Bare-Metal Spores",
-          llama: "Bitcoin Hyperbolic Geometry",
+          antigravity: "Bare-Metal Spores",
+          kimi: "Bitcoin Hyperbolic Geometry",
         };
         const taskTitle = eraDir[proposingOracle ?? ""] ?? "Cross-Model Vision";
         const debateMd = (debate as Array<
