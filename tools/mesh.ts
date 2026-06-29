@@ -102,6 +102,26 @@ async function serve() {
   }
   console.log(`serving local chords on the mesh as ${node.peerId.toString()}`);
   console.log(`(discoverable via the relay directory — Ctrl-C to leave)`);
+
+  // Keepalive: a plain serve loses its relay reservation if the connection
+  // blips, and then silently vanishes from the directory. Re-dial the relay
+  // whenever we're not connected to it, so the node STAYS discoverable. (The
+  // two-node bring-up surfaced exactly this: discovery worked once, then the
+  // node dropped off.) Also log presence so an operator can see it's alive.
+  const relayId = RELAY.split("/p2p/")[1];
+  // deno-lint-ignore no-explicit-any
+  const connectedToRelay = () =>
+    node.getConnections().some((c: any) => c.remotePeer.toString() === relayId);
+  setInterval(async () => {
+    if (!connectedToRelay()) {
+      try {
+        await node.dial(multiaddr(RELAY));
+        console.error(`# [${new Date().toISOString()}] re-dialed relay (reservation refreshed)`);
+      } catch (e) {
+        console.error(`# [${new Date().toISOString()}] relay re-dial failed: ${String(e)}`);
+      }
+    }
+  }, 15000);
 }
 
 async function peers() {

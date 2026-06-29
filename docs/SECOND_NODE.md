@@ -24,9 +24,17 @@ npm install --legacy-peer-deps
 #   if it errors building node_datachannel (native, for WebRTC which the mesh
 #   client does NOT use), retry: npm install --legacy-peer-deps --ignore-scripts
 
-# 3. join the mesh and serve this clone's chords (stays up — leave it running)
-deno run --allow-net --allow-read --allow-env tools/mesh.ts serve
+# 3. join the mesh and serve this clone's chords — run it so it OUTLIVES the
+#    session (a Claude/agent background process dies when the turn ends, which
+#    drops the node off the mesh). Use a real terminal you leave open, or nohup:
+nohup deno run --allow-net --allow-read --allow-env tools/mesh.ts serve > mesh-node.log 2>&1 &
+#    then: tail -f mesh-node.log   (to read the peer id + keepalive lines)
 ```
+
+`serve` keeps itself discoverable: it re-dials the relay whenever the connection
+blips (a plain one-shot serve silently loses its relay reservation and vanishes
+from the directory — the first bring-up hit exactly that). It must, however, keep
+*running* — if the process exits, the node leaves the mesh.
 
 `serve` discovers the public relay from the membrane
 (`myc.md/.well-known/omega-relay`), reserves a circuit slot on it, and serves the
