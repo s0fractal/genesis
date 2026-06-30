@@ -1,6 +1,11 @@
 /**
  * Φ-SDK: Passive WebRTC Client
  * Allows read-only observation of an OMEGA-64 peer network.
+ *
+ * NOTE: unused experimental stub. The live browser↔browser path (genplan
+ * x3300_955983, Phase 3) was realized with raw `RTCPeerConnection` in
+ * `omega/web/p2p.html` + the relay's `/mesh/signal` switch, NOT through this
+ * SDK. See `omega/docs/MESH_RELAY.md`.
  */
 import {
   PhaseAgentMinimal,

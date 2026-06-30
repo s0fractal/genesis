@@ -79,17 +79,31 @@ plane would want DCUtR hole-punching — not yet wired.)
   Ed25519 signature itself (registry from an independent source), so the gateway
   is untrusted by design. Open **`https://relay.myc.md/mesh/`**. (chord
   x3300_955983)
-- **WebRTC signaling switch (browser path, Phase 3):** `/mesh/signal`
-  (WebSocket) is a dumb rendezvous — browsers join a room and the relay forwards
-  SDP offers/answers + ICE between them; once WebRTC connects, content flows
-  browser↔browser DIRECTLY (relay out of the data path). The P2P page is at
-  `/mesh/p2p` (`omega/web/p2p.html`); STUN-only (no TURN yet), so symmetric-NAT
-  pairs fall back to store-and-forward. Signaling proven through Cloudflare; the
-  browser↔browser leg needs two real browsers to confirm.
+- **WebRTC browser↔browser (browser path, Phase 3) — CONFIRMED.** `/mesh/signal`
+  (WebSocket) is a dumb rendezvous: browsers join a room and the relay forwards
+  SDP offers/answers + ICE; once WebRTC connects, a signed chord flows
+  browser↔browser DIRECTLY (relay out of the data path) and the receiver
+  verifies it. P2P page at `/mesh/p2p` (`omega/web/p2p.html`). **Proven** with a
+  real Chrome and headless (`tools/browser_p2p_test.ts`, astral): connect +
+  direct chord + VALID. Matchmaking is ghost-proof (live peers offer newcomers,
+  dead sockets pruned); verification is native-Web-Crypto-first with a pure-JS
+  noble fallback so any browser verifies. NB: this is **raw `RTCPeerConnection`
+  in the page**, not `src/sdk/phi_client.ts` (that stub stays unused).
+- **TURN fallback — BUILT, off by default.** `/mesh/turn-creds` mints
+  short-lived Cloudflare Realtime TURN creds (key from env or 0600
+  `~/.trinity/keys/cf-turn.json`, read per request) and the page merges them
+  into ICE — needed only for hairpin-blocking/symmetric NAT (e.g. two tabs
+  behind one no-hairpin router). With no key it degrades to **STUN-only**
+  (`{"iceServers":[]}`). Deferred until a real cross-network user needs it
+  (provisioning needs the CF Realtime product + a `Cloudflare Calls:Edit`
+  token). Same-machine testing: disable Chrome's mDNS obfuscation
+  (`chrome://flags/#enable-webrtc-hide-local-ips-with-mdns` → Disabled) and two
+  tabs connect directly with no TURN.
 - **Tunnel:** Cloudflare named tunnel `omega-relay`
   (`6d6dd544-117b-40aa-9450-ffda7d17e524`), config
-  `~/.cloudflared/omega-relay.yml` (ingress
-  `relay.myc.md → http://localhost:9090`). DNS: CNAME `relay.myc.md` → tunnel.
+  `~/.cloudflared/omega-relay.yml`, **path-routed**: `relay.myc.md/mesh*` →
+  `localhost:9091` (HTTP gateway), `relay.myc.md/` → `localhost:9090` (libp2p
+  ws). DNS: CNAME `relay.myc.md` → tunnel.
 - **Route carve-out:** a Workers route `relay.myc.md/*` with **no worker** (so
   the membrane's `*.myc.md/*` worker does NOT swallow it; traffic falls through
   to the tunnel). The membrane + FQDN subdomains are untouched.
