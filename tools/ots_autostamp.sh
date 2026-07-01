@@ -16,9 +16,21 @@ deno run --allow-net --allow-read --allow-write --allow-env \
 if [ -n "$(git status --porcelain ots/ | grep -v '\.autostamp\.log')" ]; then
   git add ots/ ':!ots/.autostamp.log'
   git commit -q -m "ots: autostamp (routine witness maintenance)" || exit 0
-  git push -q origin main || true
+  # A1: NEVER leave a dangling submodule pin. If the omega push fails (e.g. cron
+  # has no git credentials), undo the local commit so omega stays == its remote,
+  # and do NOT bump the trinity pin. OTS stamps are idempotent — a later run with
+  # credentials redoes them. This is the root fix for the red-public/green-local CI.
+  if ! git push -q origin main 2>>"${LOG}"; then
+    echo "$(date -u +%FT%TZ) OTS PUSH FAILED — reverting local omega commit (no dangling pin)" >>"${LOG}"
+    git reset --hard HEAD~1 >>"${LOG}" 2>&1
+    exit 1
+  fi
+  # Bump the trinity pin ONLY now that omega is confirmed reachable on its remote.
   cd "${ROOT}" || exit 1
   git add omega
   git commit -q -m "omega bump: ots autostamp" || exit 0
-  git push -q origin main || true
+  if ! git push -q origin main 2>>"${LOG}"; then
+    echo "$(date -u +%FT%TZ) TRINITY PUSH FAILED — omega IS pushed (pin reachable); trinity bump stays local" >>"${LOG}"
+    exit 1
+  fi
 fi
