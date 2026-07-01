@@ -153,10 +153,14 @@ export class ZKProverBridge {
   public async verifyExternalProof(bundle: ZKProofBundle): Promise<boolean> {
     // @ts-ignore
     if (typeof Deno === "undefined") {
+      // AUDIT A5 — fail CLOSED. A browser cannot run SP1 STARK verification, and a
+      // fail-OPEN return here let a peer's UNVERIFIED physics rollup be applied
+      // (bootstrap/v2.ts overwriteGPUState on `valid`). An unverifiable proof is
+      // NOT valid; reject it and require relay-side verification instead.
       console.warn(
-        `[zk_prover_bridge] Cannot verify STARK proof via CLI in browser. Assuming soft-proof only.`,
+        `[zk_prover_bridge] Cannot verify STARK proof in browser (no SP1 host) — rejecting (fail-closed). Verify relay-side.`,
       );
-      return true; // Fast-path acceptance in browser since actual SP1 verify is impossible here.
+      return false;
     }
 
     try {
