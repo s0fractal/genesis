@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T08:03:00Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/trinity/omega
+target_repo: .
 companion_protocol: docs/HOW-TO/ANALIZE.md
 ---
 

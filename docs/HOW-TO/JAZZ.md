@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-07T02:30:43Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/Genesis
+target_repo: .
 target_commit: 45084f1
 companion_protocols:
   - docs/HOW-TO/AUTOPOIESIS.md

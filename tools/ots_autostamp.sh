@@ -3,9 +3,9 @@
 # Anchors any new signed chords into Bitcoin via OpenTimestamps and upgrades
 # pending proofs once a block confirms them, then commits + pushes. Free,
 # additive, reversible — deliberately kept OUT of the strict safety-daemon.
-# Drive from cron, e.g.:  */30 * * * * /Users/s0fractal/trinity/omega/tools/ots_autostamp.sh
+# Drive from cron, e.g.:  */30 * * * * /path/to/trinity/omega/tools/ots_autostamp.sh
 set -uo pipefail
-ROOT="${TRINITY_ROOT:-/Users/s0fractal/trinity}"
+ROOT="${TRINITY_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 LOG="${ROOT}/omega/ots/.autostamp.log"
 
 cd "${ROOT}/omega" || exit 1

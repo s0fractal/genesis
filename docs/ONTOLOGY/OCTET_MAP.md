@@ -6,7 +6,7 @@ language: Ukrainian
 code_language: English
 updated_at_utc: 2026-05-06T23:15:55Z
 updated_by: Codex verifier/operator/oracle
-target_repo: /Users/s0fractal/trinity/omega
+target_repo: .
 target_commit: 32bdaf6
 companion_protocols:
   - docs/ONTOLOGY/OCTET.md

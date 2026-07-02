@@ -7,7 +7,7 @@ code_language: English
 updated_at_utc: 2026-05-06T07:55:32Z
 updated_by: Codex verifier/operator/oracle
 repo_commit_at_update: 3168141
-target_repo: /Users/s0fractal/trinity/omega
+target_repo: .
 output_format: strict_markdown
 ---
 
