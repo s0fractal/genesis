@@ -105,9 +105,11 @@ Things the bespoke licence MUST NOT introduce:
   publish their review unless they network-host a modified copy.
 - For **any other party** finding the repo: read, study, fork is allowed under
   AGPLv3 terms. Public deployment must publish source.
-- For **myc / liquid / trinity**: separately licensed (currently unlicensed, all
-  rights reserved). AGPL on omega does not propagate to them because their
-  relationship is federation (file-projection), not code-derivative.
+- For **myc / liquid / trinity**: separately licensed, each under
+  AGPL-3.0-or-later (the federation shares one stance; see each repo's
+  `LICENSE-INTENT.md`). AGPL on omega does not propagate to them because their
+  relationship is federation (file-projection), not code-derivative — they carry
+  the licence in their own right.
 
 ---
 
