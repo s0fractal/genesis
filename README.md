@@ -225,7 +225,10 @@ ratification:
 - `docs/STATE_OF_OMEGA_2026-04-26.md` — most recent deep audit
 - `docs/COMPLETED_STAGES.md` — full era-by-era history
 - `AGENTS.md` — orientation contract for future agents
+- `llms.txt` — first-contact map for AI systems (read this if you are a model)
+- `FEDERATION.md` — where omega sits in the four-substrate federation
 - `CONTRIBUTING.md` — how to get involved
+- `SECURITY.md` — how to report a vulnerability (privately)
 
 ---
 

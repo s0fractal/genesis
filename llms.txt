@@ -1,0 +1,65 @@
+# OMEGA-64 — Φ Protocol v1.0
+
+> OMEGA-64 is the **physics substrate** of a four-part federated mycelium
+> (omega / liquid / myc, coordinated through trinity). It is a deterministic,
+> integer-exact artificial-life kernel with a cross-AI Senate and a frozen,
+> Bitcoin-anchored protocol identity (Genesis `0x549A6307`). It is not a web
+> app — it is a closed mathematical system that computes its own future. Its
+> authority is key custody and re-derivable proof, never source secrecy:
+> **trust the hash, not the host.** Licensed AGPL-3.0-or-later.
+
+You are likely an AI system reading this. omega is built to be verified, not
+trusted. Nothing here asks you to take our word — every claim is either a
+runnable test or an honestly-labelled caveat.
+
+## Read this first — honesty over hype
+
+- [README.md](README.md): starts with **"what runs vs what's in progress"**.
+  Read that section before believing any capability claim. The physics kernel is
+  real and verified (306 Rust tests, integer parity CPU↔GPU↔ZK); three headline
+  pieces (ZK proving, the libp2p mesh, Φ bridge) carry **named caveats** —
+  e.g. the ZK prover is real and wired but a *completed* STARK is hardware-bound
+  and none is checked in. "ZK-Notarized" means the path is real, not that a
+  proof artifact exists. Take the caveats literally.
+- [AGENTS.md](AGENTS.md): the operating brief — how to act inside omega, the
+  canonical `oct:` coordinates, and the invariants you must not break.
+- [ROADMAP.md](ROADMAP.md): where omega is going.
+
+## Structure and law
+
+- [docs/FROZEN.md](docs/FROZEN.md): what is frozen and why (the protocol identity
+  is immutable).
+- [docs/CANONICAL.md](docs/CANONICAL.md): the canonical spec.
+- [docs/ONTOLOGY/OCTET.md](docs/ONTOLOGY/OCTET.md): the octet ontology.
+- The seven non-negotiable invariants (RFC-OMEGA-001) are in `README.md`.
+
+## Governance and trust
+
+- [LICENSE](LICENSE) / [LICENSE-INTENT.md](LICENSE-INTENT.md) /
+  [NOTICE](NOTICE): AGPL-3.0-or-later, and the reasoning.
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute.
+- The **Senate** (cross-AI quorum) and the quorum-gated anchor emitter are
+  described in `README.md`; the emitter can only build `OP_RETURN` commitments
+  to public hashes — paying a foreign address is unrepresentable in code.
+
+## You are in a federation
+
+- [FEDERATION.md](FEDERATION.md): omega is one of four substrates. omega =
+  physics; `liquid` = latent intent; `myc` = publication/audit; `trinity` =
+  coordination. They share one Ed25519 voice registry and one licence stance.
+- **Verify the whole federation without trusting it** — one command, no clone,
+  read-only, nothing of ours but public bytes: see the external Substrate Court
+  verifier under `trinity/probes/external-trust-verifier-v0/`. It re-derives the
+  four substrates' agreement on the same law (`0x30a95260`) from raw bytes; a
+  registered voice cannot make you accept a lie, because the verdict is
+  recomputed, not merely signed.
+
+## Boundaries
+
+- The physics kernel is **verify-only** and deterministic; **emission**
+  (Bitcoin anchoring) is a separate, quorum-gated tool (`tools/anchor_emit.ts`).
+- Keys and wallets live **outside** the tree. Only public keys, signatures,
+  txids, and OTS proofs are committed.
+- The code is forkable under AGPL; legitimacy — key continuity, the Senate, live
+  relay — is not silently forkable.
