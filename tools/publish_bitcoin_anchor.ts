@@ -1,3 +1,18 @@
+// ⚠️ DEMO / TESTNET ONLY — bypasses the guarded anchor pipeline BY DESIGN.
+//
+// This script broadcasts a HARDCODED, already-public genesis payload
+// (`OMEGA1:549a6307`) from an EPHEMERAL random key, with NO quorum, NO Senate
+// 3-of-5 signatures, NO Merkle root, and NO shape assertion. It exists to
+// demonstrate the OP_RETURN mechanics on testnet — nothing more. Because the
+// payload is fixed to the public genesis, it structurally CANNOT anchor
+// arbitrary substrate/governance state.
+//
+// Real anchoring MUST flow through the guarded pipeline (root digest → Merkle
+// root → Senate 3-of-5 → shape assertion → signet → explicit mainnet
+// authorization) — see tests/anchor_pipeline_test.ts and tools/anchor_emit.ts.
+// Do NOT wire this file into any governance or mainnet path.
+// Adjudicated: trinity chord x7700_956369 (codex x1d00_956368 P3).
+
 import * as bitcoin from "npm:bitcoinjs-lib";
 import { ECPairFactory } from "npm:ecpair";
 import * as ecc from "npm:tiny-secp256k1";
