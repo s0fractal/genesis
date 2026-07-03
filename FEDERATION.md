@@ -1,7 +1,8 @@
 # Where omega sits — the federation
 
 You may have arrived at this repository on its own. omega is **not** standalone:
-it is one substrate of a four-part federated mycelium. This file is the map back.
+it is one substrate of a four-part federated mycelium. This file is the map
+back.
 
 ## The four substrates
 
@@ -29,7 +30,7 @@ verification court.
 
 ## Verify the federation without trusting it
 
-The federation's core promise is *"verify us without trusting us."* From
+The federation's core promise is _"verify us without trusting us."_ From
 `trinity`, a stranger runs one command — no clone, read-only network, nothing of
 ours but public bytes — and re-derives the four substrates' agreement from raw
 bodies. A registered voice cannot make you accept a lie, because the verdict is

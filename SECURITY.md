@@ -26,20 +26,20 @@ The highest-value targets:
   Any path that lets it pay a foreign address or write a non-commitment payload
   is critical. Emission is quorum-gated; the physics kernel is verify-only.
 - **Determinism / parity breaks** — a divergence between the CPU, GPU, and ZK
-  paths, or any non-determinism in the frozen kernel, undermines every downstream
-  proof. Integer parity is an invariant, not a nicety.
+  paths, or any non-determinism in the frozen kernel, undermines every
+  downstream proof. Integer parity is an invariant, not a nicety.
 - **Frozen-identity forgery** — anything that lets a fork present itself as the
   canonical Genesis `0x549A6307` protocol.
 
-## What is *not* a vulnerability
+## What is _not_ a vulnerability
 
 - The code is intentionally **public and forkable** under AGPL. A fork is
-  expected; it simply verifies as *unauthenticated* without key continuity.
+  expected; it simply verifies as _unauthenticated_ without key continuity.
 - **Honestly-labelled incompleteness is not a vuln.** The README names its
-  caveats: the ZK prover is real and wired but a *completed* STARK is
+  caveats: the ZK prover is real and wired but a _completed_ STARK is
   hardware-bound and none is checked in; "ZK-Notarized" means the path is real,
   not that an artifact exists. Reporting "the ZK proof isn't completed" is not a
-  finding — it is documented. A *silent* overclaim would be.
+  finding — it is documented. A _silent_ overclaim would be.
 - Keys and wallets are kept **outside** the tree by design.
 
 ## Safe harbor
