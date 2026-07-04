@@ -13,6 +13,13 @@ back.
 | **myc**     | publication & audit — proposal lifecycle, witnesses, finality |
 | **trinity** | coordination — the signed chord ledger and the court          |
 
+**Repositories** (the repo names differ from the substrate names):
+
+- trinity — https://github.com/s0fractal/trinity
+- omega — https://github.com/s0fractal/genesis
+- liquid — https://github.com/s0fractal/liquid_architecture
+- myc — https://github.com/s0fractal/myc
+
 Each has its own authority; the value is in their composition under shared
 invariants, not in any one alone. `trinity` is the meta-layer that binds them:
 the Ed25519 voice registry, the hex-coordinate organ topology, and the external
