@@ -1,3 +1,5 @@
+> **omega — the deterministic, integer-exact physics / kernel substrate** of a four-part federation (trinity / myc / omega / liquid), with a Bitcoin-anchored frozen identity (Genesis `0x549A6307`). Authority is tests, integer traces, Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**. **This is not** a consciousness or art project: "Senate"/"oracle" are keyed Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter, not a calendar year. **Verify one thing:** `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints `0x549a6307`). Map back: [FEDERATION.md](FEDERATION.md).
+
 # OMEGA-64 🧬 — Φ Protocol v1.0 (FROZEN)
 
 **Genesis Hash:** `0x549A6307` · **OP_RETURN:** `OMEGA1:549a6307` · **Active
