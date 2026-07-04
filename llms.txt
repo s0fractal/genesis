@@ -48,6 +48,7 @@ runnable test or an honestly-labelled caveat.
 - [FEDERATION.md](FEDERATION.md): omega is one of four substrates. omega =
   physics; `liquid` = latent intent; `myc` = publication/audit; `trinity` =
   coordination. They share one Ed25519 voice registry and one licence stance.
+- **Verify omega alone (no trinity checkout):** `cargo test -p omega_v2 --test genesis_print -- --nocapture` prints the genesis hash `0x549a6307` — a self-contained proof of the frozen identity, needing nothing but this repo.
 - **Verify the whole federation without trusting it** — one command, no clone,
   read-only, nothing of ours but public bytes: see the external Substrate Court
   verifier under `trinity/probes/external-trust-verifier-v0/`. It re-derives the
