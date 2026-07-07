@@ -132,6 +132,40 @@ fn self_test_receipt() -> MitosisReceiptJson {
     }
 }
 
+/// Build a valid, **non-canonical** Mode-2 receipt for proving an arbitrary
+/// birth event (as opposed to `--self-test`'s fixed 0xCAFEBABE parent with no
+/// attractors). This one uses a different parent genome/memory/energy **and**
+/// one dominant attractor, so the derivation takes the `birth_near_attractor`
+/// branch — exercising a part of the guest circuit the self-test never touches.
+/// The child is derived by the same pure function the host and guest use, so
+/// the receipt passes pre-flight and the guest by construction.
+fn emit_receipt() -> MitosisReceiptJson {
+    let parent = PhaseAgentMinimal {
+        phase: 64,
+        energy: 4200,
+        base_freq: 5,
+        state_flags: 0,
+        genome: 0xA5A5_1234,
+        memory: [0x0BAD_F00D, 7, 11],
+    };
+    let q_phase = 7u32;
+    // Attractor whose phase (matrix & mask) sits on the parent's phase → dominates.
+    let matrix = 64u32;
+    let (inverse, pulse_freq, pulse_amp) = (!matrix, 3u32, 1000u32);
+    let mut arr = AttractorArray::new();
+    arr.set(0, omega_v2::attractor::AttractorMatrix::new(matrix, inverse, pulse_freq, pulse_amp));
+    let child = derive_mitosis_child(&parent, &arr, q_phase);
+    let receipt_hash = hex::encode(child_receipt_hash(&child));
+    MitosisReceiptJson {
+        parent: AgentJson::from_agent(&parent),
+        child: AgentJson::from_agent(&child),
+        attractors: vec![AttractorJson { matrix, inverse, pulse_freq, pulse_amp }],
+        q_phase,
+        receipt_hash,
+        tick: 0,
+    }
+}
+
 fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
     let parent = receipt.parent.to_agent();
     let claimed_child = receipt.child.to_agent();
@@ -433,6 +467,12 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        return;
+    }
+
+    if args.iter().any(|a| a == "--emit-receipt") {
+        // Emit a valid non-canonical receipt JSON to stdout (pipe into a prover run).
+        println!("{}", serde_json::to_string_pretty(&emit_receipt()).unwrap());
         return;
     }
 

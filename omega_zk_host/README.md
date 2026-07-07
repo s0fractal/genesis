@@ -9,11 +9,13 @@ Real SP1 STARK proof generator for OMEGA-64 mitosis events. This is the
 - **Era 1040 Phase 1** ✅ Pure mitosis derivation (Rust + JS + SP1 RISC-V).
 - **Era 1040 Phase 2** ✅ MitosisLog ring buffer + host parent snapshotting.
 - **Era 1040 Phase 3** ✅ **Real SP1 STARK proofs** (this crate).
-- **Completed `cpu` proof checked in** ✅ (2026-07-07) — a real `stark-cpu`
-  proof of the canonical self-test receipt was generated and locally verified on
-  a 48 GB machine, then independently re-verified from disk via `--verify-only`.
-  The 5.57 MB bundle lives at [`proofs/selftest_cpu.json`](proofs/); see
-  [`proofs/README.md`](proofs/README.md). The `real_proof.rs` gate reproduces it.
+- **Completed `cpu` proofs checked in** ✅ (2026-07-07) — three real, independently
+  re-verifiable STARKs generated and verified on a 48 GB machine:
+  `selftest_cpu` (Mode 2, canonical), `arbitrary_cpu` (Mode 2, non-canonical
+  parent **+ dominant attractor** — a branch the self-test never hits), and
+  `rollup_cpu` (Mode 3, 4-agent physics rollup). All in [`proofs/`](proofs/);
+  see [`proofs/README.md`](proofs/README.md). The `real_proof.rs` gate reproduces
+  the self-test one.
 
 ## Why a separate workspace
 
@@ -39,11 +41,18 @@ cd omega_zk_host && cargo build --release
 ## Usage
 
 ```bash
-# Self-test (uses canonical 0xCAFEBABE parent → 0xD434E690 receipt):
+# Self-test (canonical 0xCAFEBABE parent, no attractors):
 ./target/release/omega_zk_host --self-test
 
 # Prove an arbitrary receipt (JSON via stdin):
 cat receipt.json | ./target/release/omega_zk_host
+
+# Emit a valid non-canonical receipt (different parent + a dominant attractor),
+# then prove it — no need to hand-craft JSON:
+./target/release/omega_zk_host --emit-receipt | ./target/release/omega_zk_host
+
+# Prove a Mode 3 physics rollup over a 4-agent snapshot:
+./target/release/omega_zk_host --rollup-test
 ```
 
 Real self-test output (`SP1_PROVER=cpu`, from the checked-in

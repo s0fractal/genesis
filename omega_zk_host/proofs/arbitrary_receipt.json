@@ -1,0 +1,37 @@
+{
+  "parent": {
+    "phase": 64,
+    "energy": 4200,
+    "base_freq": 5,
+    "state_flags": 0,
+    "genome": 2779058740,
+    "memory": [
+      195948557,
+      7,
+      11
+    ]
+  },
+  "child": {
+    "phase": 128,
+    "energy": 1023,
+    "base_freq": 5,
+    "state_flags": 16777448,
+    "genome": 2779058804,
+    "memory": [
+      64,
+      7,
+      11
+    ]
+  },
+  "attractors": [
+    {
+      "matrix": 64,
+      "inverse": 4294967231,
+      "pulse_freq": 3,
+      "pulse_amp": 1000
+    }
+  ],
+  "qPhase": 7,
+  "receiptHash": "965ca89466f4bb25bf9c32e3c25cc606837846f5fe37b58ac9fb9b7a97266ad3",
+  "tick": 0
+}
