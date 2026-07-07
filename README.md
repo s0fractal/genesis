@@ -12,21 +12,27 @@ that computes its own future direction.
 
 ---
 
-## Status — what runs vs what's in progress (2026-06)
+## Status — what runs vs what's in progress (2026-07)
 
 OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust
 tests; integer parity across CPU↔GPU↔ZK). Three headline pieces carry **honest
 caveats**, named here (see `AGENTS.md`):
 
-- **ZK proving: real prover wired (default), a full proof is hardware-bound.**
+- **ZK proving is REAL, and a completed STARK is checked in (since 2026-07-07).**
   `omega_zk_host` selects its prover from `SP1_PROVER`
   (`ProverClient::from_env()`): **`cpu` by default — a real local STARK** (no
   GPU / network / spend), `mock` opt-in for fast dev, `network` (Succinct) for
-  offload. The mock-only backend is gone. The cpu path compiles and _begins_
-  genuine STARK generation; **completing** a full proof needs ~16 GB+ RAM (or
-  `network`) and OOMs on an 8 GB box, so no completed proof is checked in.
-  "ZK-Notarized" below means the path is wired and the prover is real — not that
-  a STARK artifact is committed.
+  offload. The mock-only backend is gone. Completing a full cpu proof is
+  hardware-bound — ~16 GB+ RAM and minutes of proving; it OOMs on an 8 GB box —
+  so for a while no completed artifact was checked in. **That gap is now closed:**
+  a real `stark-cpu` proof of the canonical self-test receipt
+  (`0x1b18eea0…`, parent genome `0xcafebabe`) was generated and locally verified
+  on a 48 GB machine, and the 5.57 MB proof bundle is committed at
+  [`omega_zk_host/proofs/selftest_cpu.json`](omega_zk_host/proofs/). It
+  independently re-verifies via `omega_zk_host --verify-only`, and the
+  `real_proof.rs` gate (`SP1_PROVER=cpu … --ignored`) reproduces it green.
+  "ZK-Notarized" below now means the path is wired, the prover is real, **and** a
+  verified STARK artifact is committed.
 - **The libp2p mesh is LIVE, and content flows across machines (since
   2026-06-29).** A public circuit-relay-v2 relay (`relay.myc.md`, discovered
   from the membrane at `myc.md/.well-known/omega-relay`) is a **verified content
@@ -51,8 +57,8 @@ caveats**, named here (see `AGENTS.md`):
 The frozen protocol identity, the integer physics, the local simulation, and (as
 of 2026-06-28) **Bitcoin anchoring** and the **libp2p mesh** (relay + content +
 self-discovery) are genuine. The **browser / WebRTC** path (live SDP signaling)
-is still roadmap. ZK proving is real by default (cpu), completing a full proof
-is hardware-bound (above).
+is still roadmap. ZK proving is real by default (cpu), and a completed cpu STARK
+proof is now checked in (hardware-bound to generate; above).
 
 The honesty caveats are **executable** — `tests/honesty_triad_test.ts` locks
 them: the **browser / WebRTC path** (`phi_client` SDP) must stay honestly marked

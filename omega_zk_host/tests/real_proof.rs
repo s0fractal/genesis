@@ -1,12 +1,16 @@
-// Real cpu STARK proof validation — the completion of the "без моків" work that
-// this project's 8 GB dev box cannot run (SP1 cpu proving needs ~16 GB+ RAM and
-// OOMs here; see omega_zk_host/README.md). It is therefore `#[ignore]`d, so a
-// normal `cargo test` skips it and never OOMs. On adequate hardware, run:
+// Real cpu STARK proof validation — the completion of the "без моків" work.
+// SP1 cpu proving needs ~16 GB+ RAM and OOMs on an 8 GB box, so this is
+// `#[ignore]`d — a normal `cargo test` skips it and never OOMs. On adequate
+// hardware, run:
 //
 //   SP1_PROVER=cpu cargo test -p omega_zk_host --test real_proof -- --ignored --nocapture
 //
 // A green run is the proof — not the claim — that omega generates a REAL STARK
 // (kind == "stark-cpu", verified) and has NOT silently regressed back to mock.
+//
+// Run green on a 48 GB machine on 2026-07-07 (~43 min in a debug build); the
+// resulting bundle is checked in at omega_zk_host/proofs/selftest_cpu.json and
+// re-verifies via `omega_zk_host --verify-only`. See omega_zk_host/README.md.
 
 use std::process::Command;
 
