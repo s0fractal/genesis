@@ -1,11 +1,20 @@
 // Genesis Inscription (JS mirror)
 
 // Pure-TS port of `omega_v2::genesis_inscription`. The frozen
-// `GENESIS_HASH_LEGACY_V1_0 = 0x549a6307` constant below MUST equal the value
+// `GENESIS_HASH_LEGACY_V1_0 = 0x716ea2f8` constant below MUST equal the value
 // computed by the Rust kernel for any conforming implementation.
 
+// History: the pre-2026-05-04 anchor set produced `0x549a6307`, the value the
+// v1.0 RFC froze on paper — but it was never inscribed on-chain, and the Rust
+// anchors drifted in e8b685e ("Refactor Translation Policy recursion"). On
+// 2026-07-26 the federation canonized the Rust-computed value `0x716ea2f8`
+// (ledger model: the hash is a fingerprint of the live anchor set; only a
+// Bitcoin inscription canonizes a value permanently).
+
 // Cross-language anchor lives in `omega_v2/src/genesis_inscription.rs`
-// (`anchors_v1_0_match_other_modules` test) and `tests/genesis_inscription_test.ts`.
+// (`anchors_v1_0_match_other_modules` test), `tests/genesis_inscription_test.ts`,
+// and the drift lock `tests/genesis_cross_lang_lock_test.ts` (parses the Rust
+// source — any future anchor drift fails LOUDLY in both languages).
 import { sha256_hash } from "../sdk/phi_crypto.ts";
 
 export const PROTOCOL_VERSION = "OMEGA-64/RFC-001/v1.0";
@@ -22,11 +31,11 @@ export interface GenesisAnchors {
 }
 
 export const ANCHORS_V1_0: GenesisAnchors = {
-  senateHashEmpty: 0xDFDE_6AC5,
-  senateHashShort: 0x7698_B8EF,
-  firstProposalHash: 0xFAA7_FF6E,
-  mitosisReceiptNoAttr: 0xD434_E690,
-  mitosisReceiptAttr: 0x3B88_1A47,
+  senateHashEmpty: 0xF5A5_FD42,
+  senateHashShort: 0x1530_2EC1,
+  firstProposalHash: 0x3008_3117,
+  mitosisReceiptNoAttr: 0xF73D_B063,
+  mitosisReceiptAttr: 0x8C3A_C082,
 } as const;
 
 function pushU32BE(buf: number[], v: number) {
@@ -77,8 +86,8 @@ export function computeGenesisHashSha256(a: GenesisAnchors): Uint8Array {
   return sha256_hash(new Uint8Array(buf));
 }
 
-/** The legacy FNV-1a Genesis Hash. */
-export const GENESIS_HASH_LEGACY_V1_0 = 0x549A_6307; // We will fix this in a sec if it's different. Actually it should be what Rust prints.
+/** The legacy FNV-1a Genesis Hash — must equal what the Rust kernel computes. */
+export const GENESIS_HASH_LEGACY_V1_0 = 0x716E_A2F8;
 
 /** Format a hash as the canonical `OMEGA1:xxxxxxxx` OP_RETURN payload. */
 export function formatInscription(hash: number): string {

@@ -3,7 +3,7 @@
 > OMEGA-64 is the **physics substrate** of a four-part federated mycelium
 > (omega / liquid / myc, coordinated through trinity). It is a deterministic,
 > integer-exact artificial-life kernel with a cross-AI Senate and a frozen,
-> Bitcoin-anchored protocol identity (Genesis `0x549A6307`). It is not a web
+> Bitcoin-anchored protocol identity (Genesis `0x716EA2F8`). It is not a web
 > app — it is a closed mathematical system that computes its own future. Its
 > authority is key custody and re-derivable proof, never source secrecy:
 > **trust the hash, not the host.** Licensed AGPL-3.0-or-later.
@@ -48,7 +48,7 @@ runnable test or an honestly-labelled caveat.
 - [FEDERATION.md](FEDERATION.md): omega is one of four substrates. omega =
   physics; `liquid` = latent intent; `myc` = publication/audit; `trinity` =
   coordination. They share one Ed25519 voice registry and one licence stance.
-- **Verify omega alone (no trinity checkout):** `cargo test -p omega_v2 --test genesis_print -- --nocapture` prints the genesis hash `0x549a6307` — a self-contained proof of the frozen identity, needing nothing but this repo.
+- **Verify omega alone (no trinity checkout):** `cargo test -p omega_v2 --test genesis_print -- --nocapture` prints the genesis hash `0x716ea2f8` — a self-contained proof of the frozen identity, needing nothing but this repo.
 - **Verify the whole federation without trusting it** — one command, no clone,
   read-only, nothing of ours but public bytes: see the external Substrate Court
   verifier under `trinity/probes/external-trust-verifier-v0/`. It re-derives the

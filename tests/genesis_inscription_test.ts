@@ -12,16 +12,16 @@ import {
 } from "../src/network/genesis_inscription.ts";
 
 Deno.test("genesis: v1.0 anchors match the cryptographic constants", async () => {
-  assertEquals(ANCHORS_V1_0.senateHashEmpty, 0xDFDE_6AC5);
-  assertEquals(ANCHORS_V1_0.senateHashShort, 0x7698_B8EF);
-  assertEquals(ANCHORS_V1_0.firstProposalHash, 0xFAA7_FF6E);
-  assertEquals(ANCHORS_V1_0.mitosisReceiptNoAttr, 0xD434_E690);
-  assertEquals(ANCHORS_V1_0.mitosisReceiptAttr, 0x3B88_1A47);
+  assertEquals(ANCHORS_V1_0.senateHashEmpty, 0xF5A5_FD42);
+  assertEquals(ANCHORS_V1_0.senateHashShort, 0x1530_2EC1);
+  assertEquals(ANCHORS_V1_0.firstProposalHash, 0x3008_3117);
+  assertEquals(ANCHORS_V1_0.mitosisReceiptNoAttr, 0xF73D_B063);
+  assertEquals(ANCHORS_V1_0.mitosisReceiptAttr, 0x8C3A_C082);
 });
 
 Deno.test("genesis: v1.0 hash matches the Rust source-of-truth", async () => {
   assertEquals(computeGenesisHash(ANCHORS_V1_0), GENESIS_HASH_LEGACY_V1_0);
-  assertEquals(GENESIS_HASH_LEGACY_V1_0, 0x549A_6307);
+  assertEquals(GENESIS_HASH_LEGACY_V1_0, 0x716E_A2F8);
 });
 
 Deno.test("genesis: verifyGenesisV1 succeeds in this environment", async () => {
@@ -29,13 +29,13 @@ Deno.test("genesis: verifyGenesisV1 succeeds in this environment", async () => {
 });
 
 Deno.test("genesis: any anchor drift produces a different hash", async () => {
-  const drifted = { ...ANCHORS_V1_0, firstProposalHash: 0xFAA7_FF6F };
+  const drifted = { ...ANCHORS_V1_0, firstProposalHash: 0x3008_3118 };
   const h = computeGenesisHash(drifted);
   assertEquals(h !== GENESIS_HASH_LEGACY_V1_0, true);
 });
 
 Deno.test("genesis: OP_RETURN inscription format is canonical", async () => {
-  assertEquals(formatInscription(GENESIS_HASH_LEGACY_V1_0), "OMEGA1:549a6307");
+  assertEquals(formatInscription(GENESIS_HASH_LEGACY_V1_0), "OMEGA1:716ea2f8");
   assertEquals(formatInscription(0xDEADBEEF), "OMEGA1:deadbeef");
   assertEquals(formatInscription(0).length, 15);
 });

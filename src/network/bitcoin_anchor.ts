@@ -83,8 +83,8 @@ export async function verifyGenesisInscription(
     if (!tx || !tx.vout) return false;
 
     const expectedPayload = formatInscription(expectedHash);
-    // OMEGA1:549a6307
-    // In OP_RETURN, the scriptpubkey.asm looks like: "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3534396136333037"
+    // OMEGA1:716ea2f8
+    // In OP_RETURN, the scriptpubkey.asm looks like: "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3731366561326638"
     // We can just encode the expected string to hex and look for it.
 
     const enc = new TextEncoder();

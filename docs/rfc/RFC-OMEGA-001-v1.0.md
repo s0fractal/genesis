@@ -1,5 +1,18 @@
 # RFC-OMEGA-001 — Φ Protocol v1.0 (FROZEN)
 
+> **⚠ ERRATA (2026-07-26): canonical v1.0 Genesis Hash is `0x716EA2F8`.**
+> This frozen text records `0x549A6307`, the value derived from the anchor set
+> current on the freeze date (2026-04-25). Commit `e8b685e` (2026-05-04,
+> "Refactor Translation Policy recursion") re-derived the five frozen anchors,
+> moving the FNV-1a genesis to `0x716EA2F8` (`OMEGA1:716ea2f8`). Because
+> `OMEGA1:549a6307` was **never broadcast on-chain** (see
+> `GENESIS_INSCRIPTION_CEREMONY.md` — inscription still pending), no notarized
+> identity is contradicted; the correction was made before carving. The
+> generated source of truth is [`docs/CANONICAL.md`](../CANONICAL.md); the
+> historical `0x549A6307` values below are left intact as the record of what was
+> frozen on paper. A cross-language lock test now prevents silent re-drift
+> (`tests/genesis_cross_lang_lock_test.ts`).
+
 > **Status:** **FROZEN** — Era 1050 Genesis Inscription performed. **Genesis
 > Hash:** `0x549A6307` **OP_RETURN Payload:** `OMEGA1:549a6307` **Date Frozen:**
 > 2026-04-25 **Protocol Identifier:** `OMEGA-64/RFC-001/v1.0` (21 ASCII bytes)

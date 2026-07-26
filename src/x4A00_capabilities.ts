@@ -58,10 +58,10 @@ const OMEGA_CAPABILITIES: CapabilityRecord[] = [
     source: "deterministic_exec",
     kind: "AST evolution",
     detail:
-      "deterministic AST evolution, reproducible from the 0x549A6307 genesis anchor",
+      "deterministic AST evolution, reproducible from the 0x716EA2F8 genesis anchor",
     fidelity: "real",
     caveat:
-      "0x549A6307 is a deterministic genesis hash, cross-language byte-matched (Rust + TS), reproducible — it is NOT a Bitcoin inscription; the on-chain txid hook (window.__OMEGA_GENESIS_TXID__) is unset",
+      "0x716EA2F8 is a deterministic genesis hash, cross-language byte-matched (Rust + TS), reproducible — it is NOT a Bitcoin inscription; the on-chain txid hook (window.__OMEGA_GENESIS_TXID__) is unset",
   },
   {
     name: "SPORE apply",

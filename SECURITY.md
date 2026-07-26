@@ -29,7 +29,7 @@ The highest-value targets:
   paths, or any non-determinism in the frozen kernel, undermines every
   downstream proof. Integer parity is an invariant, not a nicety.
 - **Frozen-identity forgery** — anything that lets a fork present itself as the
-  canonical Genesis `0x549A6307` protocol.
+  canonical Genesis `0x716EA2F8` protocol.
 
 ## What is _not_ a vulnerability
 

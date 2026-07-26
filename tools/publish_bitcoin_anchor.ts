@@ -1,7 +1,7 @@
 // ⚠️ DEMO / TESTNET ONLY — bypasses the guarded anchor pipeline BY DESIGN.
 //
 // This script broadcasts a HARDCODED, already-public genesis payload
-// (`OMEGA1:549a6307`) from an EPHEMERAL random key, with NO quorum, NO Senate
+// (`OMEGA1:716ea2f8`) from an EPHEMERAL random key, with NO quorum, NO Senate
 // 3-of-5 signatures, NO Merkle root, and NO shape assertion. It exists to
 // demonstrate the OP_RETURN mechanics on testnet — nothing more. Because the
 // payload is fixed to the public genesis, it structurally CANNOT anchor
@@ -21,7 +21,7 @@ const ECPair = ECPairFactory(ecc);
 const network = bitcoin.networks.testnet;
 
 // Genesis Hash from src/network/genesis_inscription.ts
-const GENESIS_PAYLOAD = "OMEGA1:549a6307";
+const GENESIS_PAYLOAD = "OMEGA1:716ea2f8";
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

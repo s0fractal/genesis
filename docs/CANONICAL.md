@@ -10,8 +10,8 @@ its authoritative source, linked at the bottom — not copied here (copies rot).
 
 ## Genesis identity (frozen)
 
-- **Genesis hash:** `0x549a6307`
-- **OP_RETURN payload:** `OMEGA1:549a6307`
+- **Genesis hash:** `0x716ea2f8`
+- **OP_RETURN payload:** `OMEGA1:716ea2f8`
 - **Self-verifies:** `true` (`verifyGenesisV1()` recomputes it from `ANCHORS_V1`)
 
 ## Senate — Φ-protocol v1.1 (frozen seats)

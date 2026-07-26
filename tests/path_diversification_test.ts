@@ -32,7 +32,7 @@ Deno.test("dedup: high-priority frame types include WARRANT_VOTE", async () => {
 
 Deno.test("dedup: warrant vote is high-priority", async () => {
   const wv = buildWarrantVote(0xCAFE_BABE >>> 0, 0, true, 1);
-  const hb = buildHeartbeat(0x549A_6307, 1);
+  const hb = buildHeartbeat(0x716E_A2F8, 1);
   assert(isHighPriority(wv));
   assert(!isHighPriority(hb));
 });
@@ -84,7 +84,7 @@ Deno.test("plan: low-priority frame stays single-path", async () => {
     { label: "north", hops: [rep("n1", 250)] },
     { label: "south", hops: [rep("s1", 250)] },
   ];
-  const plan = planDiversification(candidates, buildHeartbeat(0x549A_6307, 1));
+  const plan = planDiversification(candidates, buildHeartbeat(0x716E_A2F8, 1));
   assertEquals(plan.duplicated, false);
   assertEquals(plan.secondary, undefined);
 });

@@ -125,8 +125,15 @@ pub fn protected_status_for(
     }
     // Philosophy Vector 9/13: Rite of Passage (Sanctuary)
     // Must be positively resonant and demonstrate Philosophical Alignment via Proof-of-Work
-    const GENESIS_ANCHOR_HASH: u32 = 0x549A_6307;
-    let pow_hash = crate::math::xorshift32_once(agent.genome ^ GENESIS_ANCHOR_HASH);
+    //
+    // NOTE: This is a FROZEN consensus salt, NOT the Genesis Inscription hash.
+    // It was seeded from the v1.0 genesis value (0x549A6307) that was current
+    // when this law was written. The genesis hash later drifted to 0x716EA2F8
+    // (anchor refactor e8b685e), but this salt MUST stay 0x549A6307: it feeds
+    // sanctuary classification, so changing it alters lattice evolution and
+    // would re-derive a *different* genesis. Do not "canonicalize" it.
+    const SANCTUARY_POW_SALT: u32 = 0x549A_6307;
+    let pow_hash = crate::math::xorshift32_once(agent.genome ^ SANCTUARY_POW_SALT);
     if resonance_score == 0 || pow_hash > 0x1FFFFFFF {
         return STATUS_UNPROTECTED;
     }

@@ -92,8 +92,9 @@ fn validate_anchors() -> bool {
         return false;
     }
 
-    // (3) Genesis Hash.
-    if omega_v2::genesis_inscription::GENESIS_HASH_LEGACY_V1_0 != 0x549A_6307 {
+    // (3) Genesis Hash. Canonical v1.0 identity after the e8b685e anchor
+    // refactor (was 0x549A6307 on paper, never inscribed on-chain).
+    if omega_v2::genesis_inscription::GENESIS_HASH_LEGACY_V1_0 != 0x716E_A2F8 {
         return false;
     }
 
@@ -167,7 +168,7 @@ fn spore_main() -> ! {
     };
 
     lattice.ignite_epigenetic_big_bang(
-        0x549A_6307,
+        0x716E_A2F8,
         64, // agent count
         &omega_v2::epigenetics::EpigeneticMemory::new(),
         &hw_trng_noise

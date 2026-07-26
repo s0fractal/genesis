@@ -3,6 +3,15 @@
 > **Performed:** 2026-04-25 **Era:** 1050 (Open Protocol Stamping) **Status:**
 > PROTOCOL FROZEN
 
+> **⚠ ERRATA (2026-07-26): the canonical payload is now `OMEGA1:716ea2f8`**
+> (`0x716EA2F8`). The `OMEGA1:549a6307` recorded throughout this ceremony was
+> the value at freeze time; commit `e8b685e` (2026-05-04) re-derived the five
+> anchors and moved the genesis hash. Since this inscription was **never
+> broadcast on-chain** (see the pending-inscription note below), the correction
+> costs nothing on the ledger. Canonical source: [`CANONICAL.md`](CANONICAL.md).
+> Historical `549a6307` values below are retained as the record of the paper
+> freeze.
+
 ---
 
 ## The Inscription

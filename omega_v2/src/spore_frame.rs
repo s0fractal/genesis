@@ -699,11 +699,11 @@ mod tests {
 
     #[test]
     fn heartbeat_round_trips() {
-        let frame = SporeFrame::heartbeat(0x549A_6307, 12345);
+        let frame = SporeFrame::heartbeat(0x716E_A2F8, 12345);
         let bytes = frame.as_bytes();
         let parsed = SporeFrame::from_bytes(&bytes).expect("valid heartbeat");
         assert_eq!(parsed.frame_type, FRAME_TYPE_HEARTBEAT);
-        assert_eq!(parsed.proposal_or_target, 0x549A_6307);
+        assert_eq!(parsed.proposal_or_target, 0x716E_A2F8);
         assert_eq!(parsed.tick, 12345);
     }
 

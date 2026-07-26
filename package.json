@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Deterministic GPU-accelerated artificial life simulation with P2P WebRTC mesh",
   "era": "2060 (Translation Policy Spine Compression)",
-  "genesisHash": "0x549A6307",
-  "opReturn": "OMEGA1:549a6307",
+  "genesisHash": "0x716EA2F8",
+  "opReturn": "OMEGA1:716ea2f8",
   "protocol": "OMEGA-64/RFC-001/v1.0 (FROZEN)",
   "type": "module",
   "scripts": {

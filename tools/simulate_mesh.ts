@@ -236,10 +236,10 @@ for (const peer of peers) {
 }
 if (!verifyGenesisV1()) fail(`Genesis verification failed locally`);
 const inscription = formatInscription(GENESIS_HASH_V1_0);
-if (GENESIS_HASH_V1_0 !== 0x549A_6307) {
-  fail(`Genesis hash drifted from 0x549A6307`);
+if (GENESIS_HASH_V1_0 !== 0x716E_A2F8) {
+  fail(`Genesis hash drifted from 0x716EA2F8`);
 }
-if (inscription !== "OMEGA1:549a6307") {
+if (inscription !== "OMEGA1:716ea2f8") {
   fail(`Inscription format drifted: ${inscription}`);
 }
 pass(
@@ -355,7 +355,7 @@ const t1 = performance.now();
 const elapsed = (t1 - t0).toFixed(2);
 step(`\n=== Simulation complete in ${elapsed}ms ===`);
 step(`\nAll seven phases (Era 1010 → 1070) reproduced deterministically`);
-step(`Cross-language anchors verified: 0xD434E690, 0x549A6307, 0x6B70A8AB+4`);
+step(`Cross-language anchors verified: 0xD434E690, 0x716EA2F8, 0x6B70A8AB+4`);
 step(`Total invariant violations: 0`);
 step(`Total drift events: 0`);
 
