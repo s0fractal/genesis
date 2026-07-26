@@ -30,11 +30,14 @@ no reader over-trusts a capability. Federation-wide gaps live in trinity's
 
 ## Bare-metal spore (`omega_spore`)
 
-- Does **not** currently build for its bare-metal target. The `PhaseTopology`
-  literal was fixed (added `alpha`), but `omega_v2`'s `spore` feature gates out
-  `codeicide_law` / `senate` / `attractor` while `lattice::darwinian_mitosis`
-  (and several `lib.rs` warrant/quorum fns) still reference them. Making the
-  minimal surface compile is a dedicated feature-gating pass, not done here.
+- Builds for its bare-metal target (`cargo build --release
+  --manifest-path omega_spore/Cargo.toml --target thumbv7em-none-eabihf` →
+  a ~17 KB firmware binary). The `spore` feature omits the sanctuary/mitosis
+  sweep (`lattice::darwinian_mitosis` + the `v2_mitosis_sweep` FFI export), which
+  pulls in `codeicide_law`; the spore does not carry that path.
+- Its `README.md` anchor table lists ten anchors but `validate_anchors()` only
+  checks two (the empty-senate FNV64 fold and the genesis hash) — the table
+  overstates what the firmware verifies.
 
 ## Dev tools
 
