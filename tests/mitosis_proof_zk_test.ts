@@ -8,6 +8,9 @@ Deno.test({
   fn: async () => {
     const cmd = new Deno.Command("deno", {
       args: ["run", "-A", "tools/zk_prove_mitosis.ts", "--self-test"],
+      // Pin the mock prover: the host default is `cpu` (a real ~minutes-long
+      // STARK). The test targets the fast mock path (kind "stark-mock").
+      env: { SP1_PROVER: "mock" },
       stdout: "piped",
       stderr: "inherit",
     });

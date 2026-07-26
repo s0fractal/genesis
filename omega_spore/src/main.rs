@@ -154,9 +154,9 @@ fn spore_main() -> ! {
         q_radial: 3, // 8 wide
         q_math: 20,
         weather_multiplier: 1024,
+        alpha: 64, // Sakaguchi-Kuramoto phase lag ≈ 90° (canonical default)
         _pad1: 0,
         _pad2: 0,
-        _pad3: 0,
     };
 
     let mut lattice = unsafe {

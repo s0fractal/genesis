@@ -12,6 +12,6 @@ bench = false
 
 [dependencies]
 omega_v2 = { path = "../omega_v2" }
-sp1-zkvm = "6.1.0"
+sp1-zkvm = "=6.3.1"
 
 

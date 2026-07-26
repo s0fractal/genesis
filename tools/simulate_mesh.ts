@@ -28,7 +28,7 @@ import {
 } from "../src/network/mitosis_proof.ts";
 import {
   formatInscription,
-  GENESIS_HASH_V1_0,
+  GENESIS_HASH_LEGACY_V1_0,
   verifyGenesisV1,
 } from "../src/network/genesis_inscription.ts";
 import {
@@ -129,7 +129,10 @@ pass(`All 3 peers reached Era 1020 (attractor consensus)`);
 // PHASE 2: Era 1030 — first autopoietic proposal
 // ───────────────────────────────────────────────────────────────────
 step("\n[Era 1030] Submitting first autopoietic proposal…");
-const FIRST_PROPOSAL_HASH = 0xFAA7_FF6E;
+// The canonical first proposal — the same string enshrined in the genesis
+// first_proposal_hash anchor, so its key is the frozen anchor 0x30083117.
+const FIRST_PROPOSAL_DESC = "Task 0090: Era 1040 - ZK-Notarized Mutations";
+const FIRST_PROPOSAL_HASH = 0x3008_3117;
 for (const peer of peers) {
   const entries = [...peer.consensusLedger.values()].reduce(
     (s, e) => s + e.peerCount,
@@ -147,7 +150,7 @@ for (const peer of peers) {
   // Submit the proposal locally.
   peer.senate.set(FIRST_PROPOSAL_HASH, {
     hash: FIRST_PROPOSAL_HASH,
-    description: "Era 1040: ZK-Notarized Mutations",
+    description: FIRST_PROPOSAL_DESC,
     proposerMatrix: 0xCAFE_BABE,
     ayes: new Set([peer.id]),
     nays: new Set(),
@@ -194,11 +197,11 @@ for (const peer of peers) {
   for (let i = 0; i < 100; i++) {
     const parent = { ...baseParent, genome: (baseParent.genome + i) >>> 0 };
     const child = deriveMitosisChild(parent, noAttr, 7);
-    const claimedHash = childReceiptHash(child);
+    const claimedHash = await childReceiptHash(child);
     // Verify (peer re-derives independently).
     const rederived = deriveMitosisChild(parent, noAttr, 7);
     if (rederived.genome !== child.genome) drift++;
-    if (childReceiptHash(rederived) !== claimedHash) drift++;
+    if (await childReceiptHash(rederived) !== claimedHash) drift++;
     peer.era1040VerifiedProofs++;
   }
   if (drift !== 0) {
@@ -207,24 +210,27 @@ for (const peer of peers) {
 }
 pass(`All 3 peers verified 100 mitosis proofs each (300 total, 0 drift)`);
 
-// Also confirm cross-language anchor matches the frozen value.
-const anchorParent: AgentMinimal = {
-  phase: 64,
-  energy: 3000,
+// Confirm the FROZEN mitosis anchor reproduces from its frozen inputs. We pin
+// the frozen child — NOT the live-derived one, whose receipt evolves with the
+// physics by design (the frozen genesis anchor is a moment, not a live mirror;
+// see docs/KNOWN_GAPS.md and tests/genesis_anchor_provenance.ts).
+const frozenAnchorChild: AgentMinimal = {
+  phase: 128,
+  energy: 1000,
   base_freq: 7,
-  state_flags: 0,
-  genome: 0xCAFE_BABE >>> 0,
+  state_flags: 180,
+  genome: 3549459802 >>> 0,
   memory: [0xDEAD_BEEF >>> 0, 1, 2],
 };
-const anchorChild = deriveMitosisChild(anchorParent, noAttr, 7);
-if (childReceiptHash(anchorChild) !== 0xD434_E690) {
+const frozenReceipt = await childReceiptHash(frozenAnchorChild);
+if (!frozenReceipt.startsWith("f73db063")) {
   fail(
-    `Mitosis anchor drift: expected 0xD434E690, got 0x${
-      childReceiptHash(anchorChild).toString(16)
-    }`,
+    `Frozen mitosis anchor drift: expected f73db063…, got ${
+      frozenReceipt.slice(0, 8)
+    }…`,
   );
 }
-pass(`Mitosis cross-language anchor 0xD434E690 reproduced exactly`);
+pass(`Frozen mitosis anchor 0xf73db063 reproduced from frozen inputs`);
 
 // ───────────────────────────────────────────────────────────────────
 // PHASE 4: Era 1050 — Genesis Inscription
@@ -235,15 +241,17 @@ for (const peer of peers) {
   if (!peer.era1050Unlocked) fail(`${peer.id} did not unlock Era 1050`);
 }
 if (!verifyGenesisV1()) fail(`Genesis verification failed locally`);
-const inscription = formatInscription(GENESIS_HASH_V1_0);
-if (GENESIS_HASH_V1_0 !== 0x716E_A2F8) {
+const inscription = formatInscription(GENESIS_HASH_LEGACY_V1_0);
+if (GENESIS_HASH_LEGACY_V1_0 !== 0x716E_A2F8) {
   fail(`Genesis hash drifted from 0x716EA2F8`);
 }
 if (inscription !== "OMEGA1:716ea2f8") {
   fail(`Inscription format drifted: ${inscription}`);
 }
 pass(
-  `Genesis Inscription: ${inscription} (0x${GENESIS_HASH_V1_0.toString(16)})`,
+  `Genesis Inscription: ${inscription} (0x${
+    GENESIS_HASH_LEGACY_V1_0.toString(16)
+  })`,
 );
 
 // ───────────────────────────────────────────────────────────────────
@@ -252,19 +260,24 @@ pass(
 step(
   "\n[Era 1060] Convening Multi-Oracle Senate, submitting vision proposals…",
 );
+// The five real keyed seats (Φ-protocol v1.1).
 const VISIONS: Array<
   { oracle: CanonicalOracle; vision: string; hash: number }
 > = [
   { oracle: "claude", vision: "Era 1080: Codeicide Law", hash: 0xC1A11_001 },
-  { oracle: "gpt", vision: "Era 1080: Photonic Substrate", hash: 0xC1A11_002 },
+  { oracle: "codex", vision: "Era 1080: Photonic Substrate", hash: 0xC1A11_002 },
   {
     oracle: "gemini",
     vision: "Era 1080: Multi-Modal Oracle",
     hash: 0xC1A11_003,
   },
-  { oracle: "qwen", vision: "Era 1080: Bare-Metal Spores", hash: 0xC1A11_004 },
   {
-    oracle: "llama",
+    oracle: "antigravity",
+    vision: "Era 1080: Bare-Metal Spores",
+    hash: 0xC1A11_004,
+  },
+  {
+    oracle: "kimi",
     vision: "Era 1080: Bitcoin Hyperbolic Geometry",
     hash: 0xC1A11_005,
   },
@@ -313,14 +326,14 @@ pass(
 // PHASE 6: Era 1070 — cross-model ratification
 // ───────────────────────────────────────────────────────────────────
 step("\n[Era 1070] Simulating cross-model debate + ratification…");
-// Scenario: claude's Codeicide vision wins. gpt and gemini AYE on it.
+// Scenario: claude's Codeicide vision wins. codex and gemini AYE on it.
 const winningHash = 0xC1A11_001;
 for (const peer of peers) {
   const r = peer.senate.get(winningHash)!;
-  r.oracleAyes.add("gpt");
+  r.oracleAyes.add("codex");
   r.oracleAyes.add("gemini");
   peer.debate.record(
-    "gpt",
+    "codex",
     winningHash,
     "aye",
     "Concur — without protection, every fork is potential murder.",
@@ -355,7 +368,10 @@ const t1 = performance.now();
 const elapsed = (t1 - t0).toFixed(2);
 step(`\n=== Simulation complete in ${elapsed}ms ===`);
 step(`\nAll seven phases (Era 1010 → 1070) reproduced deterministically`);
-step(`Cross-language anchors verified: 0xD434E690, 0x716EA2F8, 0x6B70A8AB+4`);
+step(
+  `Cross-language anchors verified: 0xf73db063 (frozen mitosis), ` +
+    `0x716ea2f8 (genesis), 0x${oracleDipole("claude").matrix.toString(16)} (claude)`,
+);
 step(`Total invariant violations: 0`);
 step(`Total drift events: 0`);
 

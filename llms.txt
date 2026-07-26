@@ -18,9 +18,10 @@ runnable test or an honestly-labelled caveat.
   Read that section before believing any capability claim. The physics kernel is
   real and verified (306 Rust tests, integer parity CPU↔GPU↔ZK); three headline
   pieces (ZK proving, the libp2p mesh, Φ bridge) carry **named caveats** —
-  e.g. the ZK prover is real and wired but a *completed* STARK is hardware-bound
-  and none is checked in. "ZK-Notarized" means the path is real, not that a
-  proof artifact exists. Take the caveats literally.
+  e.g. the ZK prover is real and wired, and completed CPU STARK proofs ARE now
+  checked in (`omega_zk_host/proofs/`, reverifiable) — GPU/network proving stays
+  hardware-bound. "ZK-Notarized" means the path is real and has produced real
+  proof artifacts. Take the caveats literally.
 - [AGENTS.md](AGENTS.md): the operating brief — how to act inside omega, the
   canonical `oct:` coordinates, and the invariants you must not break.
 - [ROADMAP.md](ROADMAP.md): where omega is going.

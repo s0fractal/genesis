@@ -7,6 +7,10 @@ Deno.test({
     const cmd = new Deno.Command("cargo", {
       args: ["run", "--release", "--", "--rollup-test"],
       cwd: "omega_zk_host",
+      // Pin the mock prover: the host default is `cpu` (prover_mode()), which
+      // would emit "stark-cpu-rollup" and need real proving. The test targets
+      // the fast mock path, so request it explicitly.
+      env: { SP1_PROVER: "mock" },
       stdout: "piped",
       stderr: "piped",
     });
