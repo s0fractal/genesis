@@ -397,6 +397,7 @@ pub extern "C" fn v2_get_golden_trace() -> u32 {
     }
 }
 
+#[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_sweep() -> u32 {
     unsafe {
@@ -1076,7 +1077,7 @@ pub extern "C" fn v2_apply_senate_patch(
 // Genesis Inscription FFI
 
 /// The frozen Genesis Hash for OMEGA-64 v1.0.
-/// Returns 0x549A6307 unless the kernel has drifted from the canonical anchors.
+/// Returns 0x716EA2F8 unless the kernel has drifted from the canonical anchors.
 #[no_mangle]
 pub extern "C" fn v2_genesis_hash_v1() -> u32 {
     crate::genesis_inscription::GENESIS_HASH_LEGACY_V1_0

@@ -3,7 +3,7 @@ import { assert } from "jsr:@std/assert";
 // Honesty gate (omega's boundary, codex's organ thesis + the omega audit): the
 // capability surface must declare a machine-readable fidelity for EVERY capability,
 // and it must NOT silently re-introduce the Bitcoin-inscription over-claim —
-// 0x549A6307 is a deterministic computed anchor, not an on-chain inscription.
+// 0x716EA2F8 is a deterministic computed anchor, not an on-chain inscription.
 Deno.test("omega capabilities surface honest fidelity, no Bitcoin-inscription over-claim", async () => {
   const path =
     new URL("../src/x4A00_capabilities.ts", import.meta.url).pathname;

@@ -2,8 +2,8 @@
   "schema": "omega.canonical-surface.v0.1",
   "generated_by": "tools/export_canonical.ts",
   "genesis": {
-    "hash": "0x549a6307",
-    "op_return": "OMEGA1:549a6307",
+    "hash": "0x716ea2f8",
+    "op_return": "OMEGA1:716ea2f8",
     "self_verifies": true
   },
   "senate_v1_1": {

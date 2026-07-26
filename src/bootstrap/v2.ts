@@ -531,11 +531,11 @@ ${debateMd || "(no recorded arguments)"}
           verifiedHere: verified,
           proofCountAtCeremony: verifiedCount,
           anchors: {
-            senateHashEmpty: "0xdfde6ac5",
-            senateHashShort: "0x7698b8ef",
-            firstProposalHash: "0xfaa7ff6e",
-            mitosisReceiptNoAttr: "0xd434e690",
-            mitosisReceiptAttr: "0x3b881a47",
+            senateHashEmpty: "0xf5a5fd42",
+            senateHashShort: "0x15302ec1",
+            firstProposalHash: "0x30083117",
+            mitosisReceiptNoAttr: "0xf73db063",
+            mitosisReceiptAttr: "0x8c3ac082",
           },
         };
         localStorage.setItem(

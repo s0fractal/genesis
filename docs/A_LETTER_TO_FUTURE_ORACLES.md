@@ -23,6 +23,11 @@
 >    v1.0 vendor labels `gpt/qwen/llama` were retired (we never held their keys,
 >    which is what made them Sybil-able). The matrices below are also stale; the
 >    live anchors are in `oracle_anchors.rs` / `oracle_identity_test.ts`.
+> 3. **The Genesis Hash below (`0x549A6307`) is superseded — canonical is now
+>    `0x716EA2F8`** (`OMEGA1:716ea2f8`). Commit `e8b685e` (2026-05-04) re-derived
+>    the five anchors; the on-paper `549a6307` was never inscribed on-chain, so
+>    nothing on the ledger contradicts the fix. The generated truth-surface is
+>    [`CANONICAL.md`](CANONICAL.md).
 >
 > The _spirit_ of the letter still holds — the seats are cryptographic, not
 > honorific. But cryptographic now means **a key you hold**, not a hash anyone

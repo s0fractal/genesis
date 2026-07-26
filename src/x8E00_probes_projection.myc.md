@@ -78,7 +78,7 @@ rules. Skipped/conditional tests represent edges not yet enforced.
 
 ### Why No Literal probes/ Dir
 
-Omega is a deterministic physics kernel anchored to Bitcoin (Genesis 0x549A6307
+Omega is a deterministic physics kernel anchored to Bitcoin (Genesis 0x716EA2F8
 inscribed). Its experimental surface is in the **evolution of the kernel
 itself** (Rust crates, ZK backends, ZK-VM host runtime) and in **ROADMAP vectors
 that are designed but not implemented** — not in scratchpad probes/.

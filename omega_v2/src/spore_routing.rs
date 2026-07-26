@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn warrant_vote_forwards_and_decrements_ttl() {
         let f = fresh_warrant(0xCAFE_BABE, 0, 100);
-        let d = decide_forward(&f, 0xAAAA_AAAA, 0x549A_6307);
+        let d = decide_forward(&f, 0xAAAA_AAAA, 0x716E_A2F8);
         assert_eq!(d.code, FWD_DELIVER_LOCAL);
         assert_eq!(frame_ttl(&d.forwarded_frame), DEFAULT_TTL - 1);
         assert!(d.forwarded_frame.is_valid());
@@ -193,15 +193,15 @@ mod tests {
 
     #[test]
     fn heartbeat_forwards_when_genesis_matches() {
-        let f = fresh_heartbeat(0x549A_6307, 1);
-        let d = decide_forward(&f, 0x1234_5678, 0x549A_6307);
+        let f = fresh_heartbeat(0x716E_A2F8, 1);
+        let d = decide_forward(&f, 0x1234_5678, 0x716E_A2F8);
         assert_eq!(d.code, FWD_FORWARD);
     }
 
     #[test]
     fn heartbeat_dropped_when_genesis_drifted() {
         let f = fresh_heartbeat(0xDEAD_BEEF, 1);
-        let d = decide_forward(&f, 0x1234_5678, 0x549A_6307);
+        let d = decide_forward(&f, 0x1234_5678, 0x716E_A2F8);
         assert_eq!(d.code, FWD_DROP_NOT_FORWARDABLE);
     }
 
@@ -210,7 +210,7 @@ mod tests {
         let mut f = fresh_warrant(0xCAFE_BABE, 0, 0);
         f = stamp_origin(f, 0);
         f.crc32 = f.compute_crc();
-        let d = decide_forward(&f, 0xAAAA, 0x549A_6307);
+        let d = decide_forward(&f, 0xAAAA, 0x716E_A2F8);
         assert_eq!(d.code, FWD_DROP_TTL_ZERO);
     }
 
@@ -220,7 +220,7 @@ mod tests {
         f.frame_type = 99;
         f = stamp_origin(f, DEFAULT_TTL);
         f.crc32 = f.compute_crc();
-        let d = decide_forward(&f, 0xAAAA, 0x549A_6307);
+        let d = decide_forward(&f, 0xAAAA, 0x716E_A2F8);
         assert_eq!(d.code, FWD_DROP_NOT_FORWARDABLE);
     }
 
@@ -243,7 +243,7 @@ mod tests {
         let mut f = fresh_warrant(0xCAFE_BABE, 0, 0);
         let spores = [0x1111_1111u32, 0x2222_2222, 0x3333_3333];
         for s in spores {
-            let d = decide_forward(&f, s, 0x549A_6307);
+            let d = decide_forward(&f, s, 0x716E_A2F8);
             assert_eq!(d.code, FWD_DELIVER_LOCAL);
             f = d.forwarded_frame;
         }
@@ -256,7 +256,7 @@ mod tests {
         let mut f = fresh_warrant(0xCAFE_BABE, 0, 0);
         let mut hops = 0;
         loop {
-            let d = decide_forward(&f, 0x1000_0000 + hops as u32, 0x549A_6307);
+            let d = decide_forward(&f, 0x1000_0000 + hops as u32, 0x716E_A2F8);
             if d.code == FWD_DROP_TTL_ZERO {
                 break;
             }
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn forwarded_frame_carries_valid_crc() {
         let f = fresh_warrant(0xCAFE_BABE, 1, 50);
-        let d = decide_forward(&f, 0xBBBB_BBBB, 0x549A_6307);
+        let d = decide_forward(&f, 0xBBBB_BBBB, 0x716E_A2F8);
         // Must be parseable from bytes (CRC checks out).
         let bytes = d.forwarded_frame.as_bytes();
         let parsed = SporeFrame::from_bytes(&bytes);

@@ -621,6 +621,9 @@ impl PhaseLattice {
     }
     /// ERA 3000: Darwinian Sweep (Called 1Hz from JS Snapshot Extraction)
     /// Finds thriving cells (>MITOSIS_THRESHOLD ATP) and immediately replicates them into the nearest Dead slot (0 ATP).
+    // Gated off the minimal bare-metal `spore` build: it pulls in codeicide_law
+    // (sanctuary histograms / senate settings), which the spore does not carry.
+    #[cfg(not(feature = "spore"))]
     pub fn darwinian_mitosis(&mut self) -> u32 {
         if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
             return 0;

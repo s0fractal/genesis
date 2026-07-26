@@ -6,9 +6,9 @@ import {
 } from "../src/network/bitcoin_anchor.ts";
 
 Deno.test("formatInscription matches canonical OMEGA-64 payload", async () => {
-  // 0x549A6307
-  const payload = formatInscription(0x549A6307);
-  assertEquals(payload, "OMEGA1:549a6307");
+  // 0x716EA2F8
+  const payload = formatInscription(0x716EA2F8);
+  assertEquals(payload, "OMEGA1:716ea2f8");
 });
 
 Deno.test({
@@ -29,7 +29,7 @@ Deno.test("verifyGenesisInscription parses mock mempool.space response successfu
   const originalFetch = globalThis.fetch;
   const MOCK_TXID = "mock_txid_123";
 
-  // "OMEGA1:549a6307" in hex is 4f4d454741313a3534396136333037
+  // "OMEGA1:716ea2f8" in hex is 4f4d454741313a3731366561326638
   globalThis.fetch = async (url: string | URL | Request) => {
     if (url.toString().includes(`api/tx/${MOCK_TXID}`)) {
       return new Response(
@@ -43,7 +43,7 @@ Deno.test("verifyGenesisInscription parses mock mempool.space response successfu
             {
               scriptpubkey_type: "op_return",
               scriptpubkey_asm:
-                "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3534396136333037",
+                "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3731366561326638",
             },
           ],
         }),
@@ -54,10 +54,10 @@ Deno.test("verifyGenesisInscription parses mock mempool.space response successfu
   };
 
   try {
-    const valid = await verifyGenesisInscription(MOCK_TXID, 0x549A6307);
+    const valid = await verifyGenesisInscription(MOCK_TXID, 0x716EA2F8);
     assertEquals(valid, true);
 
-    const invalid = await verifyGenesisInscription("wrong_txid", 0x549A6307);
+    const invalid = await verifyGenesisInscription("wrong_txid", 0x716EA2F8);
     assertEquals(invalid, false);
   } finally {
     globalThis.fetch = originalFetch;

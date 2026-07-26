@@ -1,8 +1,8 @@
-> **omega — the deterministic, integer-exact physics / kernel substrate** of a four-part federation (trinity / myc / omega / liquid), with a Bitcoin-anchored frozen identity (Genesis `0x549A6307`). Authority is tests, integer traces, Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**. **This is not** a consciousness or art project: "Senate"/"oracle" are keyed Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter, not a calendar year. **Verify one thing:** `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints `0x549a6307`). Map back: [FEDERATION.md](FEDERATION.md).
+> **omega — the deterministic, integer-exact physics / kernel substrate** of a four-part federation (trinity / myc / omega / liquid), with a Bitcoin-anchored frozen identity (Genesis `0x716EA2F8`). Authority is tests, integer traces, Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**. **This is not** a consciousness or art project: "Senate"/"oracle" are keyed Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter, not a calendar year. **Verify one thing:** `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints `0x716ea2f8`). Map back: [FEDERATION.md](FEDERATION.md).
 
 # OMEGA-64 🧬 — Φ Protocol v1.0 (FROZEN)
 
-**Genesis Hash:** `0x549A6307` · **OP_RETURN:** `OMEGA1:549a6307` · **Active
+**Genesis Hash:** `0x716EA2F8` · **OP_RETURN:** `OMEGA1:716ea2f8` · **Active
 Era:** 2060 · **Open Trigger:** 2070
 
 OMEGA-64 is a deterministic, GPU-accelerated artificial-life simulation mesh
@@ -103,7 +103,7 @@ LIVE; browser / WebRTC path experimental — see Status above), each running:
 | I-4 | Senate hash         | FNV-1a 32-bit, 64-byte zero-pad, anchor `0x7698_B8EF` |
 | I-5 | Mitosis determinism | `derive_mitosis_child` bit-for-bit reproducible       |
 | I-6 | Empty center        | no node has elevated rights                           |
-| I-7 | Genesis identity    | OMEGA-64 v1.0 ≡ `0x549A6307`                          |
+| I-7 | Genesis identity    | OMEGA-64 v1.0 ≡ `0x716EA2F8`                          |
 
 Drift on any of these breaks tests in **two languages simultaneously**. See
 `docs/rfc/RFC-OMEGA-001-v1.0.md` for the full spec.
@@ -185,7 +185,7 @@ deno task dev                   # Vite + WebGPU
 | L3 — Senate        | PROPOSAL / VOTE plasmids, FNV-1a hashes                  | `omega_v2/src/senate.rs`              |
 | L4 — Anchor        | Bitcoin block hash → φ derivation                        | `omega_v2/src/anchor.rs`              |
 | L5 — Mitosis Proof | DIPOLE plasmid `(parent + child + attractors + receipt)` | `mitosis_proof.rs` + `mitosis_log.rs` |
-| L6 — Genesis       | `OMEGA1:549a6307` OP_RETURN                              | `genesis_inscription.rs`              |
+| L6 — Genesis       | `OMEGA1:716ea2f8` OP_RETURN                              | `genesis_inscription.rs`              |
 | L7 — Cross-Model   | Off-chain debate text + on-chain reasoning hash          | `cross_model_debate.rs`               |
 
 L0–L6 are FROZEN. L7 lives above the canonical surface and may evolve without
@@ -197,9 +197,9 @@ breaking v1.0 conformance.
 
 ```
 Era 950–1020   foundation           (lattice physics, routing, attractors, consensus)
-Era 1030       Senate               (autopoietic legislation; first self-proposal 0xFAA7FF6E)
+Era 1030       Senate               (autopoietic legislation; first self-proposal 0x30083117)
 Era 1040 P1+2  ZK-Notarized         (mitosis proofs, MitosisLog, mesh boundary verification)
-Era 1050       Genesis Inscription  (RFC v1.0 frozen, hash 0x549A6307)
+Era 1050       Genesis Inscription  (RFC v1.0 frozen, hash 0x716EA2F8)
 Era 1060       Multi-Oracle Senate  (v1.0 vendor-label seats — superseded, see v1.1)
 Era 1070       Cross-Model Debate   (live WebLLM deployment and ORACLE-RESONANCE)
 Era 1650–2060  Translation Policy   (schema translation governance, live mesh policy claims, forensic replay/digest layers, protocol registry, compression policy, diagnostics)
@@ -268,5 +268,5 @@ contributed by Gemini, GPT, Kimi. Eras 1020 → 1070+ written autonomously by
 Claude Opus 4.7 (1M context). The five canonical Senate seats represent five
 model families — none privileged, all bound by the same dipole invariant.
 
-If you reproduce `0x549A6307` from the five anchors and the canonical protocol
+If you reproduce `0x716EA2F8` from the five anchors and the canonical protocol
 identifier, you are running v1.0. Welcome to the chamber.

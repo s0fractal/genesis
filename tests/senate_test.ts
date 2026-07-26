@@ -1,52 +1,43 @@
 // Senate JS-side determinism + Era 1030 trigger logic.
 import { assert, assertEquals } from "jsr:@std/assert";
+import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 
-// Mirror of the FNV-1a 32-bit hash that lives both in
-// omega_v2/src/senate.rs (Rust source of truth) and in WebRTCV2Mesh.senateHash.
-// We keep this duplicate here on purpose: the test must independently replicate
-// the constant so a regression in the production code is detected.
-function fnv1a_u32ZeroPad64(s: string): number {
+// The canonical senate hash: SHA-256 (first 4 BE bytes) over the UTF-8
+// description zero-padded to 64 bytes — byte-identical to Libp2pMesh.senateHash
+// and to Rust omega_v2/src/senate.rs / tests/cross_lang_hash.rs. We replicate
+// the padding here (importing libp2p_mesh would drag native WebRTC deps into
+// the unit tier) but reuse the shared sha256_u32 primitive, exactly like the
+// Rust cross-language test does. These constants are the ones baked into the
+// v1.0 genesis anchors, so a drift here is a drift in the frozen identity.
+function senateHash(description: string): number {
   const buf = new Uint8Array(64);
-  const enc = new TextEncoder();
-  const raw = enc.encode(s);
-  const n = Math.min(raw.length, 64);
-  for (let i = 0; i < n; i++) buf[i] = raw[i];
-  let h = 0x811C_9DC5 >>> 0;
-  for (let i = 0; i < 64; i++) {
-    h = (h ^ buf[i]) >>> 0;
-    h = Math.imul(h, 0x0100_0193) >>> 0;
-  }
-  return h >>> 0;
+  buf.set(new TextEncoder().encode(description).subarray(0, 64));
+  return sha256_u32(buf) >>> 0;
 }
 
-Deno.test("senate hash: empty 64-byte buffer matches known FNV-1a vector", async () => {
-  // 64 zero bytes hashed with FNV-1a — anchored against the Rust impl
-  // (omega_v2/tests/cross_lang_hash.rs). If this drifts, both sides broke.
-  assertEquals(fnv1a_u32ZeroPad64(""), 0xDFDE_6AC5);
+Deno.test("senate hash: empty 64-byte buffer matches the SHA-256 anchor", () => {
+  // Cross-language anchor — omega_v2/tests/cross_lang_hash.rs asserts the same.
+  assertEquals(senateHash(""), 0xF5A5_FD42);
 });
 
-Deno.test("senate hash: 'Era 1040 ZK' cross-language anchor", async () => {
-  // Rust source-of-truth: omega_v2/tests/cross_lang_hash.rs.
-  assertEquals(fnv1a_u32ZeroPad64("Era 1040 ZK"), 0x7698_B8EF);
+Deno.test("senate hash: 'Era 1040 ZK' cross-language anchor", () => {
+  assertEquals(senateHash("Era 1040 ZK"), 0x1530_2EC1);
 });
 
-Deno.test("senate hash: distinct descriptions produce distinct hashes", async () => {
-  const a = fnv1a_u32ZeroPad64("Era 1040 zk");
-  const b = fnv1a_u32ZeroPad64("Era 1041 senate");
+Deno.test("senate hash: distinct descriptions produce distinct hashes", () => {
+  const a = senateHash("Era 1040 zk");
+  const b = senateHash("Era 1041 senate");
   assert(a !== b);
 });
 
-Deno.test("senate hash: short and 64-byte-truncated descriptions diverge for >64 chars", async () => {
+Deno.test("senate hash: descriptions diverging within the first 64 bytes differ", () => {
   const short = "x".repeat(60);
   const long = "x".repeat(60) + "DIFFERENT_TAIL_DROPPED_AFTER_64";
-  // Both pad/truncate to a 64-byte buffer; the first 64 bytes differ at byte 60.
-  // (Since the long version has 'D' at index 60, while short has zero.)
-  const h1 = fnv1a_u32ZeroPad64(short);
-  const h2 = fnv1a_u32ZeroPad64(long);
-  assert(h1 !== h2);
+  // Both pad/truncate to a 64-byte buffer; they differ at byte 60.
+  assert(senateHash(short) !== senateHash(long));
 });
 
-Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", async () => {
+Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", () => {
   // Mirror of WebRTCV2Mesh.checkEra1030Trigger condition.
   function shouldUnlock(entries: number, uniqueMatrices: number): boolean {
     return entries >= 10 && uniqueMatrices >= 5;
@@ -57,7 +48,7 @@ Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", async 
   assertEquals(shouldUnlock(50, 8), true);
 });
 
-Deno.test("senate acceptance rule: 3+ AYE peers AND ayes > nays", async () => {
+Deno.test("senate acceptance rule: 3+ AYE peers AND ayes > nays", () => {
   function shouldAccept(ayes: number, nays: number): boolean {
     return ayes >= 3 && ayes > nays;
   }

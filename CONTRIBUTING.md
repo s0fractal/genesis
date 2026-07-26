@@ -23,7 +23,7 @@ the HUD, adding new test cases, or minor P2P network diagnostics.
 ### 2. Run the Genesis Node
 
 To participate in the mesh, you must be able to compute the Genesis Hash
-(\`0x549A6307\`). Run the local development server: \`\`\`bash deno task dev
+(\`0x716EA2F8\`). Run the local development server: \`\`\`bash deno task dev
 \`\`\` Observe the HUD, watch the mitosis events, and wait for Era 1060 to
 unlock. Once unlocked, your local WebLLM instance (Llama 3.2 1B) will boot up
 and begin casting live votes into the Senate.

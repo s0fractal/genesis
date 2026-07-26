@@ -48,12 +48,12 @@ Deno.test("spore frame: wrong magic is rejected", async () => {
 });
 
 Deno.test("spore frame: heartbeat round-trips", async () => {
-  const f = buildHeartbeat(0x549A_6307, 12345);
+  const f = buildHeartbeat(0x716E_A2F8, 12345);
   const bytes = frameToBytes(f);
   const parsed = frameFromBytes(bytes);
   assert(parsed !== null);
   assertEquals(parsed!.frameType, FRAME_TYPE_HEARTBEAT);
-  assertEquals(parsed!.proposalOrTarget, 0x549A_6307);
+  assertEquals(parsed!.proposalOrTarget, 0x716E_A2F8);
   assertEquals(parsed!.tick, 12345);
 });
 

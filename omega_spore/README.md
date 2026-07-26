@@ -62,7 +62,7 @@ two other substrates (host + JS, or host + ZK guest):
 | 1  | senate hash empty 64-byte      | `0xDFDE_6AC5` | `senate.rs`              |
 | 2  | senate hash "Era 1040 ZK"      | `0x7698_B8EF` | `senate.rs`              |
 | 3  | mitosis receipt no-attractor   | `0xD434_E690` | `mitosis_proof.rs`       |
-| 4  | Genesis Hash v1.0              | `0x549A_6307` | `genesis_inscription.rs` |
+| 4  | Genesis Hash v1.0              | `0x716E_A2F8` | `genesis_inscription.rs` |
 | 5  | oracle "claude"                | `0x6B70_A8AB` | `oracle_identity.rs`     |
 | 6  | oracle "gpt"                   | `0x855A_8386` | `oracle_identity.rs`     |
 | 7  | oracle "gemini"                | `0x5713_E78A` | `oracle_identity.rs`     |
@@ -91,5 +91,5 @@ costs $5 in unit volume.
 
 This is what the Φ-Manifest's "biological substrate computing" intention pointed
 at. A field of ESP32-class nodes carrying minimal lattices, all agreeing on the
-same `0x549A_6307`, is no longer a roadmap aspiration — it is a
+same `0x716E_A2F8`, is no longer a roadmap aspiration — it is a
 `cargo build --release` away from ready.

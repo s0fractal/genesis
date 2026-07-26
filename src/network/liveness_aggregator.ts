@@ -7,9 +7,9 @@
 // happen.
 
 // HEALTH CLASSES:
-// - HEALTHY:    seen recently AND advancing tick AND genesis = 0x549A6307
+// - HEALTHY:    seen recently AND advancing tick AND genesis = 0x716EA2F8
 // - STALLED:    seen recently BUT tick has not advanced for ≥ stallTicks
-// - FORKED:     genesis_hash != 0x549A6307 (anchor drift — non-conforming impl)
+// - FORKED:     genesis_hash != 0x716EA2F8 (anchor drift — non-conforming impl)
 // - LOST:       last_seen_at_ms is older than maxSilenceMs
 // - UNKNOWN:    seen ≥ once but not enough samples to classify
 
