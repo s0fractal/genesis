@@ -28,16 +28,23 @@ pub const PROTOCOL_VERSION: &[u8] = b"OMEGA-64/RFC-001/v1.0";
 /// 20 bytes) yet binds the entire test corpus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
+// Each anchor is pinned to a FROZEN INPUT, and all five are recomputed from
+// those inputs in `tests/genesis_anchor_provenance.rs` (regenerate them with
+// `cargo run --example compute_genesis_anchors`). Note the senate/proposal
+// anchors are SHA-256 folded to u32 (the FNV-1a era ended at the senate-hash
+// SHA-256 migration); only the *outer* genesis inscription below is FNV-1a.
 pub struct GenesisAnchors {
-    /// FNV-1a over 64 zero bytes. Validates the senate hash padding rule.
+    /// SHA-256 (first 4 BE bytes) over 64 zero bytes. Senate hash of the empty senate.
     pub senate_hash_empty: u32,
-    /// FNV-1a("Era 1040 ZK" + zero-pad to 64). Cross-language ASCII anchor.
+    /// SHA-256 (first 4 BE bytes) over "Era 1040 ZK" zero-padded to 64. Cross-language ASCII anchor.
     pub senate_hash_short: u32,
-    /// FNV-1a hash of the lattice's first autopoietic proposal description.
+    /// SHA-256 (first 4 BE bytes) over "Task 0090: Era 1040 - ZK-Notarized Mutations" padded to 64.
     pub first_proposal_hash: u32,
-    /// child_receipt_hash for canonical parent + empty attractor field.
+    /// child_receipt_hash of the anchor child (empty attractor) AS DERIVED AT
+    /// FREEZE (e8b685e); pinned to frozen inputs, not the evolving live kernel.
     pub mitosis_receipt_no_attr: u32,
-    /// child_receipt_hash for canonical parent + dominant attractor.
+    /// child_receipt_hash of the anchor child (dominant attractor) AS DERIVED AT
+    /// FREEZE (e8b685e); pinned to frozen inputs, not the evolving live kernel.
     pub mitosis_receipt_attr: u32,
 }
 
@@ -217,11 +224,10 @@ mod tests {
     #[test]
     fn anchors_v1_0_match_other_modules() {
         let a = GenesisAnchors::V1_0;
-        // These values are duplicated by design — they MUST equal the constants
-        // anchored in the cross-language tests:
-        // omega_v2/tests/cross_lang_hash.rs (senate hashes)
-        // omega_v2/tests/mitosis_anchor.rs   (mitosis receipts)
-        // The first_proposal_hash matches what bootstrap/v2.ts auto-submits.
+        // These literals are pinned — they MUST equal the values recomputed from
+        // frozen inputs in `tests/genesis_anchor_provenance.rs` (which is the
+        // real guardrail; this test only checks the literals didn't get typo'd).
+        // Senate hashes cross-check against omega_v2/tests/cross_lang_hash.rs.
         assert_eq!(a.senate_hash_empty, 0xF5A5_FD42);
         assert_eq!(a.senate_hash_short, 0x1530_2EC1);
         assert_eq!(a.first_proposal_hash, 0x3008_3117);
