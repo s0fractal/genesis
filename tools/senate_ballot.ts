@@ -28,6 +28,7 @@ import {
   oracleVoteDigest,
   verifyOracleVote,
 } from "../src/network/oracle_custody.ts";
+import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 
 // Proposals registry. Each description ≤64 bytes (senateHash truncates to 64).
 // Add an entry to open a new Senate vote; pass `--proposal=<id>` to the commands.
@@ -38,19 +39,13 @@ export const PROPOSALS: Record<string, string> = {
 };
 const DEFAULT_PROPOSAL = "v11";
 
-/** FNV-1a 32-bit over a 64-byte zero-padded buffer — Libp2pMesh.senateHash,
- *  inlined so this tool needs no libp2p import. */
+/** SHA-256 (first 4 BE bytes) over a 64-byte zero-padded buffer — the canonical
+ *  Libp2pMesh.senateHash, inlined so this tool needs no libp2p import. */
 export function senateHash(description: string): number {
   const buf = new Uint8Array(64);
   const raw = new TextEncoder().encode(description);
-  const n = Math.min(raw.length, 64);
-  for (let i = 0; i < n; i++) buf[i] = raw[i];
-  let h = 0x811C_9DC5 >>> 0;
-  for (let i = 0; i < 64; i++) {
-    h = (h ^ buf[i]) >>> 0;
-    h = Math.imul(h, 0x0100_0193) >>> 0;
-  }
-  return h >>> 0;
+  buf.set(raw.subarray(0, 64));
+  return sha256_u32(buf) >>> 0;
 }
 
 const HERE = dirname(fromFileUrl(import.meta.url));

@@ -7,7 +7,7 @@
 // daemon / not on the primary test surface, and a standing gossipsub data plane
 // wants DCUtR hole-punching (relayed conns are "limited"). See docs/MESH_RELAY.md
 // and docs/KNOWN_GAPS.md. The quorum_warrant_bridge_test.ts integration uses a
-// canonical inline FNV-1a reference rather than importing this file.
+// canonical inline hash reference rather than importing this file.
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { NULL_ADDRESS, PhaseAddress, PhaseRouter } from "./routing_bridge.ts";
 import {
@@ -21,6 +21,7 @@ import {
   GENESIS_HASH_LEGACY_V1_0,
   verifyGenesisV1,
 } from "./genesis_inscription.ts";
+import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
   CANONICAL_ORACLES,
   CanonicalOracle,
@@ -211,14 +212,12 @@ export class Libp2pMesh {
     setInterval(() => this.broadcastV2State(), 1000 / 30);
   }
 
+  // Verifier-side senate hash. Delegates to the one canonical function so the
+  // proposer's key and the receiver's check can never disagree again (they used
+  // to: one padded, one didn't).
   private computeSenateHash(str: string | undefined): number {
     if (!str) return 0;
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < str.length; i++) {
-      hash ^= str.charCodeAt(i);
-      hash = Math.imul(hash, 0x01000193);
-    }
-    return hash >>> 0;
+    return Libp2pMesh.senateHash(str);
   }
 
   private async initNode(bootstrapMultiaddr?: string) {
@@ -687,19 +686,18 @@ export class Libp2pMesh {
     }
   }
 
-  /** FNV-1a 32-bit, identical to Rust senate::sha256_u32_32 over a 64-byte zero-padded buffer. */
+  /**
+   * Canonical senate hash: SHA-256 (first 4 big-endian bytes) over the UTF-8
+   * description zero-padded/truncated to 64 bytes. Byte-identical to the Rust
+   * source of truth (`omega_v2/tests/cross_lang_hash.rs`) and to the genesis
+   * senate anchors — senateHash("") === 0xF5A5FD42, senateHash("Era 1040 ZK")
+   * === 0x15302EC1. (Migrated from FNV-1a with the kernel's SHA-256 move.)
+   */
   public static senateHash(description: string): number {
     const buf = new Uint8Array(64);
-    const enc = new TextEncoder();
-    const raw = enc.encode(description);
-    const n = Math.min(raw.length, 64);
-    for (let i = 0; i < n; i++) buf[i] = raw[i];
-    let h = 0x811C_9DC5 >>> 0;
-    for (let i = 0; i < 64; i++) {
-      h = (h ^ buf[i]) >>> 0;
-      h = Math.imul(h, 0x0100_0193) >>> 0;
-    }
-    return h >>> 0;
+    const raw = new TextEncoder().encode(description);
+    buf.set(raw.subarray(0, 64));
+    return sha256_u32(buf) >>> 0;
   }
 
   private async handleZKProofMessage(fromPeer: string, data: Uint8Array) {
@@ -1201,7 +1199,10 @@ export class Libp2pMesh {
     // The Era-1040 proposal hash is fixed by the bootstrap autopoietic
     // submission ("ZK-Notarized Mutations — every darwinian_mitosis
     // emits an SP1 STARK proof; peers reject mutations without a valid receipt.").
-    const era1040Hash = 0xFAA7_FF6E;
+    // senateHash of the bootstrap first-proposal description (v2.ts). This is
+    // the live proposal key; it is NOT the genesis first_proposal_hash anchor
+    // (0x30083117), which hashes a different canonical string ("Task 0090…").
+    const era1040Hash = 0x5507_4120;
     const record = this.senate.get(era1040Hash);
     if (!record || record.accepted) return;
     // Ensure the voter dipole is sane.
