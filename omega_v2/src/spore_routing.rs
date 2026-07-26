@@ -284,7 +284,10 @@ mod tests {
     #[test]
     fn cross_lang_anchor_trail_mix() {
         // Frozen for the JS port.
-        let h = mix_trail(0, 0x6B70_A8AB); // claude is the first hop
+        // 0x6B70A8AB is a frozen mix_trail parity vector (it was claude's v1.0
+        // matrix; claude's v1.1 seat is 0x41A2F2F4 — this value stays frozen so
+        // the Rust and JS ports keep matching).
+        let h = mix_trail(0, 0x6B70_A8AB);
         eprintln!("rust trail = 0x{:08x}", h);
         assert_eq!(h, 0x0c10_5977);
     }

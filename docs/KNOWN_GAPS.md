@@ -35,9 +35,6 @@ no reader over-trusts a capability. Federation-wide gaps live in trinity's
   a ~17 KB firmware binary). The `spore` feature omits the sanctuary/mitosis
   sweep (`lattice::darwinian_mitosis` + the `v2_mitosis_sweep` FFI export), which
   pulls in `codeicide_law`; the spore does not carry that path.
-- Its `README.md` anchor table lists ten anchors but `validate_anchors()` only
-  checks two (the empty-senate FNV64 fold and the genesis hash) — the table
-  overstates what the firmware verifies.
 
 ## Dev tools
 

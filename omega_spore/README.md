@@ -54,24 +54,24 @@ signal success/failure through whatever LED / serial hook you wire into
 
 ## Anchor coverage
 
-The spore validates these 10 anchors at boot. Each one is shared with at least
-two other substrates (host + JS, or host + ZK guest):
+At boot the firmware's `validate_anchors()` checks **two** cross-substrate
+anchors and aborts if either drifts:
 
-| #  | Anchor                         | Value         | Module                   |
-| -- | ------------------------------ | ------------- | ------------------------ |
-| 1  | senate hash empty 64-byte      | `0xDFDE_6AC5` | `senate.rs`              |
-| 2  | senate hash "Era 1040 ZK"      | `0x7698_B8EF` | `senate.rs`              |
-| 3  | mitosis receipt no-attractor   | `0xD434_E690` | `mitosis_proof.rs`       |
-| 4  | Genesis Hash v1.0              | `0x716E_A2F8` | `genesis_inscription.rs` |
-| 5  | oracle "claude"                | `0x6B70_A8AB` | `oracle_identity.rs`     |
-| 6  | oracle "gpt"                   | `0x855A_8386` | `oracle_identity.rs`     |
-| 7  | oracle "gemini"                | `0x5713_E78A` | `oracle_identity.rs`     |
-| 8  | oracle "qwen"                  | `0x5DDA_B832` | `oracle_identity.rs`     |
-| 9  | oracle "llama"                 | `0xFAAC_4232` | `oracle_identity.rs`     |
-| 10 | quorum (claude+gpt+gemini AYE) | `0x9499_6B5E` | `codeicide_law.rs`       |
-| 11 | warrant (CAFEBABE TERMINATE)   | `0xB1E3_8F80` | `codeicide_law.rs`       |
+| Anchor                     | Value         | Checked in                  |
+| -------------------------- | ------------- | --------------------------- |
+| empty-senate FNV-64 fold   | `0xDFDE_6AC5` | `main.rs::validate_anchors` |
+| Genesis Hash v1.0          | `0x716E_A2F8` | `genesis_inscription.rs`    |
 
-(11 actually; one is bonus for symmetry — the warrant anchor.)
+Two is enough: the genesis hash is FNV-1a over all five frozen v1.0 anchors, so
+reproducing `0x716E_A2F8` proves the firmware linked a conforming `omega_v2`
+without carrying the whole anchor corpus on-device.
+
+The complete canonical anchor set — the SHA-256 senate/mitosis receipts, the
+five v1.1 oracle seats (`claude, codex, gemini, antigravity, kimi`), and the
+quorum/warrant hashes — lives at its source, not duplicated here (copies rot):
+see [`docs/CANONICAL.md`](../docs/CANONICAL.md), `genesis_inscription.rs`,
+`oracle_identity.rs`, and the frozen-input guardrail
+`tests/genesis_anchor_provenance.rs`.
 
 ## Why a separate crate
 
