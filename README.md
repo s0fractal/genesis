@@ -100,7 +100,7 @@ LIVE; browser / WebRTC path experimental — see Status above), each running:
 | I-1 | Integer determinism | golden traces match across Rust ↔ WGSL ↔ TS ↔ SP1     |
 | I-2 | Dipole rule         | `m XOR inverse == 0xFFFF_FFFF`                        |
 | I-3 | Toroidal consensus  | `min(\|a-b\|, 256-\|a-b\|)`, weight ×8                |
-| I-4 | Senate hash         | FNV-1a 32-bit, 64-byte zero-pad, anchor `0x7698_B8EF` |
+| I-4 | Senate hash         | SHA-256→u32, 64-byte zero-pad, anchor `0x15302EC1`    |
 | I-5 | Mitosis determinism | `derive_mitosis_child` bit-for-bit reproducible       |
 | I-6 | Empty center        | no node has elevated rights                           |
 | I-7 | Genesis identity    | OMEGA-64 v1.0 ≡ `0x716EA2F8`                          |
