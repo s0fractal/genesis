@@ -65,11 +65,15 @@ no reader over-trusts a capability. Federation-wide gaps live in trinity's
   checks the program commitment first, so "this proof is about a different
   circuit" is reported as that, and bundles predating the block are reported as
   unable to say.
-- The guest build was measured byte-reproducible (three consecutive
-  `cargo prove
-  build` runs, identical ELF), which is what makes the CI job
-  meaningful: the runner rebuilds the guest and must arrive at the same
-  verifying key.
+- The guest ELF is checked in at `omega_zk_guest/elf/` and the host embeds those
+  bytes. Not tidiness: `cargo prove build` is byte-reproducible **within** a
+  platform and **not across** one — macOS arm64 gives 167,120 B / vkey
+  `0x0079cd08…`, the ubuntu runner 167,040 B / `0x003a3434…`. A proof is about
+  one program, so the program travels with it; "rebuild and verify" only ever
+  worked for whoever had the same OS as the prover.
+- A regeneration therefore moves three things together: guest sources, the
+  committed ELF, and the three bundles. CI rebuilds the guest only to REPORT
+  drift, and gates on verification against the committed ELF.
 - `tests/mitosis_proof_zk_test.ts` and `tests/zk_physics_rollup_test.ts` expect
   a `"stark-mock"` bundle kind while the host defaults to `cpu`; they need
   re-anchoring to the current default (in the `test:integration`/zk tier). Note

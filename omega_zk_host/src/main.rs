@@ -23,9 +23,34 @@ use sp1_sdk::ProvingKey;
 use std::io::Read;
 use base64::Engine;
 
-const ELF_BYTES: &[u8] = include_bytes!(
-    "../../target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest"
-);
+/// The guest program of record — checked into the tree, not read out of
+/// `target/`.
+///
+/// WHY (2026-08-02, proved by the first green-to-the-end CI run)
+/// ------------------------------------------------------------
+/// An SP1 proof is about one program, identified by a verifying key derived from
+/// these bytes. This used to embed whatever `cargo prove build` had last left in
+/// `target/`, which is gitignored — so the program a proof attested existed only
+/// on the machine that proved it.
+///
+/// That was survivable while everyone proved and verified on the same box. It
+/// stopped being survivable the moment CI tried: the runner rebuilt the guest and
+/// got a DIFFERENT program.
+///
+///   macOS arm64 : 167,120 bytes, vkey 0x0079cd08…
+///   ubuntu x86_64: 167,040 bytes, vkey 0x003a3434…
+///
+/// The build is reproducible *within* a platform — three consecutive builds on
+/// macOS gave an identical ELF — and not *across* one. So "rebuild the guest and
+/// verify" can never be a portable check, and `proofs/README.md`'s longstanding
+/// promise that peers "verify against the same ELF" was unkeepable while the ELF
+/// was a local build artifact.
+///
+/// Committing it makes the promise true: a peer verifies against these exact
+/// bytes on any platform, and each bundle's `program.elf_sha256` says which bytes
+/// it needs. Regenerate with `cd omega_zk_guest && cargo prove build`, copy the
+/// result here, and regenerate the proofs — the three move together or not at all.
+const ELF_BYTES: &[u8] = include_bytes!("../../omega_zk_guest/elf/omega_zk_guest");
 
 /// The active SP1 prover mode (`SP1_PROVER` env var; "cpu" by default — a real,
 /// locally-generated STARK proof). Used to label the proof bundle honestly so the

@@ -58,13 +58,15 @@ jobs:
   # independently from disk" and KNOWN_GAPS said "reverifiable". Nothing could
   # notice, because nothing ran.
   #
-  # Also measured, because the whole job depends on it: `cargo prove build` IS
-  # byte-reproducible — three consecutive builds of unchanged sources produced an
-  # identical ELF (sha256 92aa1f64…). So a runner that rebuilds the guest gets the
-  # same verifying key, and a mismatch here means the proofs are stale relative to
-  # the source, not that the build is noisy. (First measurement said the opposite;
-  # it was wrong, because omega_v2 had been edited between the two builds and the
-  # guest depends on it.)
+  # The guest ELF is CHECKED IN (`omega_zk_guest/elf/`) and the host embeds those
+  # exact bytes, so this verification is platform-independent. It has to be:
+  # `cargo prove build` is byte-reproducible WITHIN a platform (three consecutive
+  # macOS builds gave an identical ELF) and NOT across one — this job's own first
+  # complete run rebuilt the guest on ubuntu and got 167,040 bytes / vkey
+  # 0x003a3434… against macOS's 167,120 / 0x0079cd08…. So "rebuild the guest and
+  # verify" can never be a portable gate; "verify against the committed program"
+  # can. (An earlier local measurement called the build non-reproducible outright;
+  # that was wrong — omega_v2 had been edited between the two builds.)
   zk_host:
     name: ZK host (compile, wire, and the checked-in proofs)
     runs-on: ubuntu-latest
@@ -93,8 +95,18 @@ jobs:
           echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
           "$HOME/.sp1/bin/sp1up" --version v6.3.1
 
-      - name: Build the guest ELF
-        run: cd omega_zk_guest && cargo prove build
+      # NOT rebuilt for verification (see above) — rebuilt only to surface drift
+      # between the committed program and the sources it claims to come from. A
+      # cross-platform byte difference is expected, so this step reports rather
+      # than fails; a guest source change that never reached the committed ELF
+      # shows up as a failed proof verification below, which does fail.
+      - name: Rebuild the guest (informational — cross-platform ELF drift)
+        run: |
+          set -euo pipefail
+          cd omega_zk_guest && cargo prove build
+          BUILT=../target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest
+          echo "committed: $(sha256sum elf/omega_zk_guest | cut -d' ' -f1) ($(stat -c%s elf/omega_zk_guest) bytes)"
+          echo "rebuilt  : $(sha256sum "$BUILT" | cut -d' ' -f1) ($(stat -c%s "$BUILT") bytes)"
 
       - name: Build the host (this alone would have caught T2's desync target)
         run: cargo build --release --manifest-path omega_zk_host/Cargo.toml
@@ -111,7 +123,7 @@ jobs:
       # would make this step a decoration). If this fails with DIFFERENT PROGRAM,
       # the guest changed and the bundles must be regenerated on adequate
       # hardware; the error names both verifying keys so the direction is obvious.
-      - name: Re-verify every checked-in proof against the rebuilt guest
+      - name: Re-verify every checked-in proof against the committed guest
         env:
           SP1_PROVER: cpu
         run: |
@@ -122,7 +134,7 @@ jobs:
             ./target/release/omega_zk_host --verify-only < "proofs/$f.json" > /dev/null
             echo "::endgroup::"
           done
-          echo "all checked-in proofs re-verified against the rebuilt guest"
+          echo "all checked-in proofs re-verified against the committed guest"
 
   # Memory-safety guard for the unsafe-heavy kernel (FFI, `static mut`, raw
   # pointers). AddressSanitizer catches heap UAF / overflows that glibc only

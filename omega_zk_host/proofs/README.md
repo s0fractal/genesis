@@ -41,11 +41,24 @@ Two things changed so the failure can never again be silent or confusing:
 Bundles generated before 2026-08-02 have neither block; `--verify-only` says so
 rather than treating their absence as a match.
 
-The guest build is byte-reproducible — measured, three consecutive
-`cargo prove
-build` runs of unchanged sources produced an identical ELF — so
-rebuilding gives the same verifying key, and a mismatch means the bundles are
-stale relative to the source rather than that the build is noisy.
+**The guest ELF is checked in** (`omega_zk_guest/elf/omega_zk_guest`) and the
+host embeds those exact bytes, which is what finally makes this directory's
+promise — "peers verify against the same ELF" — keepable. It was not keepable
+while the ELF was a gitignored build artifact: the program a proof attested
+existed only on the machine that proved it.
+
+The build is byte-reproducible **within** a platform (three consecutive
+`cargo prove build` runs on macOS gave an identical ELF) and **not across** one.
+The CI job proved that on its own first complete run:
+
+| platform               | ELF       | vkey          |
+| ---------------------- | --------- | ------------- |
+| macOS arm64 (M4 Pro)   | 167,120 B | `0x0079cd08…` |
+| ubuntu x86_64 (runner) | 167,040 B | `0x003a3434…` |
+
+So "rebuild the guest and verify" can never be a portable check, and CI verifies
+against the committed program instead. Guest sources, committed ELF and the
+bundles move together or not at all.
 
 ## Artifacts
 
