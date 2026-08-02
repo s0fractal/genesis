@@ -75,6 +75,13 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # `sp1-prover-types`' build script runs prost-build, which shells out to
+      # `protoc`. Absent on the runner, present on a typical dev machine — which
+      # is exactly why this job could pass every local rehearsal and still fail on
+      # its first real run (it did: "Could not find `protoc`", 2026-08-02).
+      - name: Install protoc (sp1-prover-types build script needs it)
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       # The guest targets `riscv64im-succinct-zkvm-elf`, which only the SP1
       # toolchain can build. Pinned to the same 6.3.1 as the sp1-sdk/sp1-zkvm
       # dependencies: a toolchain skew would change the ELF, hence the vkey,
