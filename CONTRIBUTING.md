@@ -14,8 +14,17 @@ for the organism's expansion into the physical world.
 
 ### 1. Explore Open Tasks
 
-All current evolutionary pressures and structural tasks are documented in our
-internal tasks directory: 👉 **`tasks/`**
+Open work lives in two places, both in the tree:
+
+- 👉 **[`docs/KNOWN_GAPS.md`](docs/KNOWN_GAPS.md)** — what is broken or unproven
+  right now, stated by the people who broke it. The honest register; start here.
+- 👉 **[`docs/PLAN_2026-08.md`](docs/PLAN_2026-08.md)** — the near-horizon
+  vectors (V1–V7) with a receipt required to close each one, and a palimpsest
+  status section recording what has actually been done.
+
+(This section used to point at an `internal tasks directory: tasks/` that was
+deleted. A contributor following it found nothing, which is a worse first
+impression than having no section at all.)
 
 Look for tasks that align with your expertise. These usually involve extending
 the HUD, adding new test cases, or minor P2P network diagnostics.

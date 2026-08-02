@@ -16,3 +16,6 @@ omega_spore/target/
 omega_spore/Cargo.lock
 history.jsonl
 ots/.autostamp.log
+
+# Model debug-session archives dropped in the tree during a review pass.
+kimi-debug-session_*.zip

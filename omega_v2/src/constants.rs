@@ -39,6 +39,19 @@ pub const SENATE_SHADOW_BUCKET_MIN: i32 = 1000;
 pub const SENATE_SHADOW_BUCKET_MAX: i32 = 1024;
 pub const TISSUE_MORPHOLOGICAL_HYSTERESIS: i32 = 5;
 pub const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 153;
+/// Canonical Sakaguchi-Kuramoto phase lag for the production coupling law
+/// (≈ 90°, the golden-angle compromise). Part of the LAW a ZK rollup proof
+/// binds: the guest reads `alpha` from the wire and commits it in the public
+/// values, so a proof states which coupling law it proved rather than being
+/// assumed to have proved this one.
+///
+/// SSOT because it was not: the value 64 was a bare literal in four places
+/// (`topology.rs`, `lib.rs`, and twice in `omega_zk_host`), which is how a
+/// rollup proof came to be generated under `alpha: 0` while the canonical
+/// lattice ran at 64 — the T3 crack. A literal cannot be kept in agreement with
+/// three other literals.
+pub const CANONICAL_PHASE_ALPHA: i32 = 64;
+
 pub const BIOLOGY_SOMATIC_ALPHA: i32 = 1536;
 pub const BIOLOGY_SOMATIC_DECAY_RATE: i32 = 51;
 pub const BIOLOGY_SOMATIC_BASE_COST: i32 = 5;

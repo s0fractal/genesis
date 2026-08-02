@@ -37,6 +37,86 @@ jobs:
       - name: Run Deno Unit Tests
         run: deno task test:unit
 
+  # The ZK host is NOT a member of the root workspace (deliberately — sp1-sdk
+  # pulls a dependency tree we do not want in `cargo test --workspace`). The
+  # consequence was that "workspace green" said nothing about it: the host could
+  # not compile at all and every gate above would still pass. That is how the
+  # `--rollup` production path shipped with a u32/u8 stdin desync (T2) while CI
+  # was green.
+  #
+  # This job closes it, in three widening steps — compile, wire, and the one that
+  # actually costs something: re-verifying the STARK proofs checked into
+  # `omega_zk_host/proofs/`.
+  #
+  # WHY RE-VERIFYING THE CHECKED-IN PROOFS IS WORTH THE MINUTES
+  # -----------------------------------------------------------
+  # An SP1 proof is about ONE program: the verifying key is derived from the
+  # guest ELF, and the ELF is a build artifact under `target/` that is not in the
+  # repository. Measured 2026-08-02: after T3 changed the guest circuit, all three
+  # checked-in bundles failed with `pc_start != vk.pc_start` — they had been
+  # unverifiable for weeks while `proofs/README.md` said "each re-verifies
+  # independently from disk" and KNOWN_GAPS said "reverifiable". Nothing could
+  # notice, because nothing ran.
+  #
+  # Also measured, because the whole job depends on it: `cargo prove build` IS
+  # byte-reproducible — three consecutive builds of unchanged sources produced an
+  # identical ELF (sha256 92aa1f64…). So a runner that rebuilds the guest gets the
+  # same verifying key, and a mismatch here means the proofs are stale relative to
+  # the source, not that the build is noisy. (First measurement said the opposite;
+  # it was wrong, because omega_v2 had been edited between the two builds and the
+  # guest depends on it.)
+  zk_host:
+    name: ZK host (compile, wire, and the checked-in proofs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # The guest targets `riscv64im-succinct-zkvm-elf`, which only the SP1
+      # toolchain can build. Pinned to the same 6.3.1 as the sp1-sdk/sp1-zkvm
+      # dependencies: a toolchain skew would change the ELF, hence the vkey,
+      # hence make every checked-in proof fail for a reason unrelated to omega.
+      - name: Install SP1 toolchain (pinned to the sp1-sdk version)
+        run: |
+          set -euo pipefail
+          curl -L https://sp1.succinct.xyz | bash
+          echo "$HOME/.sp1/bin" >> "$GITHUB_PATH"
+          "$HOME/.sp1/bin/sp1up" --version v6.3.1
+
+      - name: Build the guest ELF
+        run: cd omega_zk_guest && cargo prove build
+
+      - name: Build the host (this alone would have caught T2's desync target)
+        run: cargo build --release --manifest-path omega_zk_host/Cargo.toml
+
+      # `wire_rollup` is the host↔guest stdin format regression (mock prover,
+      # seconds). `real_proof` stays `#[ignore]`d: a real cpu STARK needs ~16 GB
+      # and minutes, and is a documented hardware-gated ritual, not a CI step.
+      - name: Host tests under the mock prover
+        env:
+          SP1_PROVER: mock
+        run: cargo test --release --manifest-path omega_zk_host/Cargo.toml
+
+      # Real verification (not mock — a mock verifier would accept anything, which
+      # would make this step a decoration). If this fails with DIFFERENT PROGRAM,
+      # the guest changed and the bundles must be regenerated on adequate
+      # hardware; the error names both verifying keys so the direction is obvious.
+      - name: Re-verify every checked-in proof against the rebuilt guest
+        env:
+          SP1_PROVER: cpu
+        run: |
+          set -euo pipefail
+          cd omega_zk_host
+          for f in selftest_cpu arbitrary_cpu rollup_cpu; do
+            echo "::group::verify $f"
+            ./target/release/omega_zk_host --verify-only < "proofs/$f.json" > /dev/null
+            echo "::endgroup::"
+          done
+          echo "all checked-in proofs re-verified against the rebuilt guest"
+
   # Memory-safety guard for the unsafe-heavy kernel (FFI, `static mut`, raw
   # pointers). AddressSanitizer catches heap UAF / overflows that glibc only
   # sometimes aborts on and that macOS's allocator silently tolerates — it

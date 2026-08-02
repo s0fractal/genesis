@@ -143,7 +143,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> =
             q_radial: 6,
             q_math: 20,
             weather_multiplier: 1024,
-            alpha: 64,
+            alpha: crate::constants::CANONICAL_PHASE_ALPHA,
             _pad1: 0,
             _pad2: 0,
         },
@@ -190,11 +190,6 @@ pub static PHI_MESSAGE_BUFFER: crate::sync::Spinlock<PhiMessageBuffer> =
 /// Updated by v2_resonance_scan() and read by v2_resonance_r_q10() / v2_resonance_sum_cos/sin().
 pub static RESONANCE_FIELD: crate::sync::Spinlock<ResonanceField> =
     crate::sync::Spinlock::new(ResonanceField::zero());
-
-/// Era N+2: Bitshift Thermodynamics Shared Memory
-/// A 65536-element torus representing the Q10 energy of up to 65536 concurrent phase entities.
-pub static METABOLIC_TORUS: crate::sync::Spinlock<[i16; 65536]> =
-    crate::sync::Spinlock::new([0; 65536]);
 
 /// Global Attractor Array for GPU uniform buffer.
 #[cfg(not(feature = "spore"))]
@@ -423,32 +418,20 @@ pub extern "C" fn v2_generate_delta_snapshot() -> u32 {
     }
 }
 
-// ERA N+2: Bitshift Thermodynamics FFI
-
-#[no_mangle]
-pub extern "C" fn v2_metabolic_torus_ptr() -> *mut i16 {
-    unsafe { METABOLIC_TORUS.as_mut_ptr() as *mut i16 }
-}
-
-#[no_mangle]
-pub extern "C" fn v2_metabolic_tick(gini_q16: u32, top_10_threshold: i16) {
-    let mut torus = METABOLIC_TORUS.lock();
-    let is_high_inequality = gini_q16 > 26214; // > 0.4 in Q16
-    for e in torus.iter_mut() {
-        if *e <= 0 {
-            continue; // Dehydrated nodes skip decay here
-        }
-        let mut decay = if is_high_inequality {
-            *e >> 9
-        } else {
-            *e >> 10
-        };
-        if *e >= top_10_threshold {
-            decay += 20; // Monopoly tax
-        }
-        *e = (*e).saturating_sub(decay).max(-1024);
-    }
-}
+// ERA N+2 "Bitshift Thermodynamics" — COMPOSTED 2026-08-02.
+//
+// Cause of death (IDEA_LIFECYCLE §8): a writer with no reader. `METABOLIC_TORUS`
+// was a 128 KB static (65536 × i16) exported through `v2_metabolic_torus_ptr`
+// and ticked by `v2_metabolic_tick`. Measured before removal: zero TS callers of
+// either symbol, zero Rust tests, no reference from `omega_spore`, the ZK guest,
+// `contracts/`, or any export manifest — the only textual matches for
+// "metabolic" elsewhere are `metabolicCost` on mitosis receipts, which is an
+// unrelated field. Nothing ever read the torus, so its decay law (inequality-
+// gated bitshift + monopoly tax) constrained nothing and could not be wrong.
+//
+// A data structure that is only ever written is a claim about the system that
+// the system does not make. The idea is recoverable from git; the surface is not
+// worth carrying until something reads it.
 
 // ERA 950: Epigenetic FFI (Observer → Memory → Evolution)
 
@@ -1114,9 +1097,14 @@ pub extern "C" fn v2_get_precedent_ledger_ptr() -> *const u8 {
 /// [0..4]   head: u32
 /// [4..8]   total_written: u32
 /// [8..16]  _pad: [u32; 2]
-/// [16..]   entries: [MitosisReceipt; 32]
-/// Each MitosisReceipt is 160 bytes (parent 32 + child 32 + attractors 80 +
-/// q_phase 4 + receipt_hash 4 + tick 4 + _pad 4).
+/// [16..32] alignment padding (the struct inherits align(32) from
+///          PhaseAgentMinimal, so entries CANNOT start at byte 16)
+/// [32..]   entries: [MitosisReceipt; 32] — total struct size 6176 bytes
+/// Each MitosisReceipt is 192 bytes, 32-byte aligned (parent 32 + child 32 +
+/// attractors 80 + q_phase 4 + receipt_hash 32 (SHA-256) + tick 4 +
+/// entropy_delta 4 + metabolic_cost 4). These sizes and offsets are asserted
+/// by the `ffi_layout` integration test — if this comment and the test ever
+/// disagree, the test is right and this comment is stale.
 #[cfg(not(feature = "spore"))]
 #[no_mangle]
 pub extern "C" fn v2_mitosis_log_ptr() -> *const u8 {
@@ -1234,10 +1222,17 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.proper_time.causal_ticks;
-            // Conservative threshold: use average energy instead of p90.
-            // This protects more agents than p90 would, which is intentional for sanctuary safety.
-            let p90_energy_threshold = lattice.signals.total_energy
-                / core::cmp::max(1, lattice.signals.active_agent_count);
+            // Age comes from the parallel BIRTH_TICKS array, never from
+            // agent.memory[1] (overwritten by tick_physics every tick with
+            // packed Hebbian weights).
+            let birth_tick = {
+                let ticks = crate::BIRTH_TICKS.lock();
+                ticks[idx as usize]
+            };
+            // Use the same p90 thresholds as v2_codeicide_is_lawful: the
+            // status window and the enforcement gate are two views of one
+            // law and must never disagree about the same agent.
+            let p90_energy_threshold = lattice.signals.p90_energy;
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
             let resonance_score =
                 crate::math::cos_q10(0, agent.phase.wrapping_sub(global_phi)).max(0) as u32;
@@ -1246,6 +1241,7 @@ pub extern "C" fn v2_codeicide_status(idx: u32) -> u32 {
             crate::codeicide_law::protected_status_for(
                 agent,
                 tick,
+                birth_tick,
                 p90_energy_threshold,
                 lattice.signals.p90_age,
                 resonance_score,
@@ -1290,6 +1286,12 @@ pub extern "C" fn v2_codeicide_is_lawful(
         let mut lattice = OMEGA_LATTICE.lock();
         if let Some(agent) = lattice.get_agent(idx) {
             let tick = lattice.signals.proper_time.causal_ticks;
+            // See v2_codeicide_status: birth tick comes from BIRTH_TICKS,
+            // not from agent.memory[1] (Hebbian weights live there).
+            let birth_tick = {
+                let ticks = crate::BIRTH_TICKS.lock();
+                ticks[idx as usize]
+            };
             let p90_energy_threshold = lattice.signals.p90_energy;
             let p90_age_threshold = lattice.signals.p90_age;
             let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
@@ -1299,6 +1301,7 @@ pub extern "C" fn v2_codeicide_is_lawful(
             if crate::codeicide_law::is_action_lawful(
                 agent,
                 tick,
+                birth_tick,
                 p90_energy_threshold,
                 p90_age_threshold,
                 resonance_score,

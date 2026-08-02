@@ -12,7 +12,9 @@
       "**/*.html",
       "*.html",
       "docs/CANONICAL.md",
-      "docs/CANONICAL.json"
+      "docs/CANONICAL.json",
+      "docs/rfc/**",
+      "docs/FROZEN.md"
     ]
   },
   "compilerOptions": {

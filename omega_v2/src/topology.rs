@@ -75,7 +75,7 @@ impl PhaseTopology {
             q_radial,
             q_math,
             weather_multiplier: 1024,
-            alpha: 64, // Default alpha (approx 90 deg compromise for golden angle)
+            alpha: crate::constants::CANONICAL_PHASE_ALPHA,
             _pad1: 0,
             _pad2: 0,
         }

@@ -18,6 +18,7 @@ use omega_v2::attractor::AttractorArray;
 use omega_v2::mitosis_proof::{child_receipt_hash, derive_mitosis_child};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::blocking::{Elf, ProveRequest, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::HashableKey;
 use sp1_sdk::ProvingKey;
 use std::io::Read;
 use base64::Engine;
@@ -71,9 +72,18 @@ struct TickRollupJson {
     q_radial: u32,
     q_math: u32,
     weather_multiplier: u32,
+    /// Sakaguchi-Kuramoto phase lag. Part of the coupling LAW the proof
+    /// binds; defaults to the canonical production value (64 ≈ 90°,
+    /// cf. PhaseTopology::new) when omitted.
+    #[serde(default = "default_alpha")]
+    alpha: i32,
     active_count: u32,
     agents: Vec<AgentJson>,
     attractors: Vec<AttractorJson>,
+}
+
+fn default_alpha() -> i32 {
+    omega_v2::constants::CANONICAL_PHASE_ALPHA
 }
 
 impl AgentJson {
@@ -100,6 +110,51 @@ impl AgentJson {
     }
 }
 
+/// Which PROGRAM a bundle attests, and under which physics law.
+///
+/// WHY THIS EXISTS (2026-08-02)
+/// ---------------------------
+/// The three bundles checked into `proofs/` stopped verifying the moment the
+/// guest circuit changed (T3 made `alpha` a wire field). Measured: all three
+/// fail with
+///
+///     verification failed: Core(invalid public values:
+///     pc_start != vk.pc_start: program counter should start at vk.pc_start)
+///
+/// which is true, opaque, and blames the wrong thing. The proofs are not
+/// corrupt; they attest a *different program*. Nothing in the bundle could say
+/// so, because the only trace of the guest was a free-text note reading
+/// "ELF 166400 bytes" — and a byte count is not an identity. (The current ELF
+/// is 166736 bytes, which is how the drift was noticed at all, and a
+/// same-length change would have left no trace whatsoever.)
+///
+/// So a bundle now carries the verifying-key hash and the SHA-256 of the exact
+/// guest bytes, plus the physics parameters the proof is about. `--verify-only`
+/// compares them BEFORE asking SP1 to verify, so program drift is reported as
+/// program drift.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+struct ProgramCommitment {
+    /// SP1 verifying-key hash (`HashableKey::bytes32`) — the circuit's identity.
+    vkey: String,
+    /// SHA-256 of the guest ELF, so a reader can check the artifact itself.
+    elf_sha256: String,
+    elf_bytes: usize,
+}
+
+/// The law the proof is about (V5.3). `alpha` is the Sakaguchi-Kuramoto phase
+/// lag and is only meaningful for Mode 3 rollups, where the guest reads it from
+/// the wire and commits it in the public values; `q_phase` is the quantisation.
+/// Recorded as `Option` per field rather than invented for modes that do not
+/// have them — a commitment to a value the proof never constrained would be
+/// worse than none.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+struct PhysicsCommitment {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    alpha: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    q_phase: Option<u32>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct ProofBundle {
     kind: String,
@@ -109,6 +164,13 @@ struct ProofBundle {
     proof_bytes: Option<String>,
     public_values: Option<String>,
     note: Option<String>,
+    /// Absent in bundles generated before 2026-08-02. Absence is reported, never
+    /// treated as a match: a bundle that cannot say which program it attests is
+    /// exactly the case this field exists to end.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    program: Option<ProgramCommitment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    physics: Option<PhysicsCommitment>,
 }
 
 fn self_test_receipt() -> MitosisReceiptJson {
@@ -265,6 +327,11 @@ fn run(receipt: MitosisReceiptJson) -> Result<ProofBundle, String> {
             ELF_BYTES.len(),
             proof_bytes.len()
         )),
+        program: Some(local_program(pk.verifying_key())),
+        // Mode 2 constrains the quantisation, not the coupling law: `alpha` is a
+        // Mode 3 wire field and committing it here would claim the proof bounded
+        // something it never saw.
+        physics: Some(PhysicsCommitment { alpha: None, q_phase: Some(receipt.q_phase) }),
     })
 }
 
@@ -275,15 +342,19 @@ fn run_rollup(rollup: TickRollupJson) -> Result<ProofBundle, String> {
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
 
     let mut stdin = SP1Stdin::new();
-    // Mode 3: ZK Physics Rollup
-    stdin.write(&3u32);
-    
-    // Topology params
+    // Mode 3: ZK Physics Rollup.
+    // The mode byte MUST be u8: the guest reads exactly 1 byte
+    // (sp1_zkvm::io::read::<u8>). Writing u32 here desynchronises the
+    // entire stdin stream by 3 bytes.
+    stdin.write::<u8>(&3u8);
+
+    // Topology params (order must match the guest's Mode 3 reads exactly)
     stdin.write(&rollup.q_phase);
     stdin.write(&rollup.q_sectors);
     stdin.write(&rollup.q_radial);
     stdin.write(&rollup.q_math);
     stdin.write(&rollup.weather_multiplier);
+    stdin.write::<i32>(&rollup.alpha);
 
     // Initial state
     stdin.write(&rollup.active_count);
@@ -312,23 +383,48 @@ fn run_rollup(rollup: TickRollupJson) -> Result<ProofBundle, String> {
         .prove(&pk, stdin)
         .run()
         .map_err(|e| format!("proving failed: {:?}", e))?;
+    eprintln!("[zk_host_rollup] Proof generated. Verifying locally…");
+
+    // Never report verified=true without actually verifying (honesty rule).
+    prover
+        .verify(&proof, pk.verifying_key(), None)
+        .map_err(|e| format!("local verification failed: {:?}", e))?;
+    eprintln!("[zk_host_rollup] ✅ Rollup STARK verified.");
 
     let proof_bytes = bincode::serialize(&proof)
         .map_err(|e| format!("proof serialization failed: {:?}", e))?;
-    
+
     // Public values should contain initial_hash and final_hash
     let public_values = proof.public_values.to_vec();
 
-    eprintln!("[zk_host_rollup] ✅ Rollup STARK generated successfully!");
     Ok(ProofBundle {
-        kind: "ZK_ROLLUP".to_string(),
+        kind: format!("stark-{}-rollup", prover_mode()),
         receipt_hash: "ROLLUP".to_string(), // Can be updated if needed
         parent_genome: "0x00000000".to_string(),
         verified: true,
         proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
         public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
-        note: Some(format!("Rollup proof for {} agents", rollup.active_count)),
+        note: Some(format!(
+            "SP1 {} rollup prover; {} agents; alpha={}",
+            prover_mode(),
+            rollup.active_count,
+            rollup.alpha
+        )),
+        program: Some(local_program(pk.verifying_key())),
+        physics: Some(PhysicsCommitment {
+            alpha: Some(rollup.alpha),
+            q_phase: Some(rollup.q_phase),
+        }),
     })
+}
+
+/// The identity of the guest program THIS binary would verify against.
+fn local_program(vk: &sp1_sdk::SP1VerifyingKey) -> ProgramCommitment {
+    ProgramCommitment {
+        vkey: vk.bytes32(),
+        elf_sha256: hex::encode(omega_v2::crypto::sha256_hash(ELF_BYTES)),
+        elf_bytes: ELF_BYTES.len(),
+    }
 }
 
 fn run_verify_only(bundle: ProofBundle) -> Result<ProofBundle, String> {
@@ -336,6 +432,33 @@ fn run_verify_only(bundle: ProofBundle) -> Result<ProofBundle, String> {
     let prover = ProverClient::from_env(); // SP1_PROVER: cpu (default, real) | mock | network
     let elf = Elf::Static(ELF_BYTES);
     let pk = prover.setup(elf).map_err(|e| format!("setup failed: {:?}", e))?;
+
+    // Program identity BEFORE the STARK check, so drift is named as drift. SP1's
+    // own failure for this case is `pc_start != vk.pc_start`, which is accurate
+    // and tells a reader nothing about which of the two artifacts moved.
+    let local = local_program(pk.verifying_key());
+    match &bundle.program {
+        Some(claimed) if *claimed != local => {
+            return Err(format!(
+                "this bundle attests a DIFFERENT PROGRAM, so the proof cannot be \
+                 checked here — it is not corrupt.\n  \
+                 bundle : vkey {} / elf sha256 {} ({} bytes)\n  \
+                 local  : vkey {} / elf sha256 {} ({} bytes)\n  \
+                 Rebuild the guest from the commit that produced the bundle, or \
+                 regenerate the bundle from this guest.",
+                claimed.vkey, claimed.elf_sha256, claimed.elf_bytes,
+                local.vkey, local.elf_sha256, local.elf_bytes
+            ));
+        }
+        Some(_) => eprintln!("[zk_host] program commitment matches: vkey {}", local.vkey),
+        None => eprintln!(
+            "[zk_host] WARNING: this bundle predates program commitments (2026-08-02) \
+             and cannot say which guest it attests. If verification fails below with \
+             `pc_start != vk.pc_start`, the most likely cause is that the guest \
+             changed, not that the proof is bad. Local guest: vkey {} / elf sha256 {}.",
+            local.vkey, local.elf_sha256
+        ),
+    }
 
     let proof_bytes_b64 = bundle.proof_bytes.as_ref().ok_or("missing proof_bytes")?;
     let proof_bytes = base64::engine::general_purpose::STANDARD
@@ -358,12 +481,9 @@ fn run_verify_only(bundle: ProofBundle) -> Result<ProofBundle, String> {
         proof_bytes: Some(proof_bytes_b64.clone()),
         public_values: bundle.public_values,
         note: Some("Verified externally".into()),
+        program: bundle.program,
+        physics: bundle.physics,
     })
-}
-
-fn base64_encode(bytes: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
 fn run_rollup_test() -> Result<ProofBundle, String> {
@@ -377,7 +497,7 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
         q_radial: 1,
         q_math: 0,
         weather_multiplier: 1024,
-        alpha: 0,
+        alpha: omega_v2::constants::CANONICAL_PHASE_ALPHA,
         _pad1: 0,
         _pad2: 0,
     };
@@ -402,6 +522,7 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
     stdin.write::<u32>(&topology.q_radial);
     stdin.write::<u32>(&topology.q_math);
     stdin.write::<u32>(&topology.weather_multiplier);
+    stdin.write::<i32>(&topology.alpha);
     
     stdin.write::<u32>(&active_count);
     for agent in &snapshot {
@@ -447,6 +568,11 @@ fn run_rollup_test() -> Result<ProofBundle, String> {
         proof_bytes: Some(base64::engine::general_purpose::STANDARD.encode(&proof_bytes)),
         public_values: Some(base64::engine::general_purpose::STANDARD.encode(&public_values)),
         note: Some(format!("SP1 Rollup {} prover; {} agents", prover_mode(), active_count)),
+        program: Some(local_program(pk.verifying_key())),
+        physics: Some(PhysicsCommitment {
+            alpha: Some(topology.alpha),
+            q_phase: Some(topology.q_phase),
+        }),
     })
 }
 
