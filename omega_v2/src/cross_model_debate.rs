@@ -7,7 +7,8 @@
 // of (oracle, proposal_hash, stance, reasoning_hash, tick) entries.
 // Each oracle can record up to MAX_DEBATE_ENTRIES_PER_ORACLE statements
 // per proposal; the reasoning text itself lives in JS / on the wire,
-// while the kernel only fingerprints it (FNV-1a) for tamper detection.
+// while the kernel only fingerprints it (SHA-256 folded to u32) for
+// tamper detection.
 
 // The acceptance rule remains the Era 1060 phase-resonance threshold —
 // debate doesn't change votes mechanically, but it makes the *reasoning*
@@ -25,12 +26,12 @@ pub const ORACLE_NAME_BYTES: usize = 16;
 pub struct DebateEntry {
     /// ASCII oracle name, zero-padded ("claude" → b"claude\0\0\0\0\0\0\0\0\0\0").
     pub oracle: [u8; ORACLE_NAME_BYTES],
-    /// FNV-1a hash of the proposal description (matches senate.rs).
+    /// SHA-256-folded u32 hash of the proposal description (matches senate.rs).
     pub proposal_hash: u32,
     /// Stance: 0 = neutral / opening, 1 = AYE, 2 = NAY, 3 = ABSTAIN.
     pub stance: u8,
     pub _pad: [u8; 3],
-    /// FNV-1a hash of the reasoning text (text itself stays off-chain).
+    /// SHA-256-folded u32 hash of the reasoning text (text itself stays off-chain).
     pub reasoning_hash: u32,
     /// Absolute tick at which the entry was recorded.
     pub tick: u32,

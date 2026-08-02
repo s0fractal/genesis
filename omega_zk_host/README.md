@@ -9,13 +9,13 @@ Real SP1 STARK proof generator for OMEGA-64 mitosis events. This is the
 - **Era 1040 Phase 1** ✅ Pure mitosis derivation (Rust + JS + SP1 RISC-V).
 - **Era 1040 Phase 2** ✅ MitosisLog ring buffer + host parent snapshotting.
 - **Era 1040 Phase 3** ✅ **Real SP1 STARK proofs** (this crate).
-- **Completed `cpu` proofs checked in** ✅ (2026-07-07) — three real, independently
-  re-verifiable STARKs generated and verified on a 48 GB machine:
+- **Completed `cpu` proofs checked in** ✅ (2026-07-07) — three real,
+  independently re-verifiable STARKs generated and verified on a 48 GB machine:
   `selftest_cpu` (Mode 2, canonical), `arbitrary_cpu` (Mode 2, non-canonical
   parent **+ dominant attractor** — a branch the self-test never hits), and
   `rollup_cpu` (Mode 3, 4-agent physics rollup). All in [`proofs/`](proofs/);
-  see [`proofs/README.md`](proofs/README.md). The `real_proof.rs` gate reproduces
-  the self-test one.
+  see [`proofs/README.md`](proofs/README.md). The `real_proof.rs` gate
+  reproduces the self-test one.
 
 ## Why a separate workspace
 

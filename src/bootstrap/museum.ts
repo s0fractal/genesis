@@ -184,13 +184,15 @@ function showFatalError(msg: string) {
 
 function updateStats(fps: number) {
   const ptrs = ENGINE.getMemoryPointers();
+  // SignalStore starts at byte 32 of the lattice head (ffi_layout.rs):
+  // causal_ticks at +4, active_agent_count at +16.
   const signals = new DataView(
     ptrs.uniformBytes.buffer,
     ptrs.uniformBytes.byteOffset,
-    32,
+    208,
   );
-  const activeCount = signals.getUint32(24, true);
-  const tick = signals.getUint32(4, true);
+  const activeCount = signals.getUint32(32 + 16, true);
+  const tick = signals.getUint32(32 + 4, true);
 
   // Resonance scan
   const res = ENGINE.scanResonance();
@@ -277,13 +279,15 @@ function exportWitness() {
   const traceNum =
     (ENGINE.wasm!.exports.v2_get_golden_trace as CallableFunction)() as number;
   const ptrs = ENGINE.getMemoryPointers();
+  // SignalStore at byte 32 of the lattice head: causal_ticks +4,
+  // active_agent_count +16 (ffi_layout.rs).
   const signals = new DataView(
     ptrs.uniformBytes.buffer,
     ptrs.uniformBytes.byteOffset,
-    32,
+    208,
   );
-  const tick = signals.getUint32(4, true);
-  const active = signals.getUint32(24, true);
+  const tick = signals.getUint32(32 + 4, true);
+  const active = signals.getUint32(32 + 16, true);
 
   const topology = ENGINE.getTopology();
 

@@ -9,10 +9,13 @@ use omega_v2::resonance::scan_resonance_field;
 
 /// ZK Guest Entry Point — Tri-Mode
 ///
-/// Mode 0: Legacy PoUW single-agent trace verification.
+/// Mode 0: Legacy PoUW single-agent trace verification. [REMOVED — panics]
 /// Mode 1: Resonance field verification for small lattice (≤16 agents).
 /// Mode 2: Mitosis proof — re-derive a child from (parent, attractor_array)
 ///         and assert it matches the claimed child bit-for-bit.
+/// Mode 3: Physics tick rollup (≤2048 agents) — executes one canonical
+///         tick_physics step inside the zkVM and commits
+///         (mode, q_phase, alpha, initial_hash, final_hash, active_count).
 #[allow(clippy::needless_range_loop)]
 pub fn main() {
     let mode = sp1_zkvm::io::read::<u8>();
@@ -140,13 +143,15 @@ pub fn main() {
 
         // -----------------------------------------------------------------
         // Mode 3: Era 2060 — ZK Physics Tick Rollup (V3 Metaphysics)
-        // Inputs:
-        //   - PhaseTopology
-        //   - active_count
-        //   - snapshot (PhaseAgentMinimal array)
-        //   - attractor_count + AttractorMatrix array
+        // Inputs (in order):
+        //   - q_phase, q_sectors, q_radial, q_math, weather_multiplier: u32
+        //   - alpha: i32 (Sakaguchi-Kuramoto phase lag — part of the LAW,
+        //     never hardcoded; canonical production value is 64 ≈ 90°)
+        //   - active_count: u32
+        //   - snapshot: active_count × 8 × u32 (PhaseAgentMinimal)
+        //   - attractor_count: u32 + count × 4 × u32 (AttractorMatrix)
         // Outputs (committed):
-        //   - (mode, q_phase, initial_hash, final_hash, active_count)
+        //   - (mode, q_phase, alpha, initial_hash, final_hash, active_count)
         // -----------------------------------------------------------------
         3 => {
             let q_phase = sp1_zkvm::io::read::<u32>();
@@ -154,6 +159,18 @@ pub fn main() {
             let q_radial = sp1_zkvm::io::read::<u32>();
             let q_math = sp1_zkvm::io::read::<u32>();
             let weather_multiplier = sp1_zkvm::io::read::<u32>();
+            let alpha = sp1_zkvm::io::read::<i32>();
+
+            // The proof binds the coupling law it executes. q_phase is
+            // bounded so shifts inside tick_physics cannot overflow; alpha
+            // arrives over the wire so a host cannot silently prove a
+            // non-canonical coupling (the previous revision hardcoded 0
+            // while production runs 64).
+            assert!(
+                (2..=8).contains(&q_phase),
+                "q_phase out of supported range [2, 8], got {}",
+                q_phase
+            );
 
             let topology = omega_v2::topology::PhaseTopology {
                 q_phase,
@@ -161,7 +178,7 @@ pub fn main() {
                 q_radial,
                 q_math,
                 weather_multiplier,
-                alpha: 0,
+                alpha,
                 _pad1: 0,
                 _pad2: 0,
             };
@@ -249,13 +266,16 @@ pub fn main() {
             }
             let final_hash = omega_v2::senate::sha256_hash(&final_bytes);
 
+            // A tick that changes nothing proves nothing; reject it.
+            // (active_count == 0 was already rejected above.)
             assert!(
-                initial_hash != final_hash || active_count == 0,
+                initial_hash != final_hash,
                 "Static state, skipping ZK proof"
             );
 
-            // Commit the rollup proof bundle
-            sp1_zkvm::io::commit(&(mode, q_phase, initial_hash, final_hash, active_count));
+            // Commit the rollup proof bundle — including alpha, so the
+            // public values name the exact coupling law that was executed.
+            sp1_zkvm::io::commit(&(mode, q_phase, alpha, initial_hash, final_hash, active_count));
         }
 
         // -----------------------------------------------------------------

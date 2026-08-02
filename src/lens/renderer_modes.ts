@@ -66,7 +66,9 @@ export class RendererPipelines {
       primitive: { topology: "triangle-list" },
     });
 
-    // Toroidal Mode
+    // Toroidal Mode — bindings MUST mirror compute_toroidal.wgsl exactly
+    // (layout: 'auto'): 0 topology, 1 signals, 2 agents_in, 3 sine_lut,
+    // 7 agents_out, 8 attractor_array. No binding 4 exists in the shader.
     this.computeBindGroupToroidalA = this.device.createBindGroup({
       layout: this.toroidalComputePipeline.getBindGroupLayout(0),
       entries: [
@@ -74,7 +76,6 @@ export class RendererPipelines {
         { binding: 1, resource: { buffer: buffers.signalsBuffer } },
         { binding: 2, resource: { buffer: buffers.agentsBufferA } },
         { binding: 3, resource: { buffer: buffers.sineLutBuffer } },
-        { binding: 4, resource: { buffer: buffers.intentBuffer } },
         { binding: 7, resource: { buffer: buffers.agentsBufferB } },
         { binding: 8, resource: { buffer: buffers.attractorBuffer } },
       ],
@@ -86,24 +87,26 @@ export class RendererPipelines {
         { binding: 1, resource: { buffer: buffers.signalsBuffer } },
         { binding: 2, resource: { buffer: buffers.agentsBufferB } },
         { binding: 3, resource: { buffer: buffers.sineLutBuffer } },
-        { binding: 4, resource: { buffer: buffers.intentBuffer } },
         { binding: 7, resource: { buffer: buffers.agentsBufferA } },
         { binding: 8, resource: { buffer: buffers.attractorBuffer } },
       ],
     });
 
+    // render_v2.wgsl: 0 topology, 1 signals, 2 agents.
     this.renderBindGroupA = this.device.createBindGroup({
       layout: this.renderPipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: buffers.topologyBuffer } },
-        { binding: 1, resource: { buffer: buffers.agentsBufferA } },
+        { binding: 1, resource: { buffer: buffers.signalsBuffer } },
+        { binding: 2, resource: { buffer: buffers.agentsBufferA } },
       ],
     });
     this.renderBindGroupB = this.device.createBindGroup({
       layout: this.renderPipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: buffers.topologyBuffer } },
-        { binding: 1, resource: { buffer: buffers.agentsBufferB } },
+        { binding: 1, resource: { buffer: buffers.signalsBuffer } },
+        { binding: 2, resource: { buffer: buffers.agentsBufferB } },
       ],
     });
   }

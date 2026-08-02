@@ -1,4 +1,12 @@
-> **omega — the deterministic, integer-exact physics / kernel substrate** of a four-part federation (trinity / myc / omega / liquid), with a Bitcoin-anchored frozen identity (Genesis `0x716EA2F8`). Authority is tests, integer traces, Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**. **This is not** a consciousness or art project: "Senate"/"oracle" are keyed Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter, not a calendar year. **Verify one thing:** `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints `0x716ea2f8`). Map back: [FEDERATION.md](FEDERATION.md).
+> **omega — the deterministic, integer-exact physics / kernel substrate** of a
+> four-part federation (trinity / myc / omega / liquid), with a Bitcoin-anchored
+> frozen identity (Genesis `0x716EA2F8`). Authority is tests, integer traces,
+> Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**.
+> **This is not** a consciousness or art project: "Senate"/"oracle" are keyed
+> Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter,
+> not a calendar year. **Verify one thing:**
+> `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints
+> `0x716ea2f8`). Map back: [FEDERATION.md](FEDERATION.md).
 
 # OMEGA-64 🧬 — Φ Protocol v1.0 (FROZEN)
 
@@ -18,21 +26,21 @@ OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust
 tests; integer parity across CPU↔GPU↔ZK). Three headline pieces carry **honest
 caveats**, named here (see `AGENTS.md`):
 
-- **ZK proving is REAL, and a completed STARK is checked in (since 2026-07-07).**
-  `omega_zk_host` selects its prover from `SP1_PROVER`
+- **ZK proving is REAL, and a completed STARK is checked in (since
+  2026-07-07).** `omega_zk_host` selects its prover from `SP1_PROVER`
   (`ProverClient::from_env()`): **`cpu` by default — a real local STARK** (no
   GPU / network / spend), `mock` opt-in for fast dev, `network` (Succinct) for
   offload. The mock-only backend is gone. Completing a full cpu proof is
   hardware-bound — ~16 GB+ RAM and minutes of proving; it OOMs on an 8 GB box —
-  so for a while no completed artifact was checked in. **That gap is now closed:**
-  a real `stark-cpu` proof of the canonical self-test receipt
+  so for a while no completed artifact was checked in. **That gap is now
+  closed:** a real `stark-cpu` proof of the canonical self-test receipt
   (`0x1b18eea0…`, parent genome `0xcafebabe`) was generated and locally verified
   on a 48 GB machine, and the 5.57 MB proof bundle is committed at
   [`omega_zk_host/proofs/selftest_cpu.json`](omega_zk_host/proofs/). It
   independently re-verifies via `omega_zk_host --verify-only`, and the
   `real_proof.rs` gate (`SP1_PROVER=cpu … --ignored`) reproduces it green.
-  "ZK-Notarized" below now means the path is wired, the prover is real, **and** a
-  verified STARK artifact is committed.
+  "ZK-Notarized" below now means the path is wired, the prover is real, **and**
+  a verified STARK artifact is committed.
 - **The libp2p mesh is LIVE, and content flows across machines (since
   2026-06-29).** A public circuit-relay-v2 relay (`relay.myc.md`, discovered
   from the membrane at `myc.md/.well-known/omega-relay`) is a **verified content
@@ -95,15 +103,15 @@ LIVE; browser / WebRTC path experimental — see Status above), each running:
 
 ## The seven non-negotiable invariants (RFC-OMEGA-001 v1.0)
 
-| #   | Invariant           | Anchor                                                |
-| --- | ------------------- | ----------------------------------------------------- |
-| I-1 | Integer determinism | golden traces match across Rust ↔ WGSL ↔ TS ↔ SP1     |
-| I-2 | Dipole rule         | `m XOR inverse == 0xFFFF_FFFF`                        |
-| I-3 | Toroidal consensus  | `min(\|a-b\|, 256-\|a-b\|)`, weight ×8                |
-| I-4 | Senate hash         | SHA-256→u32, 64-byte zero-pad, anchor `0x15302EC1`    |
-| I-5 | Mitosis determinism | `derive_mitosis_child` bit-for-bit reproducible       |
-| I-6 | Empty center        | no node has elevated rights                           |
-| I-7 | Genesis identity    | OMEGA-64 v1.0 ≡ `0x716EA2F8`                          |
+| #   | Invariant           | Anchor                                             |
+| --- | ------------------- | -------------------------------------------------- |
+| I-1 | Integer determinism | golden traces match across Rust ↔ WGSL ↔ TS ↔ SP1  |
+| I-2 | Dipole rule         | `m XOR inverse == 0xFFFF_FFFF`                     |
+| I-3 | Toroidal consensus  | `min(\|a-b\|, 256-\|a-b\|)`, weight ×8             |
+| I-4 | Senate hash         | SHA-256→u32, 64-byte zero-pad, anchor `0x15302EC1` |
+| I-5 | Mitosis determinism | `derive_mitosis_child` bit-for-bit reproducible    |
+| I-6 | Empty center        | no node has elevated rights                        |
+| I-7 | Genesis identity    | OMEGA-64 v1.0 ≡ `0x716EA2F8`                       |
 
 Drift on any of these breaks tests in **two languages simultaneously**. See
 `docs/rfc/RFC-OMEGA-001-v1.0.md` for the full spec.

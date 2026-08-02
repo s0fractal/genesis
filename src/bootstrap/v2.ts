@@ -767,9 +767,11 @@ ${debateMd || "(no recorded arguments)"}
         };
       }
 
+      // SignalStore.active_agent_count: absolute byte 48 (signals at 32,
+      // field at +16 — see ffi_layout.rs).
       const activeCount = new Uint32Array(
         ptrs.uniformBytes.buffer,
-        ptrs.uniformBytes.byteOffset + 32 + 8,
+        ptrs.uniformBytes.byteOffset + 32 + 16,
         1,
       )[0];
       setHudStat("a", "AGENTS", activeCount.toString());

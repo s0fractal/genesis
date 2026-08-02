@@ -74,7 +74,10 @@ fn genesis_recomputes_from_frozen_inputs() {
     assert_eq!(senate_hash_empty, 0xF5A5_FD42, "senate_hash_empty");
     assert_eq!(senate_hash_short, 0x1530_2EC1, "senate_hash_short");
     assert_eq!(first_proposal_hash, 0x3008_3117, "first_proposal_hash");
-    assert_eq!(mitosis_receipt_no_attr, 0xF73D_B063, "mitosis_receipt_no_attr");
+    assert_eq!(
+        mitosis_receipt_no_attr, 0xF73D_B063,
+        "mitosis_receipt_no_attr"
+    );
     assert_eq!(mitosis_receipt_attr, 0x8C3A_C082, "mitosis_receipt_attr");
 
     // The frozen struct MUST equal what we just recomputed. If a future edit

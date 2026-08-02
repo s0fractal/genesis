@@ -4,6 +4,7 @@ import { assert, assertEquals } from "jsr:@std/assert";
 import {
   drainMitosisLog,
   MITOSIS_LOG_CAPACITY,
+  MITOSIS_LOG_HEADER,
   MITOSIS_RECEIPT_SIZE,
 } from "../src/network/mitosis_log_reader.ts";
 import {
@@ -12,7 +13,9 @@ import {
 } from "../src/network/mitosis_proof.ts";
 
 function makeLog(): Uint8Array {
-  return new Uint8Array(16 + MITOSIS_LOG_CAPACITY * MITOSIS_RECEIPT_SIZE);
+  return new Uint8Array(
+    MITOSIS_LOG_HEADER + MITOSIS_LOG_CAPACITY * MITOSIS_RECEIPT_SIZE,
+  );
 }
 
 function writeAgent(view: DataView, off: number, a: {
@@ -47,7 +50,7 @@ Deno.test("drainMitosisLog: single receipt round-trips", async () => {
   view.setUint32(0, 1, true);
   view.setUint32(4, 1, true);
   // Slot 0.
-  const slotOff = 16;
+  const slotOff = MITOSIS_LOG_HEADER;
   const parent = {
     phase: 64,
     energy: 3000,
@@ -93,7 +96,7 @@ Deno.test("drainMitosisLog: lastSeen suppresses already-drained entries", async 
   view.setUint32(0, 3, true); // head = 3
   view.setUint32(4, 3, true); // total = 3
   for (let i = 0; i < 3; i++) {
-    const off = 16 + i * MITOSIS_RECEIPT_SIZE;
+    const off = MITOSIS_LOG_HEADER + i * MITOSIS_RECEIPT_SIZE;
     writeAgent(view, off + 0, {
       phase: 1,
       energy: 100 + i,
@@ -129,7 +132,7 @@ Deno.test("drainMitosisLog: writer overflow drops oldest entries", async () => {
   view.setUint32(4, 50, true);
   // Fill all 32 slots with sequential genomes 18..49.
   for (let slot = 0; slot < MITOSIS_LOG_CAPACITY; slot++) {
-    const off = 16 + slot * MITOSIS_RECEIPT_SIZE;
+    const off = MITOSIS_LOG_HEADER + slot * MITOSIS_RECEIPT_SIZE;
     // Map slot back to logical index: head = 50 % 32 = 18, so slot 18 was written
     // most recently as logical idx 49. Generally: logical = total - lookback,
     // where lookback = (head - slot - 1) mod CAPACITY + 1. We just write the
@@ -173,7 +176,7 @@ Deno.test("drainMitosisLog: attractor snapshot round-trips", async () => {
   const view = new DataView(buf.buffer);
   view.setUint32(0, 1, true);
   view.setUint32(4, 1, true);
-  const off = 16;
+  const off = MITOSIS_LOG_HEADER;
   writeAgent(view, off + 0, {
     phase: 0,
     energy: 0,

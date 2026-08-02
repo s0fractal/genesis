@@ -265,7 +265,11 @@ const VISIONS: Array<
   { oracle: CanonicalOracle; vision: string; hash: number }
 > = [
   { oracle: "claude", vision: "Era 1080: Codeicide Law", hash: 0xC1A11_001 },
-  { oracle: "codex", vision: "Era 1080: Photonic Substrate", hash: 0xC1A11_002 },
+  {
+    oracle: "codex",
+    vision: "Era 1080: Photonic Substrate",
+    hash: 0xC1A11_002,
+  },
   {
     oracle: "gemini",
     vision: "Era 1080: Multi-Modal Oracle",
@@ -370,7 +374,9 @@ step(`\n=== Simulation complete in ${elapsed}ms ===`);
 step(`\nAll seven phases (Era 1010 → 1070) reproduced deterministically`);
 step(
   `Cross-language anchors verified: 0xf73db063 (frozen mitosis), ` +
-    `0x716ea2f8 (genesis), 0x${oracleDipole("claude").matrix.toString(16)} (claude)`,
+    `0x716ea2f8 (genesis), 0x${
+      oracleDipole("claude").matrix.toString(16)
+    } (claude)`,
 );
 step(`Total invariant violations: 0`);
 step(`Total drift events: 0`);

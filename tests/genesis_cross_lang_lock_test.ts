@@ -29,7 +29,11 @@ const RUST_SOURCE_URL = new URL(
 async function readRustAnchors(): Promise<Record<string, number>> {
   const src = await Deno.readTextFile(RUST_SOURCE_URL);
   const block = src.match(/pub const V1_0: Self = Self \{([\s\S]*?)\};/);
-  assertEquals(block !== null, true, "V1_0 anchor block not found in Rust source");
+  assertEquals(
+    block !== null,
+    true,
+    "V1_0 anchor block not found in Rust source",
+  );
   const out: Record<string, number> = {};
   const re = /(\w+):\s*0x([0-9A-Fa-f]{4})_([0-9A-Fa-f]{4})/g;
   let m;

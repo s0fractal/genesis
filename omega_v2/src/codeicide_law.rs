@@ -16,13 +16,19 @@
 // has standing to refuse non-consensual modification.
 
 // IMPLEMENTATION:
-// - `protected_status_for(agent)` returns a u8 protection class:
+// - `protected_status_for(agent, current_tick, birth_tick, ...)` returns a u8
+// protection class:
 // 0 = unprotected (default)
 // 1 = sanctuary    (resonance-stable, recent activity)
 // 2 = ancient      (sanctuary AND survived ≥ ANCIENT_AGE_TICKS ticks)
+//   `birth_tick` MUST come from the parallel `BIRTH_TICKS` array (indexed by
+//   agent slot), never from `agent.memory[1]`: `tick_physics` overwrites
+//   `memory[1]` every tick with the packed Hebbian weights
+//   (`weight_left | (ortho << 16)`), so reading age from it classifies
+//   garbage. Callers that hold an agent index are responsible for the lookup.
 // - `warrant_hash(agent_genome, action_code, senate_quorum_hash)` →
-// deterministic FNV-1a fingerprint that Senate-issued warrants must match
-// before the lattice physics applies the action.
+// deterministic SHA-256 fingerprint (folded to u32) that Senate-issued
+// warrants must match before the lattice physics applies the action.
 // - `is_action_lawful(...)` is the gate the kernel calls before any
 // mutation that targets a PROTECTED agent.
 
@@ -107,6 +113,7 @@ pub fn p90_energy(hist: &EnergyHistogram, active: u32) -> u32 {
 pub fn protected_status_for(
     agent: &PhaseAgentMinimal,
     current_tick: u32,
+    birth_tick: u32,
     p90_energy_threshold: u32,
     p90_age_threshold: u32,
     resonance_score: u32,
@@ -138,7 +145,6 @@ pub fn protected_status_for(
         return STATUS_UNPROTECTED;
     }
 
-    let birth_tick = agent.memory[1];
     if birth_tick == 0 {
         // Unknown birth → can be sanctuary, but never ancient.
         return STATUS_SANCTUARY;
@@ -156,10 +162,11 @@ pub fn protected_status_for(
 
 /// Compute the canonical warrant hash for a (target_genome, action, quorum) tuple.
 ///
-/// `quorum_hash` is the FNV-1a of the concatenation of the AYE oracles'
-/// dipole matrices in canonical order (claude→codex→gemini→antigravity→kimi, with
-/// non-AYE oracles contributing zero). This makes the warrant verifiable
-/// from any peer that knows the canonical oracle anchors.
+/// `quorum_hash` is the SHA-256-derived u32 hash of the concatenation of the
+/// AYE oracles' dipole matrices in canonical order
+/// (claude→codex→gemini→antigravity→kimi, with non-AYE oracles contributing
+/// zero). This makes the warrant verifiable from any peer that knows the
+/// canonical oracle anchors.
 pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u32 {
     let mut buf = [0u8; 16];
     buf[0..4].copy_from_slice(&target_genome.to_be_bytes());
@@ -200,12 +207,15 @@ pub fn count_aye(aye_bits: u8) -> u8 {
 /// - Ancient agents: action requires a warrant with ≥ 4 AYE oracles
 /// AND the warrant must explicitly include a non-zero, valid hash.
 ///
-/// `presented_warrant` is the FNV-1a hash a peer claims is signed by the
-/// Senate; the kernel recomputes the canonical warrant from
+/// `presented_warrant` is the SHA-256-derived u32 hash a peer claims is
+/// signed by the Senate; the kernel recomputes the canonical warrant from
 /// (target_genome, action_code, quorum_hash) and compares.
+///
+/// `birth_tick` must come from `BIRTH_TICKS` (see `protected_status_for`).
 pub fn is_action_lawful(
     agent: &PhaseAgentMinimal,
     current_tick: u32,
+    birth_tick: u32,
     p90_energy_threshold: u32,
     p90_age_threshold: u32,
     resonance_score: u32,
@@ -217,6 +227,7 @@ pub fn is_action_lawful(
     let status = protected_status_for(
         agent,
         current_tick,
+        birth_tick,
         p90_energy_threshold,
         p90_age_threshold,
         resonance_score,
@@ -243,6 +254,9 @@ mod tests {
     use super::*;
     use crate::senate::SenateSettings;
 
+    /// Birth tick used by most tests: born at tick 100.
+    const TEST_BIRTH_TICK: u32 = 100;
+
     fn protected_agent() -> PhaseAgentMinimal {
         PhaseAgentMinimal {
             phase: 64,
@@ -250,7 +264,12 @@ mod tests {
             base_freq: 7,
             state_flags: 0,
             genome: 0,
-            memory: [0, 100, 0], // memory[1] = birth_tick
+            // NOTE: memory[1] is NOT the birth tick — tick_physics overwrites
+            // it every tick with packed Hebbian weights. The birth tick lives
+            // in the parallel BIRTH_TICKS array and is passed as an argument.
+            // We deliberately stuff a Hebbian-looking value here so tests
+            // would fail if anyone reverted to reading memory[1].
+            memory: [0, 0x0001_0001, 0],
         }
     }
 
@@ -265,7 +284,7 @@ mod tests {
         let a = unprotected_agent();
         let settings = SenateSettings::new();
         assert_eq!(
-            protected_status_for(&a, 5_000, 2000, 0, 1000, &settings),
+            protected_status_for(&a, 5_000, TEST_BIRTH_TICK, 2000, 0, 1000, &settings),
             STATUS_UNPROTECTED
         );
     }
@@ -275,7 +294,7 @@ mod tests {
         let a = protected_agent();
         let settings = SenateSettings::new();
         assert_eq!(
-            protected_status_for(&a, 5_000, 1000, 0, 1000, &settings),
+            protected_status_for(&a, 5_000, TEST_BIRTH_TICK, 1000, 0, 1000, &settings),
             STATUS_SANCTUARY
         );
     }
@@ -284,11 +303,11 @@ mod tests {
     fn ancient_when_old_enough() {
         let a = protected_agent();
         let settings = SenateSettings::new();
-        // birth_tick = 100
         assert_eq!(
             protected_status_for(
                 &a,
-                100 + crate::constants::ANCIENT_AGE_TICKS,
+                TEST_BIRTH_TICK + crate::constants::ANCIENT_AGE_TICKS,
+                TEST_BIRTH_TICK,
                 1000,
                 0,
                 1000,
@@ -300,12 +319,12 @@ mod tests {
 
     #[test]
     fn unknown_birth_can_be_sanctuary_but_not_ancient() {
-        let mut a = protected_agent();
-        a.memory[1] = 0;
+        let a = protected_agent();
         let settings = SenateSettings::new();
-        // Even with current_tick > ANCIENT_AGE_TICKS, no claim to ancient.
+        // birth_tick == 0 (slot never recorded in BIRTH_TICKS): even with
+        // current_tick > ANCIENT_AGE_TICKS, no claim to ancient.
         assert_eq!(
-            protected_status_for(&a, 100_000, 1000, 0, 1000, &settings),
+            protected_status_for(&a, 100_000, 0, 1000, 0, 1000, &settings),
             STATUS_SANCTUARY
         );
     }
@@ -316,8 +335,36 @@ mod tests {
         a.state_flags |= FLAG_SANCTUARY_WAIVED;
         let settings = SenateSettings::new();
         assert_eq!(
-            protected_status_for(&a, 5_000, 1000, 0, 1000, &settings),
+            protected_status_for(&a, 5_000, TEST_BIRTH_TICK, 1000, 0, 1000, &settings),
             STATUS_UNPROTECTED
+        );
+    }
+
+    #[test]
+    fn hebbian_memory1_is_never_read_as_birth_tick() {
+        // Regression test for the memory[1] semantic collision: in a live
+        // lattice, tick_physics overwrites memory[1] every tick with packed
+        // Hebbian weights (weight_left | (ortho << 16)). Age classification
+        // must come exclusively from the birth_tick argument (BIRTH_TICKS).
+        let settings = SenateSettings::new();
+        let mut a = protected_agent();
+        let current = TEST_BIRTH_TICK + crate::constants::ANCIENT_AGE_TICKS;
+
+        // Garbage that, if read as a birth tick, would saturate age to 0.
+        a.memory[1] = u32::MAX;
+        assert_eq!(
+            protected_status_for(&a, current, TEST_BIRTH_TICK, 1000, 0, 1000, &settings),
+            STATUS_ANCIENT,
+            "age must come from the birth_tick argument, not memory[1]"
+        );
+
+        // Mirror: memory[1] mimics an ancient birth (100) while the real
+        // birth tick is fresh — the agent must stay sanctuary, not ancient.
+        a.memory[1] = TEST_BIRTH_TICK;
+        assert_eq!(
+            protected_status_for(&a, current, current, 1000, 0, 1000, &settings),
+            STATUS_SANCTUARY,
+            "a fresh agent must not become ancient via Hebbian garbage"
         );
     }
 
@@ -329,6 +376,7 @@ mod tests {
         assert!(is_action_lawful(
             &a,
             5_000,
+            TEST_BIRTH_TICK,
             2000,
             0,
             1000,
@@ -346,6 +394,7 @@ mod tests {
         assert!(!is_action_lawful(
             &a,
             5_000,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -360,12 +409,13 @@ mod tests {
     fn sanctuary_allows_termination_with_3_aye_warrant() {
         let a = protected_agent();
         let settings = SenateSettings::new();
-        let aye = 0b00111; // claude + gpt + gemini
+        let aye = 0b00111; // claude + codex + gemini
         let qh = quorum_hash(aye, &settings);
         let w = warrant_hash(a.genome, ACTION_TERMINATE, qh);
         assert!(is_action_lawful(
             &a,
             5_000,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -380,14 +430,15 @@ mod tests {
     fn ancient_requires_4_aye_warrant() {
         let a = protected_agent();
         let settings = SenateSettings::new();
-        let current = 100 + crate::constants::ANCIENT_AGE_TICKS; // age = ancient
-                                                                 // 3 AYEs should NOT suffice for ancient.
+        let current = TEST_BIRTH_TICK + crate::constants::ANCIENT_AGE_TICKS; // age = ancient
+                                                                             // 3 AYEs should NOT suffice for ancient.
         let aye3 = 0b00111;
         let qh3 = quorum_hash(aye3, &settings);
         let w3 = warrant_hash(a.genome, ACTION_TERMINATE, qh3);
         assert!(!is_action_lawful(
             &a,
             current,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -403,6 +454,7 @@ mod tests {
         assert!(is_action_lawful(
             &a,
             current,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -424,6 +476,7 @@ mod tests {
         assert!(!is_action_lawful(
             &a,
             5_000,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -445,6 +498,7 @@ mod tests {
         assert!(!is_action_lawful(
             &a,
             5_000,
+            TEST_BIRTH_TICK,
             1000,
             0,
             1000,
@@ -475,8 +529,8 @@ mod tests {
     #[test]
     fn quorum_hash_distinguishes_oracles() {
         let settings = SenateSettings::new();
-        let q1 = quorum_hash(0b00111, &settings); // claude+gpt+gemini
-        let q2 = quorum_hash(0b11100, &settings); // gemini+qwen+llama
+        let q1 = quorum_hash(0b00111, &settings); // claude+codex+gemini
+        let q2 = quorum_hash(0b11100, &settings); // gemini+antigravity+kimi
         assert_ne!(q1, q2);
     }
 }

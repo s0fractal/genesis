@@ -671,9 +671,6 @@ impl PhaseLattice {
             self.signals.p90_age = p90_age_threshold;
         }
 
-        let p90_threshold = self.signals.p90_energy;
-        let p90_age_threshold = self.signals.p90_age;
-
         #[cfg(test)]
         let _birth_ticks_guard = crate::BIRTH_TICKS_TEST_LOCK.lock();
 
@@ -696,19 +693,13 @@ impl PhaseLattice {
                     // wants to propagate.
                     #[cfg(not(feature = "spore"))]
                     {
-                        let global_phi = crate::PHI_ANCHOR_CHAIN.lock().global_phi();
-                        let resonance_score =
-                            crate::math::cos_q10(0, parent.phase.wrapping_sub(global_phi)).max(0)
-                                as u32;
-                        let settings = crate::SENATE_SETTINGS.lock();
-                        let _status = crate::codeicide_law::protected_status_for(
-                            parent,
-                            self.signals.proper_time.causal_ticks,
-                            p90_threshold,
-                            p90_age_threshold,
-                            resonance_score,
-                            &settings,
-                        );
+                        // The only mitosis gate is the explicit opt-out flag.
+                        // Protection classification itself is NOT recomputed
+                        // here — it lives in v2_codeicide_status /
+                        // v2_codeicide_is_lawful, which read the birth tick
+                        // from BIRTH_TICKS. (A previous revision computed a
+                        // discarded `_status` here, paying two global locks
+                        // per candidate for nothing.)
                         if (parent.state_flags & crate::codeicide_law::FLAG_SANCTUARY_WAIVED) != 0 {
                             // Skip — agent has explicitly opted out this tick.
                             continue;

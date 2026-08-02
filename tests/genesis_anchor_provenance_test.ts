@@ -55,8 +55,26 @@ Deno.test("genesis: all five anchors recompute from frozen inputs", () => {
   const firstProposalHash =
     sha256_u32(pad64("Task 0090: Era 1040 - ZK-Notarized Mutations")) >>> 0;
   // Frozen anchor children (fields as derived by the kernel at e8b685e).
-  const mitosisReceiptNoAttr = receiptU32(128, 1000, 7, 180, 3549459802, 0xDEADBEEF, 1, 2);
-  const mitosisReceiptAttr = receiptU32(128, 1000, 7, 16777468, 1630780158, 0xABCD0040, 1, 2);
+  const mitosisReceiptNoAttr = receiptU32(
+    128,
+    1000,
+    7,
+    180,
+    3549459802,
+    0xDEADBEEF,
+    1,
+    2,
+  );
+  const mitosisReceiptAttr = receiptU32(
+    128,
+    1000,
+    7,
+    16777468,
+    1630780158,
+    0xABCD0040,
+    1,
+    2,
+  );
 
   assertEquals(senateHashEmpty, 0xF5A5_FD42);
   assertEquals(senateHashShort, 0x1530_2EC1);

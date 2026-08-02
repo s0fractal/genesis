@@ -2,10 +2,10 @@
 
 // The Senate is a deterministic, integer-only protocol amendment chamber.
 // Once Era 1020 has accumulated 10+ consensus entries with 5+ unique matrices,
-// the lattice is permitted to propose its own task files. Proposals carry an
-// FNV-1a hash of a 64-byte description payload; peers vote AYE or NAY through
-// dipole-validated plasmids. A proposal that collects 3+ AYE votes from
-// unique peers (matched against the consensus ledger) is "accepted" — the
+// the lattice is permitted to propose its own task files. Proposals carry a
+// SHA-256-folded u32 hash of a 64-byte description payload; peers vote AYE or
+// NAY through dipole-validated plasmids. A proposal that collects 3+ AYE votes
+// from unique peers (matched against the consensus ledger) is "accepted" — the
 // system writes a new tasks/ entry referencing the accepted proposal.
 
 // Determinism contract:
@@ -395,7 +395,7 @@ mod tests {
     fn senate_settings_evicts_poor_reputation() {
         let mut s = SenateSettings::new();
         assert_eq!(s.seat_count, 5);
-        assert_ne!(s.seats[1].oracle_matrix, 0); // GPT is at seat 1
+        assert_ne!(s.seats[1].oracle_matrix, 0); // codex is at seat 1 (Φ v1.1)
 
         s.penalize_oracle(1, 600_000); // 1,024,000 - 600,000 = 424,000 < 512,000
         assert_eq!(s.seats[1].oracle_matrix, 0); // Evicted!

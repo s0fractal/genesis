@@ -12,17 +12,16 @@ import {
 } from "./environmental_vector.ts";
 
 const PHASE_AGENT_MINIMAL_BYTES = 32;
-// LATTICE_UNIFORM_SIZE is composed of: PhaseTopology (48) + SignalStore (48) + Intents (128) = 224 bytes.
-// Wait, 48 + 48 + 128 = 224.
-// Let's re-verify: PhaseTopology is 48 bytes. SignalStore is 48 bytes.
-// Wait, earlier I calculated PhaseTopology was 32 bytes?
-// Let's check: q_phase, q_sectors, q_radial, q_math, weather_multiplier, _pad1, _pad2, _pad3 = 8 * 4 = 32 bytes.
-// Yes! 32 + 48 + 128 = 208.
+// PhaseLattice head layout (v2_lattice_ptr): PhaseTopology (32) +
+// SignalStore (48) + intents (4 × 32) = 208 bytes.
+// Asserted by omega_v2/tests/ffi_layout.rs.
 const LATTICE_UNIFORM_SIZE = 208;
 const DELTA_BUFFER_BYTES = 6400 * 16;
 const ATTRACTOR_ARRAY_BYTES = 80;
-const MITOSIS_LOG_HEADER = 16;
-const MITOSIS_RECEIPT_SIZE = 160;
+// See mitosis_log_reader.ts: Rust MitosisLog has align(32), entries begin
+// at byte 32; each receipt is 192 bytes (SHA-256 era layout).
+const MITOSIS_LOG_HEADER = 32;
+const MITOSIS_RECEIPT_SIZE = 192;
 const MITOSIS_LOG_CAPACITY = 32;
 const MITOSIS_LOG_BYTES = MITOSIS_LOG_HEADER +
   MITOSIS_RECEIPT_SIZE * MITOSIS_LOG_CAPACITY;
@@ -136,13 +135,15 @@ export class OmegaV2Engine {
       // Copy snapshot directly into WebAssembly .bss
       ptrs.agentBytes.set(initialSnapshot.subarray(0, safeBytes));
 
-      // Update Active Agent Count in SignalStore
+      // Update Active Agent Count in SignalStore.
+      // SignalStore lives at byte 32 of the lattice head; active_agent_count
+      // is at +16 within it → u32 index 12 (ffi_layout.rs).
       const signals = new Uint32Array(
         ptrs.uniformBytes.buffer,
         ptrs.uniformBytes.byteOffset,
-        4,
+        13,
       );
-      signals[2] = safeCount; // active_agent_count is at offset 8 (index 2 of u32)
+      signals[12] = safeCount;
 
       console.log(
         `🌌 [V2-BRIDGE] Snapshot restored from IPFS: ${safeCount} agents resurrected.`,
@@ -283,12 +284,14 @@ export class OmegaV2Engine {
 
   public getActiveAgentCount(): number {
     const ptrs = this.getMemoryPointers();
+    // SignalStore at byte 32 of the lattice head; active_agent_count at +16
+    // → u32 index 12 (ffi_layout.rs). Index 2 was topology.q_radial.
     const signals = new Uint32Array(
       ptrs.uniformBytes.buffer,
       ptrs.uniformBytes.byteOffset,
-      4,
+      13,
     );
-    return signals[2]; // active_agent_count is at offset 8 (index 2)
+    return signals[12];
   }
 
   /** Era 1040 Phase 2: total mitosis receipts written since boot. */

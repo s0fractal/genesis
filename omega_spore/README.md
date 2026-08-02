@@ -57,10 +57,10 @@ signal success/failure through whatever LED / serial hook you wire into
 At boot the firmware's `validate_anchors()` checks **two** cross-substrate
 anchors and aborts if either drifts:
 
-| Anchor                     | Value         | Checked in                  |
-| -------------------------- | ------------- | --------------------------- |
-| empty-senate FNV-64 fold   | `0xDFDE_6AC5` | `main.rs::validate_anchors` |
-| Genesis Hash v1.0          | `0x716E_A2F8` | `genesis_inscription.rs`    |
+| Anchor                   | Value         | Checked in                  |
+| ------------------------ | ------------- | --------------------------- |
+| empty-senate FNV-64 fold | `0xDFDE_6AC5` | `main.rs::validate_anchors` |
+| Genesis Hash v1.0        | `0x716E_A2F8` | `genesis_inscription.rs`    |
 
 Two is enough: the genesis hash is FNV-1a over all five frozen v1.0 anchors, so
 reproducing `0x716E_A2F8` proves the firmware linked a conforming `omega_v2`

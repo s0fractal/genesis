@@ -98,6 +98,7 @@ fn main() {
     let lawful = is_action_lawful(
         &protected,
         5_000,
+        100, // birth_tick (from BIRTH_TICKS in production)
         1000,
         0,
         1000,

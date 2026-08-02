@@ -3,19 +3,19 @@
 // API fixes (identify service + connectionEncrypters). The relay-based mesh it
 // belongs to is LIVE and proven via `tools/mesh_relay_node.ts` + `tools/mesh.ts`
 // (relay relay.myc.md, content-sync, self-discovery, signature verification).
+// As of 2026-08-01 the senate control plane is WIRED: PROPOSAL / VOTE / DIPOLE
+// plasmids travel as JSON on the dedicated "v2-senate" topic (a VOTE carries a
+// 64-byte Ed25519 custody signature; a DIPOLE carries two agents + attractor
+// field — neither fits a 32-byte SporeFrame). DIPOLE accounting (the Era 1050
+// odometer) lives in the pure, unit-tested `dipole_accounting.ts`.
 // What's NOT yet done here: this file is still not instantiated by a running
-// daemon / not on the primary test surface, and a standing gossipsub data plane
-// wants DCUtR hole-punching (relayed conns are "limited"). See docs/MESH_RELAY.md
-// and docs/KNOWN_GAPS.md. The quorum_warrant_bridge_test.ts integration uses a
+// daemon, and a standing gossipsub data plane wants DCUtR hole-punching
+// (relayed conns are "limited"). See docs/MESH_RELAY.md and
+// docs/KNOWN_GAPS.md. The quorum_warrant_bridge_test.ts integration uses a
 // canonical inline hash reference rather than importing this file.
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { NULL_ADDRESS, PhaseAddress, PhaseRouter } from "./routing_bridge.ts";
-import {
-  AgentMinimal,
-  AttractorEntry,
-  childReceiptHash,
-  deriveMitosisChild,
-} from "./mitosis_proof.ts";
+import { AgentMinimal, AttractorEntry } from "./mitosis_proof.ts";
 import {
   formatInscription,
   GENESIS_HASH_LEGACY_V1_0,
@@ -35,6 +35,11 @@ import {
 } from "./oracle_custody.ts";
 import { CrossModelDebate } from "./cross_model_debate.ts";
 import {
+  DivergenceRecovery,
+  MAX_MUTATIONS_PER_MESSAGE,
+  sanitizeDeltaMutation,
+} from "./sync_recovery.ts";
+import {
   buildAttractor,
   buildProposal,
   buildV2SyncFrame,
@@ -46,6 +51,10 @@ import {
   SporeFrame,
 } from "./spore_frame.ts";
 import { LivenessAggregator } from "./liveness_aggregator.ts";
+import {
+  DipoleAccountant,
+  verifyDipoleAnnouncement,
+} from "./dipole_accounting.ts";
 
 export interface PlasmidPayload {
   attractorAddress: number;
@@ -161,7 +170,13 @@ export class Libp2pMesh {
   private router: PhaseRouter | null = null;
   private selfAddress: PhaseAddress = { raw: 0, ortho: 0 };
 
-  public isSyncFrozen: boolean = false;
+  public get isSyncFrozen(): boolean {
+    return this.syncRecovery.isFrozen(Date.now());
+  }
+  // T6: liveness + boundary guards for the v2-state channel. The divergence
+  // freeze now times out (REQ_SNAPSHOT has no responder anywhere in the
+  // codebase — the old code froze the local physics forever).
+  private syncRecovery: DivergenceRecovery = new DivergenceRecovery();
   private overwriteCallback: (snapshot: Uint8Array) => void;
 
   // Snapshot Reassembly State
@@ -187,8 +202,13 @@ export class Libp2pMesh {
   public senate: Map<number, SenateProposalRecord> = new Map();
   private acceptedTaskHashes: Set<number> = new Set();
 
-  // ZK-Notarized Mutations counter (counts successfully verified DIPOLE proofs).
-  public verifiedDipoleCount: number = 0;
+  // ZK-Notarized Mutations counter (counts successfully verified DIPOLE
+  // proofs). The accounting itself lives in the pure, unit-testable
+  // `DipoleAccountant` (src/network/dipole_accounting.ts).
+  private dipoleAccountant: DipoleAccountant = new DipoleAccountant();
+  public get verifiedDipoleCount(): number {
+    return this.dipoleAccountant.verifiedCount;
+  }
 
   // Cross-model debate ledger (full-text store, key = proposalHash).
   public debate: CrossModelDebate = new CrossModelDebate();
@@ -284,6 +304,8 @@ export class Libp2pMesh {
         this.handleZKProofMessage(evt.detail.from.toString(), evt.detail.data);
       } else if (evt.detail.topic === "v2-zk-rollup") {
         this.handleZKRollupMessage(evt.detail.from.toString(), evt.detail.data);
+      } else if (evt.detail.topic === "v2-senate") {
+        this.handleSenateMessage(evt.detail.from.toString(), evt.detail.data);
       }
     });
 
@@ -291,6 +313,7 @@ export class Libp2pMesh {
     this.node.services.pubsub.subscribe("v2-state");
     this.node.services.pubsub.subscribe("v2-zk-proof");
     this.node.services.pubsub.subscribe("v2-zk-rollup");
+    this.node.services.pubsub.subscribe("v2-senate");
 
     await this.node.start();
     console.log(`[LIBP2P-MESH] Libp2p node started.`);
@@ -502,23 +525,25 @@ export class Libp2pMesh {
     const localTrace = (this.engine.wasm?.exports
       .v2_get_golden_trace as CallableFunction)?.() as number;
     const remoteGt = packet.gt as number;
-    if (localTrace !== remoteGt && !this.isSyncFrozen) {
+    if (
+      localTrace !== remoteGt &&
+      this.syncRecovery.onDivergence(localTrace, remoteGt, Date.now())
+    ) {
       console.warn(
         `[LIBP2P-MESH] ⚠️ GOLDEN TRACE DIVERGENCE! (Local: ${
           localTrace.toString(16)
         } | Remote: ${remoteGt.toString(16)})`,
       );
-      if (remoteGt > localTrace) {
-        console.log(
-          `[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`,
-        );
-        this.isSyncFrozen = true;
-        const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
-        this.node.services.pubsub.publish(
-          "v2-state",
-          new TextEncoder().encode(req),
-        );
-      }
+      console.log(
+        `[LIBP2P-MESH] Requesting Overmind State Snapshot from Authority...`,
+      );
+      // NOTE: no responder for REQ_SNAPSHOT exists yet — the freeze is
+      // time-boxed by DivergenceRecovery and releases itself.
+      const req = JSON.stringify({ t: "REQ_SNAPSHOT" });
+      this.node.services.pubsub.publish(
+        "v2-state",
+        new TextEncoder().encode(req),
+      );
     }
   }
 
@@ -534,10 +559,12 @@ export class Libp2pMesh {
         );
         this.overwriteCallback(this.incomingSnapshot);
         this.incomingSnapshot = null;
-        this.isSyncFrozen = false;
+        this.syncRecovery.onSnapshotApplied();
       }
     } else {
-      // ERA 6000: Continuous Delta Mutagens
+      // ERA 6000: Continuous Delta Mutagens (xenobiology is a feature, but
+      // the boundary respects physics: indices in bounds, energy ≤ MAX_ATP,
+      // per-message cap — see sync_recovery.ts).
       const ptrs = this.engine.getMemoryPointers();
       if (!ptrs) return;
 
@@ -549,21 +576,26 @@ export class Libp2pMesh {
       );
       const maxAgents = gridU32.length / 8;
 
-      const numMutations = Math.floor(deltasU32.length / 4);
+      const numMutations = Math.min(
+        Math.floor(deltasU32.length / 4),
+        MAX_MUTATIONS_PER_MESSAGE,
+      );
       console.log(
         `[LIBP2P-MESH] 🧬 Applying ${numMutations} Xenobiological Mutations via UDP Delta`,
       );
 
       for (let i = 0; i < numMutations; i++) {
-        const index = deltasU32[i * 4 + 0];
-        const phase = deltasU32[i * 4 + 1];
-        const energy = deltasU32[i * 4 + 2];
-        const genome = deltasU32[i * 4 + 3];
-
-        if (index >= maxAgents) continue;
-        gridU32[index * 8 + 0] = phase;
-        gridU32[index * 8 + 1] = energy;
-        gridU32[index * 8 + 4] = genome;
+        const m = sanitizeDeltaMutation(
+          deltasU32[i * 4 + 0],
+          deltasU32[i * 4 + 1],
+          deltasU32[i * 4 + 2],
+          deltasU32[i * 4 + 3],
+          maxAgents,
+        );
+        if (!m) continue;
+        gridU32[m.index * 8 + 0] = m.phase;
+        gridU32[m.index * 8 + 1] = m.energy;
+        gridU32[m.index * 8 + 4] = m.genome;
       }
     }
   }
@@ -630,16 +662,23 @@ export class Libp2pMesh {
       );
       return;
     }
-    if (plasmid.semanticType === "PROPOSAL") {
-      this.enqueueBinaryFrame(
-        buildProposal(
-          plasmid.matrix,
-          plasmid.inverse,
-          plasmid.pulseFreq,
-          plasmid.pulseAmp,
-          plasmid.recursionDepth,
-        ),
-      );
+    // Senate control plane (PROPOSAL / VOTE / DIPOLE) travels as JSON on the
+    // dedicated "v2-senate" topic — the same pattern as v2-zk-proof. It
+    // CANNOT be a 32-byte SporeFrame: a VOTE carries a 64-byte Ed25519
+    // custody signature, and a DIPOLE carries two 32-byte agents plus the
+    // attractor field plus a 32-byte SHA-256 receipt hash.
+    if (
+      plasmid.semanticType === "PROPOSAL" ||
+      plasmid.semanticType === "VOTE" ||
+      plasmid.semanticType === "DIPOLE"
+    ) {
+      this.publishSenatePlasmid(plasmid);
+      if (plasmid.semanticType === "DIPOLE") {
+        // The local node is its own first verifier — gossipsub does not echo
+        // self-published messages back, so wire-side accounting never sees
+        // our own births. Count them here, through the same code path.
+        this.processDipole(plasmid, this.localId || "self");
+      }
       return;
     }
     this.pendingPlasmids.push(plasmid);
@@ -738,6 +777,73 @@ export class Libp2pMesh {
     }
   }
 
+  /**
+   * Publish a senate control-plane plasmid (PROPOSAL / VOTE / DIPOLE) as
+   * JSON on the "v2-senate" topic. JSON is deliberate: these plasmids carry
+   * a 64-byte Ed25519 custody signature / full agent snapshots that can
+   * never fit a 32-byte SporeFrame. The "JSON plasmids are SUNSET" rule
+   * applies to the binary v2-sync-bin channel, not to this control plane.
+   */
+  private publishSenatePlasmid(plasmid: PlasmidPayload) {
+    if (!this.node || this.node.status !== "started") {
+      console.warn(
+        `[V2-MESH] Senate plasmid ${plasmid.semanticType} dropped — node not started.`,
+      );
+      return;
+    }
+    try {
+      this.node.services.pubsub.publish(
+        "v2-senate",
+        new TextEncoder().encode(JSON.stringify(plasmid)),
+      );
+    } catch (e) {
+      console.warn(`[V2-MESH] Failed to publish senate plasmid:`, e);
+    }
+  }
+
+  /** Wire-side entry for senate control-plane plasmids. */
+  private handleSenateMessage(fromPeer: string, data: Uint8Array) {
+    let plasmid: PlasmidPayload;
+    try {
+      plasmid = JSON.parse(new TextDecoder().decode(data));
+    } catch {
+      return; // malformed — reject silently, never crash the mesh
+    }
+    if (!plasmid || typeof plasmid.semanticType !== "string") return;
+    switch (plasmid.semanticType) {
+      case "PROPOSAL":
+        this.handleProposal(plasmid, fromPeer);
+        break;
+      case "VOTE":
+        void this.handleVote(plasmid, fromPeer);
+        break;
+      case "DIPOLE":
+        this.processDipole(plasmid, fromPeer);
+        break;
+    }
+  }
+
+  /**
+   * Verify a DIPOLE birth announcement and account for it. Every unique,
+   * successfully re-derived receipt increments `verifiedDipoleCount` (the
+   * Era 1050 odometer — this was previously NEVER incremented, which kept
+   * the whole Era 1050→1060→1070 chain unreachable in live mode), then
+   * re-checks the Era 1050 trigger and feeds the Era-1040 auto-ratifier.
+   * Verification + dedup live in the pure `DipoleAccountant`.
+   */
+  private processDipole(plasmid: PlasmidPayload, fromPeer: string) {
+    const outcome = this.dipoleAccountant.process(plasmid);
+    if (outcome === "invalid") {
+      console.warn(
+        `[V2-MESH] DIPOLE from ${fromPeer} failed re-derivation — rejected.`,
+      );
+      return;
+    }
+    if (outcome === "duplicate") return;
+    this.checkEra1050Trigger();
+    this.autoRatifyEra1040Proposal(plasmid.matrix, plasmid.inverse);
+  }
+
   private handleProposal(plasmid: PlasmidPayload, fromPeer: string) {
     if (!this.era1030Unlocked) {
       console.log(
@@ -765,10 +871,15 @@ export class Libp2pMesh {
       proposerMatrix: plasmid.matrix,
       ayes: new Set([fromPeer]),
       nays: new Set(),
+      // Weight tallies MUST exist from birth — handleVote does `+= weight`
+      // on them and a missing field silently turns the tally into NaN,
+      // making the peer-consensus threshold unreachable.
+      ayesWeight: 0,
+      naysWeight: 0,
       accepted: false,
       localObservedAtMs: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
       proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
-    } as any);
+    });
     // Mirror into WASM Senate state.
     const propose = this.engine.wasm?.exports.v2_senate_propose as
       | CallableFunction
@@ -929,9 +1040,11 @@ export class Libp2pMesh {
               `🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`,
             );
           }
-          // Propagate to Rust (caller authenticated as CLAUDE oracle)
+          // Propagate to Rust (caller authenticated as the claude oracle seat;
+          // registry keys are lowercase — ORACLE_MATRICES_V1["CLAUDE"] is
+          // undefined and would authenticate as matrix 0, i.e. reject).
           if (this.engine.wasm?.exports.v2_apply_senate_patch) {
-            const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+            const callerMatrix = ORACLE_MATRICES_V1["claude"] ?? 0;
             (this.engine.wasm.exports.v2_apply_senate_patch as any)(
               callerMatrix,
               4,
@@ -943,7 +1056,7 @@ export class Libp2pMesh {
       } else if (record.description.startsWith("SET_QUORUM:")) {
         const val = parseInt(record.description.split(":")[1], 10);
         if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          const callerMatrix = ORACLE_MATRICES_V1["claude"] ?? 0;
           (this.engine.wasm.exports.v2_apply_senate_patch as any)(
             callerMatrix,
             1,
@@ -955,7 +1068,7 @@ export class Libp2pMesh {
       } else if (record.description.startsWith("SET_SANCTUARY_MULT:")) {
         const val = parseInt(record.description.split(":")[1], 10);
         if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          const callerMatrix = ORACLE_MATRICES_V1["claude"] ?? 0;
           (this.engine.wasm.exports.v2_apply_senate_patch as any)(
             callerMatrix,
             2,
@@ -969,7 +1082,7 @@ export class Libp2pMesh {
       } else if (record.description.startsWith("SET_ANCIENT_AGE:")) {
         const val = parseInt(record.description.split(":")[1], 10);
         if (!isNaN(val) && this.engine.wasm?.exports.v2_apply_senate_patch) {
-          const callerMatrix = ORACLE_MATRICES_V1["CLAUDE"] ?? 0;
+          const callerMatrix = ORACLE_MATRICES_V1["claude"] ?? 0;
           (this.engine.wasm.exports.v2_apply_senate_patch as any)(
             callerMatrix,
             3,
@@ -1285,7 +1398,9 @@ export class Libp2pMesh {
     if (this.era1050Unlocked && this.acceptedTaskHashes.size >= 1) {
       this.era1060Unlocked = true;
       console.log(
-        `🧠 [ERA 1060] UNLOCKED: Multi-Oracle Senate convened. Canonical seats: claude, gpt, gemini, qwen, llama.`,
+        `🧠 [ERA 1060] UNLOCKED: Multi-Oracle Senate convened. Canonical seats: ${
+          CANONICAL_ORACLES.join(", ")
+        }.`,
       );
       globalThis.dispatchEvent(
         new CustomEvent("era1060-unlocked", {
@@ -1335,28 +1450,10 @@ export class Libp2pMesh {
    * Local verification of a mitosis-proof bundle.
    * Returns true iff the announced child re-derives bit-for-bit from
    * (parent, attractors, qPhase) AND the receipt hash matches.
+   * Delegates to the pure `verifyDipoleAnnouncement` (dipole_accounting.ts).
    */
   public static verifyMitosisProof(plasmid: PlasmidPayload): boolean {
-    if (
-      !plasmid.parent || !plasmid.claimedChild || plasmid.qPhase === undefined
-    ) return false;
-    const derived = deriveMitosisChild(
-      plasmid.parent,
-      plasmid.attractors ?? [],
-      plasmid.qPhase,
-    );
-    if (derived.phase !== plasmid.claimedChild.phase) return false;
-    if (derived.energy !== plasmid.claimedChild.energy) return false;
-    if (derived.base_freq !== plasmid.claimedChild.base_freq) return false;
-    if (derived.state_flags !== plasmid.claimedChild.state_flags) return false;
-    if (derived.genome !== plasmid.claimedChild.genome) return false;
-    if (derived.memory[0] !== plasmid.claimedChild.memory[0]) return false;
-    if (derived.memory[1] !== plasmid.claimedChild.memory[1]) return false;
-    if (derived.memory[2] !== plasmid.claimedChild.memory[2]) return false;
-    // receiptHash is now a SHA-256 string, but this method is sync.
-    // Since we just verified every single field of claimedChild against derived,
-    // the hash is guaranteed to match. We can skip the redundant hash check here.
-    return true;
+    return verifyDipoleAnnouncement(plasmid);
   }
 
   public getSenateState() {

@@ -38,7 +38,7 @@ pub const WARRANT_STATUS_EXPIRED: u8 = 3;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C, align(8))]
 pub struct WarrantProposal {
-    /// FNV-1a hash of (target_genome || action_code || reason_hash) — the
+    /// SHA-256-folded u32 hash of (target_genome || action_code || reason_hash) — the
     /// stable identifier under which oracles can cast WARRANT_VOTE plasmids.
     pub proposal_hash: u32,
     /// The agent genome the warrant would target.
@@ -49,11 +49,10 @@ pub struct WarrantProposal {
     /// (3 for sanctuary, 4 for ancient).
     pub required_threshold: u8,
     /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = kimi).
-    /// Bitmask of AYE oracles received (bit 0 = claude, …, bit 4 = kimi).
     pub aye_bits: u8,
     /// Bitmask of NAY oracles received (Philosophical Veto Tracking).
     pub nay_bits: u8,
-    /// FNV-1a hash of the human-readable rationale (text stays off-chain).
+    /// SHA-256-folded u32 hash of the human-readable rationale (text stays off-chain).
     pub reason_hash: u32,
     /// Computed at issuance: the canonical Codeicide warrant_hash that
     /// peers must present to the kernel.
@@ -536,6 +535,7 @@ mod tests {
         assert!(is_action_lawful(
             &agent,
             5_000,
+            100, // birth_tick (from BIRTH_TICKS in production)
             1000,
             0,
             1000,
@@ -574,6 +574,7 @@ mod tests {
         assert!(!is_action_lawful(
             &agent,
             5_000,
+            100, // birth_tick (from BIRTH_TICKS in production)
             1000,
             0,
             1000,

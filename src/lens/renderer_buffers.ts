@@ -6,7 +6,6 @@ export class RendererBuffers {
 
   public topologyBuffer!: GPUBuffer;
   public signalsBuffer!: GPUBuffer;
-  public intentBuffer!: GPUBuffer;
   public agentsBufferA!: GPUBuffer;
   public agentsBufferB!: GPUBuffer;
   public stagingAgentsBuffer!: GPUBuffer;
@@ -30,13 +29,10 @@ export class RendererBuffers {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
+    // SignalStore is 48 bytes (Rust repr(C), ffi_layout.rs). A 32-byte
+    // buffer fails WebGPU bind-group validation against the WGSL struct.
     this.signalsBuffer = this.device.createBuffer({
-      size: 32,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    this.intentBuffer = this.device.createBuffer({
-      size: 128, // 4 intents * 32 bytes each
+      size: 48,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -106,12 +102,15 @@ export class RendererBuffers {
       0,
       32,
     );
+    // PhaseLattice head: topology(0..32) + signals(32..80) + intents(80..208).
+    // SignalStore is 48 bytes — truncating at 32 zeroes total_energy/p90 in
+    // the shader (ffi_layout.rs is the executable contract).
     this.device.queue.writeBuffer(
       this.signalsBuffer,
       0,
       ptrs.uniformBytes,
       32,
-      32,
+      48,
     );
     this.device.queue.writeBuffer(
       this.attractorBuffer,
@@ -119,13 +118,6 @@ export class RendererBuffers {
       ptrs.attractorBytes,
       0,
       80,
-    );
-    this.device.queue.writeBuffer(
-      this.intentBuffer,
-      0,
-      ptrs.uniformBytes,
-      64,
-      128,
     );
   }
 }

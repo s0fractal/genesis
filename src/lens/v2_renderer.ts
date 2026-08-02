@@ -90,9 +90,11 @@ export class PhaseV2Renderer {
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, computeBindGroup);
 
+    // SignalStore.active_agent_count: absolute byte 48 (signals at 32,
+    // field at +16 — see ffi_layout.rs). Offset 40 was phase_lock_integral.
     const activeCount = new Uint32Array(
       ptrs.uniformBytes.buffer,
-      ptrs.uniformBytes.byteOffset + 32 + 8,
+      ptrs.uniformBytes.byteOffset + 32 + 16,
       1,
     )[0];
     const dispatchSize = Math.ceil(activeCount / 64);

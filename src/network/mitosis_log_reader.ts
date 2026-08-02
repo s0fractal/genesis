@@ -8,7 +8,12 @@ import { AgentMinimal, AttractorEntry } from "./mitosis_proof.ts";
 
 export const MITOSIS_LOG_CAPACITY = 32;
 export const MITOSIS_RECEIPT_SIZE = 192;
-const MITOSIS_LOG_HEADER = 16;
+// Rust MitosisLog is repr(C) with align(32) inherited from PhaseAgentMinimal,
+// so `entries` starts at byte 32, NOT 16 (head 4 + total_written 4 + pad 8
+// padded up to the 32-byte alignment). Asserted by
+// omega_v2/tests/ffi_layout.rs — if that test and this constant ever
+// disagree, the test is right.
+export const MITOSIS_LOG_HEADER = 32;
 
 export interface MitosisReceipt {
   parent: AgentMinimal;
