@@ -9,13 +9,13 @@ Real SP1 STARK proof generator for OMEGA-64 mitosis events. This is the
 - **Era 1040 Phase 1** ✅ Pure mitosis derivation (Rust + JS + SP1 RISC-V).
 - **Era 1040 Phase 2** ✅ MitosisLog ring buffer + host parent snapshotting.
 - **Era 1040 Phase 3** ✅ **Real SP1 STARK proofs** (this crate).
-- **Completed `cpu` proofs checked in** ✅ (2026-07-07) — three real,
-  independently re-verifiable STARKs generated and verified on a 48 GB machine:
-  `selftest_cpu` (Mode 2, canonical), `arbitrary_cpu` (Mode 2, non-canonical
-  parent **+ dominant attractor** — a branch the self-test never hits), and
-  `rollup_cpu` (Mode 3, 4-agent physics rollup). All in [`proofs/`](proofs/);
-  see [`proofs/README.md`](proofs/README.md). The `real_proof.rs` gate
-  reproduces the self-test one.
+- **Completed `cpu` proofs checked in** ✅ (regenerated 2026-08-02) — three
+  real, independently re-verifiable STARKs generated and verified on a 48 GB
+  machine: `selftest_cpu` (Mode 2, canonical), `arbitrary_cpu` (Mode 2,
+  non-canonical parent **+ dominant attractor** — a branch the self-test never
+  hits), and `rollup_cpu` (Mode 3, 4-agent physics rollup). All in
+  [`proofs/`](proofs/); see [`proofs/README.md`](proofs/README.md). The
+  `real_proof.rs` gate reproduces the self-test one.
 
 ## Why a separate workspace
 
@@ -31,10 +31,17 @@ curl -L https://sp1up.succinct.xyz | bash
 source ~/.zshenv      # or ~/.bashrc
 sp1up                 # installs cargo-prove + the succinct rust toolchain
 
-# Build the ZK guest ELF (riscv64im-succinct-zkvm-elf):
-cd omega_zk_guest && cargo prove build
+# The guest ELF is CHECKED IN at omega_zk_guest/elf/ and the host embeds those
+# exact bytes — an SP1 proof is about one program, and `cargo prove build` is
+# byte-reproducible within a platform but NOT across one (macOS 167,120 B vs the
+# ubuntu runner's 167,040 B, different verifying key). So building the guest is
+# only needed when you CHANGE it; the ELF, the guest sources and the bundles in
+# proofs/ then move together.
+cd omega_zk_guest && cargo prove build   # only when changing the guest
+cp ../target/elf-compilation/riscv64im-succinct-zkvm-elf/release/omega_zk_guest \
+   elf/omega_zk_guest                    # then regenerate proofs/ — see proofs/README.md
 
-# Build this host prover (links the ELF via include_bytes!):
+# Build this host prover (links the committed ELF via include_bytes!):
 cd omega_zk_host && cargo build --release
 ```
 
@@ -67,7 +74,13 @@ Real self-test output (`SP1_PROVER=cpu`, from the checked-in
   "verified": true,
   "proof_bytes": "AAAAAAQAAAAAAAAAuwAAAAAAAAAA…(≈7.4 MB base64)…",
   "public_values": "…",
-  "note": "SP1 cpu prover; ELF 166400 bytes; proof 5571884 bytes"
+  "note": "SP1 cpu prover; ELF 167120 bytes; proof 5571884 bytes",
+  "program": {
+    "vkey": "0x0079cd08d3f3cdb0…",
+    "elf_sha256": "92aa1f64437c6813…",
+    "elf_bytes": 167120
+  },
+  "physics": { "q_phase": 7 }
 }
 ```
 
@@ -75,11 +88,19 @@ Real self-test output (`SP1_PROVER=cpu`, from the checked-in
 dozen proof bytes, and its `kind` is `stark-mock` so nobody mistakes it for the
 real thing.)
 
-The `receipt_hash` and `parent_genome` echoed in the bundle are **the canonical
-cross-language anchors** — `0xD434E690` (mitosis no-attractor) and `0xCAFEBABE`
-(test parent genome). The proof itself is verified by the same prover that
-generated it; in production, peers would verify proofs they receive against the
-same ELF (which is content-addressable).
+`parent_genome` echoes the canonical test parent `0xCAFEBABE`. `receipt_hash` is
+a **SHA-256** (64 hex) — this paragraph used to name `0xD434E690` as the value
+in the bundle, which is an 8-hex u32 from the pre-SHA-256 era and has not been
+what the bundle carries since the FNV→SHA-256 migration. (T7 corrected that
+class of stale comment in five modules; this file was missed.) The historical
+u32 anchors still stand as history and are recorded in
+`docs/A_LETTER_TO_FUTURE_ORACLES.md`.
+
+The proof is verified by the same prover that generated it, and re-verified from
+disk by CI against the **committed** guest ELF (`omega_zk_guest/elf/`). That is
+what lets a peer verify a proof it receives: the ELF is in the tree and each
+bundle's `program.elf_sha256` names the bytes it needs, so verification no
+longer depends on having built the guest on the prover's own platform.
 
 ## Pipeline
 
@@ -136,10 +157,12 @@ proof than the prover that produced it.
 
 `tests/real_proof.rs` is the completion of the real-prover work that an 8 GB box
 cannot run, so it is `#[ignore]`d (a normal `cargo test` skips it and never
-OOMs). It was **run green on a 48 GB machine on 2026-07-07** (`stark-cpu`,
-`verified: true`, not mock), producing the checked-in [`proofs/`](proofs/)
-bundle. On adequate hardware, re-run it to confirm omega still generates a real,
-verified STARK and has not silently regressed to mock:
+OOMs). It was **run green on a 48 GB machine** (`stark-cpu`, `verified: true`,
+not mock); the checked-in [`proofs/`](proofs/) bundles were last regenerated
+2026-08-02, after T3 changed the guest circuit and left the previous ones
+attesting a program that no longer existed. On adequate hardware, re-run it to
+confirm omega still generates a real, verified STARK and has not silently
+regressed to mock:
 
 ```sh
 SP1_PROVER=cpu cargo test -p omega_zk_host --test real_proof -- --ignored --nocapture

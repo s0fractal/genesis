@@ -8,9 +8,17 @@
 // A green run is the proof — not the claim — that omega generates a REAL STARK
 // (kind == "stark-cpu", verified) and has NOT silently regressed back to mock.
 //
-// Run green on a 48 GB machine on 2026-07-07 (~43 min in a debug build); the
-// resulting bundle is checked in at omega_zk_host/proofs/selftest_cpu.json and
-// re-verifies via `omega_zk_host --verify-only`. See omega_zk_host/README.md.
+// Run green on a 48 GB machine (~43 min in a debug build; ~10 min in release).
+// The resulting bundle is checked in at omega_zk_host/proofs/selftest_cpu.json,
+// last regenerated 2026-08-02, and re-verifies via `omega_zk_host --verify-only`.
+//
+// This test is NOT the guard against the checked-in bundles going stale — it
+// generates a fresh proof rather than checking an existing one, and it is
+// #[ignore]d, so it never runs in CI. The guard is the `zk_host` CI job, which
+// re-verifies every bundle in proofs/ against the committed guest ELF on each
+// push. That distinction matters: from 2026-07-07 to 2026-08-02 all three
+// bundles were unverifiable (T3 changed the guest, so the verifying key moved)
+// and this test's existence did nothing to reveal it.
 
 use std::process::Command;
 

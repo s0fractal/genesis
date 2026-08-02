@@ -26,8 +26,10 @@ OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust
 tests; integer parity across CPU↔GPU↔ZK). Three headline pieces carry **honest
 caveats**, named here (see `AGENTS.md`):
 
-- **ZK proving is REAL, and a completed STARK is checked in (since
-  2026-07-07).** `omega_zk_host` selects its prover from `SP1_PROVER`
+- **ZK proving is REAL, and three completed STARKs are checked in.** Regenerated
+  2026-08-02 and re-verified by CI on every push against a guest ELF that is
+  itself committed — a proof is about one program, so the program ships with it.
+  `omega_zk_host` selects its prover from `SP1_PROVER`
   (`ProverClient::from_env()`): **`cpu` by default — a real local STARK** (no
   GPU / network / spend), `mock` opt-in for fast dev, `network` (Succinct) for
   offload. The mock-only backend is gone. Completing a full cpu proof is
