@@ -9,16 +9,25 @@
 // constant and both goldens break together — that is the integrity guard.
 
 import {
+  BIG_BANG_SEED_DENSITY_Q10,
+  CHILD_ENERGY_SEED,
+  CHRONOTOPOLOGY_STRESS_DIVISOR,
   DELTA_ENERGY_DIVISOR,
   DELTA_PHASE_DIVISOR,
   KURAMOTO_COUPLING_BASE,
   LANDAUER_BIT_COST,
   MAX_ATP,
+  MAX_TIME_DILATION,
+  MITOSIS_COST,
+  MITOSIS_THRESHOLD,
+  PREDATOR_ENERGY_STEAL,
+  SOLAR_YIELD_Q10,
+  STRUCTURAL_MAINTENANCE_DIVISOR,
 } from "./generated_constants.ts";
 
 /** Version anchor for the mathematical laws (mirrors `ERA_ID` in law_hash.rs;
  *  not part of the generated constant set). */
-export const ERA_ID = 960;
+export const ERA_ID = 961;
 
 /** The canonical operating topology — the exact `PhaseTopology` the static
  *  `OMEGA_LATTICE` in lib.rs is built with. Mirrored here (6 ints) and guarded
@@ -32,8 +41,12 @@ export const CANONICAL_TOPOLOGY = {
   alpha: 64,
 } as const;
 
-/** The 12 u32 words hashed, in the exact order `calculate_law_hash` writes
- *  them (little-endian) in omega_v2/src/law_hash.rs. */
+/** The 21 u32 words hashed, in the exact order `calculate_law_hash` writes
+ *  them (little-endian) in omega_v2/src/law_hash.rs.
+ *
+ *  The nine Era-961 constants were governing physics from OUTSIDE this
+ *  preimage, so a node could change what predation, photosynthesis,
+ *  reproduction or ignition do and still publish an unchanged law hash. */
 function lawWords(): number[] {
   return [
     ERA_ID,
@@ -42,6 +55,15 @@ function lawWords(): number[] {
     DELTA_PHASE_DIVISOR,
     DELTA_ENERGY_DIVISOR,
     MAX_ATP,
+    SOLAR_YIELD_Q10,
+    PREDATOR_ENERGY_STEAL,
+    STRUCTURAL_MAINTENANCE_DIVISOR,
+    CHRONOTOPOLOGY_STRESS_DIVISOR,
+    MAX_TIME_DILATION,
+    MITOSIS_THRESHOLD,
+    MITOSIS_COST,
+    CHILD_ENERGY_SEED,
+    BIG_BANG_SEED_DENSITY_Q10,
     CANONICAL_TOPOLOGY.q_phase,
     CANONICAL_TOPOLOGY.q_sectors,
     CANONICAL_TOPOLOGY.q_radial,
@@ -70,4 +92,4 @@ export function lawHashHex(value: number): string {
 
 /** Golden value of [`computeLawHash`] — pinned in lockstep with Rust
  *  `CANONICAL_LAW_HASH` (omega_v2/src/law_hash.rs). */
-export const OMEGA_LAW_HASH = 0x30a95260;
+export const OMEGA_LAW_HASH = 0xa43f38a1;

@@ -54,7 +54,7 @@ runnable test or an honestly-labelled caveat.
 - **Verify the whole federation without trusting it** — one command, no clone,
   read-only, nothing of ours but public bytes: see the external Substrate Court
   verifier under `trinity/probes/external-trust-verifier-v0/`. It re-derives the
-  four substrates' agreement on the same law (`0x30a95260`) from raw bytes; a
+  four substrates' agreement on the same law (`0xa43f38a1`) from raw bytes; a
   registered voice cannot make you accept a lie, because the verdict is
   recomputed, not merely signed.
 

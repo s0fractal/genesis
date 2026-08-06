@@ -14,19 +14,22 @@ import {
 } from "../src/shared/canonical_cbor.ts";
 
 Deno.test("vendored wrap — produces a schema-correct, content-addressed envelope", async () => {
+  // A deliberately synthetic law hash. This test is about the ENVELOPE — its
+  // schema, its content addressing — and pinning omega's real value here would
+  // read as a law assertion while testing none, and would go stale silently the
+  // next time an era is bumped. The real pin lives in tests/law_hash_test.ts.
+  const LAW = "0x0badc0de";
   const body = {
     type: "SubstrateHealth",
     substrate: "omega",
-    law_hash: "0x30a95260",
+    law_hash: LAW,
     overall: "healthy",
   };
-  const env = await wrap(body, "substrate_health", "omega", {
-    law_hash: "0x30a95260",
-  });
+  const env = await wrap(body, "substrate_health", "omega", { law_hash: LAW });
   assertEquals(env.schema, ENVELOPE_SCHEMA);
   assertEquals(env.substrate_tag, "omega");
   assertEquals(env.body_kind, "substrate_health");
-  assertEquals(env.law_hash, "0x30a95260");
+  assertEquals(env.law_hash, LAW);
   assert(env.envelope_id.length > 0);
   assert(env.body_hash.length > 0);
 });

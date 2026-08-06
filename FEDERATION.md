@@ -33,7 +33,7 @@ verification court.
   quorum (`trinity`'s `t registry-amend`), enforced against out-of-band edits.
 - **One licence stance.** All four repos are AGPL-3.0-or-later.
 - **One law.** The substrates agree on a single canonical law hash
-  (`0x30a95260`); disagreement is a detectable fault, not a silent drift.
+  (`0xa43f38a1`); disagreement is a detectable fault, not a silent drift.
 
 ## Verify the federation without trusting it
 

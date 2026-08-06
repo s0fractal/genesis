@@ -38,6 +38,38 @@ separation of concerns, the system is divided into four absolute layers.
 
 ---
 
+## Era 961 — the law moved, and so did its hash
+
+Seven changes to the physical operator landed on 2026-08-06 (below). All of them
+ran under an unchanged `CANONICAL_LAW_HASH = 0x30A95260`, because that preimage
+covered five constants and the topology — and not one of the laws that actually
+changed.
+
+That is the failure the law hash exists to prevent, in the law hash itself. It
+is the federation's cross-substrate agreement anchor: trinity's Substrate Court
+compares it, so a node running the closed Era-960 world and a node running this
+one would have been declared **in agreement** while computing different
+universes.
+
+Two fixes, because one is not enough:
+
+1. **The preimage widened** to the nine constants Era-961 physics is written in
+   terms of, and `ERA_ID` moved 960 → 961. `CANONICAL_LAW_HASH` is now
+   `0xA43F38A1`, mirrored in `src/shared/law_hash.ts`.
+2. **A behavioural anchor** (`omega_v2/tests/behavioral_law_anchor.rs`) runs the
+   physics on a fixed fixture and hashes the result. A constant list can never
+   see a change in the SHAPE of an equation; this changes if and only if
+   behaviour changes. Demonstrated: reverting only the conduction equation, with
+   every constant untouched, leaves the declared hash green and turns the
+   behavioural anchor red.
+
+The declared hash stays the federation's anchor — it is pure, cheap, and a
+stranger can compare it without executing anything, which is the whole point.
+The behavioural anchor is what forces it to be bumped honestly.
+
+**Any node still reporting `0x30A95260` is running the world that goes extinct
+at tick 86.** It must not be read as agreeing with this one.
+
 ## Conservation laws (Layer A)
 
 **The rule: every joule that leaves an agent lands somewhere nameable** — in
