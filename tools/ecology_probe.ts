@@ -42,6 +42,7 @@ function signals() {
     activeCount: s[4],
     entropyReleased: hi * 2 ** 32 + lo,
     totalEnergy: s[8],
+    solarInput: s[11],
   };
 }
 
@@ -120,13 +121,19 @@ console.log(JSON.stringify(
     // drop is the information term.
     balance: {
       startEnergy: start.energy,
+      solarInput: endSignals.solarInput,
       endEnergy: end.energy,
-      energyDrop: start.energy - end.energy,
+      // Open-system identity: what came in, plus what was there, equals what
+      // is still held plus what was spent. The trace also carries the Landauer
+      // term, so it sits above the pure energy figure by that much.
+      spent: start.energy + endSignals.solarInput - end.energy,
       traceTotal: endSignals.entropyReleased,
-      informationTerm: endSignals.entropyReleased - (start.energy - end.energy),
+      informationTerm: endSignals.entropyReleased -
+        (start.energy + endSignals.solarInput - end.energy),
       leaked: Math.max(
         0,
-        (start.energy - end.energy) - endSignals.entropyReleased,
+        (start.energy + endSignals.solarInput - end.energy) -
+          endSignals.entropyReleased,
       ),
     },
     series,

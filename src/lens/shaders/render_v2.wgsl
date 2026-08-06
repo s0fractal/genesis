@@ -29,7 +29,7 @@ struct SignalStore {
     total_energy: u32,
     p90_energy: u32,
     p90_age: u32,
-    _pad2: u32,
+    total_solar_input: u32,
 }
 
 // Exactly 32 bytes. Maps 1:1 to zero-cost Rust PhaseAgentMinimal.

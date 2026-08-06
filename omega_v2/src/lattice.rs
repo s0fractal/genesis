@@ -32,7 +32,22 @@ pub struct SignalStore {
     pub total_energy: u32,
     pub p90_energy: u32,
     pub p90_age: u32,
-    pub _pad2: u32, // Explicit 4-byte padding to align total size to 48 bytes
+    /// Cumulative ATP the sun has put into the lattice.
+    ///
+    /// This world is OPEN. Predation and diffusion move energy between agents,
+    /// burn removes it — so a closed OMEGA-64 can only run down, and measurement
+    /// confirmed it does: 1024 agents, extinct at tick 86, zero births ever,
+    /// because no agent can climb to MITOSIS_THRESHOLD when the total only
+    /// falls. A closed world cannot host life; that is the second law, not a
+    /// bug.
+    ///
+    /// So income is named rather than hidden. Every ATP that enters from
+    /// outside is counted here, which keeps the books honest in the only way
+    /// that matters: `start + solar == end + dissipated`. A source that is not
+    /// counted is indistinguishable from a leak running backwards.
+    ///
+    /// Occupies what was `_pad2` — declared padding, same 48-byte layout.
+    pub total_solar_input: u32,
 }
 
 #[repr(C)]
@@ -71,7 +86,7 @@ impl PhaseLattice {
                 total_energy: 0,
                 p90_energy: 0,
                 p90_age: 0,
-                _pad2: 0,
+                total_solar_input: 0,
             },
             intents: [OntologicalIntent::empty(); 4],
             smart_agents_ptr: smart_ptr,
@@ -477,6 +492,7 @@ impl PhaseLattice {
 
         let mut total_system_energy = 0u64;
         let mut prev_system_energy = 0u64;
+        let mut solar_input_this_tick = 0u64;
         let mut _alive_count = 0;
         let mut new_high_water_mark = 0usize;
 
@@ -663,7 +679,26 @@ impl PhaseLattice {
                     let burn = base_burn.saturating_sub(resilience_reduction).max(1);
 
                     // Species Specialization (Predator-Prey)
-                    let mut energy_delta = -(burn as i32);
+                    // PHOTOSYNTHESIS. The one term that enters from outside.
+                    //
+                    // `sun_multiplier` already existed and only ever multiplied
+                    // BURN, so the sun made agents hungrier at noon and fed
+                    // nobody — while the shader's comment beside it claimed
+                    // "energy is strictly zero-sum except for solar input",
+                    // naming a source that was not there. It is now.
+                    //
+                    // Uniform across agents: the sun does not play favourites.
+                    // Selection runs through the burn side, where
+                    // metabolic_efficiency and resilience already differ, so an
+                    // efficient agent nets a surplus and climbs toward mitosis
+                    // while a wasteful one starves under the same sky.
+                    let solar = ((crate::constants::SOLAR_YIELD_Q10 as u64
+                        * sun_multiplier.max(0) as u64)
+                        / (1024 * 1024)) as u32;
+                    solar_input_this_tick =
+                        solar_input_this_tick.wrapping_add(solar as u64);
+
+                    let mut energy_delta = solar as i32 - (burn as i32);
                     let mut energy_diffusion = 0i32;
 
                     for &n_idx in &n_indices {
@@ -813,13 +848,24 @@ impl PhaseLattice {
         //
         // A rise is not booked, for the reason given at the other site: energy
         // from nowhere is a defect, not negative entropy.
-        if prev_system_energy > total_system_energy {
-            let dissipated = prev_system_energy - total_system_energy;
+        // The world is OPEN, so the identity carries the income term:
+        //   dissipated = (energy before + solar in) - energy after
+        // Without it only the NET drop would be booked, and on any tick where
+        // the sun outpaced metabolism the gross burn would vanish from the
+        // ledger entirely — the trace would go quiet exactly when the ecosystem
+        // was thriving.
+        let available = prev_system_energy.wrapping_add(solar_input_this_tick);
+        if available > total_system_energy {
+            let dissipated = available - total_system_energy;
             self.signals.total_entropy_released = self
                 .signals
                 .total_entropy_released
                 .wrapping_add(dissipated);
         }
+        self.signals.total_solar_input = self
+            .signals
+            .total_solar_input
+            .wrapping_add(solar_input_this_tick as u32);
 
         self.signals.total_energy = total_system_energy as u32;
         self.signals.active_agent_count = new_high_water_mark as u32;
@@ -1339,6 +1385,73 @@ mod tests {
         );
     }
 
+    /// The sun is a source, and it is a counted one.
+    ///
+    /// Before this law `sun_multiplier` only ever multiplied BURN — it made
+    /// agents hungrier at noon and fed nobody, while the shader's comment beside
+    /// it claimed "energy is strictly zero-sum except for solar input". The
+    /// world was closed, and a closed world cannot host life: measured, 1024
+    /// agents went extinct at tick 86 with zero births, because total energy can
+    /// only fall and no agent can climb to MITOSIS_THRESHOLD.
+    #[test]
+    fn the_sun_pays_by_day_and_nothing_by_night() {
+        // Day: causal_ticks 0 → day_phase 0 → sun_multiplier 1024 (neutral).
+        let (mut lattice, mut agents, _s, _d) = make_lattice_with_q_phase(1, 7);
+        lattice.signals.active_agent_count = 1;
+        agents[0].energy = 100;
+        agents[0].genome = 0; // lowest possible maintenance
+        lattice.signals.proper_time.causal_ticks = 0;
+        lattice.tick_physics();
+        let day_income = lattice.signals.total_solar_input;
+        assert!(day_income > 0, "a lit agent must be paid");
+
+        // Night: day_phase 192 → sin_q10 = -1024 → sun_multiplier 0.
+        let (mut night, mut nagents, _s2, _d2) = make_lattice_with_q_phase(1, 7);
+        night.signals.active_agent_count = 1;
+        nagents[0].energy = 100;
+        nagents[0].genome = 0;
+        night.signals.proper_time.causal_ticks = 768;
+        night.tick_physics();
+        assert_eq!(
+            night.signals.total_solar_input, 0,
+            "nothing enters the world after dark"
+        );
+    }
+
+    /// Income must be COUNTED, or it is indistinguishable from a leak running
+    /// backwards — and the dissipation ledger silently loses the gross burn on
+    /// every tick the sun outpaces metabolism.
+    #[test]
+    fn an_open_world_still_closes_its_books() {
+        let (mut lattice, mut agents, _s, _d) = make_lattice_with_q_phase(8, 7);
+        for (i, a) in agents.iter_mut().enumerate() {
+            a.energy = 400;
+            a.genome = 0x0505_0505u32.wrapping_mul(i as u32 + 1);
+            a.state_flags = 0;
+        }
+        lattice.signals.active_agent_count = 8;
+        lattice.signals.total_energy = 3200;
+
+        let before: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        for _ in 0..24 {
+            lattice.tick_physics();
+        }
+        let after: u64 = agents.iter().map(|a| a.energy as u64).sum();
+
+        // start + solar == end + spent, and the trace carries at least `spent`
+        // (it also holds Landauer terms for anything that died).
+        let solar = lattice.signals.total_solar_input as u64;
+        let spent = before + solar - after;
+        assert!(
+            lattice.signals.total_entropy_released >= spent,
+            "open-system books do not close: {} in, {} held, {} spent, {} booked",
+            solar,
+            after,
+            spent,
+            lattice.signals.total_entropy_released
+        );
+    }
+
     /// Both substrates must keep the SAME books, or the trace means whichever
     /// path happened to run.
     ///
@@ -1811,9 +1924,19 @@ mod tests {
         agents[0].phase = 1; // avoid resonance bonus (1 % 64 != 0)
         agents[0].base_freq = 0;
         agents[0].genome = 128; // phenotypic efficiency 128 = base burn
+        // MIDNIGHT. This world is open now — photosynthesis pays every living
+        // agent `SOLAR_YIELD_Q10 * sun_multiplier`, and at the default
+        // causal_ticks of 0 the sun sits at neutral, so a low-burn agent GAINS
+        // and there is no decay to observe. Decay is a nocturnal fact here.
+        // day_phase = causal_ticks / 4, and sin_q10(0, 192) = -1024, so
+        // sun_multiplier = 1024 - 1024 = 0: no income, pure metabolism.
+        lattice.signals.proper_time.causal_ticks = 768;
         let before = agents[0].energy;
         lattice.tick_physics();
-        assert!(agents[0].energy < before, "Energy should decay");
+        assert!(
+            agents[0].energy < before,
+            "energy must still decay when the sun is down"
+        );
     }
 
     #[test]
@@ -2048,6 +2171,10 @@ mod tests {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(3);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.active_agent_count = 3;
+        // MIDNIGHT — see test_tick_physics_energy_decay. With the sun up, an
+        // agent holding 1 ATP is fed rather than composted, so the death this
+        // test exists to observe simply does not happen. Starvation needs night.
+        lattice.signals.proper_time.causal_ticks = 768;
         // Agent 0 will die in one tick (energy = 1)
         agents[0].energy = 1;
         agents[0].state_flags = 0;

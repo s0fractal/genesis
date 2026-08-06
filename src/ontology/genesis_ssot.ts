@@ -244,6 +244,19 @@ export const CONSTANTS = {
     expr: "(MAX_ATP * Q16_FACTOR_ANCIENT_AGE) >> 16",
   },
   PREDATOR_ENERGY_STEAL: { type: "u32", expr: "(MAX_ATP / 1024) + 1" },
+  SOLAR_YIELD_Q10: {
+    type: "u32",
+    value: 9216,
+    note:
+      "Q10 ATP per agent per tick at neutral sun (9216/1024 = 9). Scaled by " +
+      "sun_multiplier, which is 1024 + sin(day_phase), so the day runs 0 at " +
+      "midnight to 18 at noon and averages 9. Measured against burn: a closed " +
+      "lattice of 1024 agents spent ~10 ATP per agent per tick and reached " +
+      "extinction at tick 86 (tools/ecology_probe.ts). Setting the mean just " +
+      "under that mean burn is deliberate — it puts the world near balance, " +
+      "where an agent's metabolic efficiency decides whether it grows or " +
+      "starves, instead of subsidising everyone into immortality.",
+  },
   DELTA_ENERGY_DIVISOR: { type: "u32", value: 128 },
   GOLDEN_TRACE_SAMPLES: { type: "u32", value: 32 },
 };

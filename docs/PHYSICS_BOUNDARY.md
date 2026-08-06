@@ -127,6 +127,35 @@ Ordering matters and is load-bearing: `darwinian_mitosis` runs after the reaper
 and re-arms the snapshot at its end, so reproduction's own erasure tax — which
 it books itself — is not re-read as unexplained loss on the following sweep.
 
+### Photosynthesis — the world is open, and the income is counted
+
+`SOLAR_YIELD_Q10 × sun_multiplier / 2²⁰` ATP to every living agent, every tick,
+mirrored bit-for-bit in `compute_toroidal.wgsl`. Zero at midnight, double at
+noon, mean 9 — measured against a mean burn of ~10, so the world sits just under
+balance and an agent's metabolic efficiency decides whether it grows or starves.
+
+**A closed world cannot host life.** That is the second law, not a bug, and it
+was measured before it was fixed: 1024 agents, extinct at tick 86, zero births
+ever, because predation and diffusion are zero-sum, burn is a sink, and total
+energy therefore only falls — so no agent can ever climb to `MITOSIS_THRESHOLD`.
+Not rarely. Never.
+
+`sun_multiplier` already existed and only multiplied **burn**: the sun made
+agents hungrier at noon and fed nobody, while the comment beside it in the
+shader claimed "energy is strictly zero-sum except for solar input" — naming a
+source that was not there. This law is that comment coming true.
+
+Income is a **named counter** (`SignalStore.total_solar_input`, occupying what
+was declared padding), not a silent term, for the same reason a rise is never
+booked as entropy: a source that is not counted is indistinguishable from a leak
+running backwards. The dissipation identity carries it —
+`dissipated = (held + solar) − held_after` — because without the income term
+only the NET drop would be booked, and the ledger would go quiet on exactly the
+ticks when the ecosystem was thriving.
+
+Measured after: population stable at 1024 across 6000 ticks, books closing to
+the joule (`start + solar == end + spent`, leaked 0).
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
@@ -154,7 +183,18 @@ not have would be the same failure as the tautological audit above.
    bounded now and the trace is finally true, so the return path is buildable;
    it has not been built, and inventing it is a decision about what the world
    is, not a repair.
-4. **Proper time is still the host's `+1`.** The kernel law
+4. **Diffusion homogenises the population, so nothing accumulates.** With the
+   sun lit, the world stopped dying — and started crystallising. Across 6000
+   ticks the population holds at 1024 and the richest agent oscillates between
+   570 and 610 ATP, never approaching the 2048 reproduction threshold, so births
+   remain zero. The cause is the diffusion term: each agent exchanges
+   `(neighbour − self) / 8` with all eight neighbours every tick, which levels
+   any surplus faster than efficiency can build one. A world where organisms
+   neither die nor reproduce is a crystal, not an ecosystem — a different
+   failure from heat death, and the next one to answer. The honest question is
+   whether agents should share energy by conduction at all, which is a decision
+   about what these organisms are, not a repair.
+5. **Proper time is still the host's `+1`.** The kernel law
    (`1024 / (1 + stress/32)`) never runs on the substrate that does, so time
    dilation — stressed regions ageing more slowly — is a documented mechanic
    with no execution. Applying the kernel law verbatim would cycle `day_phase`

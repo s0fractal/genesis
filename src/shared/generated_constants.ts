@@ -146,6 +146,11 @@ export const SANCTUARY_ENERGY_THRESHOLD = 2500;
 export const Q16_FACTOR_ANCIENT_AGE = 163840;
 export const ANCIENT_AGE_TICKS = 10240;
 export const PREDATOR_ENERGY_STEAL = 5;
+/**
+ * Q10 ATP per agent per tick at neutral sun (9216/1024 = 9). Scaled by sun_multiplier, which is 1024 + sin(day_phase), so the day runs 0 at midnight to 18 at noon and averages 9. Measured against burn: a closed lattice of 1024 agents spent ~10 ATP per agent per tick and reached extinction at tick 86 (tools/ecology_probe.ts). Setting the mean just under that mean burn is deliberate — it puts the world near balance, where an agent's metabolic efficiency decides whether it grows or starves, instead of subsidising everyone into immortality.
+ */
+export const SOLAR_YIELD_Q10 = 9216;
+
 export const DELTA_ENERGY_DIVISOR = 128;
 export const GOLDEN_TRACE_SAMPLES = 32;
 

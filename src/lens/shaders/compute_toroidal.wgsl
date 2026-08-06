@@ -28,7 +28,7 @@ struct SignalStore {
     total_energy: u32,
     p90_energy: u32,
     p90_age: u32,
-    _pad2: u32,
+    total_solar_input: u32,
 }
 
 // Attractor Matrix (16 bytes)
@@ -82,6 +82,9 @@ const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 // constant sat in this block; named so it is visible to the same reader who
 // checks the rest against constants.rs.
 const PREDATOR_ENERGY_STEAL: u32 = 5u;
+// Q10 ATP per agent per tick at neutral sun. Mirrors constants.rs
+// SOLAR_YIELD_Q10 — the one term that enters this world from outside.
+const SOLAR_YIELD_Q10: u32 = 9216u;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
 fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
@@ -274,7 +277,12 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Species Specialization (Predator-Prey)
 
-        var energy_delta: i32 = -i32(burn);
+        // PHOTOSYNTHESIS — mirrors PhaseLattice::tick_physics. `sun_multiplier`
+        // used to modulate burn only, so the sun made agents hungrier at noon
+        // and fed nobody, while the comment below claimed solar input existed.
+        // Uniform across agents; selection runs through the burn side.
+        let solar = (SOLAR_YIELD_Q10 * u32(max(sun_multiplier, 0i))) / (1024u * 1024u);
+        var energy_delta: i32 = i32(solar) - i32(burn);
         var energy_diffusion: i32 = 0i;
 
         for (var i = 0u; i < 8u; i = i + 1u) {
