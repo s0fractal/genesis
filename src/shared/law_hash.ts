@@ -9,6 +9,9 @@
 // constant and both goldens break together — that is the integrity guard.
 
 import {
+  BB_FREQ_OFFSET,
+  BB_FREQ_Q_SCALE,
+  BB_FREQ_RANGE,
   BIG_BANG_SEED_DENSITY_Q10,
   CHILD_ENERGY_SEED,
   CHRONOTOPOLOGY_STRESS_DIVISOR,
@@ -27,7 +30,7 @@ import {
 
 /** Version anchor for the mathematical laws (mirrors `ERA_ID` in law_hash.rs;
  *  not part of the generated constant set). */
-export const ERA_ID = 966;
+export const ERA_ID = 967;
 
 /** The canonical operating topology — the exact `PhaseTopology` the static
  *  `OMEGA_LATTICE` in lib.rs is built with. Mirrored here (6 ints) and guarded
@@ -64,6 +67,13 @@ function lawWords(): number[] {
     MITOSIS_COST,
     CHILD_ENERGY_SEED,
     BIG_BANG_SEED_DENSITY_Q10,
+    // Era 967: the constants that set every agent's natural frequency. They
+    // governed the phase dynamics of the whole population from outside this
+    // list, and drew from a range sixteen times wider than the Nyquist clamp
+    // admits — 95% of the living pinned at the cap.
+    BB_FREQ_RANGE,
+    BB_FREQ_OFFSET,
+    BB_FREQ_Q_SCALE,
     CANONICAL_TOPOLOGY.q_phase,
     CANONICAL_TOPOLOGY.q_sectors,
     CANONICAL_TOPOLOGY.q_radial,
@@ -92,4 +102,4 @@ export function lawHashHex(value: number): string {
 
 /** Golden value of [`computeLawHash`] — pinned in lockstep with Rust
  *  `CANONICAL_LAW_HASH` (omega_v2/src/law_hash.rs). */
-export const OMEGA_LAW_HASH = 0xca4f4ec9;
+export const OMEGA_LAW_HASH = 0xc1616c9d;

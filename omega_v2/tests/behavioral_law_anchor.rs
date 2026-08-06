@@ -77,7 +77,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xC2FD_6095;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x23E8_FA2D;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {

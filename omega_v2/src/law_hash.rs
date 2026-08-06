@@ -1,13 +1,33 @@
 use crate::constants::{
-    BIG_BANG_SEED_DENSITY_Q10, CHILD_ENERGY_SEED, CHRONOTOPOLOGY_STRESS_DIVISOR,
-    DELTA_ENERGY_DIVISOR, DELTA_PHASE_DIVISOR, KURAMOTO_COUPLING_BASE, LANDAUER_BIT_COST, MAX_ATP,
-    MAX_TIME_DILATION, MITOSIS_COST, MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SOLAR_YIELD_Q10,
-    STRUCTURAL_MAINTENANCE_DIVISOR,
+    BB_FREQ_OFFSET, BB_FREQ_Q_SCALE, BB_FREQ_RANGE, BIG_BANG_SEED_DENSITY_Q10, CHILD_ENERGY_SEED,
+    CHRONOTOPOLOGY_STRESS_DIVISOR, DELTA_ENERGY_DIVISOR, DELTA_PHASE_DIVISOR,
+    KURAMOTO_COUPLING_BASE, LANDAUER_BIT_COST, MAX_ATP, MAX_TIME_DILATION, MITOSIS_COST,
+    MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SOLAR_YIELD_Q10, STRUCTURAL_MAINTENANCE_DIVISOR,
 };
 use crate::crypto::sha256_u32;
 use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
+///
+/// 967 — Unsaturated. The Big Bang drew natural frequencies from ±2000 phase
+/// units per tick while the Nyquist clamp caps them at ±max_phase/2 = ±128.
+/// Measured: 95% of the living population pinned exactly AT the clamp, mean
+/// effective |base_freq| 124.9 out of 128 — 4000 distinct draws collapsing onto
+/// two values, and every agent turning half the circle per tick, which is the
+/// rate at which forward and backward stop being distinguishable. That is Era
+/// 962's bug in a second place: the clamp was fixed, the distribution feeding it
+/// was not. BB_FREQ_RANGE 4000 → 64, BB_FREQ_OFFSET 2000 → 32, so frequencies
+/// land at a quarter of Nyquist. Measured after: 0% clamped, mean 16.2.
+///
+/// It did not synchronise the world. Global order 0.0152 → 0.0144, velocity
+/// correlation −0.0016 → +0.0083, both still zero. Coupling is 0.105 phase units
+/// per tick against a frequency spread of 16.2, so it is 0.6% of what moves a
+/// phase — Kuramoto locking needs those to be comparable. That is a second knob
+/// and it stays untouched so this one is measured.
+///
+/// The three BB_FREQ constants are also now IN the law-hash preimage. They set
+/// the phase dynamics of every organism the world creates and sat outside it,
+/// which is the defect Era 961 closed for nine others.
 ///
 /// 966 — Closed. The agents' phase circle and the trigonometry's phase circle
 /// are the same circle for the first time. `sin_q10` indexes a 256-entry table
@@ -97,12 +117,12 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 966; // 966 Closed
+pub const ERA_ID: u32 = 967; // 967 Unsaturated
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
 pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
-    // 21 words: era + 5 original constants + 9 Era-961 constants + 6 topology.
+    // 24 words: era + 5 original + 9 Era-961 + 3 Era-967 + 6 topology.
     let mut buf = [0u8; 96];
     let mut p = 0;
 
@@ -149,6 +169,21 @@ pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
     buf[p..p + 4].copy_from_slice(&BIG_BANG_SEED_DENSITY_Q10.to_le_bytes());
     p += 4;
 
+    // 2c. The constants that set every agent's natural frequency.
+    //
+    // These governed the phase dynamics of the entire population from outside
+    // the preimage. Measured on Era 966: they drew base_freq from ±2000 phase
+    // units per tick against a Nyquist limit of ±128, so 95% of the living were
+    // pinned AT the clamp — 4000 distinct draws collapsing to two values. A node
+    // could change the frequency distribution of every organism it creates and
+    // publish an unchanged law hash.
+    buf[p..p + 4].copy_from_slice(&BB_FREQ_RANGE.to_le_bytes());
+    p += 4;
+    buf[p..p + 4].copy_from_slice(&BB_FREQ_OFFSET.to_le_bytes());
+    p += 4;
+    buf[p..p + 4].copy_from_slice(&BB_FREQ_Q_SCALE.to_le_bytes());
+    p += 4;
+
     // 3. Current Phase Topology Constraints
     buf[p..p + 4].copy_from_slice(&topology.q_phase.to_le_bytes());
     p += 4;
@@ -189,7 +224,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0xCA4F_4EC9;
+pub const CANONICAL_LAW_HASH: u32 = 0xC161_6C9D;
 
 #[cfg(test)]
 mod tests {

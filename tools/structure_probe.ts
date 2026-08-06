@@ -29,6 +29,10 @@
 //   deno run --allow-read tools/structure_probe.ts [ticks] [capacity]
 
 import { OrderParameterEstimator } from "../src/shared/order_parameter.ts";
+import {
+  MoranEstimator,
+  wrappedDelta,
+} from "../src/shared/spatial_correlation.ts";
 
 const TICKS = Number(Deno.args[0] ?? 3000);
 const CAPACITY = Number(Deno.args[1] ?? 4096);
@@ -73,7 +77,7 @@ function angleNative(phase: number): number {
   return (phase / PHASE_SPAN) * 2 * Math.PI;
 }
 
-function survey() {
+function survey(prevPhase?: Uint32Array) {
   const active = signals().active;
   const a = new Uint32Array(
     memory.buffer,
@@ -176,6 +180,73 @@ function survey() {
       localNativeEst.add(cn, sn, k);
     }
   }
+  // VELOCITY CORRELATION. Do neighbours advance TOGETHER while still moving?
+  //
+  // The order parameter cannot distinguish a coordinated region from a frozen
+  // one; a crystal scores high on it because nothing changes. This scores a
+  // crystal at 0 by construction — a frozen patch has no velocity variance and
+  // drops out rather than dominating. Reported for the living, and separately
+  // for the MOTILE, because tissue is pinned at drift 0 and would otherwise
+  // supply a large block of identical values that is stillness, not agreement.
+  let velAll = 0, velMotile = 0;
+  if (prevPhase) {
+    const eAll = new MoranEstimator();
+    const eMot = new MoranEstimator();
+    const vel = new Map<number, number>();
+    for (const i of alive) {
+      // Mitosis grows `active` between snapshots, so an agent born since the
+      // last sample has no previous phase and therefore no velocity. Skipping
+      // it is correct; letting it through produced NaN, which JSON silently
+      // renders as null and which would have averaged to nothing at all.
+      if (i >= prevPhase.length) continue;
+      const v = wrappedDelta(prevPhase[i], a[i * 8 + 0], PHASE_SPAN);
+      vel.set(i, v);
+      eAll.addValue(v);
+      if ((a[i * 8 + 3] & 0x08000000) === 0) eMot.addValue(v);
+    }
+    eAll.seal();
+    eMot.seal();
+    for (const i of alive) {
+      const cx = i % w, cy = Math.floor(i / w);
+      const vi = vel.get(i)!;
+      const iMot = (a[i * 8 + 3] & 0x08000000) === 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nIdx = ((cy + dy + h) % h) * w + ((cx + dx + w) % w);
+          const vn = vel.get(nIdx);
+          if (vn === undefined) continue;
+          eAll.addPair(vi, vn);
+          if (iMot && (a[nIdx * 8 + 3] & 0x08000000) === 0) {
+            eMot.addPair(vi, vn);
+          }
+        }
+      }
+    }
+    velAll = eAll.value();
+    velMotile = eMot.value();
+  }
+
+  // HOW BIG IS THE COUPLING, ACTUALLY?
+  //
+  // `tick_physics` stores the tick's coupling term in memory[0], so the force
+  // this kernel is named for can be read directly and compared against the
+  // agent's own natural frequency — the two terms that are summed to make the
+  // phase advance. "The coupling does nothing" is a claim about a ratio, and
+  // the ratio has never been printed.
+  let cSum = 0, fSum = 0, cN = 0, clamped = 0;
+  for (const i of alive) {
+    cSum += Math.abs(new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[5]);
+    // The EFFECTIVE natural frequency: what the Nyquist clamp leaves. Reporting
+    // the raw `base_freq` overstates it by an order of magnitude, because
+    // tick_physics clamps to ±max_phase/2 before dividing out the Q10 scale.
+    const raw = new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[2] / 1024;
+    const capped = Math.max(-PHASE_SPAN / 2, Math.min(PHASE_SPAN / 2, raw));
+    fSum += Math.abs(capped);
+    if (Math.abs(raw) >= PHASE_SPAN / 2) clamped++;
+    cN++;
+  }
+
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
   const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
 
@@ -191,6 +262,11 @@ function survey() {
     // even when the fraction is 0, where it is 0 by construction and says
     // nothing — read it together with tissueFraction, never alone.
     tissueClustering: pAny > 0 ? pGiven / pAny : 0,
+    meanAbsCoupling: cN > 0 ? cSum / cN : 0,
+    meanAbsBaseFreq: cN > 0 ? fSum / cN : 0,
+    fractionAtNyquistClamp: cN > 0 ? clamped / cN : 0,
+    velocityCorrelation: velAll,
+    velocityCorrelationMotile: velMotile,
     meanEfficiency: effSum / n,
     effMin,
     effMax,
@@ -198,17 +274,31 @@ function survey() {
   };
 }
 
+function phaseSnapshot(): Uint32Array {
+  const active = signals().active;
+  const a = new Uint32Array(
+    memory.buffer,
+    x.v2_agents_ptr() as number,
+    active * 8,
+  );
+  const out = new Uint32Array(active);
+  for (let i = 0; i < active; i++) out[i] = a[i * 8 + 0];
+  return out;
+}
+
 const series: Array<Record<string, number>> = [];
 const first = survey();
+let prev = phaseSnapshot();
 for (let t = 1; t <= TICKS; t++) {
   x.v2_tick();
   if (t % 10 === 0) x.v2_mitosis_sweep();
   if (t <= 5 || t % STRIDE === 0) {
-    const s = survey();
+    const s = survey(prev);
+    prev = phaseSnapshot();
     if (s) series.push({ tick: t, ...s });
   }
 }
-const last = survey();
+const last = survey(prev);
 
 console.log(JSON.stringify(
   {

@@ -209,8 +209,13 @@ export const CONSTANTS = {
   MAX_ATP: { type: "u32", value: 4096 },
   BB_ENERGY_RANGE: { type: "u32", expr: "MAX_ATP / 4" },
   BB_ENERGY_BASE: { type: "u32", expr: "MAX_ATP / 32" },
-  BB_FREQ_RANGE: { type: "u32", value: 4000 },
-  BB_FREQ_OFFSET: { type: "i32", value: 2000 },
+  // Era 967. Was 4000/2000 — the Big Bang drew base_freq from +-2000 phase
+  // units per tick while the Nyquist clamp caps at +-max_phase/2 = +-128, so 95%
+  // of the living population sat exactly AT the clamp: 4000 distinct draws
+  // collapsing onto two values, every agent turning half the circle per tick.
+  // A quarter of Nyquist leaves the distribution intact — measured, 0% clamped.
+  BB_FREQ_RANGE: { type: "u32", value: 64 },
+  BB_FREQ_OFFSET: { type: "i32", value: 32 },
   BB_FREQ_STEP: { type: "i32", value: 1000 },
   BB_FREQ_Q_SCALE: { type: "i32", value: 1024 },
   Q16_FACTOR_MITOSIS: { type: "u32", value: 32768 },

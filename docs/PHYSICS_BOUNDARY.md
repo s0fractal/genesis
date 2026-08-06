@@ -631,6 +631,60 @@ coupling accounts for about 2% of the only local structure this world has, and
 that structure is arrested motion rather than synchronisation. The mechanism the
 model is built around is not the mechanism doing the work.
 
+### Nothing moves together — and Era 967, the oscillators were saturated
+
+Once local coherence turned out to be frozen tissue, the question changed. A
+living region would show the opposite signature: cells that advance TOGETHER
+while still advancing. That is a correlation of velocities, not of phases, and
+nothing here measured it.
+
+`src/shared/spatial_correlation.ts` (Moran's I over the phase velocity,
+`tests/spatial_correlation_test.ts` pinning it at ≈0 on noise, >0.7 on blocks,
+<−0.9 on a checkerboard, and exactly 0 on a frozen field — a crystal has no
+velocity variance and drops out rather than dominating).
+
+Measured on Era 966: **−0.0019** across the living, **−0.0016** among the motile
+alone, range −0.032 to +0.035. There are no coordinated regions. None, at any
+sampled tick.
+
+**Why became visible once the coupling was compared against what it competes
+with.** `memory[0]` holds the tick's coupling term, so both can simply be read:
+
+```text
+phase span                     256
+mean |coupling|              0.107  phase units/tick
+mean effective |base_freq|   124.9  phase units/tick
+at the Nyquist clamp         95.0%  of the living
+coupling share of the advance 0.086%
+```
+
+`BB_FREQ_RANGE = 4000`, `BB_FREQ_OFFSET = 2000`: the Big Bang drew natural
+frequencies from ±2000 phase units per tick, against a clamp at ±max_phase/2 =
+±128. Ninety-five percent of the population sat exactly at the cap — four
+thousand distinct draws collapsing onto two values, every agent turning half the
+circle per tick, which is precisely the rate at which forward and backward stop
+being distinguishable.
+
+That is Era 962's bug in a second place. Era 962 fixed the clamp, which had been
+reading a Q10 value against a raw bound and collapsing 905 frequencies to two.
+The distribution feeding the clamp was never looked at.
+
+`BB_FREQ_RANGE` → 64 and `BB_FREQ_OFFSET` → 32 put the draw at a quarter of
+Nyquist. Measured after: **0% clamped**, mean effective frequency 16.2.
+
+_It did not synchronise anything._ Global order 0.0152 → 0.0144, velocity
+correlation −0.0016 → +0.0083, local phase order 0.114 → 0.053. Coupling is
+0.105 against a spread of 16.2 — 0.6% of what moves a phase, where Kuramoto
+locking needs the two to be comparable. **That is the next knob and it is
+deliberately untouched**, so this one stays measured.
+
+The three `BB_FREQ` constants are now in the law-hash preimage. They set the
+phase dynamics of every organism the world creates and sat outside it, which is
+exactly the defect Era 961 closed for nine others. They are also edited in
+`src/ontology/genesis_ssot.ts` rather than `constants.rs`, which is generated —
+the first edit went into the generated file and the generator quietly restored
+it.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
