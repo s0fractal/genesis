@@ -222,34 +222,52 @@ Both the GPU dispatch and the buffer sizing already handle a moving population �
 dispatches from it, and the agent buffers are sized to the whole WASM array — so
 growth needed no host change.
 
+### Geometry — every agent is inside the torus
+
+`PhaseLattice::grid_rows` takes the CEILING of `active / w`, mirrored in
+`compute_toroidal.wgsl`. `wrap_index_2d` can only ever return an index in
+`[0, h*w)`, so flooring left the agents past the last full row outside the grid:
+they read eight neighbours and were the neighbour of nobody, drawing energy by
+conduction and predation from counterparties that never paid it. The torus was
+not closed.
+
+Occasional when the population was fixed at ignition — and the normal case the
+moment mitosis began growing it one birth at a time. **Every newborn was
+appended outside the torus** and stayed invisible to the physics until enough
+siblings arrived to complete its row.
+
+The overhang in the other direction — indices in `[active, h*w)` that nobody
+occupies — was already safe: both substrates skip a neighbour whose index is
+`>= active_agent_count`, and they skip it symmetrically.
+
+Measured, capacity 4096 over 5000 ticks: births 10 → 72, population 1034 → 1096,
+books still closing (leaked 0).
+
+The invariant is checked structurally rather than by energy sums. The obvious
+assertion — `before == after + released` — is **vacuous** here, because the
+dissipation ledger books exactly that difference and the identity holds whatever
+the geometry does. The test asserts `h*w >= active` across a spread of
+populations and row widths instead, and was confirmed to go red on the floor.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
 not have would be the same failure as the tautological audit above.
 
-1. **Tail agents are one-way taps.** `h = max(1, active / w)` floors, so when
-   `active` is not a multiple of `w` the agents in `[h*w, active)` read eight
-   neighbours and are the neighbour of nobody. They exchange energy with
-   counterparties who never reciprocate — and because the reaper refuses to book
-   a rise, the ATP they conjure does not even appear in the ledger as a
-   negative. Both substrates implement this identically, so it is a topology
-   defect, not a parity defect: the torus is simply not closed for those
-   indices. A parity config with `n=20` pins the agreement; nothing yet pins the
-   conservation.
-2. **Dissipation is aggregate, not attributed.** The boundary ledger records
+1. **Dissipation is aggregate, not attributed.** The boundary ledger records
    that a joule was spent, not on what. Burn, clamp loss and any future leak
    arrive indistinguishable. That is the correct quantity for a thermodynamic
    trace and the wrong one for diagnosing a regression, so a leak introduced
    tomorrow would be absorbed silently into a number that has a legitimate
    reason to grow.
-3. **`total_entropy_released` still has no consumer.** It accumulates and is
+2. **`total_entropy_released` still has no consumer.** It accumulates and is
    read for telemetry and time dilation, but nothing draws ATP back out of it.
    Until something does, omega is thermodynamically a decaying box rather than a
    cycle — every joule eventually reaches the trace and stops. The units are
    bounded now and the trace is finally true, so the return path is buildable;
    it has not been built, and inventing it is a decision about what the world
    is, not a repair.
-4. **Proper time is still the host's `+1`.** The kernel law
+3. **Proper time is still the host's `+1`.** The kernel law
    (`1024 / (1 + stress/32)`) never runs on the substrate that does, so time
    dilation — stressed regions ageing more slowly — is a documented mechanic
    with no execution. Applying the kernel law verbatim would cycle `day_phase`

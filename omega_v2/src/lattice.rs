@@ -321,6 +321,30 @@ impl PhaseLattice {
         }
     }
 
+    /// Rows in the toroidal grid for `active` agents laid out `w` to a row.
+    ///
+    /// CEILING, not floor. `wrap_index_2d` can only ever return an index in
+    /// `[0, h*w)`, so any agent at or past `h*w` is outside the torus: it reads
+    /// eight neighbours and is the neighbour of nobody, drawing energy by
+    /// conduction and predation from counterparties that never pay it. Flooring
+    /// left up to `w-1` such agents whenever the population was not an exact
+    /// multiple of the row width.
+    ///
+    /// That was occasional when the population was fixed at ignition. It is the
+    /// normal case now that mitosis grows `active_agent_count` one birth at a
+    /// time, which is what made it worth fixing rather than documenting.
+    ///
+    /// The overhang this creates in the other direction — indices in
+    /// `[active, h*w)` that no agent occupies — was already handled: both
+    /// substrates skip a neighbour whose index is `>= active_agent_count`, and
+    /// they skip it symmetrically, so nothing is created or destroyed there.
+    #[inline]
+    pub fn grid_rows(active: u32, w: i32) -> i32 {
+        let w = w.max(1);
+        let rows = (active as i64 + w as i64 - 1) / w as i64;
+        core::cmp::max(1, rows as i32)
+    }
+
     /// What one predator may take from a prey holding `prey_energy` this tick.
     ///
     /// LAW (chosen 2026-08-06, see docs/PHYSICS_BOUNDARY.md): a predator's share
@@ -581,7 +605,7 @@ impl PhaseLattice {
 
                 if agent.energy > 0 {
                     let w = (1i32 << self.topology.q_radial).max(1);
-                    let h = (active as i32 / w).max(1);
+                    let h = Self::grid_rows(active as u32, w);
                     let cx = (i as i32) % w;
                     let cy = (i as i32) / w;
 
@@ -1510,6 +1534,42 @@ mod tests {
             0,
             "an agent carrying no information erases none"
         );
+    }
+
+    /// Every agent must be inside the torus, including the last row.
+    ///
+    /// `h` used to floor `active / w`, so when the population was not a multiple
+    /// of the row width the agents in `[h*w, active)` sat OUTSIDE the grid:
+    /// `wrap_index_2d` could never return their indices, so they read eight
+    /// neighbours and were the neighbour of nobody. Every joule they drew by
+    /// conduction or predation came from a counterparty that never paid it —
+    /// energy minted from a rounding error in the geometry.
+    ///
+    /// Rare once, generic now: growth increments `active_agent_count` by one per
+    /// birth, so an exact multiple of the row width is the exception.
+    #[test]
+    fn every_living_agent_is_reachable_as_somebody_s_neighbour() {
+        // NOT an energy assertion. The obvious one — sum before == sum after +
+        // released — is vacuous here: the dissipation ledger books exactly that
+        // difference, so the identity holds whatever the geometry does. It has
+        // to be checked structurally.
+        //
+        // `wrap_index_2d` returns `wy * w + wx` with wy in [0,h) and wx in
+        // [0,w), so the set of indices any agent can ever see is [0, h*w). An
+        // agent at an index outside that set reads eight neighbours and is the
+        // neighbour of nobody: it draws energy from counterparties that never
+        // pay it. Conservation therefore requires h*w >= active.
+        for &active in &[1u32, 7, 8, 9, 20, 63, 64, 65, 1000, 4095, 4096] {
+            for q_radial in 0u32..8 {
+                let w = (1i32 << q_radial).max(1);
+                let h = PhaseLattice::grid_rows(active, w);
+                assert!(
+                    (h as i64) * (w as i64) >= active as i64,
+                    "agents past index {} are outside the torus (active={active}, w={w}, h={h})",
+                    h * w
+                );
+            }
+        }
     }
 
     /// The sun is a source, and it is a counted one.

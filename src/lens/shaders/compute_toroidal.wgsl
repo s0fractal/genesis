@@ -166,7 +166,12 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (agent.energy > 0u) {
         let max_r_cells = 1u << topology.q_radial;
         let w = i32(max_r_cells);
-        let h = max(1i, i32(active_count) / w);
+        // CEILING, mirroring PhaseLattice::grid_rows. Flooring left the agents
+        // past the last full row OUTSIDE the torus: wrap_index_2d can only
+        // return indices in [0, h*w), so they read eight neighbours and were the
+        // neighbour of nobody — drawing energy from counterparties that never
+        // paid it. Generic now that mitosis grows the population one at a time.
+        let h = max(1i, (i32(active_count) + w - 1i) / w);
         let cx = i32(index) % w;
         let cy = i32(index) / w;
         
