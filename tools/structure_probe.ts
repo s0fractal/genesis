@@ -81,6 +81,7 @@ function survey() {
   let sumCos = 0, sumSin = 0;
   let natCos = 0, natSin = 0;
   let effSum = 0, effMin = 255, effMax = 0;
+  let tissue = 0;
   let maxPhase = 0;
   for (let i = 0; i < active; i++) {
     const e = a[i * 8 + 1];
@@ -94,6 +95,12 @@ function survey() {
     const nt = angleNative(ph);
     natCos += Math.cos(nt);
     natSin += Math.sin(nt);
+    // FLAG_TISSUE_LOCKED. A one-way door: `tick_physics` sets it when an agent
+    // is rich, aligned and unstressed, zeroes its base_freq — "structurally
+    // rigid" — and nothing anywhere clears it again. Tracked here because a
+    // lattice that has crystallised looks, to every other measure, exactly like
+    // one that has converged.
+    if ((a[i * 8 + 3] & 0x08000000) !== 0) tissue++;
     const eff = a[i * 8 + 4] & 0xFF; // metabolic_efficiency, the burn trait
     effSum += eff;
     if (eff < effMin) effMin = eff;
@@ -133,6 +140,7 @@ function survey() {
     nativeOrder,
     localOrder: localSum / n,
     structure: localSum / n / Math.max(globalOrder, 1e-9),
+    tissueFraction: tissue / n,
     meanEfficiency: effSum / n,
     effMin,
     effMax,

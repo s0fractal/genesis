@@ -326,11 +326,47 @@ It was not the cause, no law was changed on the strength of it, and
 `structure_probe.ts` reports both readings so that 0.63 is never again mistaken
 for synchronisation.
 
-**Still open here:** the lattice reaches a fixed point around tick 800 — order,
-local order and mean efficiency stop changing to the digit while the population
-sits at capacity. Saturation is a real ecological outcome, but a world that
-stops moving entirely is the crystal failure in a new costume, and nothing yet
-distinguishes "converged" from "stuck".
+**What the world does now, measured tick by tick.** The first reading of this
+was wrong and the correction is the interesting part. The probe sampled every 50
+ticks and reported observables identical to four decimals from tick 800 on,
+which read as a fixed point. Sampled every tick instead: 40 consecutive states,
+40 distinct hashes — the instrument had aliased, the same failure just removed
+from the physics, reintroduced in the thing measuring it.
+
+Then the phases themselves: **4091 of 4096 agents advance by zero**. Not
+rotating, not fluctuating. Frozen, while energy churns underneath and keeps the
+state hash moving.
+
+The cause is `FLAG_TISSUE_LOCKED` — "Emergent Organ Differentiation (Tissue
+Crystallization)" — and it is a designed mechanic doing exactly what it says. An
+agent that is rich (`energy > MAX_ATP - 1000`), aligned (`ortho > 0`) and
+unstressed (`thermodynamic_stress < 5`) is set structurally rigid: `base_freq`
+zeroed, Hebbian weights maxed. Nothing anywhere clears the flag.
+
+```text
+tick    alive   order   tissue
+   1     1024   0.077     0.0%
+ 280     4096   0.058     0.0%
+ 400     4096   0.349    86.8%
+ 520     4096   0.412    99.9%
+ 640+    4096   0.413   100.0%
+```
+
+The chain is coherent, and it explains the order parameter honestly: **coupling
+pulls neighbours into local alignment → alignment lowers thermodynamic stress →
+low stress plus the wealth of a population at carrying capacity trips
+crystallisation → tissue freezes that alignment in place, permanently.** So the
+0.413 is real coherence, but it is _fossilised_ coherence. The world
+synchronises, fills its habitat, grows rich, and turns to stone.
+
+**The open question is what tissue should be.** A hundred percent tissue is not
+differentiation — an organ implies some structure and some motile cells. Three
+knobs are visible: crystallisation is irreversible with no path back; the
+threshold is absolute (`MAX_ATP - 1000`) rather than relative to the population,
+so universal wealth makes it universal; and it costs nothing, so there is no
+pressure against it. Which of those is the mistake is a claim about what these
+organisms are, so `structure_probe.ts` now reports the tissue fraction and none
+of the three has been touched.
 
 ### Not conserved yet — known, named, open
 
