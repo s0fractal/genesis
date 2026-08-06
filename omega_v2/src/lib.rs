@@ -417,6 +417,19 @@ pub extern "C" fn v2_mitosis_sweep() -> u32 {
     }
 }
 
+/// Book deaths for a substrate that owns the per-agent step (WebGPU).
+///
+/// Call this on the same readback that drives `v2_mitosis_sweep`, AFTER the
+/// GPU state has been copied into `v2_agents_ptr`. Returns deaths booked.
+/// See `PhaseLattice::reap_off_cpu_deaths` for why the shader cannot do it.
+#[no_mangle]
+pub extern "C" fn v2_reap_deaths() -> u32 {
+    unsafe {
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.reap_off_cpu_deaths()
+    }
+}
+
 // ERA 6000 FFI
 #[no_mangle]
 pub extern "C" fn v2_delta_buffer_ptr() -> *const u8 {

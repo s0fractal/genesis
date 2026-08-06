@@ -57,6 +57,18 @@ export class RendererReadback {
     const ptrs = this.engine.getMemoryPointers();
     ptrs.agentBytes.set(snapshot);
 
+    // Death is booked here, before birth, for the same reason birth is booked
+    // here at all: the compute shader owns the per-agent step but cannot write
+    // `signals` (it is bound `var<uniform>`). So the shader flips the dead bit
+    // and nothing else — no entropy burst, no compost message, no aggregates —
+    // and `total_entropy_released` sat at zero for the entire lifetime of the
+    // GPU path while reading like a working thermodynamic ledger. The kernel's
+    // own inline guard cannot recover those deaths: it books on
+    // `energy == 0 && !dead`, and the shader has already set that bit.
+    // See PhaseLattice::reap_off_cpu_deaths.
+    const reap = this.engine.wasm?.exports.v2_reap_deaths as CallableFunction;
+    if (reap) reap();
+
     const mitosis = this.engine.wasm?.exports
       .v2_mitosis_sweep as CallableFunction;
     const numReplications = mitosis ? mitosis() as number : 0;

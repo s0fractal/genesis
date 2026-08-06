@@ -285,6 +285,97 @@ impl PhaseLattice {
         }
     }
 
+    /// Book deaths that happened off-CPU, and refresh the aggregates.
+    ///
+    /// On the GPU path the compute shader kills agents — `compute_toroidal.wgsl`
+    /// sets bit 0 when energy reaches zero — but it can write nothing else:
+    /// `signals` is bound `var<uniform>` there, so it is read-only by
+    /// construction. Everything `tick_physics` does *around* the kill therefore
+    /// never happens: no entropy burst, no compost message, no `total_energy`,
+    /// no high-water mark. Death sets a bit and means nothing, and the entropy
+    /// trace the thermodynamics rest on stays flat at zero forever.
+    ///
+    /// `tick_physics`'s own guard cannot recover it: it books on
+    /// `energy == 0 && flags & 0x01 == 0`, and the shader has *already* set that
+    /// bit, so the condition is false for every agent the GPU killed.
+    ///
+    /// So book by difference instead. An agent that is dead now and was alive in
+    /// the retained snapshot died since the last call, exactly once. The entropy
+    /// formula, the compost encoding and the aggregate arithmetic are the same
+    /// ones `tick_physics` uses — this is that bookkeeping, lifted out so a
+    /// substrate that owns the per-agent step can still hand it back.
+    ///
+    /// This is the counterpart to [`Self::darwinian_mitosis`]: birth already
+    /// crosses back to the kernel on readback, death did not.
+    ///
+    /// Idempotent — calling it twice with no physics in between books nothing,
+    /// because it leaves the snapshot equal to the live array. It is NOT meant
+    /// to be combined with `tick_physics` on the same tick; that path books its
+    /// own deaths inline.
+    ///
+    /// Returns the number of deaths booked.
+    pub fn reap_off_cpu_deaths(&mut self) -> u32 {
+        if self.minimal_agents_ptr.is_null() || self.signals.active_agent_count == 0 {
+            return 0;
+        }
+        let active = core::cmp::min(
+            self.signals.active_agent_count as usize,
+            crate::MAX_MINIMAL_AGENTS,
+        );
+
+        let mut deaths: u32 = 0;
+        let mut total_system_energy: u64 = 0;
+        let mut new_high_water_mark: usize = 0;
+
+        unsafe {
+            let mut shadow = crate::SHADOW_LATTICE_MEMORY.lock();
+            let snapshot = if self.tick_snapshot_ptr.is_null() {
+                shadow.as_mut_ptr()
+            } else {
+                self.tick_snapshot_ptr
+            };
+
+            for i in 0..active {
+                let agent = &mut *self.minimal_agents_ptr.add(i);
+                let was_dead = (*snapshot.add(i)).state_flags & 0x01 != 0;
+                let is_dead = agent.state_flags & 0x01 != 0;
+
+                // Same accumulation predicate as tick_physics, so both paths
+                // publish the same signals for the same lattice.
+                if agent.energy > 0 && !is_dead {
+                    total_system_energy = total_system_energy.wrapping_add(agent.energy as u64);
+                    new_high_water_mark = i + 1;
+                }
+
+                if is_dead && !was_dead {
+                    deaths += 1;
+
+                    // Thermodynamics: Entropy release (Landauer's Principle).
+                    let entropy_burst = (agent.genome as u64)
+                        .wrapping_add(agent.memory[0] as u64)
+                        .wrapping_add(agent.memory[1] as u64)
+                        .wrapping_add(agent.memory[2] as u64);
+                    self.signals.total_entropy_released = self
+                        .signals
+                        .total_entropy_released
+                        .wrapping_add(entropy_burst);
+
+                    let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
+                    let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+                    buf.push(compost);
+                }
+            }
+
+            self.signals.total_energy = total_system_energy as u32;
+            self.signals.active_agent_count = new_high_water_mark as u32;
+
+            // Re-arm the diff for the next call.
+            core::ptr::copy_nonoverlapping(self.minimal_agents_ptr, snapshot, active);
+        }
+
+        deaths
+    }
+
     /// The Hot Path Physics Loop
     /// @oct 1.3 Physics tick vector
     /// Tensor Web: реалізує Kuramoto coupling, metabolic decay та phase drift.
@@ -905,6 +996,89 @@ mod tests {
         Vec<DeltaItem>,
     ) {
         make_lattice_with_q_phase(agent_count, 7)
+    }
+
+    /// A death booked off-CPU must move the entropy trace exactly once.
+    ///
+    /// The GPU path's whole failure was silent: the shader flips the dead bit,
+    /// nothing else happens, and `total_entropy_released` reads 0 forever while
+    /// looking like a working thermodynamic ledger. These tests are the ones
+    /// that would have caught it.
+    #[test]
+    fn reaper_books_an_off_cpu_death_exactly_once() {
+        let (mut lattice, mut agents, mut snapshot, _) = make_lattice_with_q_phase(4, 7);
+        for a in agents.iter_mut() {
+            a.energy = 500;
+            a.state_flags = 0;
+        }
+        snapshot.copy_from_slice(&agents);
+        lattice.signals.active_agent_count = 4;
+
+        // The shader's death: energy to zero, dead bit set, and NOTHING else —
+        // exactly what compute_toroidal.wgsl can write.
+        agents[2].energy = 0;
+        agents[2].state_flags |= 0x01;
+        agents[2].genome = 7;
+        agents[2].memory = [1, 2, 3];
+
+        assert_eq!(lattice.signals.total_entropy_released, 0);
+        assert_eq!(lattice.reap_off_cpu_deaths(), 1, "one agent died");
+        assert_eq!(
+            lattice.signals.total_entropy_released,
+            7 + 1 + 2 + 3,
+            "entropy burst is genome + the three memory words"
+        );
+
+        // Idempotence: the snapshot is re-armed, so a second sweep with no
+        // physics in between must be a no-op rather than a double charge.
+        let after_first = lattice.signals.total_entropy_released;
+        assert_eq!(lattice.reap_off_cpu_deaths(), 0, "no new deaths");
+        assert_eq!(lattice.signals.total_entropy_released, after_first);
+    }
+
+    #[test]
+    fn reaper_republishes_the_aggregates_the_shader_cannot_write() {
+        let (mut lattice, mut agents, mut snapshot, _) = make_lattice_with_q_phase(4, 7);
+        for a in agents.iter_mut() {
+            a.energy = 100;
+            a.state_flags = 0;
+        }
+        snapshot.copy_from_slice(&agents);
+        lattice.signals.active_agent_count = 4;
+        lattice.signals.total_energy = 0; // as it is on the GPU path: never written
+
+        agents[3].energy = 0;
+        agents[3].state_flags |= 0x01;
+
+        lattice.reap_off_cpu_deaths();
+        assert_eq!(
+            lattice.signals.total_energy, 300,
+            "three survivors at 100 ATP each"
+        );
+        assert_eq!(
+            lattice.signals.active_agent_count, 3,
+            "high-water mark drops to the highest live index + 1"
+        );
+    }
+
+    #[test]
+    fn reaper_is_actually_looking_at_something() {
+        // Guard against the sweep silently doing nothing (null ptr, zero count,
+        // a predicate that never matches) and reading as a clean run.
+        let (mut lattice, mut agents, mut snapshot, _) = make_lattice_with_q_phase(2, 7);
+        for a in agents.iter_mut() {
+            a.energy = 10;
+            a.state_flags = 0;
+        }
+        snapshot.copy_from_slice(&agents);
+        lattice.signals.active_agent_count = 2;
+        agents[0].energy = 0;
+        agents[0].state_flags |= 0x01;
+        agents[0].genome = 0xFF;
+        assert!(
+            lattice.reap_off_cpu_deaths() > 0,
+            "a staged death produced no booking — the sweep is inert"
+        );
     }
 
     fn make_lattice_with_q_phase(
