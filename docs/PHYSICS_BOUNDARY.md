@@ -103,31 +103,61 @@ precisely as it did before. Only the starving regime changes — which is the
 regime the flat rate broke: a prey holding 3 ATP could lose only 3, while eight
 predators each credited themselves 5.
 
+### Dissipation — recovered at the substrate boundary
+
+`PhaseLattice::reap_off_cpu_deaths`. Between two sweeps, ATP that left the live
+population without arriving anywhere else is booked to the trace. Transfers
+between agents are internal and cancel; only what the step actually spent
+remains.
+
+This is how metabolic burn, and the `MAX_ATP` clamp's discarded surplus, reach
+the ledger at all. The shader cannot record them — `signals` is `var<uniform>`
+there — so they are recovered from the one thing a substrate cannot hide: the
+difference between the state it was handed and the state it returned. Burn alone
+is several ATP per agent per tick and dwarfs both death (≤128) and the mitosis
+erasure tax (≤32), so a trace carrying only those two was reporting a rounding
+error and calling it thermodynamics.
+
+**A rise is never booked.** Energy appearing from nowhere is a defect, not
+negative entropy, and absorbing it here would make this ledger the same
+tautology as the old energy audit — always consistent, never informative.
+Conservation is asserted by test instead.
+
+Ordering matters and is load-bearing: `darwinian_mitosis` runs after the reaper
+and re-arms the snapshot at its end, so reproduction's own erasure tax — which
+it books itself — is not re-read as unexplained loss on the following sweep.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
 not have would be the same failure as the tautological audit above.
 
-1. **The `MAX_ATP` clamp discards surplus.** Energy delivered to an agent
-   already at capacity is destroyed and booked nowhere. Closing it means either
-   booking the surplus as entropy — which the shader cannot do, since `signals`
-   is bound `var<uniform>` there and read-only — or refusing the transfer at
-   source, i.e. a sated predator does not feed. The second is implementable on
-   both substrates and is the likelier answer.
-2. **Metabolic burn is an unbooked sink.** Every tick each agent loses `burn`
-   ATP to maintenance, and it leaves the universe rather than entering the
-   entropy trace. Physically it is dissipation and belongs there; the obstacle
-   is the same read-only `signals` binding.
-3. **Tail agents are one-way taps.** `h = max(1, active / w)` floors, so when
+1. **Tail agents are one-way taps.** `h = max(1, active / w)` floors, so when
    `active` is not a multiple of `w` the agents in `[h*w, active)` read eight
    neighbours and are the neighbour of nobody. They exchange energy with
-   counterparties who never reciprocate. Both substrates implement this
-   identically — it is a topology defect, not a parity defect, and the torus is
-   simply not closed for those indices. A parity config with `n=20` pins the
-   agreement; nothing yet pins the conservation.
-4. **`total_entropy_released` has no consumer.** It accumulates and is read for
-   telemetry and time dilation, but nothing draws ATP back out of it. Until
-   something does, omega is thermodynamically a decaying box rather than a cycle
-   — every joule eventually reaches the trace and stops. The units are now
-   bounded, so building the return path is possible; it has not been built, and
-   inventing it is a decision about what the world is, not a repair.
+   counterparties who never reciprocate — and because the reaper refuses to book
+   a rise, the ATP they conjure does not even appear in the ledger as a
+   negative. Both substrates implement this identically, so it is a topology
+   defect, not a parity defect: the torus is simply not closed for those
+   indices. A parity config with `n=20` pins the agreement; nothing yet pins the
+   conservation.
+2. **Dissipation is aggregate, not attributed.** The boundary ledger records
+   that a joule was spent, not on what. Burn, clamp loss and any future leak
+   arrive indistinguishable. That is the correct quantity for a thermodynamic
+   trace and the wrong one for diagnosing a regression, so a leak introduced
+   tomorrow would be absorbed silently into a number that has a legitimate
+   reason to grow.
+3. **`total_entropy_released` still has no consumer.** It accumulates and is
+   read for telemetry and time dilation, but nothing draws ATP back out of it.
+   Until something does, omega is thermodynamically a decaying box rather than a
+   cycle — every joule eventually reaches the trace and stops. The units are
+   bounded now and the trace is finally true, so the return path is buildable;
+   it has not been built, and inventing it is a decision about what the world
+   is, not a repair.
+4. **Proper time is still the host's `+1`.** The kernel law
+   (`1024 / (1 + stress/32)`) never runs on the substrate that does, so time
+   dilation — stressed regions ageing more slowly — is a documented mechanic
+   with no execution. Applying the kernel law verbatim would cycle `day_phase`
+   once per tick, which is why the host's counter exists; the two paths carry
+   genuinely different unit assumptions, and reconciling them changes how the
+   world looks, not just what it accounts for.

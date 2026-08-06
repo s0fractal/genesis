@@ -387,6 +387,7 @@ impl PhaseLattice {
 
         let mut deaths: u32 = 0;
         let mut total_system_energy: u64 = 0;
+        let mut prev_system_energy: u64 = 0;
         let mut new_high_water_mark: usize = 0;
 
         unsafe {
@@ -399,8 +400,11 @@ impl PhaseLattice {
 
             for i in 0..active {
                 let agent = &mut *self.minimal_agents_ptr.add(i);
-                let was_dead = (*snapshot.add(i)).state_flags & 0x01 != 0;
+                let prev = &*snapshot.add(i);
+                let was_dead = prev.state_flags & 0x01 != 0;
                 let is_dead = agent.state_flags & 0x01 != 0;
+
+                prev_system_energy = prev_system_energy.wrapping_add(prev.energy as u64);
 
                 // Same accumulation predicate as tick_physics, so both paths
                 // publish the same signals for the same lattice.
@@ -425,10 +429,40 @@ impl PhaseLattice {
                 }
             }
 
+            // DISSIPATION. Everything the step burned, clamped away or let
+            // leak shows up as ATP that left the population without arriving
+            // anywhere else — transfers between agents are internal and cancel.
+            // Booking the whole drop is what makes the ledger true rather than
+            // merely non-empty: metabolic burn alone is several ATP per agent
+            // per tick and dwarfs both death (≤128) and the mitosis erasure tax
+            // (≤32), so a trace carrying only those two was reporting a
+            // rounding error and calling it thermodynamics.
+            //
+            // The shader cannot do this itself — `signals` is `var<uniform>`
+            // there — so it is recovered here, at the boundary, from the one
+            // thing the substrate cannot hide: the difference between the state
+            // it was given and the state it returned.
+            //
+            // A RISE is not booked. Energy appearing from nowhere is a defect,
+            // not negative entropy, and quietly absorbing it here would turn
+            // this ledger into the same tautology as the old energy audit —
+            // always consistent, never informative. Conservation is asserted by
+            // test instead; see `the_reaper_books_dissipation_but_never_a_mint`.
+            if prev_system_energy > total_system_energy {
+                let dissipated = prev_system_energy - total_system_energy;
+                self.signals.total_entropy_released = self
+                    .signals
+                    .total_entropy_released
+                    .wrapping_add(dissipated);
+            }
+
             self.signals.total_energy = total_system_energy as u32;
             self.signals.active_agent_count = new_high_water_mark as u32;
 
-            // Re-arm the diff for the next call.
+            // Re-arm the diff for the next call. `darwinian_mitosis` re-arms it
+            // again at its end, so the reproduction that runs after this sweep
+            // is not re-read as unexplained loss on the next one — its own
+            // erasure tax is already booked there.
             core::ptr::copy_nonoverlapping(self.minimal_agents_ptr, snapshot, active);
         }
 
@@ -971,6 +1005,23 @@ impl PhaseLattice {
                 }
             }
             self.signals.total_energy = core::cmp::min(sum_energy, u32::MAX as u64) as u32;
+
+            // Re-arm the reaper's diff to include this reproduction.
+            //
+            // The reaper books every ATP that left the population between two
+            // sweeps as dissipation. Mitosis moves ATP too — parent down,
+            // child up, erasure tax to the trace — and it already books its own
+            // tax. Leaving the snapshot at its pre-mitosis state would make the
+            // next sweep read that tax a second time as unexplained loss, so
+            // the ledger would drift upward by exactly the amount it had
+            // already recorded correctly.
+            let mut shadow = crate::SHADOW_LATTICE_MEMORY.lock();
+            let snapshot = if self.tick_snapshot_ptr.is_null() {
+                shadow.as_mut_ptr()
+            } else {
+                self.tick_snapshot_ptr
+            };
+            core::ptr::copy_nonoverlapping(self.minimal_agents_ptr, snapshot, active);
         }
         replications
     }
@@ -1103,8 +1154,11 @@ mod tests {
         snapshot.copy_from_slice(&agents);
         lattice.signals.active_agent_count = 4;
 
-        // The shader's death: energy to zero, dead bit set, and NOTHING else —
-        // exactly what compute_toroidal.wgsl can write.
+        // An agent starves the way agents actually starve: its energy is nearly
+        // spent, the step takes the rest, and the shader flips the dead bit and
+        // writes nothing else — exactly what compute_toroidal.wgsl can do.
+        agents[2].energy = 5;
+        snapshot[2].energy = 5;
         agents[2].energy = 0;
         agents[2].state_flags |= 0x01;
         agents[2].genome = 7;
@@ -1112,12 +1166,17 @@ mod tests {
 
         assert_eq!(lattice.signals.total_entropy_released, 0);
         assert_eq!(lattice.reap_off_cpu_deaths(), 1, "one agent died");
-        // Landauer: SET BITS of genome + three memory words, not their values.
-        // 7 = 0b111 (3), 1 (1), 2 = 0b10 (1), 3 = 0b11 (2)  →  7 bits.
+
+        // Two distinct releases land in the same trace, and both belong there:
+        //   - 5 ATP of ENERGY that left the population (dissipation), and
+        //   - the Landauer cost of the INFORMATION erased with the agent:
+        //     set bits of genome + three memory words, not their values —
+        //     7 = 0b111 (3), 1 (1), 2 = 0b10 (1), 3 = 0b11 (2) → 7 bits.
+        let landauer = 7 * crate::constants::LANDAUER_BIT_COST as u64;
         assert_eq!(
             lattice.signals.total_entropy_released,
-            7 * crate::constants::LANDAUER_BIT_COST as u64,
-            "entropy burst prices erased information in bits"
+            5 + landauer,
+            "the trace carries the spent energy AND the erased information"
         );
 
         // Idempotence: the snapshot is re-armed, so a second sweep with no
@@ -1248,6 +1307,77 @@ mod tests {
             PhaseLattice::death_entropy(&zero),
             0,
             "an agent carrying no information erases none"
+        );
+    }
+
+    /// The boundary ledger: what the substrate burned, and never a mint.
+    #[test]
+    fn the_reaper_books_dissipation_but_never_a_mint() {
+        let (mut lattice, mut agents, mut snapshot, _) = make_lattice_with_q_phase(4, 7);
+        for a in agents.iter_mut() {
+            a.energy = 1000;
+            a.state_flags = 0;
+        }
+        snapshot.copy_from_slice(&agents);
+        lattice.signals.active_agent_count = 4;
+
+        // A step happened elsewhere (the GPU): metabolism took some ATP, and a
+        // transfer moved some between two agents. Only the burn left the
+        // population; the transfer is internal and must not register.
+        agents[0].energy = 990; // burned 10
+        agents[1].energy = 970; // burned 10, gave 20
+        agents[2].energy = 1020; // received 20
+        agents[3].energy = 995; // burned 5
+        let expected_dissipation = 25u64;
+
+        lattice.reap_off_cpu_deaths();
+        assert_eq!(
+            lattice.signals.total_entropy_released, expected_dissipation,
+            "the trace must carry the burn and ignore the transfer"
+        );
+
+        // Idempotence: the diff is re-armed, so a second sweep books nothing.
+        lattice.reap_off_cpu_deaths();
+        assert_eq!(lattice.signals.total_entropy_released, expected_dissipation);
+
+        // A RISE must not be absorbed. Energy from nowhere is a defect, and a
+        // ledger that quietly balanced it would be the tautology this whole
+        // exercise replaced.
+        for a in agents.iter_mut() {
+            a.energy += 500;
+        }
+        lattice.reap_off_cpu_deaths();
+        assert_eq!(
+            lattice.signals.total_entropy_released, expected_dissipation,
+            "a mint is not negative entropy — the trace must stay put"
+        );
+    }
+
+    /// Reproduction runs after the reaper, so its own erasure tax must not be
+    /// re-read as unexplained loss on the following sweep.
+    #[test]
+    fn mitosis_does_not_leak_into_the_next_dissipation_sweep() {
+        let (mut lattice, mut agents, mut snapshot, _) = make_lattice_with_q_phase(4, 7);
+        agents[0].energy = crate::constants::MITOSIS_THRESHOLD;
+        agents[0].genome = 0x0F0F_0F0F;
+        agents[1].energy = 0;
+        agents[2].energy = 700;
+        agents[3].energy = 800;
+        snapshot.copy_from_slice(&agents);
+        lattice.signals.active_agent_count = 4;
+
+        lattice.reap_off_cpu_deaths(); // nothing happened yet
+        let baseline = lattice.signals.total_entropy_released;
+
+        assert_eq!(lattice.darwinian_mitosis(), 1);
+        let after_birth = lattice.signals.total_entropy_released;
+        assert!(after_birth > baseline, "the erasure tax was booked");
+
+        // No physics between: the next sweep must find nothing to book.
+        lattice.reap_off_cpu_deaths();
+        assert_eq!(
+            lattice.signals.total_entropy_released, after_birth,
+            "the mitosis tax was counted twice — the snapshot was left stale"
         );
     }
 
