@@ -157,6 +157,7 @@ import {
   senateHash as canonicalSenateHash,
   ZK_NOTARIZATION_PROPOSAL,
 } from "./senate_proposals.ts";
+import { PEER_CONSENSUS_MIN_WEIGHT } from "./senate_acceptance.ts";
 
 /**
  * The Mycelial Mesh
@@ -1150,9 +1151,9 @@ export class Libp2pMesh {
       console.log(
         `🏛️ [SENATE] ACCEPTED via ${path} 0x${
           record.hash.toString(16)
-        }: "${record.description}" (${record.ayes.size} peer AYE / ${record.nays.size} peer NAY / ${
+        }: "${record.description}" (peers ${record.ayes.size}A/${record.nays.size}N — weight ${record.ayesWeight}/${record.naysWeight} of ${PEER_CONSENSUS_MIN_WEIGHT}; oracles ${
           record.oracleAyes?.size ?? 0
-        } oracle AYE / ${record.oracleNays?.size ?? 0} oracle NAY)`,
+        }A/${record.oracleNays?.size ?? 0}N)`,
       );
       globalThis.dispatchEvent(
         new CustomEvent("senate-task-accepted", {
@@ -1162,6 +1163,11 @@ export class Libp2pMesh {
             proposerMatrix: record.proposerMatrix,
             ayes: record.ayes.size,
             nays: record.nays.size,
+            // Counts are not what decides — report the weights beside them, or
+            // a reader learns the wrong lesson about what a vote is worth.
+            ayesWeight: record.ayesWeight,
+            naysWeight: record.naysWeight,
+            peerThreshold: PEER_CONSENSUS_MIN_WEIGHT,
             oracleAyes: record.oracleAyes?.size ?? 0,
             oracleNays: record.oracleNays?.size ?? 0,
             acceptedVia: path,
@@ -1517,6 +1523,8 @@ export class Libp2pMesh {
         description: r.description,
         ayes: r.ayes.size,
         nays: r.nays.size,
+        ayesWeight: r.ayesWeight,
+        naysWeight: r.naysWeight,
         accepted: r.accepted,
       })),
     };
