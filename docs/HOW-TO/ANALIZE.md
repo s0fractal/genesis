@@ -1,14 +1,23 @@
 ---
 protocol: OMEGA-64_ANALYSIS_PROTOCOL
-version: 2.0.0
+version: 3.0.0
 status: living
 language: Ukrainian
 code_language: English
-updated_at_utc: 2026-05-06T07:55:32Z
-updated_by: Codex verifier/operator/oracle
-repo_commit_at_update: 3168141
+updated_at_utc: 2026-08-06T00:00:00Z
+updated_by: Claude verifier/operator/oracle
+repo_commit_at_update: 0122e38
 target_repo: .
 output_format: strict_markdown
+changelog_v3: >
+  Rewritten against measured failure. Two external audits were run through v2
+  and roughly a third of their claims turned out wrong or stale on verification.
+  v2 required evidence FOR a claim but never required evidence that the claim
+  GENERALIZES, never required a claim of absence to show the failed search, and
+  never asked an analyst to try to kill its own findings. §1.5 (Claim
+  Discipline), §6.1 (Observed Failure Modes) and the refutation pass in §5 exist
+  because of specific, named misses. Section 7's commands were also broken: the
+  prescribed `deno test --allow-read tests/` fails on this repo.
 ---
 
 # OMEGA-64: Протокол Аналізу Топологічних Систем
@@ -39,23 +48,44 @@ output_format: strict_markdown
 git rev-parse --short HEAD
 git status --short
 date -u +%Y-%m-%dT%H:%M:%SZ
-cargo test -p omega_v2
-deno test --allow-read tests/routing_bridge_test.ts tests/routing_mesh_test.ts tests/wgsl_golden_trace_test.ts
+cargo test --workspace
+deno task test:unit
 ```
 
-У відповіді має бути короткий блок:
+### 0.1 Що саме ви аналізували
+
+**Це поле не декоративне.** Дві поспіль зовнішні рецензії аналізували
+експортований знімок репозиторію і повідомили як дефекти речі, виправлені кілька
+комітів тому: жорсткий `mempool.space`, єдиний bootstrap-вузол, кількість
+тестів. Жодне з тих тверджень не було брехнею — вони просто описували інший
+момент часу, і читач не мав як це відрізнити.
+
+Якщо ви бачите не живе дерево, а експорт/zip/вставлений текст — скажіть це
+першим рядком і не заявляйте нічого про поточний стан. Аналіз знімка лишається
+цінним; аналіз знімка, поданий як аналіз HEAD, — ні.
 
 ```yaml
 analysis_receipt:
+  artifact: "<live tree | export | zip | pasted excerpt>"
+  artifact_date: "<ISO-8601 | unknown>"
+  artifact_matches_head: "<yes | no | unknown>"
   repo_commit: "<short hash | unavailable>"
   working_tree: "<clean | dirty | unavailable>"
   analyzed_at_utc: "<ISO-8601 | unavailable>"
   oracle: "<model/tool identity if known>"
+  files_read_in_full: <int>
+  files_seen_only_as_grep_hits: <int>
   tests_run:
     - command: "<command>"
       result: "<passed | failed | skipped | unavailable>"
+      # Порожній прогін не є проходженням. Див. §1.5 «vacuous green».
+      scope_proof: "<скільки файлів/тестів реально виконано>"
       signal: "<one-line meaning>"
 ```
+
+`files_read_in_full` проти `files_seen_only_as_grep_hits` — це ваш власний
+показник глибини. Якщо друге число сильно більше за перше, ваші висновки — це
+висновки про збіги регулярного виразу, і severity має це відображати.
 
 ---
 
@@ -74,6 +104,56 @@ analysis_receipt:
 
 ---
 
+## 1.5. Claim Discipline — що саме є доказом
+
+v2 вимагав `evidence: file:line`. Цього виявилось замало: найгучніше хибне
+твердження з двох зовнішніх аудитів **мало правильний `file:line`**. Аналітик
+прочитав одне визначення функції і поширив висновок на всю систему, не
+подивившись, хто її імпортує. Доказ був справжній. Узагальнення — ні.
+
+Тому доказ визначається **типом твердження**, а не наявністю посилання.
+
+| Тип твердження                   | Мінімальний доказ                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| «`X` робить `Y`»                 | визначення `X` **І** перелік місць виклику, що до нього доходять. Одне визначення ≠ поведінка системи        |
+| «`X` відсутнє / немає `X`»       | команда пошуку **дослівно** і її порожній вивід. Заява про відсутність — найдешевша і найлегша для перевірки |
+| «`X` небезпечне / експлуатовне»  | шлях від входу зловмисника до ефекту **І** що саме його зупиняє. Якщо ніщо — скажіть це прямо                |
+| «`X` спричиняє `Y`» (root cause) | контрфактуал: приберіть `X` — чи лишається `Y`? Без цього це кореляція, а не причина                         |
+| «перевірка проходить»            | доказ, що перевірка **виконалась**: кількість файлів, кількість тестів. Див. vacuous green нижче             |
+| «це застаріле / stale»           | що зараз актуальне і де це видно                                                                             |
+| «дублювання»                     | всі копії, а не дві. Копії розходяться попарно, і третя зазвичай найгірша                                    |
+
+### Vacuous green
+
+Перевірка, яка нічого не перевірила, виглядає точно як перевірка, що пройшла.
+
+Реальний випадок у цьому репозиторії: `deno fmt --check` усередині `omega/`
+виводить `No target files found` — бо omega є членом deno-workspace `trinity`,
+який виключає `omega/`. Це читається як особливість тулінгу і працює як «все
+гаразд». Локальне дерево було зелене, CI — червоний.
+
+Тому кожна ваша перевірка мусить довести свій обсяг: не «fmt clean», а «fmt
+clean, 256 files». Не «тести проходять», а «318 passed». Якщо число підозріло
+мале — ви перевірили порожнечу.
+
+Це не гіпотетична гігієна: усі drift-locks цього репо містять окремий тест «the
+lock is actually looking at something» саме з цієї причини.
+
+### DEFECT проти DESIGN OPINION
+
+Розділяйте їх явно і не давайте другому severity першого.
+
+- **DEFECT** — код робить не те, що заявляє його ж документація, коментар, тест
+  або сусідній рядок. Перевіряється. Має відтворення.
+- **DESIGN OPINION** — «цей файл завеликий», «тут краще sidecar», «шари
+  протікають». Може бути цілком правильним і цінним. Але це вибір власника
+  системи, а не дефект, і `P0` для нього не існує.
+
+Аудит, що подає обидва в одному списку, змушує власника витрачати сесію на
+сортування — і саме там гине довіра до справжніх знахідок.
+
+---
+
 ## 2. Invariant Ledger
 
 Перевіряйте ці інваріанти як law surface. Якщо інваріант не перевірено, пишіть
@@ -86,7 +166,7 @@ analysis_receipt:
 | CPU/GPU parity    | Rust `tick_physics()` == `compute_toroidal.wgsl` bit-for-bit | `omega_v2/src/lattice.rs`, `tests/wgsl_golden_trace_test.ts` |
 | Toroidal distance | consensus wraps at 256: `min(d, 256-d)`                      | `routing.rs`, `routing_bridge.ts`, `routing.wgsl`            |
 | Dipole law        | `matrix ^ inverse == 0xFFFF_FFFF`                            | `attractor.rs`, `routing_bridge.ts`, mesh boundary           |
-| Thermodynamics    | no free ATP minting unless source is explicit and conserved  | `lattice.rs`, `pouw.rs`, WGSL shaders                        |
+| Thermodynamics    | no free ATP minting unless source is explicit and conserved  | `lattice.rs`, `thermodynamics.rs`, WGSL shaders              |
 | Zero-copy         | render loop не створює тимчасові масиви для agent hot path   | `v2_bridge.ts`, `v2_renderer.ts`                             |
 | Governance        | Codeicide requires sanctuary/warrant gates                   | `codeicide_law.rs`, `warrant_issuance.rs`, senate tests      |
 | Forensics         | event/archive sync is content-addressed and replayable       | `event_*`, `archive_*`, `spore_runner.rs`                    |
@@ -246,13 +326,23 @@ suggested_action: "DELETE | ARCHIVE | DEMOTE | PATCH | TEST | FREEZE"
 
 ```yaml
 analysis_receipt:
+  artifact: "<live tree | export | zip | pasted excerpt>"
+  artifact_date: "<ISO-8601 | unknown>"
+  artifact_matches_head: "<yes | no | unknown>"
   repo_commit: "<short hash | unavailable>"
   working_tree: "<clean | dirty | unavailable>"
   analyzed_at_utc: "<ISO-8601 | unavailable>"
   oracle: "<model/tool identity if known>"
+  files_read_in_full: <int>
+  files_seen_only_as_grep_hits: <int>
   tests_run:
-    - command: "cargo test -p omega_v2"
+    - command: "cargo test --workspace"
       result: "<passed | failed | skipped | unavailable>"
+      scope_proof: "<N suites | N tests>"
+      signal: "<one-line meaning>"
+    - command: "deno task test:unit"
+      result: "<passed | failed | skipped | unavailable>"
+      scope_proof: "<N passed>"
       signal: "<one-line meaning>"
 ```
 
@@ -298,12 +388,33 @@ analysis_receipt:
 
 ...
 
-## 5. Verification Gaps
+## 5. Refutation Pass
+
+Візьміть три власні найсильніші знахідки і спробуйте їх **вбити**. Для кожної:
+що мало б бути правдою, щоб вона виявилась хибною, і чи перевірили ви це.
+
+| Знахідка | Що б її спростувало | Перевірено | Вижила |
+| -------- | ------------------- | ---------- | ------ |
+| ...      | ...                 | yes/no     | yes/no |
+
+Знахідки, що не вижили, лишіть у звіті з поміткою `REFUTED` і однією фразою про
+те, що ви побачили. Це не сором — це найкорисніша частина аудиту: вона показує
+власнику, де його система виглядає зламаною, не будучи такою, і саме там
+зазвичай ховається справжня незручність (погана назва, брехливий коментар,
+мовчазний охоронець).
+
+## 6. Verification Gaps
 
 - Що не було перевірено і чому.
 - Який тест треба додати першим.
 
-## 6. Latent Space
+## 7. Design Opinions (не дефекти)
+
+Окремий список. Архітектурні пропозиції, вподобання щодо структури, «цей файл
+завеликий». Без `P0`/`P1` — тут доречні лише
+`суть / вартість / що це відкриває`.
+
+## 8. Latent Space
 
 Один абзац. Радикальна, але топологічно пов'язана ідея.
 
@@ -324,9 +435,66 @@ analysis_receipt:
 - Якщо тест skipped by environment, він не є proof.
 - Якщо аналіз статичний, позначте всі runtime claims як `HYPOTHESIS`.
 
+### 6.1 Спостережені режими відмови
+
+Не гіпотетичні. Кожен стався у реальному аудиті цього репозиторію і пройшов повз
+усі правила v2.
+
+1. **Визначення без місць виклику.** Функція з назвою `sha256_u32` мала тіло
+   FNV-1a → висновок «система підписує FNV як SHA-256». Насправді це була
+   file-local функція, яку ніхто не імпортує; **експортована** `sha256_u32` в
+   іншому файлі — справжній SHA-256, і саме її використовують усі. Правильний
+   `file:line`, хибний висновок. Перш ніж узагальнювати про символ — `grep` його
+   імпорти.
+
+2. **Збіг regex як знахідка.** «У заморожених ZK-доказах є посилання на ери» —
+   насправді збіги припали на base64 самих доказів (`Era6RtAut…`). Відкривайте
+   кожен збіг у контексті, або не подавайте його.
+
+3. **Заява про відсутність без пошуку.** «Де `deno.lock` / `package-lock.json`?
+   Без lockfile це supply chain attack surface» — обидва лежали в корені, 98 КБ
+   і 318 КБ. Одна команда.
+
+4. **Клас без охоронця.** «`MockATPBridge` у production-збірці» — його
+   конструктор кидає під `isProduction()`. Прочитано клас, не прочитано перші
+   п'ять рядків його конструктора.
+
+5. **Симптом → найближча правдоподібна причина.** Я сам це зробив: побачив, що
+   `deno fmt` не бачить файлів, і заявив причиною `**/*.html` у fmt-excludes
+   omega. Прибирання тих глобів не змінило нічого — справжня причина була в
+   `fmt.exclude` кореня workspace `trinity`. Контрфактуал коштував одну команду
+   і не був виконаний.
+
+6. **Аналіз знімка, поданий як аналіз HEAD.** Див. §0.1.
+
+Спільне в усіх шести: **зупинка на першому правдоподібному поясненні.** Це не
+брак строгості в оформленні — оформлення було бездоганне. Це брак ще одного
+кроку перевірки.
+
 ---
 
-## 7. Minimal Command Sets
+## 7. Що вже перевіряється машиною — не переоткривайте
+
+Репозиторій має drift-locks. Якщо ваша знахідка стосується чогось із цього
+списку, спершу запустіть відповідний тест: або він червоний і у вас є доказ, або
+зелений і ваша гіпотеза вже спростована.
+
+| Що зафіксовано                                          | Замок                                   |
+| ------------------------------------------------------- | --------------------------------------- |
+| genesis hash між Rust і TS                              | `tests/genesis_cross_lang_lock_test.ts` |
+| SSoT проти згенерованих `constants.rs` / `.ts`          | `tests/ssot_drift_test.ts`              |
+| WASM ABI: TS-виклики ↔ Rust-експорти ↔ зібраний `.wasm` | `tests/wasm_abi_lock_test.ts`           |
+| заяви документації (лінки, версія, лічильники)          | `tests/doc_claims_lock_test.ts`         |
+| правило ухвалення Сенату                                | `tests/senate_acceptance_test.ts`       |
+| пороги дозрівання                                       | `tests/maturity_gates_test.ts`          |
+| бухгалтерія голосів                                     | `tests/senate_ledger_test.ts`           |
+
+Важливо: **документація не є доказом.** Замок на заяви документів існує саме
+тому, що вони дрейфують. Вірте `cargo test --workspace` і `deno task test:unit`.
+
+---
+
+## 8. Minimal Command Sets
 
 ### Kernel
 
@@ -337,9 +505,32 @@ cargo test --workspace
 
 ### TypeScript / Deno
 
+`deno test --allow-read tests/` **не працює** і був у цьому протоколі до v3: він
+тягне integration/smoke/zk-тести, яким потрібні `--allow-env`, `--allow-run`,
+`--allow-write` і мережа, тож завершується `error: Test failed` на цілком
+справному дереві. Аналітик, що виконав його буквально, повідомив би репозиторій
+зламаним.
+
+Користуйтеся задачами репозиторію — вони і є підтримувана правда:
+
 ```bash
-deno test --allow-read tests/
+deno task test:unit         # швидкі, без мережі та підпроцесів
+deno task test:integration  # smoke / zk / інтеграція (повільно, ~4 хв)
+deno task verify:fast       # cargo test + deno check + test:fast
 deno check src/**/*.ts
+```
+
+### fmt / lint — обов'язково ззовні workspace
+
+Усередині `omega/` `deno fmt` і `deno lint` матчать **нуль файлів**: omega є
+членом deno-workspace `trinity`, а `trinity/deno.jsonc` виключає `omega/` з
+обох. Вони виходять із `No target files found`, що читається як успіх. CI
+викачує omega окремо і виконує їх по-справжньому.
+
+```bash
+# те, що бачить CI:
+rsync -a --exclude=.git --exclude=target --exclude=node_modules . /tmp/omega-ci/
+cd /tmp/omega-ci && deno fmt --check && deno lint
 ```
 
 ### Parity
@@ -357,7 +548,7 @@ rg -n "Math\\.random|Date\\.now|performance\\.now|dipole_bonus|resonance repleni
 
 ---
 
-## 8. Style Contract
+## 9. Style Contract
 
 - Ukrainian for analysis.
 - English for code comments/snippets.
