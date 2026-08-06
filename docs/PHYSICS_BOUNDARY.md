@@ -392,6 +392,48 @@ local-over-global order ratio would show the difference and currently sits near
 1, which is the same "no domains" reading as before. So the fossil is gone and
 the organism is not yet there.
 
+### Era 964 — the threshold became local, and the domains did not appear
+
+`p90_energy` is a histogram over the whole lattice. Every other quantity an
+agent reads — coupling, conduction, predation, stress — comes from its eight
+neighbours; this one term let an agent's fate turn on a number computed
+instantaneously over every other agent alive. **That is action at a distance,
+and it is the whole argument for this change.** The threshold is now
+`max(mean(living neighbours' energy), MAX_ATP/2)`, accumulated in the loop that
+was already reading those neighbours. The floor still stops the local king of a
+starving patch from counting as structure.
+
+_What I predicted, and did not get._ A crystal burns a quarter as much, so it
+accumulates; conduction spills some of that into its neighbours, raising their
+bar. Lateral inhibition of that shape is the standard way a uniform medium
+resolves into patches instead of flipping as one — so I expected spatial
+domains, and built the instrument to see them before looking: the probe now
+reports how much more likely a tissue cell's neighbour is to be tissue than any
+cell's neighbour is. 1.0 means the flag is sprinkled at random; either direction
+away from 1.0 is structure.
+
+Measured against the Era-963 law as a control, 1204 samples each:
+
+```text
+tissue band   Era 963 (global p90)   Era 964 (local mean)
+  5–15%       2.10  (n=20)           1.11  (n=400)
+ 15–30%       1.11  (n=412)          1.95  (n=406)
+ 30–50%       1.27  (n=69)           1.30  (n=156)
+ 50–70%       1.16  (n=66)           1.04  (n=190)
+ 70–99%       1.02  (n=364)          —
+```
+
+The effect reverses sign between adjacent bands. **Refuted.** The aggregate
+figure that looked like a win — clustering 1.10 → 1.33 — is almost entirely a
+confound: a lattice that is 96% tissue has clustering 1.0 by arithmetic, and Era
+963 spent most of its cycle up there. Matching on fraction dissolves it. This is
+the third hypothesis of mine kept in the record after measurement killed it,
+next to the half-circle phase space and the frequency spread.
+
+What did change is real but smaller than the story: the fraction wanders
+irregularly in 0–61% instead of square-waving 22 ↔ 96, and the physics no longer
+contains a global broadcast. Neither law makes organs.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

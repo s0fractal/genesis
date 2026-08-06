@@ -299,12 +299,17 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let solar = (SOLAR_YIELD_Q10 * u32(max(sun_multiplier, 0i))) / (1024u * 1024u);
         var energy_delta: i32 = i32(solar) - i32(burn);
         var energy_diffusion: i32 = 0i;
+        // For the tissue gate below, over the same neighbours already read.
+        var neighbour_energy: u32 = 0u;
+        var neighbour_count: u32 = 0u;
 
         for (var i = 0u; i < 8u; i = i + 1u) {
             let n_idx = n_indices[i];
             if (n_idx < active_count) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
+                    neighbour_energy = neighbour_energy + n.energy;
+                    neighbour_count = neighbour_count + 1u;
                     let adv = species_advantage(agent.genome, n.genome);
                     // Mirrors PhaseLattice::predation_share exactly: a
                     // predator's share is min(PREDATOR_ENERGY_STEAL,
@@ -343,14 +348,28 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Emergent Organ Differentiation (Tissue Crystallization)
         //
-        // RELATIVE and REVERSIBLE — mirrors PhaseLattice::tick_physics. The
-        // threshold was the fixed line MAX_ATP - 1000, which every agent crossed
-        // once the population reached carrying capacity: measured 100% tissue by
-        // tick 640, with 4091 of 4096 advancing zero phase per tick. Being in
-        // the top decile is a claim about your neighbours and cannot become
-        // universal; the MAX_ATP/2 floor guards the start, before the p90
-        // histogram has run.
-        let tissue_threshold = max(signals.p90_energy, MAX_ATP / 2u);
+        // LOCAL, RELATIVE and REVERSIBLE — mirrors PhaseLattice::tick_physics.
+        // The threshold was the fixed line MAX_ATP - 1000, which every agent
+        // crossed once the population reached carrying capacity (100% tissue by
+        // tick 640). Making it the population's top decile stopped the latch but
+        // gave every agent the same number to read, so the lattice crystallised
+        // and dissolved AS ONE — a global oscillation, not organs. It was also
+        // the only term in the physics that read a population-wide number
+        // instead of the eight neighbours, which is action at a distance; that
+        // is the argument for this change, and it stands alone. The lateral-
+        // inhibition story that predicted spatial domains was measured and NOT
+        // supported — see PhaseLattice::tick_physics for the numbers. The
+        // MAX_ATP/2 floor stops the local king of a starving patch from
+        // counting as structure.
+        //
+        // Integer division on both substrates; neighbour_energy is at most
+        // 8 * MAX_ATP, well inside u32, so the u64 accumulator on the CPU side
+        // cannot disagree with this one.
+        var local_mean: u32 = 0u;
+        if (neighbour_count > 0u) {
+            local_mean = neighbour_energy / neighbour_count;
+        }
+        let tissue_threshold = max(local_mean, MAX_ATP / 2u);
         if (!is_tissue && ortho_agent > 0u && agent.energy > tissue_threshold && thermodynamic_stress < 5u) {
             agent.state_flags = agent.state_flags | 0x08000000u;
             is_tissue = true;

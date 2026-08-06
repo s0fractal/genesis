@@ -30,6 +30,8 @@
 
 const TICKS = Number(Deno.args[0] ?? 3000);
 const CAPACITY = Number(Deno.args[1] ?? 4096);
+const STRIDE = Number(Deno.args[2] ?? 0) ||
+  Math.max(1, Math.floor(TICKS / 60));
 const SEED = 0x0EC0_0107;
 
 const bytes = await Deno.readFile("./public/v2/omega_v2_core.wasm");
@@ -116,8 +118,25 @@ function survey() {
   const w = 1 << 6; // q_radial = 6
   const h = Math.max(1, Math.ceil(active / w));
   let localSum = 0;
+  // Is the TISSUE spatially arranged, or just spatially random?
+  //
+  // `structure` above measures PHASE domains, which is a different question and
+  // the only one this probe used to ask. A tissue fraction can hold any value
+  // at all while being scattered uniformly — the number alone cannot tell a
+  // body with organs from salt in water. So count, over living neighbours,
+  // how often a tissue cell's neighbour is also tissue, and compare that to
+  // how often ANY cell's neighbour is tissue.
+  //
+  //   ratio > 1  patches: tissue cells find each other (organs)
+  //   ratio < 1  lateral inhibition: tissue cells repel at range 1 (spots)
+  //   ratio ≈ 1  the flag is sprinkled at random and means nothing spatially
+  //
+  // Both departures from 1 are structure. Only 1 is nothing.
+  let tissueNbrsOfTissue = 0, nbrsOfTissue = 0;
+  let tissueNbrsAll = 0, nbrsAll = 0;
   for (const i of alive) {
     const cx = i % w, cy = Math.floor(i / w);
+    const selfTissue = (a[i * 8 + 3] & 0x08000000) !== 0;
     let c = 0, s = 0, k = 0;
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
@@ -129,10 +148,19 @@ function survey() {
         c += Math.cos(th);
         s += Math.sin(th);
         k++;
+        const nTissue = (a[nIdx * 8 + 3] & 0x08000000) !== 0 ? 1 : 0;
+        tissueNbrsAll += nTissue;
+        nbrsAll++;
+        if (selfTissue) {
+          tissueNbrsOfTissue += nTissue;
+          nbrsOfTissue++;
+        }
       }
     }
     if (k > 0) localSum += Math.hypot(c / k, s / k);
   }
+  const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
+  const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
 
   return {
     alive: n,
@@ -141,6 +169,10 @@ function survey() {
     localOrder: localSum / n,
     structure: localSum / n / Math.max(globalOrder, 1e-9),
     tissueFraction: tissue / n,
+    // 1.0 means the tissue flag has no spatial arrangement at all. Reported
+    // even when the fraction is 0, where it is 0 by construction and says
+    // nothing — read it together with tissueFraction, never alone.
+    tissueClustering: pAny > 0 ? pGiven / pAny : 0,
     meanEfficiency: effSum / n,
     effMin,
     effMax,
@@ -153,7 +185,7 @@ const first = survey();
 for (let t = 1; t <= TICKS; t++) {
   x.v2_tick();
   if (t % 10 === 0) x.v2_mitosis_sweep();
-  if (t <= 5 || t % Math.max(1, Math.floor(TICKS / 60)) === 0) {
+  if (t <= 5 || t % STRIDE === 0) {
     const s = survey();
     if (s) series.push({ tick: t, ...s });
   }

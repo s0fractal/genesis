@@ -770,11 +770,18 @@ impl PhaseLattice {
 
                     let mut energy_delta = solar as i32 - (burn as i32);
                     let mut energy_diffusion = 0i32;
+                    // Accumulated over the same neighbours the physics already
+                    // reads, for the tissue gate below. Costs one add per
+                    // neighbour on a loop that is already running.
+                    let mut neighbour_energy = 0u64;
+                    let mut neighbour_count = 0u32;
 
                     for &n_idx in &n_indices {
                         if n_idx < active {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
+                                neighbour_energy += n.energy as u64;
+                                neighbour_count += 1;
                                 let adv = crate::agent::species_advantage(agent.genome, n.genome);
                                 // Both roles price the transfer off the PREY's
                                 // pre-tick energy, so the two sides of one
@@ -838,16 +845,53 @@ impl PhaseLattice {
                     // structure and some motile cells, and a lattice that is
                     // entirely structure is a fossil.
                     //
-                    // Being in the top decile is a claim about your neighbours,
-                    // so it cannot become universal by construction: `p90_energy`
-                    // moves with the population. The MAX_ATP/2 floor guards the
-                    // degenerate start where the histogram has not run and p90
-                    // is still zero, which would otherwise crystallise everyone
-                    // alive on the first tick.
-                    let tissue_threshold = core::cmp::max(
-                        self.signals.p90_energy,
-                        crate::constants::MAX_ATP / 2,
-                    );
+                    // LOCAL, not global. The threshold was the population-wide
+                    // top decile (`signals.p90_energy`), which fixed the runaway
+                    // — the fraction stopped latching at 100% — but produced a
+                    // GLOBAL OSCILLATION: every agent read the same number, so
+                    // the whole lattice crystallised and dissolved together,
+                    // 22% <-> 96% in phase. That is a body with one clock and no
+                    // organs. Differentiation means some REGION is structural
+                    // while another stays motile, which no population-wide
+                    // number can express.
+                    //
+                    // So the comparison moves down one level: rich relative to
+                    // the eight cells you can actually reach.
+                    //
+                    // THE REASON THIS IS RIGHT is locality, and that argument
+                    // stands on its own. `signals.p90_energy` is a
+                    // population-wide histogram: an agent's fate depended on a
+                    // number computed over every other agent in the lattice,
+                    // instantaneously, in a physics where every other term an
+                    // agent reads comes from its eight neighbours. That is
+                    // action at a distance, and it was the only such term.
+                    // Whatever it produced, it should not have been able to.
+                    //
+                    // THE REASON I EXPECTED MORE was lateral inhibition: a
+                    // crystal burns a quarter as much, so it accumulates,
+                    // conduction spills into its neighbours, their bar rises,
+                    // and a uniform medium resolves into patches. MEASURED, AND
+                    // NOT SUPPORTED. Comparing the two laws at matched tissue
+                    // fraction (1204 samples each, tools/structure_probe.ts
+                    // 6000 4096 5), spatial clustering of the tissue flag goes
+                    // one way in one band and the other way in the next: 1.11 vs
+                    // 1.95 at 15-30%, 1.27 vs 1.30 at 30-50%, 1.16 vs 1.04 at
+                    // 50-70%. The aggregate improvement (1.10 -> 1.33) is almost
+                    // entirely the fraction confound — a lattice that is 96%
+                    // tissue has clustering 1.0 by arithmetic, not by disorder.
+                    // Neither law makes organs. This one is merely local.
+                    //
+                    // The MAX_ATP/2 floor stays: it is what stops the local king
+                    // of a starving neighbourhood from being called structure,
+                    // and it covers the degenerate first tick where an agent has
+                    // no living neighbours at all.
+                    let local_mean = if neighbour_count > 0 {
+                        (neighbour_energy / neighbour_count as u64) as u32
+                    } else {
+                        0
+                    };
+                    let tissue_threshold =
+                        core::cmp::max(local_mean, crate::constants::MAX_ATP / 2);
                     if !is_tissue
                         && ortho_agent > 0
                         && agent.energy > tissue_threshold

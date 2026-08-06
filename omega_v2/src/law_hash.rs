@@ -9,6 +9,24 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 964 — Local. Era 963 made crystallisation relative to the population's own
+/// p90, which stopped the latch but handed every agent the SAME number to read:
+/// the lattice crystallised and dissolved as one body, 22% <-> 96% in phase.
+/// `signals.p90_energy` was also the only term anywhere in the physics computed
+/// over the whole lattice — every other quantity an agent reads comes from its
+/// eight neighbours — so an agent's fate turned on action at a distance. The
+/// threshold is now the mean energy of its own living neighbours. That is the
+/// entire justification, and it is enough.
+///
+/// It is NOT differentiation. I predicted lateral inhibition would resolve the
+/// medium into patches, added spatial clustering of the tissue flag to
+/// `tools/structure_probe.ts` to see it, and measured both laws at matched
+/// tissue fraction over 1204 samples each: the effect reverses sign between
+/// adjacent bands and the aggregate gain is the fraction confound. Recorded as
+/// refuted, alongside the half-circle phase space and the frequency spread.
+/// What did change: the fraction now wanders irregularly in 0-61% instead of
+/// square-waving, and no agent needs a global broadcast to know what it is.
+///
 /// 963 — Differentiated. Era 962's coupling worked, and the world used it to
 /// turn to stone: measured 100% tissue by tick 640, 4091 of 4096 agents
 /// advancing zero phase per tick. Crystallisation was a one-way door with an
@@ -37,7 +55,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 963; // 963 Differentiated
+pub const ERA_ID: u32 = 964; // 964 Local
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -129,7 +147,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x7256_28A1;
+pub const CANONICAL_LAW_HASH: u32 = 0x6CBD_0EAE;
 
 #[cfg(test)]
 mod tests {

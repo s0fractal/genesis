@@ -47,6 +47,13 @@ Deno.test({
   // Needs the SP1 toolchain and a cargo build; same gate the sibling zk tests use.
   ignore: Deno.env.get("CI") === "true",
   async fn() {
+    // This test is about the WIRE — whether the host parses what the bridge
+    // serialises — not about proving. Left unset, SP1_PROVER defaults to `cpu`
+    // and the host correctly reports `stark-cpu-rollup`, so the assertion below
+    // failed for whoever ran the suite without the variable already exported,
+    // after spending a minute on a real STARK to learn nothing about the wire.
+    // The test declares the backend it asserts on rather than inheriting it.
+    Deno.env.set("SP1_PROVER", "mock");
     const { agents, attractors } = fixture();
     const bundle = await new ZKProverBridge().generateTickRollup(
       agents,

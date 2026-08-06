@@ -14,7 +14,10 @@ Deno.test("law hash — deno computation matches the pinned golden (Rust parity)
   assertEquals(await computeLawHash(), OMEGA_LAW_HASH);
 });
 
-Deno.test("law hash — golden is the canonical Era-963 value", () => {
+Deno.test("law hash — golden is the canonical Era-964 value", () => {
+  // Moved to Era 964 on 2026-08-07: crystallisation now compares against the
+  // mean of an agent's own living neighbours rather than the population-wide
+  // p90, removing the only term in the physics computed over the whole lattice.
   // Moved from 0x30a95260 (Era 960) on 2026-08-06. That value was published to
   // the federation and cross-witnessed by trinity's Substrate Court while seven
   // changes to the physical operator had already landed underneath it: the
@@ -22,7 +25,7 @@ Deno.test("law hash — golden is the canonical Era-963 value", () => {
   // actually changed. A node still reporting 0x30a95260 is running the closed
   // world that goes extinct at tick 86 and must not be read as agreeing with
   // this one.
-  assertEquals(lawHashHex(OMEGA_LAW_HASH), "0x725628a1");
+  assertEquals(lawHashHex(OMEGA_LAW_HASH), "0x6cbd0eae");
 });
 
 Deno.test("lawHashHex — formats as 0x + 8 lowercase hex", () => {
