@@ -6,7 +6,11 @@
 // senateVoteWeight is now pure, time-independent, and these lock that.
 
 import { assertEquals } from "jsr:@std/assert@1";
-import { senateVoteWeight } from "../src/network/senate_weight.ts";
+import {
+  ORACLE_BASE_WEIGHT,
+  PEER_WEIGHT_MAX,
+  senateVoteWeight,
+} from "../src/network/senate_weight.ts";
 
 Deno.test("bare peer with no liveness data weighs the default 10", () => {
   assertEquals(senateVoteWeight({ oracleAuthentic: false }), 10);
@@ -47,6 +51,42 @@ Deno.test("oracle debate-alignment boost adds, floored at 50", () => {
   assertEquals(
     senateVoteWeight({ oracleAuthentic: true, oracleAlignmentBoost: -200 }),
     50,
+  );
+});
+
+Deno.test("REGRESSION: a long-lived peer can never outweigh one aligned oracle", () => {
+  // The bug: heartbeat_count is monotonic and uncapped in liveness_aggregator,
+  // so peer weight grew without bound (10 + hb·2 + warrant·5). At hb=145 a
+  // SINGLE peer crossed the absolute ayesWeight >= 300 ratification threshold
+  // in libp2p_mesh and could unilaterally pass ADD_ORACLE / SET_QUORUM.
+  const ancient = senateVoteWeight({
+    oracleAuthentic: false,
+    liveness: { heartbeat_count: 1_000_000, warrant_votes_observed: 1_000_000 },
+  });
+  assertEquals(ancient, PEER_WEIGHT_MAX); // 99, not 5_010_010
+  assertEquals(ancient < ORACLE_BASE_WEIGHT, true);
+  // Peer consensus now costs 4 saturated peers; oracle resonance costs 3.
+  assertEquals(PEER_WEIGHT_MAX * 3 < 300, true);
+});
+
+Deno.test("liveness saturates at the same caps reputation_routing uses", () => {
+  // heartbeatCap 50, warrantCap 20 → 10 + 100 + 100 = 210, clamped to 99.
+  const saturated = senateVoteWeight({
+    oracleAuthentic: false,
+    liveness: { heartbeat_count: 50, warrant_votes_observed: 20 },
+  });
+  const beyond = senateVoteWeight({
+    oracleAuthentic: false,
+    liveness: { heartbeat_count: 500, warrant_votes_observed: 200 },
+  });
+  assertEquals(saturated, beyond);
+  // Negative/garbage counters cannot mint weight below the bare-peer floor.
+  assertEquals(
+    senateVoteWeight({
+      oracleAuthentic: false,
+      liveness: { heartbeat_count: -50, warrant_votes_observed: -50 },
+    }),
+    10,
   );
 });
 

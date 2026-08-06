@@ -1,6 +1,42 @@
 // Bitcoin Sovereign Anchorage
 import { formatInscription } from "./genesis_inscription.ts";
 
+/** Public fallback. Sovereign deployments are expected to override this. */
+export const DEFAULT_BTC_API_BASE = "https://mempool.space/api";
+
+/**
+ * Resolve the Bitcoin REST endpoint, most explicit first:
+ *   1. `globalThis.__OMEGA_BTC_API__` (page-injected, same channel as
+ *      `__OMEGA_GENESIS_TXID__`)
+ *   2. `OMEGA_BTC_API` env var (Deno / CLI hosts)
+ *   3. `localStorage["omega.btcApi"]` (operator override without a rebuild)
+ *   4. the public mempool.space instance
+ * Point it at your own Esplora / Electrs / Bitcoin Core proxy to make the
+ * anchor check independent of any third party.
+ */
+export function btcApiBase(): string {
+  const injected = (globalThis as { __OMEGA_BTC_API__?: string })
+    .__OMEGA_BTC_API__;
+  if (injected) return injected.replace(/\/+$/, "");
+  try {
+    // @ts-ignore: Deno is only available in backend/CLI contexts
+    const fromEnv = typeof Deno !== "undefined"
+      // @ts-ignore
+      ? Deno.env.get("OMEGA_BTC_API")
+      : undefined;
+    if (fromEnv) return fromEnv.replace(/\/+$/, "");
+  } catch {
+    // env permission not granted — fall through, not an error
+  }
+  try {
+    const stored = globalThis.localStorage?.getItem("omega.btcApi");
+    if (stored) return stored.replace(/\/+$/, "");
+  } catch {
+    // no DOM storage in this host — fall through
+  }
+  return DEFAULT_BTC_API_BASE;
+}
+
 export interface BitcoinTip {
   height: number;
   hash: string;
@@ -12,7 +48,7 @@ export interface BitcoinTip {
  */
 export async function fetchBitcoinTip(): Promise<BitcoinTip | null> {
   try {
-    const res = await fetch("https://mempool.space/api/v1/blocks/");
+    const res = await fetch(`${btcApiBase()}/v1/blocks/`);
     if (!res.ok) return null;
 
     const blocks = await res.json();
@@ -43,7 +79,7 @@ export async function fetchAnchorBalance(
   address: string,
 ): Promise<BitcoinAnchorStats | null> {
   try {
-    const res = await fetch(`https://mempool.space/api/address/${address}`);
+    const res = await fetch(`${btcApiBase()}/address/${address}`);
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -62,62 +98,132 @@ export async function fetchAnchorBalance(
 }
 
 /**
- * Validates whether a given Bitcoin transaction contains an OP_RETURN output
- * matching the canonical OMEGA-64 Genesis Inscription.
- * @param txid The Bitcoin transaction ID
- * @param expectedHash Optional explicit hash number, defaults to GENESIS_HASH_LEGACY_V1_0 if omitted
- * @returns true if valid, false otherwise.
+ * Outcome of an anchor check. The whole point of this being three-valued is
+ * that "I could not ask" is NOT evidence of forgery:
+ *   - VERIFIED    — we read the transaction and the OP_RETURN matches.
+ *   - MISMATCH    — we read the transaction and it does NOT carry our
+ *                   inscription. This is the only genuine anchor failure.
+ *   - UNREACHABLE — we never got an answer (offline, endpoint down, 5xx,
+ *                   malformed body). Says nothing about the chain.
+ */
+export type AnchorVerdict = "VERIFIED" | "MISMATCH" | "UNREACHABLE";
+
+export interface AnchorCheck {
+  verdict: AnchorVerdict;
+  /** Which endpoint was asked — surfaced so a bad override is diagnosable. */
+  endpoint: string;
+  /** Human-readable reason, for the HUD and the console. */
+  detail: string;
+}
+
+/**
+ * Pure predicate: does this Esplora-shaped transaction carry `expectedPayload`
+ * in an OP_RETURN output? Split out from the fetch so it is testable without
+ * a network (and so the network layer cannot silently change the rule).
+ */
+export function txCarriesInscription(
+  tx: { vout?: Array<Record<string, unknown>> } | null | undefined,
+  expectedPayload: string,
+): boolean {
+  if (!tx || !Array.isArray(tx.vout)) return false;
+
+  // OMEGA1:716ea2f8
+  // In OP_RETURN, the scriptpubkey.asm looks like:
+  // "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3731366561326638"
+  // We can just encode the expected string to hex and look for it.
+  const enc = new TextEncoder();
+  let hexPayload = "";
+  for (const b of enc.encode(expectedPayload)) {
+    hexPayload += b.toString(16).padStart(2, "0");
+  }
+  hexPayload = hexPayload.toLowerCase();
+
+  for (const out of tx.vout) {
+    if (out.scriptpubkey_type !== "op_return") continue;
+    const asm = String(out.scriptpubkey_asm ?? "").toLowerCase();
+    if (asm.includes(hexPayload)) return true;
+    // Fallback check the raw scriptpubkey
+    const spk = String(out.scriptpubkey ?? "").toLowerCase();
+    if (spk.includes(hexPayload)) return true;
+  }
+  return false;
+}
+
+/**
+ * Ask the chain whether `txid` carries the canonical OMEGA-64 Genesis
+ * Inscription. Never throws; a transport failure returns UNREACHABLE so the
+ * caller can degrade to untethered instead of treating an outage at a
+ * third-party REST host as proof of a forged genesis.
+ */
+export async function checkGenesisInscription(
+  txid: string,
+  expectedHash: number,
+): Promise<AnchorCheck> {
+  const endpoint = btcApiBase();
+  const expectedPayload = formatInscription(expectedHash);
+  try {
+    const res = await fetch(`${endpoint}/tx/${txid}`);
+    // 404 is ambiguous on purpose: a pruned/lagging/wrong-network endpoint
+    // answers 404 for a transaction that exists on mainnet. Only a body we
+    // successfully parsed can convict.
+    if (!res.ok) {
+      return {
+        verdict: "UNREACHABLE",
+        endpoint,
+        detail: `HTTP ${res.status} for tx ${txid}`,
+      };
+    }
+
+    let tx: { vout?: Array<Record<string, unknown>> };
+    try {
+      tx = await res.json();
+    } catch (e) {
+      return {
+        verdict: "UNREACHABLE",
+        endpoint,
+        detail: `unparseable response: ${e}`,
+      };
+    }
+    if (!tx || !Array.isArray(tx.vout)) {
+      return {
+        verdict: "UNREACHABLE",
+        endpoint,
+        detail: "response carried no vout array",
+      };
+    }
+
+    return txCarriesInscription(tx, expectedPayload)
+      ? { verdict: "VERIFIED", endpoint, detail: expectedPayload }
+      : {
+        verdict: "MISMATCH",
+        endpoint,
+        detail: `tx ${txid} carries no OP_RETURN matching ${expectedPayload}`,
+      };
+  } catch (e) {
+    return {
+      verdict: "UNREACHABLE",
+      endpoint,
+      detail: `transport error: ${e}`,
+    };
+  }
+}
+
+/**
+ * Boolean convenience wrapper: true only on VERIFIED.
+ * Callers that must distinguish "wrong chain" from "no network" — the boot
+ * path above all — should use `checkGenesisInscription` directly.
  */
 export async function verifyGenesisInscription(
   txid: string,
   expectedHash: number,
 ): Promise<boolean> {
-  try {
-    const res = await fetch(`https://mempool.space/api/tx/${txid}`);
-    if (!res.ok) {
-      console.warn(`[BITCOIN_ANCHOR] TXID ${txid} not found or network error.`);
-      return false;
-    }
-
-    const tx = await res.json();
-    if (!tx || !tx.vout) return false;
-
-    const expectedPayload = formatInscription(expectedHash);
-    // OMEGA1:716ea2f8
-    // In OP_RETURN, the scriptpubkey.asm looks like: "OP_RETURN OP_PUSHBYTES_15 4f4d454741313a3731366561326638"
-    // We can just encode the expected string to hex and look for it.
-
-    const enc = new TextEncoder();
-    const bytes = enc.encode(expectedPayload);
-    let hexPayload = "";
-    for (const b of bytes) {
-      hexPayload += b.toString(16).padStart(2, "0");
-    }
-
-    for (const out of tx.vout) {
-      if (out.scriptpubkey_type === "op_return") {
-        const asm = out.scriptpubkey_asm || "";
-        // If it explicitly has our hex string
-        if (asm.toLowerCase().includes(hexPayload.toLowerCase())) {
-          return true;
-        }
-
-        // Fallback check the raw scriptpubkey
-        const spk = out.scriptpubkey || "";
-        if (spk.toLowerCase().includes(hexPayload.toLowerCase())) {
-          return true;
-        }
-      }
-    }
-
+  const check = await checkGenesisInscription(txid, expectedHash);
+  if (check.verdict !== "VERIFIED") {
     console.warn(
-      `[BITCOIN_ANCHOR] TXID ${txid} does not contain valid OP_RETURN payload (${expectedPayload}).`,
+      `[BITCOIN_ANCHOR] ${check.verdict} via ${check.endpoint}: ${check.detail}`,
     );
-    return false;
-  } catch (e) {
-    console.error(`[BITCOIN_ANCHOR] Error verifying TXID ${txid}:`, e);
-    return false;
   }
+  return check.verdict === "VERIFIED";
 }
 
 /**

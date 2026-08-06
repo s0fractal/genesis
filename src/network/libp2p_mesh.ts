@@ -154,6 +154,10 @@ import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 import { senateVoteWeight } from "./senate_weight.ts";
+import {
+  ERA_1040_PROPOSAL,
+  senateHash as canonicalSenateHash,
+} from "./senate_proposals.ts";
 
 /**
  * The Mycelial Mesh
@@ -215,11 +219,16 @@ export class Libp2pMesh {
   public era1070Unlocked: boolean = false;
   public era1070AcceptedVisionHash: number | null = null;
   public livenessAggregator?: LivenessAggregator;
+  /** How many configured bootstrap nodes actually answered the dial. */
+  public bootstrapReached: number = 0;
 
   constructor(
     engine: OmegaV2Engine,
     overwriteCallback: (snapshot: Uint8Array) => void,
-    bootstrapMultiaddr?: string,
+    // Accepts one multiaddr or a list. A list is the point: a single hardcoded
+    // bootstrapper is a single point of discovery failure in a mesh that
+    // advertises having no centralized relay.
+    bootstrapMultiaddr?: string | string[],
     router?: PhaseRouter,
   ) {
     this.engine = engine;
@@ -240,7 +249,7 @@ export class Libp2pMesh {
     return Libp2pMesh.senateHash(str);
   }
 
-  private async initNode(bootstrapMultiaddr?: string) {
+  private async initNode(bootstrapMultiaddr?: string | string[]) {
     // @ts-ignore: Peer-dependency version mismatches in libp2p modules
     this.node = await createLibp2p({
       transports: [
@@ -318,14 +327,41 @@ export class Libp2pMesh {
     await this.node.start();
     console.log(`[LIBP2P-MESH] Libp2p node started.`);
 
-    if (bootstrapMultiaddr) {
-      try {
-        await this.node.dial(bootstrapMultiaddr);
-        console.log(
-          `[LIBP2P-MESH] Dialed bootstrap node: ${bootstrapMultiaddr}`,
+    // Dial every configured bootstrapper concurrently and keep going as long as
+    // ONE answered. Discovery must not hinge on any single operator's uptime.
+    const addrs =
+      (Array.isArray(bootstrapMultiaddr)
+        ? bootstrapMultiaddr
+        : bootstrapMultiaddr
+        ? [bootstrapMultiaddr]
+        : []).filter((a) => typeof a === "string" && a.length > 0);
+
+    if (addrs.length > 0) {
+      const results = await Promise.allSettled(
+        addrs.map((addr) =>
+          this.node.dial(addr).then(() => {
+            console.log(`[LIBP2P-MESH] Dialed bootstrap node: ${addr}`);
+            return addr;
+          }).catch((e: unknown) => {
+            console.warn(
+              `[LIBP2P-MESH] Failed to dial bootstrap node ${addr}:`,
+              e,
+            );
+            throw e;
+          })
+        ),
+      );
+      this.bootstrapReached = results.filter((r) =>
+        r.status === "fulfilled"
+      ).length;
+      if (this.bootstrapReached === 0) {
+        console.warn(
+          `[LIBP2P-MESH] No bootstrap node reachable (${addrs.length} tried). Running isolated until a peer dials in — override the list via __OMEGA_BOOTSTRAP_PEERS__ / OMEGA_BOOTSTRAP_PEERS / localStorage["omega.bootstrapPeers"].`,
         );
-      } catch (e) {
-        console.warn(`[LIBP2P-MESH] Failed to dial bootstrap node:`, e);
+      } else {
+        console.log(
+          `[LIBP2P-MESH] Bootstrap: ${this.bootstrapReached}/${addrs.length} node(s) reached.`,
+        );
       }
     }
   }
@@ -731,12 +767,13 @@ export class Libp2pMesh {
    * source of truth (`omega_v2/tests/cross_lang_hash.rs`) and to the genesis
    * senate anchors — senateHash("") === 0xF5A5FD42, senateHash("Era 1040 ZK")
    * === 0x15302EC1. (Migrated from FNV-1a with the kernel's SHA-256 move.)
+   *
+   * Delegates to `senate_proposals.ts` so that code which only needs to derive
+   * a proposal key does not have to import this module and drag the native
+   * WebRTC transport along with it.
    */
   public static senateHash(description: string): number {
-    const buf = new Uint8Array(64);
-    const raw = new TextEncoder().encode(description);
-    buf.set(raw.subarray(0, 64));
-    return sha256_u32(buf) >>> 0;
+    return canonicalSenateHash(description);
   }
 
   private async handleZKProofMessage(fromPeer: string, data: Uint8Array) {
@@ -1309,13 +1346,14 @@ export class Libp2pMesh {
   private autoRatifyEra1040Proposal(voterMatrix: number, voterInverse: number) {
     if (!this.era1030Unlocked) return;
     if (this.verifiedDipoleCount % 5 !== 0) return;
-    // The Era-1040 proposal hash is fixed by the bootstrap autopoietic
-    // submission ("ZK-Notarized Mutations — every darwinian_mitosis
-    // emits an SP1 STARK proof; peers reject mutations without a valid receipt.").
-    // senateHash of the bootstrap first-proposal description (v2.ts). This is
-    // the live proposal key; it is NOT the genesis first_proposal_hash anchor
-    // (0x30083117), which hashes a different canonical string ("Task 0090…").
-    const era1040Hash = 0x5507_4120;
+    // DERIVED from the proposal text, not transcribed from it. This used to be
+    // the bare literal 0x5507_4120, 900 lines away from the description string
+    // it hashes — so editing one word of that description would have silently
+    // stopped auto-ratification from ever finding the proposal again, with no
+    // error and no symptom other than a loop that quietly stops closing.
+    // (Still NOT the genesis first_proposal_hash anchor 0x30083117, which
+    // hashes a different canonical string — "Task 0090…".)
+    const era1040Hash = canonicalSenateHash(ERA_1040_PROPOSAL);
     const record = this.senate.get(era1040Hash);
     if (!record || record.accepted) return;
     // Ensure the voter dipole is sane.

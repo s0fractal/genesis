@@ -88,8 +88,8 @@ LIVE; browser / WebRTC path experimental — see Status above), each running:
   matrix, integer-only physics, no `f32` in any consensus path).
 - **A WebGPU lens** (`src/lens/`, integer consensus shaders plus a visual/intent
   layer; toroidal mode preserves bit-exact Rust parity).
-- **A WebRTC plasmid layer** (`src/network/`, JSON-over-DataChannel, signed by
-  FNV-1a hashes, validated at the mesh boundary — _transport is
+- **A WebRTC plasmid layer** (`src/network/`, JSON-over-DataChannel, addressed
+  by SHA-256→u32 hashes, validated at the mesh boundary — _transport is
   experimental/stubbed, see Status_).
 - **An SP1 ZK guest** (`omega_zk_guest/`, Mode 2 verifies mitosis events via the
   same pure derivation function the kernel runs — _host prover is real cpu by
@@ -192,7 +192,7 @@ deno task dev                   # Vite + WebGPU
 | L0 — Φ Address     | `u32 [consensus:8 \| social:8 \| personal:8 \| micro:8]` | `omega_v2/src/routing.rs`             |
 | L1 — Plasmid       | JSON over WebRTC `v2-sync` (UDP-style)                   | `src/network/libp2p_mesh.ts`          |
 | L2 — Snapshot      | Raw 32-byte agents, 64KB chunks via `v2-state`           | `omega_v2/src/agent.rs`               |
-| L3 — Senate        | PROPOSAL / VOTE plasmids, FNV-1a hashes                  | `omega_v2/src/senate.rs`              |
+| L3 — Senate        | PROPOSAL / VOTE plasmids, SHA-256→u32 hashes             | `omega_v2/src/senate.rs`              |
 | L4 — Anchor        | Bitcoin block hash → φ derivation                        | `omega_v2/src/anchor.rs`              |
 | L5 — Mitosis Proof | DIPOLE plasmid `(parent + child + attractors + receipt)` | `mitosis_proof.rs` + `mitosis_log.rs` |
 | L6 — Genesis       | `OMEGA1:716ea2f8` OP_RETURN                              | `genesis_inscription.rs`              |

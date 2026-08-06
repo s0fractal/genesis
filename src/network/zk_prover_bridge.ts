@@ -24,8 +24,24 @@ export class ZKProverBridge {
   private isProving: boolean = false;
   private queue: MitosisReceipt[] = [];
   private onProofGenerated: ZKProofCallback | null = null;
+  /**
+   * In-flight latch for `generateTickRollup`. The mitosis path is serialized by
+   * `isProving`, but the rollup path is called on a fixed frame cadence
+   * (`frameCount % 100` in bootstrap/v2.ts) as fire-and-forget — and a rollup
+   * takes minutes, not 1.6 seconds. Without this latch each cadence tick spawns
+   * ANOTHER `cargo run --release`, so the prover processes accumulate without
+   * bound and starve the machine the simulation is running on.
+   */
+  private isRollingUp: boolean = false;
+  /** Rollup cadence ticks skipped because a proof was still running. */
+  private rollupsSkipped: number = 0;
 
   constructor() {}
+
+  /** How many rollup requests were dropped for overlap (observability). */
+  public get skippedRollups(): number {
+    return this.rollupsSkipped;
+  }
 
   public bindLogBytes(bytes: Uint8Array) {
     this.logBytes = bytes;
@@ -219,6 +235,21 @@ export class ZKProverBridge {
       return null;
     }
 
+    // Drop this cadence tick rather than stack a second prover on top of the
+    // one still running. Dropping is correct here: a rollup is a snapshot of
+    // current lattice state, so the next tick's rollup strictly supersedes the
+    // one we skipped — there is nothing to queue.
+    if (this.isRollingUp) {
+      this.rollupsSkipped++;
+      if (this.rollupsSkipped % 10 === 1) {
+        console.warn(
+          `[zk_prover_bridge] Rollup still in flight — skipped ${this.rollupsSkipped} cadence tick(s). Proving is slower than the 100-frame cadence.`,
+        );
+      }
+      return null;
+    }
+    this.isRollingUp = true;
+
     try {
       console.log(
         `[zk_prover_bridge] Triggering ZK Physics Rollup for ${activeCount} agents...`,
@@ -350,6 +381,8 @@ export class ZKProverBridge {
       }
     } catch (e) {
       console.error(`[zk_prover_bridge] Rollup generation error:`, e);
+    } finally {
+      this.isRollingUp = false;
     }
     return null;
   }

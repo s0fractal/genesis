@@ -42,7 +42,25 @@ function pushU32BE(buf: number[], v: number) {
   buf.push((v >>> 24) & 0xFF, (v >>> 16) & 0xFF, (v >>> 8) & 0xFF, v & 0xFF);
 }
 
-function sha256_u32(bytes: number[] | Uint8Array): number {
+/**
+ * FNV-1a 32-bit (offset basis 2166136261, prime 16777619).
+ *
+ * This function was called `sha256_u32` until an outside reviewer read the
+ * tree and reported, reasonably, that OMEGA-64 signs FNV output as SHA-256.
+ * The review's conclusion was wrong — the EXPORTED `sha256_u32` in
+ * `sdk/phi_crypto.ts` is a genuine truncated SHA-256, matching Rust
+ * `crypto.rs`, and it is the one every other module imports — but the name
+ * here was indefensible, and a reader who had to open the body to learn the
+ * algorithm was one honest mistake away from building a wrong client.
+ *
+ * FNV is nonetheless CORRECT here and must not be "upgraded": the legacy u32
+ * genesis hash is defined as the FNV-1a of the anchor buffer, mirroring the
+ * const-eval loop in `omega_v2/src/genesis_inscription.rs`. That value is
+ * frozen at 0x716ea2f8 and pinned by a cross-language drift lock. Changing the
+ * algorithm would change the genesis, not fix it. The real SHA-256 inscription
+ * is `computeGenesisHashSha256` below, which is a separate, additional anchor.
+ */
+function fnv1a_u32(bytes: number[] | Uint8Array): number {
   let h = 0x811C_9DC5 >>> 0;
   for (let i = 0; i < bytes.length; i++) {
     h = (h ^ bytes[i]) >>> 0;
@@ -52,8 +70,9 @@ function sha256_u32(bytes: number[] | Uint8Array): number {
 }
 
 /**
- * Compute the Genesis Inscription for a given anchor set.
- * Mirrors `omega_v2::genesis_inscription::compute_genesis_hash` byte-for-byte.
+ * Compute the legacy u32 Genesis Inscription for a given anchor set — FNV-1a,
+ * not SHA-256. Mirrors `omega_v2::genesis_inscription::compute_genesis_hash`
+ * byte-for-byte. For the SHA-256 anchor see `computeGenesisHashSha256`.
  */
 export function computeGenesisHash(a: GenesisAnchors): number {
   const buf: number[] = [];
@@ -67,7 +86,7 @@ export function computeGenesisHash(a: GenesisAnchors): number {
   pushU32BE(buf, a.mitosisReceiptAttr >>> 0);
   pushU32BE(buf, DIPOLE_INVARIANT);
   pushU32BE(buf, TOROIDAL_MODULUS);
-  return sha256_u32(buf);
+  return fnv1a_u32(buf);
 }
 
 /** Compute the canonical SHA-256 Genesis Inscription for OMEGA-64 v1.0. */

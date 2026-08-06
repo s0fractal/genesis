@@ -15,6 +15,21 @@ from being mistaken for immediate backlog.
 **[Ознайомитись з Виконаними Етапами (COMPLETED_STAGES.md)](./docs/COMPLETED_STAGES.md)**
 👈
 
+## Легенда статусів
+
+Зовнішній рецензент прочитав цей документ і не зміг відрізнити зроблене від
+задуманого — ✅ стояло і на коді, і на філософії. Тому статус тепер означає
+рівно одне, і кожен ✅ мусить називати файл:
+
+| Знак | Значення                                                             |
+| ---- | -------------------------------------------------------------------- |
+| ✅   | **IMPLEMENTED** — код у дереві + тести. Обов'язкове посилання на файл |
+| 🔧   | **IN PROGRESS** — частина в дереві; що саме — сказано явно            |
+| 💭   | **CONCEPT** — наміру відповідає нуль рядків коду. Це не недолік       |
+| 🔜   | **PLANNED** — узгоджено, але ще не почато                            |
+
+Правило: **не ставити ✅ на концепт.** Якщо неможливо назвати файл — це 💭.
+
 (Вектори V1 та V2, такі як IPFS збегірання та Мутація фізики (ESP), вже успішно
 імплементовані. Поточні активні операції зосереджені навколо V3).
 
@@ -48,11 +63,20 @@ On-Chain економіки. Активний фокус перенесено н
 
 ### 🌪️ Середньостроково
 
-1. ~~**Quantum-Inspired Lattice:**~~ (✅ _Епоха 600_) Заміна детерміністичних
+1. **Quantum-Inspired Lattice:** (💭 _CONCEPT_) Заміна детерміністичних
    осциляторів Курамото на квантові стани (SU(2) Bloch Sphere).
-2. ~~**Substrate for LLM Subjectivity:**~~ (✅ _Епоха 500_) Створення
+   > Стояло як «✅ Епоха 600». Перевірено: SU(2)/Bloch немає ніде в дереві —
+   > єдина згадка це коментар `agent.rs:98` («e.g. quantum superposition») біля
+   > поля ортогональної фази. Ядро лишається цілочисельним Курамото
+   > (`lattice.rs`). Позначку знято до появи коду.
+2. **Substrate for LLM Subjectivity:** (🔧 _IN PROGRESS, Епоха 500_) Створення
    унікального середовища та "внутрішнього часу" (Dream Loop) для автономного
    "життя" LLM-агентів.
+   > Dream Loop реально існує — `src/workers/oracle_worker.ts`
+   > (`isDreamLoopActive`, `shouldDream`). Але це **зовнішній WebLLM-воркер**,
+   > який спостерігає ґратку, а не внутрішній час ядра: цикл живе в браузері,
+   > поза `#![no_std]` ядром, і не бере участі в консенсусі. «Субстрат для
+   > суб'єктивності» в сильному сенсі — ще попереду.
 3. **Open Protocol (RFC-style):** (🔜 _Епоха 700_) Формалізація OMEGA Protocol
    для зовнішніх систем (Protocol Buffers & P2P gRPC-взаємодія).
 4. **Multi-Modal Oracle:** Застосування Vision-моделей для "перегляду" еволюції
@@ -272,17 +296,25 @@ On-Chain економіки. Активний фокус перенесено н
   (Дарвінізм), а нові константи пишуться в `UniformBuffer` для WebGPU. Жодних
   виділень пам'яті (allocations).
 
-### Era 1000: Fourier/Taylor Phase Routing (Hyperbolic DNS) [IN PROGRESS]
+### Era 1000: Fourier/Taylor Phase Routing (Hyperbolic DNS) [🔧 IN PROGRESS]
 
 **Ontology Direction: «The Math of Addressing»**
 
-**Status:** Foundation implemented in `omega_v2/src/routing.rs`.
+**✅ Реалізовано** — `omega_v2/src/routing.rs` (13 unit-тестів, clippy-clean,
+no_std), TS-дзеркало `src/network/routing_bridge.ts`
+(`tests/routing_bridge_test.ts`), WGSL `routing.wgsl`:
 
 - `PhaseAddress` (32-bit hierarchical: consensus/social/personal/micro)
 - Integer-only hyperbolic distance (Q3 fixed-point, halving weights per level)
 - First-order and second-order Taylor step with Q7 curvature
 - Greedy next-hop selection for 1D toroidal neighbours
-- 11 unit tests, clippy-clean, no_std compatible
+
+**🔧 Відкрите** — маршрутизація гейтить, але ще не адресує. У mesh це
+«Passive Phase Routing» (`libp2p_mesh.ts:496`): транспорт лишається
+gossipsub-броадкастом, а гіперболічна відстань вирішує лише **чи пересилати
+далі** (вузол, який далі за відправника, мовчить) плюс штраф за часову кривизну
+до `hopCount`. Тобто це flooding із фазовим гейтом, а не greedy next-hop
+unicast — сам `greedy_next_hop` із `routing.rs` транспортом ще не викликається.
 
 #### Гіперболічна Трансляція Фазових Маршрутів
 

@@ -18,6 +18,14 @@ export const DOM = {
   statEValue: document.getElementById("stat-e-value") as HTMLSpanElement | null,
   statFLabel: document.getElementById("stat-f-label") as HTMLSpanElement | null,
   statFValue: document.getElementById("stat-f-value") as HTMLSpanElement | null,
+  statGLabel: document.getElementById("stat-g-label") as HTMLSpanElement | null,
+  statGValue: document.getElementById("stat-g-value") as HTMLSpanElement | null,
+  statHLabel: document.getElementById("stat-h-label") as HTMLSpanElement | null,
+  statHValue: document.getElementById("stat-h-value") as HTMLSpanElement | null,
+  statILabel: document.getElementById("stat-i-label") as HTMLSpanElement | null,
+  statIValue: document.getElementById("stat-i-value") as HTMLSpanElement | null,
+  statJLabel: document.getElementById("stat-j-label") as HTMLSpanElement | null,
+  statJValue: document.getElementById("stat-j-value") as HTMLSpanElement | null,
   semanticInputGroup: document.getElementById("semantic-input-group") as
     | HTMLDivElement
     | null,
@@ -142,20 +150,32 @@ export function tickFps() {
   }
 }
 
+/**
+ * One slot, one meaning. There used to be six slots and ten meanings: slot `c`
+ * alone carried SIGNATURE, COSMIC ENTROPY, ORACLE and GOLDEN TRACE, and `e`
+ * carried both BTC ANCHOR and ONTOLOGY. Whichever writer ran last in a frame
+ * won, so a chatty oracle silently erased the golden-trace readout — the one
+ * line that tells you the lattice has diverged. A diagnostic that another
+ * subsystem can overwrite is not a diagnostic.
+ *
+ * Slots are cheap; the invariant is not. Add a slot rather than time-share one.
+ */
 const STAT_SLOTS = {
-  a: { label: () => DOM.statALabel, value: () => DOM.statAValue },
-  b: { label: () => DOM.statBLabel, value: () => DOM.statBValue },
-  c: { label: () => DOM.statCLabel, value: () => DOM.statCValue },
-  d: { label: () => DOM.statDLabel, value: () => DOM.statDValue },
-  e: { label: () => DOM.statELabel, value: () => DOM.statEValue },
-  f: { label: () => DOM.statFLabel, value: () => DOM.statFValue },
+  a: { label: () => DOM.statALabel, value: () => DOM.statAValue }, // AGENTS
+  b: { label: () => DOM.statBLabel, value: () => DOM.statBValue }, // FPS
+  c: { label: () => DOM.statCLabel, value: () => DOM.statCValue }, // SIGNATURE
+  d: { label: () => DOM.statDLabel, value: () => DOM.statDValue }, // WEATHER
+  e: { label: () => DOM.statELabel, value: () => DOM.statEValue }, // ONTOLOGY
+  f: { label: () => DOM.statFLabel, value: () => DOM.statFValue }, // SENATE
+  g: { label: () => DOM.statGLabel, value: () => DOM.statGValue }, // GOLDEN TRACE
+  h: { label: () => DOM.statHLabel, value: () => DOM.statHValue }, // ORACLE
+  i: { label: () => DOM.statILabel, value: () => DOM.statIValue }, // BTC ANCHOR
+  j: { label: () => DOM.statJLabel, value: () => DOM.statJValue }, // COSMIC ENTROPY
 } as const;
 
-export function setHudStat(
-  slot: "a" | "b" | "c" | "d" | "e" | "f",
-  label: string,
-  value: string,
-) {
+export type HudSlot = keyof typeof STAT_SLOTS;
+
+export function setHudStat(slot: HudSlot, label: string, value: string) {
   STAT_SLOTS[slot].label()?.replaceChildren(label);
   STAT_SLOTS[slot].value()?.replaceChildren(value);
 }

@@ -566,6 +566,35 @@
             class="stat-value"
           >DORMANT</span>
         </div>
+        <!--
+          Slots g–j exist so that no subsystem has to time-share a readout with
+          another. GOLDEN TRACE in particular must never be overwritable: it is
+          how lattice divergence becomes visible. See STAT_SLOTS in dom.ts.
+        -->
+        <div style="width: 100%; text-align: center; margin-top: 5px">
+          <span id="stat-g-label">GOLDEN TRACE</span> <span
+            id="stat-g-value"
+            class="stat-value"
+          >—</span>
+        </div>
+        <div style="width: 100%; text-align: center; margin-top: 5px">
+          <span id="stat-h-label">ORACLE</span> <span
+            id="stat-h-value"
+            class="stat-value"
+          >IDLE</span>
+        </div>
+        <div style="width: 100%; text-align: center; margin-top: 5px">
+          <span id="stat-i-label">BTC ANCHOR</span> <span
+            id="stat-i-value"
+            class="stat-value"
+          >—</span>
+        </div>
+        <div style="width: 100%; text-align: center; margin-top: 5px">
+          <span id="stat-j-label">COSMIC ENTROPY</span> <span
+            id="stat-j-value"
+            class="stat-value"
+          >—</span>
+        </div>
       </div>
 
       <div style="display: flex; justify-content: flex-end">
