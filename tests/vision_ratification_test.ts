@@ -18,6 +18,7 @@ import {
 } from "../src/network/oracle_identity.ts";
 import { CrossModelDebate } from "../src/network/cross_model_debate.ts";
 import { senateAcceptance } from "../src/network/senate_acceptance.ts";
+import { isOracleProposed } from "../src/network/maturity_gates.ts";
 
 type Oracle = typeof CANONICAL_ORACLES[number];
 
@@ -74,11 +75,11 @@ function castOracleVote(record: ProposalRecord, oracle: Oracle, aye: boolean) {
   }
 }
 
-function isOracleProposed(record: ProposalRecord): boolean {
-  return Object.values(ORACLE_MATRICES_V1).some((m) =>
-    (m >>> 0) === (record.proposerMatrix >>> 0)
-  );
-}
+// `isOracleProposed` now comes from maturity_gates.ts. This file used to carry
+// its own copy, so the predicate the mesh runs and the predicate this test
+// asserts were two different functions that merely agreed.
+const proposedByOracle = (r: ProposalRecord) =>
+  isOracleProposed(r.proposerMatrix);
 
 Deno.test("vision ratification: claude's vision wins via three oracle AYE votes", async () => {
   const proposals = seedProposals();
@@ -110,7 +111,7 @@ Deno.test("vision ratification: only oracle-proposed proposals trigger the visio
   assertEquals(fake.accepted, true);
   // ...but checkVisionRatification should NOT fire because proposerMatrix
   // is not one of the canonical oracle matrices.
-  assertEquals(isOracleProposed(fake), false);
+  assertEquals(proposedByOracle(fake), false);
 });
 
 Deno.test("vision ratification: tied AYE/NAY does NOT accept", async () => {
@@ -185,7 +186,7 @@ Deno.test("vision ratification: at most one vision can be the FIRST ratified", a
   let acceptedHash: number | null = null;
   const trigger = (record: ProposalRecord) => {
     if (visionRatified) return;
-    if (!isOracleProposed(record)) return;
+    if (!proposedByOracle(record)) return;
     if (!record.accepted) return;
     visionRatified = true;
     acceptedHash = record.hash;

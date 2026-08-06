@@ -1,6 +1,7 @@
 // Senate JS-side determinism + Era 1030 trigger logic.
 import { assert, assertEquals } from "jsr:@std/assert";
 import { senateAcceptance } from "../src/network/senate_acceptance.ts";
+import { senateConvened } from "../src/network/maturity_gates.ts";
 import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 
 // The canonical senate hash: SHA-256 (first 4 BE bytes) over the UTF-8
@@ -40,9 +41,8 @@ Deno.test("senate hash: descriptions diverging within the first 64 bytes differ"
 
 Deno.test("senate-convened trigger requires 10+ entries AND 5+ unique matrices", () => {
   // Mirror of WebRTCV2Mesh.checkSenateConvened condition.
-  function shouldUnlock(entries: number, uniqueMatrices: number): boolean {
-    return entries >= 10 && uniqueMatrices >= 5;
-  }
+  // The real gate, not a restatement of it.
+  const shouldUnlock = senateConvened;
   assertEquals(shouldUnlock(9, 5), false);
   assertEquals(shouldUnlock(10, 4), false);
   assertEquals(shouldUnlock(10, 5), true);

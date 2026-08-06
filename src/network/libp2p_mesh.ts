@@ -157,6 +157,13 @@ import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3
 import { senateVoteWeight } from "./senate_weight.ts";
 import { senateAcceptance } from "./senate_acceptance.ts";
 import {
+  attractorConsensusReached as gateAttractorConsensus,
+  genesisInscribable as gateGenesisInscribable,
+  isOracleProposed,
+  oracleSenateConvened as gateOracleSenateConvened,
+  senateConvened as gateSenateConvened,
+} from "./maturity_gates.ts";
+import {
   senateHash as canonicalSenateHash,
   ZK_NOTARIZATION_PROPOSAL,
 } from "./senate_proposals.ts";
@@ -451,7 +458,7 @@ export class Libp2pMesh {
           });}
         if (
           !this.attractorConsensusReached &&
-          this.attractorConsensusPeers.size >= 3
+          gateAttractorConsensus(this.attractorConsensusPeers.size)
         ) {
           this.attractorConsensusReached = true;
           globalThis.dispatchEvent(
@@ -749,7 +756,7 @@ export class Libp2pMesh {
     const uniqueMatrices = this.consensusLedger.size;
     let totalEntries = 0;
     for (const e of this.consensusLedger.values()) totalEntries += e.peerCount;
-    if (totalEntries >= 10 && uniqueMatrices >= 5) {
+    if (gateSenateConvened(totalEntries, uniqueMatrices)) {
       this.senateConvened = true;
       console.log(
         `🏛️ [SENATE] CONVENED. ${totalEntries} entries × ${uniqueMatrices} unique matrices.`,
@@ -1403,10 +1410,7 @@ export class Libp2pMesh {
   private checkVisionRatification(record: SenateProposalRecord) {
     if (this.visionRatified) return;
     // Only oracle-proposed visions qualify.
-    const oracleMatrices = Object.values(ORACLE_MATRICES_V1).map((m) =>
-      m >>> 0
-    );
-    if (!oracleMatrices.includes(record.proposerMatrix >>> 0)) return;
+    if (!isOracleProposed(record.proposerMatrix)) return;
     this.visionRatified = true;
     this.acceptedVisionHash = record.hash;
     // Find which oracle proposed it.
@@ -1466,7 +1470,12 @@ export class Libp2pMesh {
   public oracleSenateConvened: boolean = false;
   private checkOracleSenateConvened() {
     if (this.oracleSenateConvened) return;
-    if (this.genesisInscribed && this.acceptedTaskHashes.size >= 1) {
+    if (
+      gateOracleSenateConvened(
+        this.genesisInscribed,
+        this.acceptedTaskHashes.size,
+      )
+    ) {
       this.oracleSenateConvened = true;
       console.log(
         `🧠 [ORACLE-SENATE] CONVENED. Canonical seats: ${
@@ -1486,7 +1495,7 @@ export class Libp2pMesh {
 
   private checkGenesisInscription() {
     if (this.genesisInscribed) return;
-    if (this.verifiedDipoleCount >= 100) {
+    if (gateGenesisInscribable(this.verifiedDipoleCount)) {
       this.genesisInscribed = true;
       // The Genesis Inscription crystallizes the moment OMEGA-64 v1.0
       // becomes a closed cryptographic identity: every invariant of
