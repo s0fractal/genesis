@@ -840,16 +840,31 @@ impl PhaseLattice {
                     // independently re-derive the child via the pure function.
                     let parent_snapshot = *parent;
 
-                    parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
-
-                    // Slide the dead pointer forward to find a hollow shell in the matrix
+                    // Find the vacancy BEFORE charging for it.
+                    //
+                    // The debit used to happen here, above the search. On a full
+                    // lattice the search then failed and the parent had already
+                    // paid MITOSIS_COST for a child that was never born — 1024
+                    // ATP deleted from the universe, with no receipt, no entropy
+                    // record, and no way to tell it apart from metabolism. Worse,
+                    // it repeated for EVERY qualifying parent in the sweep, so a
+                    // saturated lattice bled proportionally to its own fertility.
+                    //
+                    // `next_dead_idx` only ever moves forward, so once it reaches
+                    // `active` no later parent can find a slot either: stop the
+                    // sweep rather than charge the rest of them.
                     while next_dead_idx < active
                         && (*self.minimal_agents_ptr.add(next_dead_idx)).energy > 0
                     {
                         next_dead_idx += 1;
                     }
+                    if next_dead_idx >= active {
+                        break; // lattice is full — no vacancy for anyone
+                    }
 
-                    if next_dead_idx < active {
+                    parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
+
+                    {
                         #[cfg(not(feature = "spore"))]
                         {
                             let mut arr = crate::ATTRACTOR_ARRAY.lock();
@@ -869,6 +884,21 @@ impl PhaseLattice {
                             let cost = crate::constants::MITOSIS_COST;
                             let entropy_delta =
                                 (derived.phase as i32).wrapping_sub(parent_snapshot.phase as i32);
+
+                            // The parent pays MITOSIS_COST; the child receives
+                            // CHILD_ENERGY_SEED minus a Landauer charge for every
+                            // genome bit the mutation flipped (mitosis_proof.rs).
+                            // Those two constants are equal, so the difference is
+                            // exactly the erasure tax — and it used to be deleted
+                            // rather than released, which is the same accounting
+                            // hole death had. Book it, and reproduction becomes
+                            // closed: parent_out == child_in + entropy.
+                            let landauer_tax =
+                                crate::constants::MITOSIS_COST.saturating_sub(derived.energy);
+                            self.signals.total_entropy_released = self
+                                .signals
+                                .total_entropy_released
+                                .wrapping_add(landauer_tax as u64);
 
                             // Era 1040 Phase 2: append the receipt to the global log
                             // so JS can broadcast a fully-verifiable DIPOLE plasmid.
@@ -1057,6 +1087,65 @@ mod tests {
         let after_first = lattice.signals.total_entropy_released;
         assert_eq!(lattice.reap_off_cpu_deaths(), 0, "no new deaths");
         assert_eq!(lattice.signals.total_entropy_released, after_first);
+    }
+
+    /// Reproduction must not create or destroy ATP.
+    ///
+    /// This is the closed-balance check the audit said did not exist anywhere in
+    /// the tree: the only "energy audit" was `total <= MAX_ATP * alive`, which
+    /// cannot fail because every increase site clamps to MAX_ATP and every
+    /// decrease saturates — an identity dressed as an invariant.
+    #[test]
+    fn mitosis_conserves_energy_into_the_child_and_the_entropy_trace() {
+        let (mut lattice, mut agents, _snap, _) = make_lattice_with_q_phase(4, 7);
+        // One fertile parent, one free slot (index 1 is dead), two bystanders.
+        agents[0].energy = crate::constants::MITOSIS_THRESHOLD;
+        agents[0].genome = 0x0F0F_0F0F;
+        agents[1].energy = 0; // the vacancy
+        agents[2].energy = 700;
+        agents[3].energy = 800;
+        lattice.signals.active_agent_count = 4;
+
+        let before: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        let entropy_before = lattice.signals.total_entropy_released;
+
+        assert_eq!(lattice.darwinian_mitosis(), 1, "expected exactly one birth");
+
+        let after: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        let released = lattice.signals.total_entropy_released - entropy_before;
+
+        assert_eq!(
+            before,
+            after + released,
+            "every joule the parent spent must land in the child or in the \
+             entropy trace — not vanish"
+        );
+        assert!(released > 0, "a genome mutation always erases some bits");
+    }
+
+    /// A full lattice must refuse to reproduce, not charge for a phantom child.
+    #[test]
+    fn mitosis_on_a_full_lattice_costs_nothing() {
+        let (mut lattice, mut agents, _snap, _) = make_lattice_with_q_phase(3, 7);
+        // Every slot occupied, and every agent fertile: the old code debited
+        // MITOSIS_COST from all three and produced no children at all.
+        for a in agents.iter_mut() {
+            a.energy = crate::constants::MITOSIS_THRESHOLD;
+        }
+        lattice.signals.active_agent_count = 3;
+
+        let before: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        let entropy_before = lattice.signals.total_entropy_released;
+
+        assert_eq!(lattice.darwinian_mitosis(), 0, "no vacancy, no births");
+
+        let after: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        assert_eq!(
+            before, after,
+            "a refused birth must be free; charging for it deleted 1024 ATP per \
+             fertile agent per sweep, silently"
+        );
+        assert_eq!(lattice.signals.total_entropy_released, entropy_before);
     }
 
     #[test]
