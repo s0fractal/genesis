@@ -13,7 +13,8 @@ import {
 } from "../environment/substrate_court.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
-import { verifyGenesisInscription } from "../network/bitcoin_anchor.ts";
+import { checkGenesisInscription } from "../network/bitcoin_anchor.ts";
+import { resolveBootstrapPeers } from "../network/bootstrap_peers.ts";
 import { GENESIS_HASH_LEGACY_V1_0 } from "../network/genesis_inscription.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
@@ -191,19 +192,33 @@ export async function bootstrapV2() {
       console.log(
         `[BOOTSTRAP] Verifying Bitcoin OP_RETURN Anchor for TXID: ${genesisTxid}`,
       );
-      const isValid = await verifyGenesisInscription(
+      const anchor = await checkGenesisInscription(
         genesisTxid,
         GENESIS_HASH_LEGACY_V1_0,
       );
-      if (!isValid) {
+      if (anchor.verdict === "MISMATCH") {
+        // We reached the chain and it disagrees with us. This is the only
+        // outcome that justifies refusing to boot.
         console.error(
-          "[BOOTSTRAP] 🚨 FATAL: Invalid Bitcoin Genesis Inscription. Network Boot Aborted.",
+          `[BOOTSTRAP] 🚨 FATAL: Invalid Bitcoin Genesis Inscription (${anchor.detail}). Network Boot Aborted.`,
         );
-        setHudStat("e", "BTC ANCHOR", "FAILED");
+        setHudStat("e", "BTC ANCHOR", "MISMATCH");
         return;
       }
-      console.log("[BOOTSTRAP] 🔗 Bitcoin Genesis Inscription Verified.");
-      setHudStat("e", "BTC ANCHOR", "VERIFIED");
+      if (anchor.verdict === "UNREACHABLE") {
+        // We could not ask. Silence from a third-party REST host is not
+        // evidence of a forged genesis — booting untethered is strictly more
+        // sovereign than refusing to run because mempool.space is down.
+        // Override the endpoint with __OMEGA_BTC_API__ / OMEGA_BTC_API /
+        // localStorage["omega.btcApi"] to point at your own node.
+        console.warn(
+          `[BOOTSTRAP] ⚠️ Bitcoin anchor UNVERIFIED — could not reach ${anchor.endpoint} (${anchor.detail}). Booting untethered.`,
+        );
+        setHudStat("e", "BTC ANCHOR", "UNVERIFIED");
+      } else {
+        console.log("[BOOTSTRAP] 🔗 Bitcoin Genesis Inscription Verified.");
+        setHudStat("e", "BTC ANCHOR", "VERIFIED");
+      }
     } else {
       console.warn(
         "[BOOTSTRAP] No __OMEGA_GENESIS_TXID__ provided. Running in untethered mode.",
@@ -213,9 +228,14 @@ export async function bootstrapV2() {
 
     // Boot V2 Mesh Network (Libp2p GossipSub + KadDHT)
     // Era 3000 Phase 2: Mesh Decentralization — No centralized relay!
-    // We use a generic public bootstrap node for initial Peer Discovery via circuit relays.
-    const bootstrapMultiaddr =
-      "/dns4/bootstrap.libp2p.io/tcp/443/wss/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN";
+    // Bootstrappers are used only for initial Peer Discovery via circuit
+    // relays. The list is configurable (see bootstrap_peers.ts) precisely so
+    // that discovery is not hostage to one operator's uptime; dialing is
+    // best-effort and the mesh boots even when every entry is unreachable.
+    const bootstrapMultiaddr = resolveBootstrapPeers();
+    console.log(
+      `[BOOTSTRAP] Peer discovery via ${bootstrapMultiaddr.length} bootstrap node(s).`,
+    );
 
     let lastMitosisSeen = 0;
 
