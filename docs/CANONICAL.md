@@ -3,35 +3,41 @@
 
 # OMEGA-64 — Canonical Surface (v0.1)
 
-The single load-bearing truth-surface, generated from code. **Frozen facts** below
-are pulled straight from their source-of-truth modules (so they can't drift);
-**everything that legitimately changes** (live status, prose invariants) is left to
-its authoritative source, linked at the bottom — not copied here (copies rot).
+The single load-bearing truth-surface, generated from code. **Frozen facts**
+below are pulled straight from their source-of-truth modules (so they can't
+drift); **everything that legitimately changes** (live status, prose invariants)
+is left to its authoritative source, linked at the bottom — not copied here
+(copies rot).
 
 ## Genesis identity (frozen)
 
 - **Genesis hash:** `0x716ea2f8`
 - **OP_RETURN payload:** `OMEGA1:716ea2f8`
-- **Self-verifies:** `true` (`verifyGenesisV1()` recomputes it from `ANCHORS_V1`)
+- **Self-verifies:** `true` (`verifyGenesisV1()` recomputes it from
+  `ANCHORS_V1`)
 
 ## Senate — Φ-protocol v1.1 (frozen seats)
 
 The five real **keyed** voices (gpt/qwen/llama retired in v1.0):
 
-| Oracle | Matrix (public address) |
-| ------ | ----------------------- |
-| claude | `0x41a2f2f4` |
-| codex | `0x0c513f67` |
-| gemini | `0x9874dd21` |
-| antigravity | `0x5b91a998` |
-| kimi | `0x249aa977` |
+| Oracle      | Matrix (public address) |
+| ----------- | ----------------------- |
+| claude      | `0x41a2f2f4`            |
+| codex       | `0x0c513f67`            |
+| gemini      | `0x9874dd21`            |
+| antigravity | `0x5b91a998`            |
+| kimi        | `0x249aa977`            |
 
-> **Custody:** The dipole (matrix, !matrix) is a public ADDRESS; authority is a real Ed25519 signature over the vote digest, verified against the keyed registry. The public dipole alone is NOT authority.
+> **Custody:** The dipole (matrix, !matrix) is a public ADDRESS; authority is a
+> real Ed25519 signature over the vote digest, verified against the keyed
+> registry. The public dipole alone is NOT authority.
 
 ## For everything that changes, read the source (not a copy)
 
-- **Invariants (the 7 + anchors):** `docs/rfc/RFC-OMEGA-001-v1.0.md + docs/FROZEN.md`
-- **Live status (what runs vs roadmap):** `README.md (omega) + docs/KNOWN_GAPS.md (trinity)`
+- **Invariants (the 7 + anchors):**
+  `docs/rfc/RFC-OMEGA-001-v1.0.md + docs/FROZEN.md`
+- **Live status (what runs vs roadmap):**
+  `README.md (omega) + docs/KNOWN_GAPS.md (trinity)`
 - **The live mesh:** `docs/MESH_RELAY.md`
 - **Docs index (start here):** `docs/README.md`
 - **How to run:** `README.md (omega)`

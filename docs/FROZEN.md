@@ -3,14 +3,14 @@
 > **English summary.** This registry lists the subsystems that are **frozen
 > (ANCIENT)** — the deterministic core of omega's law: the fixed memory layout,
 > integer-exact trig/LUTs, the spore-frame ABI, and the `LawHash`/`StateHash`
-> determinism contract. Frozen means byte-for-byte reproducible and change-locked:
-> altering any of these requires a Codeicide Warrant and a full SP1 verification
-> cycle, because a change would move the Bitcoin-anchored `LawHash` and break every
-> outsider's ability to re-derive the same result. Do not "optimize" these for a
-> nicer design if it perturbs the ZK state. (Full detail below, in Ukrainian.)
+> determinism contract. Frozen means byte-for-byte reproducible and
+> change-locked: altering any of these requires a Codeicide Warrant and a full
+> SP1 verification cycle, because a change would move the Bitcoin-anchored
+> `LawHash` and break every outsider's ability to re-derive the same result. Do
+> not "optimize" these for a nicer design if it perturbs the ZK state. (Full
+> detail below, in Ukrainian.)
 
 ---
-
 
 Цей документ фіксує підсистеми, які перейшли у стан **ANCIENT (Frozen)**. Зміна
 цих систем вимагає спеціального Codeicide Warrant (Era 1060+) і повного циклу

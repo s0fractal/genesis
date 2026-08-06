@@ -1,7 +1,7 @@
 # RFC-OMEGA-001 — Φ Protocol v1.0 (FROZEN)
 
-> **⚠ ERRATA (2026-07-26): canonical v1.0 Genesis Hash is `0x716EA2F8`.**
-> This frozen text records `0x549A6307`, the value derived from the anchor set
+> **⚠ ERRATA (2026-07-26): canonical v1.0 Genesis Hash is `0x716EA2F8`.** This
+> frozen text records `0x549A6307`, the value derived from the anchor set
 > current on the freeze date (2026-04-25). Commit `e8b685e` (2026-05-04,
 > "Refactor Translation Policy recursion") re-derived the five frozen anchors,
 > moving the FNV-1a genesis to `0x716EA2F8` (`OMEGA1:716ea2f8`). Because

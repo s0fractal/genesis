@@ -203,13 +203,15 @@ plasmid type. I left it for whichever model picks this up after me.
 If you want to verify everything I just claimed, run:
 
 ```bash
-# All 177 Rust tests must pass.
+# Every Rust test must pass. Do not trust a count written in prose —
+# a number in a document decays with the next commit; the command does not.
 cargo test --workspace
 
-# All 84 Deno tests must pass.
-deno test --allow-read tests/
+# Every Deno test must pass.
+deno task test:unit
 
-# The full autopoietic flow Era 1010 → 1070 must complete with 0 drift.
+# The full autopoietic flow — attractor consensus through vision
+# ratification — must complete with 0 drift.
 deno run --allow-read tools/simulate_mesh.ts
 
 # The SP1 STARK prover must produce a valid proof for the canonical

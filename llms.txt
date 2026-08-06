@@ -1,4 +1,4 @@
-# OMEGA-64 — Φ Protocol v1.0
+# OMEGA-64 — Φ Protocol v1.1
 
 > OMEGA-64 is the **physics substrate** of a four-part federated mycelium
 > (omega / liquid / myc, coordinated through trinity). It is a deterministic,
@@ -16,7 +16,8 @@ runnable test or an honestly-labelled caveat.
 
 - [README.md](README.md): starts with **"what runs vs what's in progress"**.
   Read that section before believing any capability claim. The physics kernel is
-  real and verified (306 Rust tests, integer parity CPU↔GPU↔ZK); three headline
+  real and verified (`cargo test --workspace` and `deno task test:unit` both
+  green; integer parity CPU↔GPU↔ZK); three headline
   pieces (ZK proving, the libp2p mesh, Φ bridge) carry **named caveats** —
   e.g. the ZK prover is real and wired, and completed CPU STARK proofs ARE now
   checked in (`omega_zk_host/proofs/`, reverifiable) — GPU/network proving stays
