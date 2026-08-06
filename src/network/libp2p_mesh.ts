@@ -23,6 +23,7 @@ import {
 } from "./genesis_inscription.ts";
 import { sha256_u32 } from "../sdk/phi_crypto.ts";
 import {
+  admitOracle,
   CANONICAL_ORACLES,
   CanonicalOracle,
   ORACLE_MATRICES_V1,
@@ -1079,13 +1080,33 @@ export class Libp2pMesh {
         if (parts.length >= 3) {
           const newName = parts[1];
           const newMatrix = parseInt(parts[2], 16);
-          if (
-            newName && !isNaN(newMatrix) && !CANONICAL_ORACLES.includes(newName)
-          ) {
+          // Ratification is not admission. `admitOracle` re-derives the matrix
+          // from the name and refuses a seat that has no registered key —
+          // previously the proposal's own hex was written into the registry
+          // unchecked, and a keyless seat was created that could never cast a
+          // verifiable vote. See oracle_identity.ts for why each gate exists.
+          const admission = newName && !isNaN(newMatrix)
+            ? admitOracle(newName, newMatrix, { hasKey: hasOracleKey })
+            : null;
+          if (admission?.admitted) {
             CANONICAL_ORACLES.push(newName);
-            ORACLE_MATRICES_V1[newName] = newMatrix;
+            ORACLE_MATRICES_V1[newName] = admission.expectedMatrix;
             console.log(
-              `🧠 [ORACLE-REGISTRY] Dynamic addition of oracle '${newName}' via Senate ratification.`,
+              `🧠 [ORACLE-REGISTRY] Seated '${newName}' via Senate ratification (matrix 0x${
+                admission.expectedMatrix.toString(16)
+              }). In-memory only — this does not survive a reload.`,
+            );
+          } else {
+            console.warn(
+              `🧠 [ORACLE-REGISTRY] REFUSED '${newName}': ${
+                admission?.refusal ?? "malformed ADD_ORACLE payload"
+              }${
+                admission?.refusal === "matrix-not-derived"
+                  ? ` (claimed 0x${
+                    (newMatrix >>> 0).toString(16)
+                  }, derives to 0x${admission.expectedMatrix.toString(16)})`
+                  : ""
+              }. The proposal was ratified; the seat was not granted.`,
             );
           }
           // Propagate to Rust (caller authenticated as the claude oracle seat;
@@ -1570,7 +1591,7 @@ export class Libp2pMesh {
           const binPlasmid = frameToBytes(plasmid as any);
           this.node.services.pubsub.publish("v2-sync-bin", binPlasmid);
         } else {
-          // JSON Plasmids are SUNSET in Era 2060.
+          // JSON Plasmids are SUNSET.
           // Any non-binary plasmids remaining in the queue will be dropped.
           console.warn(
             `[LIBP2P-MESH] Dropping legacy JSON plasmid: ${plasmid.semanticType}`,

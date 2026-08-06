@@ -81,7 +81,7 @@ interface SomaticNode {
   temporal_credit: number;
   parents?: string[];
   vectorClock?: Record<string, number>;
-  last_known_idx?: number; // Era 233.2: Tracking physical memory locus for migration
+  last_known_idx?: number; // Tracking physical memory locus for migration
   isPinned?: boolean; // IPFS eternal DHT pinning flag
 }
 

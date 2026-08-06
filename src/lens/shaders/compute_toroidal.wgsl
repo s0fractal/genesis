@@ -1,4 +1,4 @@
-// 🌌 OMEGA-64: Era 960 Toroidal Compute Shader
+// 🌌 OMEGA-64: Toroidal Compute Shader
 // Exact WGSL port of Rust `tick_physics()` from `omega_v2/src/lattice.rs`.
 // Guarantees CPU-GPU parity for Golden Trace consensus.
 //
@@ -90,7 +90,7 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
     return sine_lut[index];
 }
 
-// Era 0218: Circular Food Web
+// Circular Food Web
 fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
     if (a_genome == b_genome) { return 0i; }
     
@@ -170,14 +170,14 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let left = agents_in[left_idx];
         let right = agents_in[right_idx];
 
-        // --- Era 0215: Phenotypic Expression ---
+        // --- Phenotypic Expression ---
         let genome = agent.genome;
         let p_efficiency = genome & 0xFFu;
         let p_radius = (genome >> 8u) & 0xFFu;
         let p_resilience = (genome >> 16u) & 0xFFu;
         let p_radiance = (genome >> 24u) & 0xFFu;
 
-        // --- Era 0216: Hebbian Learning (Active Memory) & Era 2080 Ortho packing ---
+        // --- Hebbian Learning (Active Memory) & Ortho packing ---
         var weight_left: i32 = HEBBIAN_DEFAULT_WEIGHT;
         if ((agent.memory_y & 0xFFFFu) != 0u) { weight_left = i32(agent.memory_y & 0xFFFFu); }
         var weight_right: i32 = HEBBIAN_DEFAULT_WEIGHT;
@@ -196,7 +196,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // --- 2. 8-Neighbor Kuramoto Q10 coupling ---
         let k = KURAMOTO_COUPLING_BASE + (i32(p_radius) * 4i);
         
-        // Era 2060: Photonic Substrate Readiness (DFT Mean-Field Approximation)
+        // Photonic Substrate Readiness (DFT Mean-Field Approximation)
         // NOTE: No active_count guard — Rust has none either. Must iterate all 8 neighbors unconditionally.
         // NOTE: We accumulate WITHOUT * HEBBIAN_DEFAULT_WEIGHT to avoid dual-truncation divergence from Rust's i64 path.
         // Rust: sum * HEBBIAN_DEFAULT_WEIGHT → divide by (Q10_SCALE * HEBBIAN_DEFAULT_WEIGHT) = identical to sum / Q10_SCALE.
@@ -257,7 +257,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             burn = base_burn - resilience_reduction;
         }
 
-        // Era 0218: Species Specialization (Predator-Prey)
+        // Species Specialization (Predator-Prey)
 
         var energy_delta: i32 = -i32(burn);
         let steal = 5i; // PREDATOR_ENERGY_STEAL
@@ -285,7 +285,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             time_dilation_multiplier = MAX_TIME_DILATION;
         }
 
-        // Era 2090: Emergent Organ Differentiation (Tissue Crystallization)
+        // Emergent Organ Differentiation (Tissue Crystallization)
         if (!is_tissue && ortho_agent > 0u && agent.energy > MAX_ATP - 1000u && thermodynamic_stress < 5u) {
             agent.state_flags = agent.state_flags | 0x08000000u;
             is_tissue = true;
@@ -294,7 +294,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             weight_right = HEBBIAN_MAX_WEIGHT;
         }
 
-        // Era 2080: Dynamic Orthogonal Branching (5D escape)
+        // Dynamic Orthogonal Branching (5D escape)
         var final_burn: u32 = burn;
         if (is_tissue) {
             if (final_burn < 4u) { final_burn = 4u; }
@@ -345,7 +345,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         // Philosophy Vector 10: Thermodynamic Conservation
-        // Era 2080: Energy is strictly zero-sum except for solar input.
+        // Energy is strictly zero-sum except for solar input.
         agent.phase = new_phase;
         agent.energy = new_energy;
         if (new_energy == 0u) {

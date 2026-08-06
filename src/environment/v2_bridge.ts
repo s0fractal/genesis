@@ -69,7 +69,7 @@ export class OmegaV2Engine {
     this.injectClimate();
   }
 
-  /** Era 3000 Phase 2: Expose a 32-byte scratchpad pointer at the end of the delta buffer for SHA-256 FFI. */
+  /** Expose a 32-byte scratchpad pointer at the end of the delta buffer for SHA-256 FFI. */
   public getScratchpadPtr(): number {
     // Uniforms (160) + SineLut (512) + SineLutQ10 (512) + Agents (32 * Max)
     // deltaBuffer is right after agents. We just return a safe pointer at the very end of deltaBuffer.

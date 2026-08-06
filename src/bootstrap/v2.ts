@@ -233,7 +233,7 @@ export async function bootstrapV2() {
     }
 
     // Boot V2 Mesh Network (Libp2p GossipSub + KadDHT)
-    // Era 3000 Phase 2: Mesh Decentralization — No centralized relay!
+    // Mesh Decentralization — No centralized relay!
     // Bootstrappers are used only for initial Peer Discovery via circuit
     // relays. The list is configurable (see bootstrap_peers.ts) precisely so
     // that discovery is not hostage to one operator's uptime; dialing is
@@ -299,7 +299,7 @@ export async function bootstrapV2() {
       const valid = await zkProver.verifyExternalProof(bundle);
       if (valid && rollupState) {
         // Wait, before applying the rollupState, we must hash it and check against final_hash in public_values.
-        // For Era 2060, we'll blindly apply if the STARK proof passes.
+        // For now we blindly apply if the STARK proof passes.
         console.log(
           `[V2-MESH] ✅ Rollup STARK verified! Applying state root from ${peerId}.`,
         );
@@ -652,7 +652,7 @@ ${debateMd || "(no recorded arguments)"}
     const renderer = new PhaseV2Renderer(context, device, format, engine);
     await renderer.initialize();
 
-    // 2.5 Era 12000 Integration: EVM ATP Blockchain Link
+    // 2.5 EVM ATP Blockchain Link
     const atpBridge = new EthersATPBridge();
     atpBridge.subscribeToCosmicEntropy((entropy) => {
       const hashPrefix = entropy.hash.substring(0, 18);

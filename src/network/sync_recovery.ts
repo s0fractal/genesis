@@ -15,11 +15,11 @@
 //    once per distinct remote gt, auto-unfreezes after a timeout, and
 //    refuses to re-freeze for a gt that already timed out (anti-flap).
 //
-// 2. `sanitizeDeltaMutation` — boundary validation for the Era 6000
+// 2. `sanitizeDeltaMutation` — boundary validation for the
 //    "Xenobiological Mutations" (raw `{index, phase, energy, genome}`
 //    tuples any peer can write into WASM agent memory). Xenobiology is a
 //    deliberate feature, but it must respect physics at the boundary:
-//    index in bounds, energy ≤ MAX_ATP (Era 2080: energy is zero-sum
+//    index in bounds, energy ≤ MAX_ATP (energy is zero-sum
 //    except solar input — nobody may mint ATP over the wire).
 
 /** omega_v2/src/constants.rs:77 — thermodynamic ceiling. */

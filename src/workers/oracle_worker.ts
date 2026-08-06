@@ -14,7 +14,7 @@ import {
 import { createSeededRng } from "../math/xorshift.ts";
 
 // Oracle Semantic Cache Check inside Worker to relieve main thread memory
-// Migrated to IndexedDB in Era 245 to persist expensive AST telemetry across sessions
+// Migrated to IndexedDB to persist expensive AST telemetry across sessions
 const DB_NAME = "OmegaOracleCache";
 const STORE_NAME = "llmCache";
 
@@ -51,7 +51,7 @@ async function setCachedResponse(hash: string, response: string, ts: number) {
     const store = tx.objectStore(STORE_NAME);
     store.put({ hash, response, ts });
 
-    // Era 245.1: Bounded GC eviction
+    // Bounded GC eviction
     const countReq = store.count();
     countReq.onsuccess = (e) => {
       const count = (e.target as IDBRequest).result;

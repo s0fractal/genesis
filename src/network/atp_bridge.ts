@@ -3,7 +3,7 @@ import { Xorshift64TS } from "../math/xorshift.ts";
 import { isProduction } from "../shared/config.ts";
 
 /**
- * OMEGA-64: Era 300 ATP Bridge
+ * OMEGA-64: ATP Bridge
  * Proof-of-Useful-Work tokenization boundary.
  */
 
@@ -190,7 +190,7 @@ export class EthersATPBridge implements IATPBridge {
       throw new Error("Wallet not configured for EthersATPBridge");
     }
 
-    // Era 410 Note: In reality, you don't call mint directly; you call the SP1 Verifier which calls mint.
+    // Note: In reality, you don't call mint directly; you call the SP1 Verifier which calls mint.
     // We simulate the blockchain transaction wrapping here.
     try {
       const reward = ethers.parseUnits(MOCK_ATP_REWARD.toString(), 18);

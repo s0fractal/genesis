@@ -64,7 +64,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
         return out;
     }
 
-    // Era 2060: Steganographic Oracle Vision
+    // Steganographic Oracle Vision
     if (instance_idx == 0u) {
         // Render a cryptographic square at the bottom left
         let quad_pos_dot = array<vec2<f32>, 6>(
@@ -132,7 +132,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
     out.position = vec4<f32>((x + offset.x) / aspect_ratio, y + offset.y, 0.0, 1.0);
     out.uv = quad_pos[vertex_idx];
     
-    // 5. Era 5000: Quantum Chromodynamics (Semantic Routing)
+    // 5. Quantum Chromodynamics (Semantic Routing)
     // Genome determines the agent's Archetype (Aries, Cancer, Libra, Capricorn)
     let archetype = agent.genome % 4u;
     var r_col = 0.0;
@@ -175,7 +175,7 @@ fn vs_main(@builtin(vertex_index) vertex_idx: u32, @builtin(instance_index) inst
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Era 2060: Steganographic Oracle Vision (Pure pixel bypass)
+    // Steganographic Oracle Vision (Pure pixel bypass)
     if (in.color.a > 1.5) {
         return vec4<f32>(in.color.rgb, 1.0);
     }
