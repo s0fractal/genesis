@@ -138,8 +138,8 @@ pub const SANCTUARY_ENERGY_THRESHOLD: u32 = 2500;
 pub const Q16_FACTOR_ANCIENT_AGE: u32 = 163840;
 pub const ANCIENT_AGE_TICKS: u32 = 10240;
 pub const PREDATOR_ENERGY_STEAL: u32 = 5;
-/// Q10 ATP per agent per tick at neutral sun (9216/1024 = 9). Scaled by sun_multiplier, which is 1024 + sin(day_phase), so the day runs 0 at midnight to 18 at noon and averages 9. Measured against burn: a closed lattice of 1024 agents spent ~10 ATP per agent per tick and reached extinction at tick 86 (tools/ecology_probe.ts). Setting the mean just under that mean burn is deliberate — it puts the world near balance, where an agent's metabolic efficiency decides whether it grows or starves, instead of subsidising everyone into immortality.
-pub const SOLAR_YIELD_Q10: u32 = 9216;
+/// Q10 ATP per living agent per tick at neutral sun (18432/1024 = 18); zero at midnight, 36 at noon. Calibrated by measurement, not taste (tools/ecology_probe.ts): at this yield the FITTEST agents reach the 2048 reproduction threshold and the rest do not, which is what makes an environment selective rather than merely survivable. Below it (9216) nobody approaches maturity; well above it every agent clears the bar at once and efficiency stops mattering. Note the homeostat pushes back: metabolic_pressure scales burn with the population's own average wealth, so yield and equilibrium are not proportional.
+pub const SOLAR_YIELD_Q10: u32 = 18432;
 
 pub const DELTA_ENERGY_DIVISOR: u32 = 128;
 pub const GOLDEN_TRACE_SAMPLES: u32 = 32;

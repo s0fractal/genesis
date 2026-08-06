@@ -669,10 +669,21 @@ impl PhaseLattice {
                         (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
 
-                    // Apply metabolic pressure and sun cycle (Q10 * Q10 = Q20)
-                    let base_burn = ((base_burn_raw * metabolic_pressure * sun_multiplier)
-                        / 1_048_576)
-                        .max(1) as u32;
+                    // Apply metabolic pressure only. The sun is a SOURCE, not a
+                    // tax: `sun_multiplier` used to scale this burn as well, so
+                    // once photosynthesis was lit both sides of the ledger
+                    // doubled at noon and halved at midnight and the day cycle
+                    // cancelled itself out — no window in which an organism can
+                    // store a surplus, which is what a day is FOR. Metabolism
+                    // costs what it costs; only income follows the sky.
+                    //
+                    // The mean is unchanged: dropping one Q10 factor from the
+                    // numerator and the divisor together leaves neutral-sun,
+                    // neutral-pressure burn exactly where it was. What changes is
+                    // that burn is now flat across the day while income
+                    // oscillates, so agents charge by day and spend by night.
+                    let base_burn =
+                        ((base_burn_raw * metabolic_pressure) / 1024).max(1) as u32;
 
                     // Resilience flat reduction
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
@@ -716,7 +727,35 @@ impl PhaseLattice {
                                     energy_delta -= Self::predation_share(agent.energy) as i32;
                                 }
 
-                                energy_diffusion += (n.energy as i32 - agent.energy as i32) / 8;
+                                // CONDUCTION IS GATED BY PHASE COHERENCE.
+                                //
+                                // Ungated, this term moves up to the full energy
+                                // gradient every tick and is by far the strongest
+                                // transfer in the model — predation moves at most
+                                // PREDATOR_ENERGY_STEAL. So the food web existed
+                                // and decided nothing: conduction levelled the
+                                // population faster than any advantage could
+                                // accumulate. Measured: with the sun lit, 6000
+                                // ticks, population pinned at 1024, richest agent
+                                // stuck at ~600 against a reproduction threshold
+                                // of 2048, zero births. A crystal, not an ecology.
+                                //
+                                // These are Kuramoto oscillators, so let sharing
+                                // follow the thing this system actually models:
+                                // neighbours in phase pool their energy, neighbours
+                                // out of phase do not. Coherent clusters equalise
+                                // internally while staying distinct from each
+                                // other, which is what makes accumulation — and
+                                // therefore selection — possible at all.
+                                //
+                                // Conservative: cos_q10 is symmetric across the
+                                // whole LUT (cos(a,b) == cos(b,a), verified
+                                // exhaustively), and truncating division is
+                                // odd-symmetric, so the pairwise transfer stays
+                                // antisymmetric and no ATP is created.
+                                let coherence = crate::math::cos_q10(n.phase, agent.phase).max(0);
+                                energy_diffusion +=
+                                    ((n.energy as i32 - agent.energy as i32) / 8) * coherence / 1024;
                             }
                         }
                     }
@@ -1470,6 +1509,10 @@ mod tests {
         }
         lattice.signals.active_agent_count = 8;
         lattice.signals.total_energy = 7200;
+        // MIDNIGHT — the world is open now, and by day photosynthesis outpaces
+        // metabolism, so there is no net cost to observe. The gross burn this
+        // test is about only shows as a drop when nothing is coming in.
+        lattice.signals.proper_time.causal_ticks = 768;
 
         let before: u64 = agents.iter().map(|a| a.energy as u64).sum();
         lattice.tick_physics();

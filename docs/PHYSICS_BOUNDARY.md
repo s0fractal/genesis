@@ -131,8 +131,13 @@ it books itself — is not re-read as unexplained loss on the following sweep.
 
 `SOLAR_YIELD_Q10 × sun_multiplier / 2²⁰` ATP to every living agent, every tick,
 mirrored bit-for-bit in `compute_toroidal.wgsl`. Zero at midnight, double at
-noon, mean 9 — measured against a mean burn of ~10, so the world sits just under
-balance and an agent's metabolic efficiency decides whether it grows or starves.
+noon. Calibrated by measurement rather than taste: at `SOLAR_YIELD_Q10 = 18432`
+the fittest agents reach the 2048 reproduction threshold and the rest do not,
+which is what makes an environment selective rather than merely survivable.
+Below it nobody approaches maturity; well above it every agent clears the bar at
+once and efficiency stops mattering. The homeostat pushes back —
+`metabolic_pressure` scales burn with the population's own average wealth — so
+yield and equilibrium are not proportional.
 
 **A closed world cannot host life.** That is the second law, not a bug, and it
 was measured before it was fixed: 1024 agents, extinct at tick 86, zero births
@@ -154,7 +159,40 @@ only the NET drop would be booked, and the ledger would go quiet on exactly the
 ticks when the ecosystem was thriving.
 
 Measured after: population stable at 1024 across 6000 ticks, books closing to
-the joule (`start + solar == end + spent`, leaked 0).
+the joule (`start + solar == end + spent`, leaked 0). The world stopped dying —
+and then revealed the next two failures, both recorded below.
+
+### Conduction — gated by phase coherence
+
+`((neighbour − self) / 8) × max(0, cos_q10(neighbour.phase, self.phase)) / 1024`
+
+Ungated, conduction was by far the strongest transfer in the model: it moved up
+to the full energy gradient every tick, while predation moves at most
+`PREDATOR_ENERGY_STEAL`. The food web therefore existed and decided nothing —
+levelling outran advantage, and the population homogenised into a crystal in
+which the richest agent sat at ~600 against a reproduction threshold of 2048,
+forever.
+
+These are Kuramoto oscillators, so sharing now follows the thing this system
+actually models: neighbours in phase pool their energy, neighbours out of phase
+do not. Coherent clusters equalise internally while staying distinct from one
+another, which is what makes accumulation — and therefore selection — possible.
+Measured effect: the population's energy spread widened from ~40 ATP to ~350.
+
+Conservative. `cos_q10` is symmetric across the whole LUT (verified exhaustively
+over all 65,536 pairs) and truncating division is odd-symmetric, so the pairwise
+transfer stays antisymmetric and no ATP is created.
+
+### The day is a storage cycle, not a scaling factor
+
+`sun_multiplier` used to scale metabolic burn as well as income. Once
+photosynthesis was lit, that made both sides of the ledger double at noon and
+halve at midnight — the day cancelled itself out, and there was no window in
+which an organism could store a surplus, which is what a day is for.
+
+Burn now depends only on `metabolic_pressure`. The mean is unchanged (one Q10
+factor left the numerator and the divisor together), but burn is flat across the
+day while income follows the sky, so agents charge by day and spend by night.
 
 ### Not conserved yet — known, named, open
 
@@ -183,17 +221,22 @@ not have would be the same failure as the tautological audit above.
    bounded now and the trace is finally true, so the return path is buildable;
    it has not been built, and inventing it is a decision about what the world
    is, not a repair.
-4. **Diffusion homogenises the population, so nothing accumulates.** With the
-   sun lit, the world stopped dying — and started crystallising. Across 6000
-   ticks the population holds at 1024 and the richest agent oscillates between
-   570 and 610 ATP, never approaching the 2048 reproduction threshold, so births
-   remain zero. The cause is the diffusion term: each agent exchanges
-   `(neighbour − self) / 8` with all eight neighbours every tick, which levels
-   any surplus faster than efficiency can build one. A world where organisms
-   neither die nor reproduce is a crystal, not an ecosystem — a different
-   failure from heat death, and the next one to answer. The honest question is
-   whether agents should share energy by conduction at all, which is a decision
-   about what these organisms are, not a repair.
+4. **Birth needs a vacancy, and a vacancy needs a death — so an immortal world
+   is a sterile one.** This is the third failure mode, and unlike the first two
+   it is structural rather than a matter of tuning. `darwinian_mitosis` places a
+   child by scanning `0..active` for an agent at zero energy; nothing grows the
+   lattice, so population is fixed at ignition and can only turn over.
+   Reproduction therefore requires mortality — and a sun set strong enough that
+   the fittest reach maturity is also strong enough that nobody starves.
+   Measured at `SOLAR_YIELD_Q10 = 18432`: 1024 alive at tick 1500, richest agent
+   2026 against a threshold of 2048, poorest 1113, **zero deaths and therefore
+   zero births**.
+
+   Three ways out, none of them a repair: let the lattice grow past its ignition
+   count; widen the burn distribution so the unfit genuinely starve under the
+   same sky; or accept a fixed immortal population and call mitosis
+   replacement-only. Each is a different claim about what these organisms are,
+   so none is made here.
 5. **Proper time is still the host's `+1`.** The kernel law
    (`1024 / (1 + stress/32)`) never runs on the substrate that does, so time
    dilation — stressed regions ageing more slowly — is a documented mechanic

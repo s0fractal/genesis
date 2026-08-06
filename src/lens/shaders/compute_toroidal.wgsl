@@ -84,7 +84,7 @@ const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 const PREDATOR_ENERGY_STEAL: u32 = 5u;
 // Q10 ATP per agent per tick at neutral sun. Mirrors constants.rs
 // SOLAR_YIELD_Q10 — the one term that enters this world from outside.
-const SOLAR_YIELD_Q10: u32 = 9216u;
+const SOLAR_YIELD_Q10: u32 = 18432u;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
 fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
@@ -267,7 +267,10 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let day_phase: u32 = (signals.causal_ticks % 1024u) * 256u / 1024u;
         let sun_multiplier = 1024i + sin_q10(0u, day_phase);
         
-        base_burn = max(1u, u32((i32(base_burn) * metabolic_pressure * sun_multiplier) / 1048576i));
+        // Metabolic pressure only — the sun is a source, not a tax. Mirrors
+        // PhaseLattice::tick_physics: burn is flat across the day while income
+        // follows the sky, so a day is a window in which to store a surplus.
+        base_burn = max(1u, u32((i32(base_burn) * metabolic_pressure) / 1024i));
 
         let resilience_reduction = p_resilience / 128u;
         var burn: u32 = 1u;
@@ -304,7 +307,16 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                         energy_delta -= i32(min(PREDATOR_ENERGY_STEAL, agent.energy / 8u));
                     }
                     
-                    energy_diffusion += (i32(n.energy) - i32(agent.energy)) / 8i;
+                    // Conduction gated by phase coherence — mirrors
+                    // PhaseLattice::tick_physics. Ungated it was the strongest
+                    // transfer in the model and levelled the population faster
+                    // than predation could differentiate it, so nothing ever
+                    // accumulated to the reproduction threshold. Neighbours in
+                    // phase pool their energy; neighbours out of phase do not.
+                    // cos_q10 is symmetric, so this stays conservative.
+                    let coherence = max(cos_q10(n.phase, agent.phase), 0i);
+                    energy_diffusion +=
+                        (((i32(n.energy) - i32(agent.energy)) / 8i) * coherence) / 1024i;
                 }
             }
         }
