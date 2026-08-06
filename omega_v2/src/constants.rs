@@ -5,7 +5,12 @@ pub const MATH_Q_BITS: i32 = 10;
 pub const MATH_Q_SCALE: i32 = 1024;
 pub const Q20_SCALE: i32 = 1048576;
 pub const Q24_SCALE: i32 = 16777216;
+/// Q10 fixed-point: -51/1024 ≈ -0.0498, i.e. ≈ -5% per tick. Negative = an
+/// inward pull toward the torus centre. Reported as an unexplained magic
+/// number; it is not empirical, it is -0.05 rounded down in Q10 — the same
+/// 5% that ADA_MASS_DILATION_MIN (+51) expresses with the opposite sign.
 pub const NATIVE_GRAVITY: i32 = -51;
+
 pub const FNV64_OFFSET_BASIS: u64 = 14695981039346656037;
 pub const FNV64_PRIME: u64 = 1099511628211;
 pub const FNV64_MASK: u64 = 18446744073709551615;
@@ -31,7 +36,12 @@ pub const KURAMOTO_PLASMID_DIFFUSION_RATE: i32 = 51;
 pub const MUTATION_BASE_COST: i32 = 50;
 pub const MUTATION_MIN_COST: i32 = 5;
 pub const MUTATION_MAX_COST: i32 = 500;
+/// Q10 fixed-point: 102/1024 ≈ 0.0996, i.e. a ≈10% exponential smoothing
+/// coefficient on mutation cost. Deliberately kept as a literal rather than
+/// `expr: MATH_Q_SCALE / 10` (which truncates to the same 102): 102 is what
+/// the golden traces were recorded against, and the traces are the anchor.
 pub const MUTATION_SMOOTHING_FACTOR: i32 = 102;
+
 pub const SENATE_ORACLE_TIMEOUT_MS: i32 = 16;
 pub const SENATE_MYCELIUM_MIN_LOCKS: i32 = 1000;
 pub const SENATE_MYCELIUM_MIN_ENERGY: i32 = 220;
@@ -48,8 +58,12 @@ pub const TISSUE_MORPHOLOGICAL_DELTA_MIN: i32 = 153;
 /// SSOT because it was not: the value 64 was a bare literal in four places
 /// (`topology.rs`, `lib.rs`, and twice in `omega_zk_host`), which is how a
 /// rollup proof came to be generated under `alpha: 0` while the canonical
-/// lattice ran at 64 — the T3 crack. A literal cannot be kept in agreement with
-/// three other literals.
+/// lattice ran at 64 — the T3 crack. A literal cannot be kept in agreement
+/// with three other literals.
+///
+/// This note lived in the GENERATED constants.rs until 2026-08-06, i.e. in a
+/// file marked DO NOT EDIT — as did the constant itself. Regenerating the
+/// SSoT deleted both and broke the build of omega_v2 and omega_zk_host.
 pub const CANONICAL_PHASE_ALPHA: i32 = 64;
 
 pub const BIOLOGY_SOMATIC_ALPHA: i32 = 1536;
@@ -61,7 +75,15 @@ pub const BIOLOGY_APA_MEMORY_GAIN: i32 = 102;
 pub const BIOLOGY_APA_DECISION_COST: i32 = 2;
 pub const BIOLOGY_APA_COHERENCE_REWARD: i32 = 614;
 pub const BIOLOGY_APA_MEMORY_DECAY: i32 = 1023;
+/// Q10 fixed-point: 972/1024 ≈ 0.9492, i.e. a ≈95% multiplier.
+///
+/// UNREFERENCED: as of 2026-08-06 no code in omega_v2, omega_zk_host,
+/// omega_zk_guest, src/, tools/ or tests/ reads this constant — it is
+/// declared truth with no consumer. What behaviour it was meant to brake is
+/// therefore not recoverable from the tree, and is deliberately NOT guessed
+/// at here. Whoever revives it should write down the intent then.
 pub const ADA_HODLER_BRAKE: i32 = 972;
+
 pub const ADA_QE_STIMULUS_MAX: i32 = 500;
 pub const ADA_QE_STIMULUS_MIN: i32 = 100;
 pub const ADA_MASS_DILATION_MIN: i32 = 51;

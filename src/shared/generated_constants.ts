@@ -5,7 +5,14 @@ export const MATH_Q_BITS = 10;
 export const MATH_Q_SCALE = 1024;
 export const Q20_SCALE = 1048576;
 export const Q24_SCALE = 16777216;
+/**
+ * Q10 fixed-point: -51/1024 ≈ -0.0498, i.e. ≈ -5% per tick. Negative = an
+ * inward pull toward the torus centre. Reported as an unexplained magic
+ * number; it is not empirical, it is -0.05 rounded down in Q10 — the same
+ * 5% that ADA_MASS_DILATION_MIN (+51) expresses with the opposite sign.
+ */
 export const NATIVE_GRAVITY = -51;
+
 export const FNV64_OFFSET_BASIS = 14695981039346656037n;
 export const FNV64_PRIME = 1099511628211n;
 export const FNV64_MASK = 18446744073709551615n;
@@ -31,7 +38,14 @@ export const KURAMOTO_PLASMID_DIFFUSION_RATE = 51;
 export const MUTATION_BASE_COST = 50;
 export const MUTATION_MIN_COST = 5;
 export const MUTATION_MAX_COST = 500;
+/**
+ * Q10 fixed-point: 102/1024 ≈ 0.0996, i.e. a ≈10% exponential smoothing
+ * coefficient on mutation cost. Deliberately kept as a literal rather than
+ * `expr: MATH_Q_SCALE / 10` (which truncates to the same 102): 102 is what
+ * the golden traces were recorded against, and the traces are the anchor.
+ */
 export const MUTATION_SMOOTHING_FACTOR = 102;
+
 export const SENATE_ORACLE_TIMEOUT_MS = 16;
 export const SENATE_MYCELIUM_MIN_LOCKS = 1000;
 export const SENATE_MYCELIUM_MIN_ENERGY = 220;
@@ -39,6 +53,25 @@ export const SENATE_SHADOW_BUCKET_MIN = 1000;
 export const SENATE_SHADOW_BUCKET_MAX = 1024;
 export const TISSUE_MORPHOLOGICAL_HYSTERESIS = 5;
 export const TISSUE_MORPHOLOGICAL_DELTA_MIN = 153;
+/**
+ * Canonical Sakaguchi-Kuramoto phase lag for the production coupling law
+ * (≈ 90°, the golden-angle compromise). Part of the LAW a ZK rollup proof
+ * binds: the guest reads `alpha` from the wire and commits it in the public
+ * values, so a proof states which coupling law it proved rather than being
+ * assumed to have proved this one.
+ *
+ * SSOT because it was not: the value 64 was a bare literal in four places
+ * (`topology.rs`, `lib.rs`, and twice in `omega_zk_host`), which is how a
+ * rollup proof came to be generated under `alpha: 0` while the canonical
+ * lattice ran at 64 — the T3 crack. A literal cannot be kept in agreement
+ * with three other literals.
+ *
+ * This note lived in the GENERATED constants.rs until 2026-08-06, i.e. in a
+ * file marked DO NOT EDIT — as did the constant itself. Regenerating the
+ * SSoT deleted both and broke the build of omega_v2 and omega_zk_host.
+ */
+export const CANONICAL_PHASE_ALPHA = 64;
+
 export const BIOLOGY_SOMATIC_ALPHA = 1536;
 export const BIOLOGY_SOMATIC_DECAY_RATE = 51;
 export const BIOLOGY_SOMATIC_BASE_COST = 5;
@@ -48,7 +81,17 @@ export const BIOLOGY_APA_MEMORY_GAIN = 102;
 export const BIOLOGY_APA_DECISION_COST = 2;
 export const BIOLOGY_APA_COHERENCE_REWARD = 614;
 export const BIOLOGY_APA_MEMORY_DECAY = 1023;
+/**
+ * Q10 fixed-point: 972/1024 ≈ 0.9492, i.e. a ≈95% multiplier.
+ *
+ * UNREFERENCED: as of 2026-08-06 no code in omega_v2, omega_zk_host,
+ * omega_zk_guest, src/, tools/ or tests/ reads this constant — it is
+ * declared truth with no consumer. What behaviour it was meant to brake is
+ * therefore not recoverable from the tree, and is deliberately NOT guessed
+ * at here. Whoever revives it should write down the intent then.
+ */
 export const ADA_HODLER_BRAKE = 972;
+
 export const ADA_QE_STIMULUS_MAX = 500;
 export const ADA_QE_STIMULUS_MIN = 100;
 export const ADA_MASS_DILATION_MIN = 51;

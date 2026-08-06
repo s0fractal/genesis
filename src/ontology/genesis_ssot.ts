@@ -5,6 +5,32 @@
  * It strictly adheres to Deterministic Mathematics (Integers only).
  *
  * Any changes here will automatically re-compile into Rust, WGSL, and TypeScript via \`tools/build_ssot.ts\`.
+ *
+ * ## `note` — the source of MEANING, not just of truth
+ *
+ * An outside reviewer read this file and reported ~150 unexplained magic
+ * numbers. The diagnosis was half right. Most values here are not empirical:
+ * they are Q10 fixed-point (`MATH_Q_SCALE` = 1024), and many already say so
+ * structurally by using `expr` instead of a literal. The real defect was that
+ * the SSoT had **no channel for meaning at all** — so anyone who needed to
+ * explain a constant had nowhere to put the explanation.
+ *
+ * What that cost, concretely: `CANONICAL_PHASE_ALPHA` — the constant created to
+ * close the T3 crack, where a ZK rollup proof was generated under `alpha: 0`
+ * while the lattice ran at 64 — was never added to this file. It was written
+ * DIRECTLY into `omega_v2/src/constants.rs`, a file whose first line says
+ * AUTO-GENERATED, DO NOT EDIT, together with the paragraph explaining why it
+ * exists. Running `deno run -A tools/build_ssot.ts` deleted both, and with them
+ * the compilation of `omega_v2` and `omega_zk_host`, which have four call
+ * sites. The anti-drift constant was one regeneration away from vanishing.
+ *
+ * So: `note` is emitted as a doc comment into BOTH generated languages. Put the
+ * reason a value is what it is here, where regeneration preserves it, and never
+ * in the generated files.
+ *
+ * Guidance for notes: state facts that can be checked (the Q-format and its
+ * decimal value, the unit, the call site that constrains it), not intent that
+ * cannot. "Q10: 102/1024 ≈ 0.0996" is a fact. "tuned for stability" is not.
  */
 
 export const CONSTANTS = {
@@ -13,7 +39,16 @@ export const CONSTANTS = {
   MATH_Q_SCALE: { type: "i32", expr: "1 << MATH_Q_BITS" },
   Q20_SCALE: { type: "i32", expr: "1 << 20" },
   Q24_SCALE: { type: "i32", expr: "1 << 24" },
-  NATIVE_GRAVITY: { type: "i32", value: -51 },
+  NATIVE_GRAVITY: {
+    type: "i32",
+    value: -51,
+    note: [
+      "Q10 fixed-point: -51/1024 ≈ -0.0498, i.e. ≈ -5% per tick. Negative = an",
+      "inward pull toward the torus centre. Reported as an unexplained magic",
+      "number; it is not empirical, it is -0.05 rounded down in Q10 — the same",
+      "5% that ADA_MASS_DILATION_MIN (+51) expresses with the opposite sign.",
+    ],
+  },
 
   FNV64_OFFSET_BASIS: { type: "u64", value: 14695981039346656037n },
   FNV64_PRIME: { type: "u64", value: 1099511628211n },
@@ -59,7 +94,16 @@ export const CONSTANTS = {
   MUTATION_BASE_COST: { type: "i32", value: 50 },
   MUTATION_MIN_COST: { type: "i32", value: 5 },
   MUTATION_MAX_COST: { type: "i32", value: 500 },
-  MUTATION_SMOOTHING_FACTOR: { type: "i32", value: 102 },
+  MUTATION_SMOOTHING_FACTOR: {
+    type: "i32",
+    value: 102,
+    note: [
+      "Q10 fixed-point: 102/1024 ≈ 0.0996, i.e. a ≈10% exponential smoothing",
+      "coefficient on mutation cost. Deliberately kept as a literal rather than",
+      "`expr: MATH_Q_SCALE / 10` (which truncates to the same 102): 102 is what",
+      "the golden traces were recorded against, and the traces are the anchor.",
+    ],
+  },
 
   // Senate & Shadow Network Governance
   SENATE_ORACLE_TIMEOUT_MS: { type: "i32", value: 16 },
@@ -73,6 +117,28 @@ export const CONSTANTS = {
   TISSUE_MORPHOLOGICAL_DELTA_MIN: {
     type: "i32",
     expr: "(MATH_Q_SCALE * 15) / 100",
+  },
+
+  CANONICAL_PHASE_ALPHA: {
+    type: "i32",
+    value: 64,
+    note: [
+      "Canonical Sakaguchi-Kuramoto phase lag for the production coupling law",
+      "(≈ 90°, the golden-angle compromise). Part of the LAW a ZK rollup proof",
+      "binds: the guest reads `alpha` from the wire and commits it in the public",
+      "values, so a proof states which coupling law it proved rather than being",
+      "assumed to have proved this one.",
+      "",
+      "SSOT because it was not: the value 64 was a bare literal in four places",
+      "(`topology.rs`, `lib.rs`, and twice in `omega_zk_host`), which is how a",
+      "rollup proof came to be generated under `alpha: 0` while the canonical",
+      "lattice ran at 64 — the T3 crack. A literal cannot be kept in agreement",
+      "with three other literals.",
+      "",
+      "This note lived in the GENERATED constants.rs until 2026-08-06, i.e. in a",
+      "file marked DO NOT EDIT — as did the constant itself. Regenerating the",
+      "SSoT deleted both and broke the build of omega_v2 and omega_zk_host.",
+    ],
   },
 
   // === Biological Economy ===
@@ -92,7 +158,19 @@ export const CONSTANTS = {
   BIOLOGY_APA_MEMORY_DECAY: { type: "i32", expr: "MATH_Q_SCALE - 1" }, // 0.999 * MATH_Q_SCALE
 
   // === ADA Relativity & Recovery ===
-  ADA_HODLER_BRAKE: { type: "i32", value: 972 },
+  ADA_HODLER_BRAKE: {
+    type: "i32",
+    value: 972,
+    note: [
+      "Q10 fixed-point: 972/1024 ≈ 0.9492, i.e. a ≈95% multiplier.",
+      "",
+      "UNREFERENCED: as of 2026-08-06 no code in omega_v2, omega_zk_host,",
+      "omega_zk_guest, src/, tools/ or tests/ reads this constant — it is",
+      "declared truth with no consumer. What behaviour it was meant to brake is",
+      "therefore not recoverable from the tree, and is deliberately NOT guessed",
+      "at here. Whoever revives it should write down the intent then.",
+    ],
+  },
   ADA_QE_STIMULUS_MAX: { type: "i32", value: 500 },
   ADA_QE_STIMULUS_MIN: { type: "i32", value: 100 },
   ADA_MASS_DILATION_MIN: { type: "i32", value: 51 },
