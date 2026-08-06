@@ -282,6 +282,22 @@ pub extern "C" fn v2_set_environment(
     }
 }
 
+/// Feed a block hash into the φ-anchor chain and raise the consensus-shift flag.
+///
+/// The callable entry point for `PhaseLattice::ingest_cosmic_entropy`, which
+/// used to be `#[no_mangle] extern "C"` itself — an inherent method, so its
+/// exported symbol took `&mut self` as argument 0 and was unusable from JS.
+/// The host called `v2_ingest_cosmic_entropy`, which did not exist; the call
+/// threw `undefined is not a function` on every block, was swallowed by the
+/// caller's `catch`, and the EVM cosmic-entropy path had been silently dead.
+#[no_mangle]
+pub extern "C" fn v2_ingest_cosmic_entropy(raw_hash_u64: u64) {
+    unsafe {
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.ingest_cosmic_entropy(raw_hash_u64);
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn v2_ignite_big_bang(seed: u32, agent_count: u32) {
     let ge = crate::bitcoin_oracle::get_genesis_entropy();

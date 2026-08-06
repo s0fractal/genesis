@@ -84,8 +84,14 @@ impl PhaseLattice {
     }
 
     /// Extracted API for the JS Env Vector to easily inject Climate Changes into WASM.
-    #[no_mangle]
-    pub extern "C" fn set_environment(
+    ///
+    /// The JS-callable entry point is the free `v2_set_environment` in lib.rs,
+    /// NOT this method. It carried `#[no_mangle] extern "C"` until 2026-08-06,
+    /// which exported a second symbol, `set_environment`, whose argument 0 was
+    /// `&mut self` — uncallable from JS and memory-unsafe if attempted. Found
+    /// by `tests/wasm_abi_lock_test.ts` the first time it ran, alongside the
+    /// same mistake in `ingest_cosmic_entropy`, which had a live caller.
+    pub fn set_environment(
         &mut self,
         q_sectors: u32,
         q_radial: u32,
@@ -111,8 +117,18 @@ impl PhaseLattice {
 
     /// Triggered by the ATPBridge when a new Bitcoin/Ethereum block arrives.
     /// Φ-Маніфест: кожен новий блок — це пульс глобального часу (R).
-    #[no_mangle]
-    pub extern "C" fn ingest_cosmic_entropy(&mut self, raw_hash_u64: u64) {
+    ///
+    /// A plain inherent method. It carried `#[no_mangle] pub extern "C"` until
+    /// 2026-08-06, which exported the symbol `ingest_cosmic_entropy` — with
+    /// `&mut self` as its first WASM argument. Nothing could safely call that
+    /// from JS: passing anything but a real `PhaseLattice` pointer as arg 0 is
+    /// memory corruption. Meanwhile the host called
+    /// `exports.v2_ingest_cosmic_entropy`, a name that did not exist, so the
+    /// feature threw on every block into a `catch` that logged and continued.
+    /// The free wrapper `v2_ingest_cosmic_entropy` in lib.rs is the callable
+    /// entry point; `tests/wasm_abi_lock_test.ts` now refuses `self`-taking
+    /// exports outright.
+    pub fn ingest_cosmic_entropy(&mut self, raw_hash_u64: u64) {
         // Ingest block hash into the φ-anchor chain.
         unsafe {
             let mut anchor = crate::PHI_ANCHOR_CHAIN.lock();
