@@ -133,3 +133,81 @@ export function applyVote(
 
   return { counted, switched, verdict: senateAcceptance(record) };
 }
+
+/** Why an incoming PROPOSAL was refused, or `null` when it opens. */
+export type ProposalRefusal =
+  | "senate-not-convened"
+  | "missing-fields"
+  | "hash-mismatch"
+  | "duplicate";
+
+export interface ProposalOpening {
+  record: SenateProposalRecord | null;
+  refusal: ProposalRefusal | null;
+}
+
+/**
+ * Validate an incoming PROPOSAL and build its ledger record.
+ *
+ * The identity rule is the whole point and it is worth stating alone: a
+ * proposal's hash MUST equal `senateHash(description)`. The key is derived from
+ * the text, so a plasmid whose hash does not match its own description is
+ * either corrupt or is trying to have a vote counted against a different
+ * proposal than the one it displays. Verified before the record exists.
+ *
+ * ## The proposer's AYE
+ *
+ * Both call sites built this record inline, with the same twelve-field literal,
+ * and both wrote `ayes: new Set([proposer])` alongside `ayesWeight: 0` — under
+ * comments that say "self counts as proposer + first AYE". It did not count.
+ * The peer path weighs votes; a name in a set with no weight behind it is not a
+ * vote, and the acceptance rule never saw it. The proposer's AYE now carries
+ * the weight `senateVoteWeight` gives a bare peer, so the comment and the code
+ * agree.
+ */
+export function openProposal(opts: {
+  hash: number;
+  description: string;
+  proposerMatrix: number;
+  proposerId: string;
+  /** Weight of the proposer's implicit AYE (bare-peer weight at the caller). */
+  proposerWeight: number;
+  /** Consensus ordering stamp — anchor block height, not wall clock. */
+  tau: number;
+  senateConvened: boolean;
+  expectedHash: number;
+  alreadyPresent: boolean;
+}): ProposalOpening {
+  const refuse = (refusal: ProposalRefusal): ProposalOpening => ({
+    record: null,
+    refusal,
+  });
+  if (!opts.senateConvened) return refuse("senate-not-convened");
+  if (!opts.description) return refuse("missing-fields");
+  if ((opts.expectedHash >>> 0) !== (opts.hash >>> 0)) {
+    return refuse("hash-mismatch");
+  }
+  if (opts.alreadyPresent) return refuse("duplicate");
+
+  const record: SenateProposalRecord = {
+    hash: opts.hash,
+    description: opts.description,
+    proposerMatrix: opts.proposerMatrix,
+    ayes: new Set(),
+    nays: new Set(),
+    // Tallies MUST exist from birth — `applyVote` does `+= weight` on them and
+    // a missing field silently turns a tally into NaN, which makes the peer
+    // threshold unreachable while looking like a quiet network.
+    ayesWeight: 0,
+    naysWeight: 0,
+    accepted: false,
+    localObservedAtMs: opts.tau,
+    proposedAtTau: opts.tau,
+  };
+  applyVote(record, {
+    voterId: opts.proposerId,
+    aye: true,
+    weight: opts.proposerWeight,
+  });
+  return { record, refusal: null };
+}

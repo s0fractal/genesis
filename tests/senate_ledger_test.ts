@@ -19,6 +19,7 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import {
   applyVote,
+  openProposal,
   type SenateProposalRecord,
 } from "../src/network/senate_ledger.ts";
 import { PEER_CONSENSUS_MIN_WEIGHT } from "../src/network/senate_acceptance.ts";
@@ -140,4 +141,78 @@ Deno.test("three signed oracles carry a proposal, and the outcome says which pat
       assertEquals(out.verdict.via, "ORACLE");
     }
   }
+});
+
+// ── openProposal ───────────────────────────────────────────────────────────
+
+Deno.test("a proposal whose hash does not match its own description is refused", () => {
+  // The key IS the text. A plasmid presenting one description under another
+  // proposal's hash would have votes counted against something it does not
+  // display — checked before the record exists.
+  const bad = openProposal({
+    hash: 0x1111_1111,
+    description: "something else entirely",
+    proposerMatrix: 0,
+    proposerId: "peer-a",
+    proposerWeight: 10,
+    tau: 7,
+    senateConvened: true,
+    expectedHash: 0x2222_2222,
+    alreadyPresent: false,
+  });
+  assertEquals(bad.record, null);
+  assertEquals(bad.refusal, "hash-mismatch");
+});
+
+Deno.test("REGRESSION: the proposer's implicit AYE carries weight", () => {
+  // Both call sites wrote `ayes: new Set([proposer])` next to `ayesWeight: 0`,
+  // under comments claiming the proposer counts as the first AYE. It did not:
+  // the peer path weighs votes, and a name with no weight behind it is invisible
+  // to the acceptance rule.
+  const ok = openProposal({
+    hash: 0x3333_3333,
+    description: "a real proposal",
+    proposerMatrix: 0xABCD,
+    proposerId: "peer-a",
+    proposerWeight: 10,
+    tau: 42,
+    senateConvened: true,
+    expectedHash: 0x3333_3333,
+    alreadyPresent: false,
+  });
+  assertEquals(ok.refusal, null);
+  assertEquals(ok.record!.ayes.has("peer-a"), true);
+  assertEquals(ok.record!.ayesWeight, 10);
+  assertEquals(ok.record!.proposedAtTau, 42, "tau is the consensus stamp");
+});
+
+Deno.test("a proposal is refused before the Senate convenes, and when duplicated", () => {
+  const base = {
+    hash: 0x4444_4444,
+    description: "d",
+    proposerMatrix: 0,
+    proposerId: "p",
+    proposerWeight: 10,
+    tau: 0,
+    expectedHash: 0x4444_4444,
+  };
+  assertEquals(
+    openProposal({ ...base, senateConvened: false, alreadyPresent: false })
+      .refusal,
+    "senate-not-convened",
+  );
+  assertEquals(
+    openProposal({ ...base, senateConvened: true, alreadyPresent: true })
+      .refusal,
+    "duplicate",
+  );
+  assertEquals(
+    openProposal({
+      ...base,
+      description: "",
+      senateConvened: true,
+      alreadyPresent: false,
+    }).refusal,
+    "missing-fields",
+  );
 });

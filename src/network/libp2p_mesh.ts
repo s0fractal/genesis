@@ -141,7 +141,11 @@ import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 import { senateVoteWeight } from "./senate_weight.ts";
-import { applyVote, type SenateProposalRecord } from "./senate_ledger.ts";
+import {
+  applyVote,
+  openProposal,
+  type SenateProposalRecord,
+} from "./senate_ledger.ts";
 import {
   attractorConsensusReached as gateAttractorConsensus,
   genesisInscribable as gateGenesisInscribable,
@@ -900,29 +904,29 @@ export class Libp2pMesh {
     ) {
       return;
     }
-    const expected = this.computeSenateHash(plasmid.proposalDescription);
-    if (expected !== plasmid.proposalHash) {
-      console.warn(
-        `[V2-MESH] PROPOSAL hash mismatch (expected=${expected}, got=${plasmid.proposalHash}); rejecting.`,
-      );
-      return;
-    }
-    if (this.senate.has(plasmid.proposalHash)) return;
-    this.senate.set(plasmid.proposalHash, {
+    const tau = (this.engine as any).getAnchorTotalBlocks?.() ?? 0;
+    const opening = openProposal({
       hash: plasmid.proposalHash,
       description: plasmid.proposalDescription,
       proposerMatrix: plasmid.matrix,
-      ayes: new Set([fromPeer]),
-      nays: new Set(),
-      // Weight tallies MUST exist from birth — handleVote does `+= weight`
-      // on them and a missing field silently turns the tally into NaN,
-      // making the peer-consensus threshold unreachable.
-      ayesWeight: 0,
-      naysWeight: 0,
-      accepted: false,
-      localObservedAtMs: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
-      proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
+      proposerId: fromPeer,
+      proposerWeight: senateVoteWeight({ oracleAuthentic: false }),
+      tau,
+      senateConvened: this.senateConvened,
+      expectedHash: this.computeSenateHash(plasmid.proposalDescription),
+      alreadyPresent: this.senate.has(plasmid.proposalHash),
     });
+    if (!opening.record) {
+      if (opening.refusal === "hash-mismatch") {
+        console.warn(
+          `[V2-MESH] PROPOSAL hash mismatch (expected=${
+            this.computeSenateHash(plasmid.proposalDescription)
+          }, got=${plasmid.proposalHash}); rejecting.`,
+        );
+      }
+      return;
+    }
+    this.senate.set(plasmid.proposalHash, opening.record);
     // Mirror into WASM Senate state.
     const propose = this.engine.wasm?.exports.v2_senate_propose as
       | CallableFunction
@@ -1271,19 +1275,21 @@ export class Libp2pMesh {
       );
       return hash;
     }
-    // Local record (self counts as proposer + first AYE).
-    this.senate.set(hash, {
+    // Local record — self counts as proposer AND first AYE, and that AYE now
+    // carries weight instead of being a bare name in a set (see openProposal).
+    const localOpening = openProposal({
       hash,
       description,
       proposerMatrix,
-      ayes: new Set([this.localId || "self"]),
-      nays: new Set(),
-      ayesWeight: 0,
-      naysWeight: 0,
-      accepted: false,
-      localObservedAtMs: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
-      proposedAtTau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
+      proposerId: this.localId || "self",
+      proposerWeight: senateVoteWeight({ oracleAuthentic: false }),
+      tau: (this.engine as any).getAnchorTotalBlocks?.() ?? 0,
+      senateConvened: this.senateConvened,
+      expectedHash: hash,
+      alreadyPresent: false,
     });
+    if (!localOpening.record) return hash;
+    this.senate.set(hash, localOpening.record);
     // Broadcast PROPOSAL plasmid.
     this.enqueuePlasmid({
       attractorAddress: 0,
