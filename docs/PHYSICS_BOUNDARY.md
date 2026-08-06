@@ -281,6 +281,60 @@ dissipation ledger books exactly that difference and the identity holds whatever
 the geometry does. The test asserts `h*w >= active` across a spread of
 populations and row widths instead, and was confirmed to go red on the floor.
 
+### Not synchronised — measured, and the cause is a unit mismatch
+
+The Kuramoto coupling — the mechanism this project is named after, whose kernel
+is published as the `kuramoto-coherence` crate — produces no measurable
+synchronisation. `tools/structure_probe.ts`, capacity 4096 over 3000 ticks:
+
+```text
+order parameter, read in the agents' own phase wrap : 0.055 → 0.023
+local order / global order (domain structure)       : 1.07
+mean metabolic_efficiency of the living             : 128.4 → 128.9
+```
+
+Zero order, no domains, no drift in the trait selection acts on. Phase-gated
+conduction was supposed to produce coherent clusters; measured, it produces
+none.
+
+**A 0.63 that is geometry, not physics.** Read through the kernel's own
+trigonometry the order parameter looks like 0.63 — but agents wrap their phase
+at `1<<q_phase = 128` while `SINE_LUT` spans 256, so the population is confined
+to half the trigonometric circle, and a UNIFORM distribution there already reads
+as 2/π ≈ 0.637 with no synchronisation whatever. The probe reports both readings
+for exactly this reason.
+
+That half-circle is a real inconsistency — `PhaseTopology::new` still asserts
+`q_phase ∈ [2,7]` "for the 128-element SINE_LUT" while the physics indexes the
+256-element one, so the table was widened and the wrap was not. But it is
+**not** the cause: mapping the phase resolution onto the full circle was tried
+and moved the order parameter from 0.045 to 0.042. A negative result worth
+keeping.
+
+**The cause is that natural frequency is assigned in Q10 and clamped in raw
+phase units.** Ignition sets
+`base_freq = (rng % BB_FREQ_RANGE - BB_FREQ_OFFSET) * BB_FREQ_Q_SCALE`, spanning
+±2,048,000. `tick_physics` then clamps it against `max_phase / 2 = 63` — a bound
+in raw phase units, against a value in Q10. Measured at ignition:
+
+```text
+905 distinct natural frequencies, range ±2,048,000
+after the Nyquist clamp: 2 distinct values, -63 and +63
+pinned to the rail: 1024 / 1024
+```
+
+Every agent rotates at exactly ±63 phase units per tick in a space of 128 — half
+the circle per tick, maximal aliasing — split into two counter-rotating groups
+with no internal variation at all. Coupling cannot synchronise that, and the
+clamp whose comment says "Nyquist" is what puts every oscillator on the Nyquist
+limit.
+
+Fixing it means deciding where the Q10 boundary sits: divide `base_freq` by
+`Q_SCALE` in the drift, or clamp in Q10 and keep the units through. Either
+changes every agent's trajectory, so it changes the era, every golden trace and
+the law hash — which is why it is recorded here with its measurement rather than
+taken quietly.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
