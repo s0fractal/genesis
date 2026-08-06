@@ -1,7 +1,14 @@
 // Pure Senate vote-weighting — no libp2p / native deps, so it is unit-testable
 // in isolation (importing libp2p_mesh.ts drags the native WebRTC transport).
 
-/** Weight of one authentic, signed oracle vote before the alignment boost. */
+/**
+ * The reference point the peer ceiling is defined against: one aligned oracle.
+ *
+ * No longer a weight anyone is paid. Oracle authority is counted by NAME in the
+ * oracle tally, not by weight in the peer tally — see `senateVoteWeight`. This
+ * constant survives because `PEER_WEIGHT_MAX` is *defined* as "just under one
+ * oracle", and that sentence is the governance rule.
+ */
 export const ORACLE_BASE_WEIGHT = 100;
 /** A maximally-misaligned oracle is damped, never erased. */
 export const ORACLE_WEIGHT_FLOOR = 50;
@@ -49,13 +56,33 @@ export const PEER_WEIGHT_MAX = ORACLE_BASE_WEIGHT - 1; // 99
  */
 export function senateVoteWeight(opts: {
   liveness?: { heartbeat_count: number; warrant_votes_observed: number } | null;
-  oracleAuthentic: boolean;
+  /** Accepted and ignored. See the note below — kept so callers that pass it
+   *  are a compile-time reminder rather than a silent behaviour change. */
+  oracleAuthentic?: boolean;
   oracleAlignmentBoost?: number;
 }): number {
-  if (opts.oracleAuthentic) {
-    const w = ORACLE_BASE_WEIGHT + (opts.oracleAlignmentBoost ?? 0);
-    return w < ORACLE_WEIGHT_FLOOR ? ORACLE_WEIGHT_FLOOR : w;
-  }
+  // AN ORACLE'S AUTHORITY DOES NOT LIVE IN THIS TALLY.
+  //
+  // This used to return ORACLE_BASE_WEIGHT (+boost) for an authentic oracle —
+  // 100 to 150 — and `applyVote` books whatever it returns into `ayesWeight`
+  // keyed by the PEER ID that delivered the vote. So one genuine oracle
+  // signature, republished from three peer IDs, reached the 300 that means
+  // "three oracles agreed" while `oracleAyes.size` was 1. The ceiling this
+  // module exists to enforce — no peer ever outweighs one aligned oracle, peer
+  // consensus costs four saturated peers — was bypassed by the oracle path
+  // itself.
+  //
+  // The two acceptance routes are supposed to be independent evidence. An
+  // authentic oracle contributes its NAME to the oracle set (deduplicated in
+  // senate_ledger.ts, where one oracle is one oracle however many sockets it
+  // speaks through) and, separately, whatever it is worth as an ordinary node
+  // on the network. Nothing more.
+  //
+  // Removing it also removes a determinism hazard: the alignment boost came
+  // from `CrossModelDebate.alignmentScore`, which is populated only by LOCAL
+  // WebLLM output and never gossiped, so two nodes computed different weights
+  // for the same signed vote — in a value this module's own doc-comment
+  // requires every node to compute identically.
   if (opts.liveness) {
     const heartbeats = Math.min(
       Math.max(opts.liveness.heartbeat_count, 0),

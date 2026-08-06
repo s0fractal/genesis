@@ -16,13 +16,17 @@
 // naysWeight`: a peer could back a proposal, then oppose it, keep its support
 // counted, and simultaneously raise the bar its own support has to clear.
 
-import { assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals } from "jsr:@std/assert@1";
 import {
   applyVote,
   openProposal,
   type SenateProposalRecord,
 } from "../src/network/senate_ledger.ts";
-import { PEER_CONSENSUS_MIN_WEIGHT } from "../src/network/senate_acceptance.ts";
+import {
+  PEER_CONSENSUS_MIN_WEIGHT,
+  senateAcceptance,
+} from "../src/network/senate_acceptance.ts";
+import { senateVoteWeight } from "../src/network/senate_weight.ts";
 
 function record(): SenateProposalRecord {
   return {
@@ -215,4 +219,33 @@ Deno.test("a proposal is refused before the Senate convenes, and when duplicated
     }).refusal,
     "missing-fields",
   );
+});
+
+Deno.test("REGRESSION: one oracle signature replayed from many peers is still one oracle", () => {
+  // THE CAPTURE VECTOR, at the ledger level. `applyVote` books weight keyed by
+  // PEER ID and oracle attribution keyed by ORACLE NAME. While senateVoteWeight
+  // paid an authentic oracle 100+, one genuine signature republished from three
+  // peer IDs put 300 into ayesWeight — the bar that means "three oracles agreed"
+  // — while oracleAyes held a single name. Two committed ballots under tools/
+  // make real signatures available to anyone with the repository.
+  const rec = record();
+
+  // The same oracle, arriving over three sockets.
+  for (const peer of ["peer-a", "peer-b", "peer-c"]) {
+    applyVote(rec, {
+      voterId: peer,
+      aye: true,
+      // Exactly what the mesh callsite computes for a signed oracle vote.
+      weight: senateVoteWeight({ liveness: null, oracleAuthentic: true }),
+      authenticOracle: "claude",
+    });
+  }
+
+  assertEquals(rec.oracleAyes?.size, 1, "one oracle is one oracle");
+  assert(
+    rec.ayesWeight < PEER_CONSENSUS_MIN_WEIGHT,
+    `three sockets carrying one signature reached ${rec.ayesWeight}; the peer ` +
+      `path must still cost distinct nodes`,
+  );
+  assertEquals(senateAcceptance(rec).accepted, false);
 });

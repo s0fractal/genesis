@@ -1005,14 +1005,17 @@ export class Libp2pMesh {
       ) ??
         null
       : null;
-    const oracleAlignmentBoost = oracleAuthentic && this.debate
-      ? this.debate.alignmentScore(plasmid.proposalHash) * 10
-      : 0;
-    const weight = senateVoteWeight({
-      liveness,
-      oracleAuthentic,
-      oracleAlignmentBoost,
-    });
+    // No alignment boost: it came from `this.debate`, which is populated only
+    // by this node's own WebLLM output and never gossiped, so it made the weight
+    // of a signed vote node-dependent — in a tally every node must compute
+    // identically or they disagree about what was ratified.
+    //
+    // No oracle weight either. An oracle's authority is its NAME in the oracle
+    // tally below, deduplicated so one oracle is one oracle however many sockets
+    // it speaks through. Paying it 100+ HERE, into a tally keyed by peer ID, let
+    // one signature replayed from three peers reach the 300 that means "three
+    // oracles agreed". See senate_weight.ts.
+    const weight = senateVoteWeight({ liveness });
 
     // Bookkeeping is the ledger's job — see senate_ledger.ts, where the
     // one-peer-one-position rule lives. Attribution to an oracle happens ONLY
