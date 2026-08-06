@@ -12,22 +12,22 @@ substrates of the same federation.
 The code now says what it means. This table is the join key between the two
 vocabularies, and between the runtime and everything below in this file.
 
-| Retired era | Field / method now                              | Event now                     | Fires when                                             |
-| ----------- | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
-| 1020        | `attractorConsensusReached`                     | `attractor-consensus-reached` | 3+ peers agree on the attractor field                  |
-| 1030        | `senateConvened` / `checkSenateConvened()`       | `senate-convened`             | ≥10 ledger entries across ≥5 unique matrices           |
-| 1030 (task) | —                                               | `senate-task-accepted`        | a proposal reaches acceptance                          |
-| 1040        | `autoRatifyZkNotarization()`                    | —                             | every 5th verified mitosis proof self-AYEs the proposal |
-| 1050        | `genesisInscribed` / `checkGenesisInscription()` | `genesis-inscribed`           | 100 unique verified mitosis proofs                     |
-| 1060        | `oracleSenateConvened` / `checkOracleSenateConvened()` | `oracle-senate-convened` | genesis inscribed AND ≥1 accepted task            |
-| 1070        | `visionRatified` / `checkVisionRatification()`   | `vision-ratified`             | an oracle-proposed vision reaches acceptance           |
+| Retired era | Field / method now                                     | Event now                     | Fires when                                              |
+| ----------- | ------------------------------------------------------ | ----------------------------- | ------------------------------------------------------- |
+| 1020        | `attractorConsensusReached`                            | `attractor-consensus-reached` | 3+ peers agree on the attractor field                   |
+| 1030        | `senateConvened` / `checkSenateConvened()`             | `senate-convened`             | ≥10 ledger entries across ≥5 unique matrices            |
+| 1030 (task) | —                                                      | `senate-task-accepted`        | a proposal reaches acceptance                           |
+| 1040        | `autoRatifyZkNotarization()`                           | —                             | every 5th verified mitosis proof self-AYEs the proposal |
+| 1050        | `genesisInscribed` / `checkGenesisInscription()`       | `genesis-inscribed`           | 100 unique verified mitosis proofs                      |
+| 1060        | `oracleSenateConvened` / `checkOracleSenateConvened()` | `oracle-senate-convened`      | genesis inscribed AND ≥1 accepted task                  |
+| 1070        | `visionRatified` / `checkVisionRatification()`         | `vision-ratified`             | an oracle-proposed vision reaches acceptance            |
 
 **Two era numerals are frozen and were deliberately NOT renamed**: the strings
 `"Era 1040 ZK"` and `"Task 0090: Era 1040 - ZK-Notarized Mutations"` are hash
 preimages behind the genesis anchors `0x15302EC1` and `0x30083117`, which feed
 `GENESIS_HASH_LEGACY_V1_0 = 0x716ea2f8`. A preimage cannot be renamed, only
-re-hashed, and re-hashing changes the identity of the protocol. Any future
-sweep over `Era [0-9]+` must skip them.
+re-hashed, and re-hashing changes the identity of the protocol. Any future sweep
+over `Era [0-9]+` must skip them.
 
 Also unchanged: the `xNNNN_` file prefixes (`x2E00_status.ts`,
 `x6C00_topology_audit.ts`). Those are substrate ABI positions, a different

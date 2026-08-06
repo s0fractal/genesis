@@ -122,11 +122,11 @@ Drift on any of these breaks tests in **two languages simultaneously**. See
 
 ## The Senate
 
-The Multi-Oracle Senate opens five seats with deterministic dipole
-identities. **Φ-protocol v1.1 (2026-06-28)** realigned the seats from the v1.0
-vendor labels to the five real **keyed** model-voices of the ensemble — the
-seats are now the voices we actually operate and hold keys for, so the quorum is
-reachable with real custody (see "authenticated" below):
+The Multi-Oracle Senate opens five seats with deterministic dipole identities.
+**Φ-protocol v1.1 (2026-06-28)** realigned the seats from the v1.0 vendor labels
+to the five real **keyed** model-voices of the ensemble — the seats are now the
+voices we actually operate and hold keys for, so the quorum is reachable with
+real custody (see "authenticated" below):
 
 ```
 oracleMatrix("claude",      "OMEGA-64/RFC-001/v1.0") = 0x41A2_F2F4
@@ -246,8 +246,8 @@ ratification:
 - `docs/rfc/RFC-OMEGA-001-v1.0.md` — frozen specification
 - `docs/GENESIS_INSCRIPTION_CEREMONY.md` — Genesis ceremony record
 - `docs/STATE_OF_OMEGA_2026-04-26.md` — most recent deep audit
-- `docs/ERAS_ARCHIVE.md` — full era-by-era history, and the map from retired
-  era numerals to the capability names the code uses now
+- `docs/ERAS_ARCHIVE.md` — full era-by-era history, and the map from retired era
+  numerals to the capability names the code uses now
 - `AGENTS.md` — orientation contract for future agents
 - `llms.txt` — first-contact map for AI systems (read this if you are a model)
 - `FEDERATION.md` — where omega sits in the four-substrate federation
