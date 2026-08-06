@@ -594,16 +594,42 @@ two eras were spent repairing — moves local coherence by 2%. Removing
 reproduction removes the inheritance path and moves it by 3%. Removing time
 dilation moves it UP.
 
-**The source is unidentified, and that is the honest state.** Ignition is ruled
-out by inspection: `ignite_big_bang` draws phase from `Xorshift64`, so there is
-no spatial birthmark to inherit. What remains is phase-gated conduction, which
-correlates energy between in-phase neighbours without moving phase directly.
-That is a hypothesis and it has not been tested; four have been recorded as
-refuted already, and a fifth guess belongs here only once it is measured.
+**The source is phase-gated conduction, acting through crystallisation.** Two
+more knockouts, and then both together to tell a chain from two parallel paths:
 
-What can be said: the global order parameter is 0.015, the coupling contributes
-nothing measurable to the local one, and whatever organises this lattice is not
-the mechanism the model is built around.
+```text
+                          global    local
+baseline                   0.0152   0.1141
+conduction ungated         0.0137   0.0322
+crystallisation disabled   0.0142   0.0427
+both disabled              0.0161   0.0429
+synthetic field, true R=0     —     0.0000
+```
+
+Disabling both is indistinguishable from disabling crystallisation alone —
+0.0429 against 0.0427. Once nothing freezes, the gate makes no further
+difference. The two are **serial**, not additive, and the chain is:
+
+1. Conduction is gated on `cos(θ_n − θ_a)`, so neighbours in phase pool energy
+   and neighbours out of phase do not. Energy becomes spatially correlated with
+   phase similarity.
+2. Crystallisation fires in the energy-rich patches and sets `drift = 0`.
+3. Frozen neighbours cannot move apart, so they keep whatever phase they had.
+
+Note what that makes the 0.114. It is not oscillators finding each other. **It
+is cells that stopped.** A crystal is coherent because it is not moving, and the
+measure cannot tell that from agreement — which is precisely why the tissue
+fraction has to be read alongside it, and why `structure_probe.ts` reports both.
+
+Ignition is ruled out by inspection: `ignite_big_bang` draws phase from
+`Xorshift64`, so there is no spatial birthmark to inherit. A residual 0.043 sits
+above the random-field floor and survives both knockouts; it is not accounted
+for, and is not claimed to be anything.
+
+What can be said plainly: the global order parameter is 0.015, the Kuramoto
+coupling accounts for about 2% of the only local structure this world has, and
+that structure is arrested motion rather than synchronisation. The mechanism the
+model is built around is not the mechanism doing the work.
 
 ### Not conserved yet — known, named, open
 
