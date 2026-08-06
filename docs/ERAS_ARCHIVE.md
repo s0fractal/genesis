@@ -3,8 +3,18 @@
 > **Read as history, not as the live mechanism.** This is an era-by-era record;
 > mechanisms evolve. Notably, Era 1060's "phase-resonance acceptance" (the v1.0
 > public-dipole model) was superseded by **Φ-protocol v1.1**, where authority is
-> a real Ed25519 signature (custody), not the public dipole (address). For the
-> current state see `MESH_RELAY.md`, `KNOWN_GAPS.md` (trinity), and the README.
+> a real Ed25519 signature (custody), not the public dipole (address).
+>
+> The same applies to every **FNV-1a** below. Those rows record what was true in
+> that era; the protocol has since migrated to **SHA-256→u32** (`crypto.rs` /
+> `sdk/phi_crypto.ts`) for Senate hashes, spore frames, oracle identity,
+> resilience snapshots and routing digests. FNV-1a survives in exactly one live
+> place, in both languages: the legacy u32 Genesis Inscription
+> (`genesis_inscription.rs` / `.ts`), where it is frozen by the anchor
+> `0x716EA2F8` and cannot be "upgraded" without changing the genesis itself.
+>
+> For the current state see `MESH_RELAY.md`, `KNOWN_GAPS.md` (trinity), and the
+> README.
 
 | Era  | Status         | Key Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

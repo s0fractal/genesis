@@ -15,6 +15,7 @@ import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
 import { checkGenesisInscription } from "../network/bitcoin_anchor.ts";
 import { resolveBootstrapPeers } from "../network/bootstrap_peers.ts";
+import { ERA_1040_PROPOSAL } from "../network/senate_proposals.ts";
 import { GENESIS_HASH_LEGACY_V1_0 } from "../network/genesis_inscription.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
@@ -202,7 +203,7 @@ export async function bootstrapV2() {
         console.error(
           `[BOOTSTRAP] 🚨 FATAL: Invalid Bitcoin Genesis Inscription (${anchor.detail}). Network Boot Aborted.`,
         );
-        setHudStat("e", "BTC ANCHOR", "MISMATCH");
+        setHudStat("i", "BTC ANCHOR", "MISMATCH");
         return;
       }
       if (anchor.verdict === "UNREACHABLE") {
@@ -214,16 +215,16 @@ export async function bootstrapV2() {
         console.warn(
           `[BOOTSTRAP] ⚠️ Bitcoin anchor UNVERIFIED — could not reach ${anchor.endpoint} (${anchor.detail}). Booting untethered.`,
         );
-        setHudStat("e", "BTC ANCHOR", "UNVERIFIED");
+        setHudStat("i", "BTC ANCHOR", "UNVERIFIED");
       } else {
         console.log("[BOOTSTRAP] 🔗 Bitcoin Genesis Inscription Verified.");
-        setHudStat("e", "BTC ANCHOR", "VERIFIED");
+        setHudStat("i", "BTC ANCHOR", "VERIFIED");
       }
     } else {
       console.warn(
         "[BOOTSTRAP] No __OMEGA_GENESIS_TXID__ provided. Running in untethered mode.",
       );
-      setHudStat("e", "BTC ANCHOR", "UNTETHERED");
+      setHudStat("i", "BTC ANCHOR", "UNTETHERED");
     }
 
     // Boot V2 Mesh Network (Libp2p GossipSub + KadDHT)
@@ -375,10 +376,10 @@ export async function bootstrapV2() {
         >;
         if (ledger.length === 0) return;
         const top = ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
-        // The First Proposal: the lattice asks itself for ZK-Notarized Mutations .
-        const description =
-          "ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
-        mesh.proposeFromLocal(description, top.matrix, top.inverse);
+        // The First Proposal: the lattice asks itself for ZK-Notarized
+        // Mutations. The text is canonical — it IS the proposal's identity, and
+        // `autoRatifyEra1040Proposal` derives its key from this same constant.
+        mesh.proposeFromLocal(ERA_1040_PROPOSAL, top.matrix, top.inverse);
       }) as EventListener,
     );
 
@@ -641,7 +642,7 @@ ${debateMd || "(no recorded arguments)"}
       try {
         const hexVal = BigInt(hashPrefix);
         engine.injectCosmicEntropy(hexVal);
-        setHudStat("c", "COSMIC ENTROPY", `EVM Blk: ${hashPrefix}`);
+        setHudStat("j", "COSMIC ENTROPY", `EVM Blk: ${hashPrefix}`);
       } catch (e) {
         console.error("[V2 EVM] Cosmic Payload Error", e);
       }
@@ -725,7 +726,7 @@ ${debateMd || "(no recorded arguments)"}
           const data = e.data;
           if (data.type === "INIT_PROGRESS") {
             setHudStat(
-              "c",
+              "h",
               "ORACLE",
               (data.text as string).substring(0, 32) + "...",
             );
@@ -746,7 +747,7 @@ ${debateMd || "(no recorded arguments)"}
               }: "${reasoning}"`,
             );
           } else if (data.type === "SUCCESS") {
-            setHudStat("c", "ORACLE", "LLaMa-3 Synthesized AST.");
+            setHudStat("h", "ORACLE", "LLaMa-3 Synthesized AST.");
             // Force intent via slot 2 (Oracle Dedicated Slot)
             if (data.validIntents && data.validIntents.length > 0) {
               const intent = data.validIntents[0];
@@ -782,7 +783,7 @@ ${debateMd || "(no recorded arguments)"}
               }
             }
           } else if (data.type === "ERROR") {
-            setHudStat("c", "ORACLE", "ERROR: " + data.reason);
+            setHudStat("h", "ORACLE", "ERROR: " + data.reason);
           }
         };
       }
@@ -848,7 +849,7 @@ ${debateMd || "(no recorded arguments)"}
         isReadingGPU = true;
         renderer.readStateFromGPUAndHash().then(
           async ({ goldenTrace, goldenTraceNum, snapshot }) => {
-            setHudStat("c", "GOLDEN TRACE", goldenTrace);
+            setHudStat("g", "GOLDEN TRACE", goldenTrace);
             mesh.setLatestState(goldenTraceNum, snapshot);
 
             // Era 1040 Phase 2: drain the lattice's mitosis receipt log and

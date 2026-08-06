@@ -197,8 +197,7 @@ export async function checkGenesisInscription(
       : {
         verdict: "MISMATCH",
         endpoint,
-        detail:
-          `tx ${txid} carries no OP_RETURN matching ${expectedPayload}`,
+        detail: `tx ${txid} carries no OP_RETURN matching ${expectedPayload}`,
       };
   } catch (e) {
     return {
