@@ -285,6 +285,33 @@ impl PhaseLattice {
         }
     }
 
+    /// Entropy released when an agent dissolves — Landauer's principle over the
+    /// information the lattice is about to forget.
+    ///
+    /// An agent's state is its genome plus three memory words: 128 bits. Erasing
+    /// them costs `LANDAUER_BIT_COST` per SET bit, which is how this kernel
+    /// already prices information everywhere else — metabolic maintenance uses
+    /// `genome.count_ones()` (see the burn path) and mitosis charges
+    /// `(parent.genome ^ child.genome).count_ones()` (mitosis_proof.rs).
+    ///
+    /// Death was the one place that summed the words as NUMBERS instead of
+    /// counting their bits, so a single death could release ~1.7e10 "entropy"
+    /// into a universe whose entire ATP supply is capped at `MAX_ATP` per agent.
+    /// That is not a big number, it is a different unit — and it made the
+    /// documented future where compost draws on `total_entropy_released` an
+    /// unbounded ATP faucet rather than a conservation law. Bits, like the
+    /// other two.
+    ///
+    /// Bounded by construction: 128 bits × `LANDAUER_BIT_COST`.
+    #[inline]
+    pub fn death_entropy(agent: &PhaseAgentMinimal) -> u64 {
+        let bits = agent.genome.count_ones()
+            + agent.memory[0].count_ones()
+            + agent.memory[1].count_ones()
+            + agent.memory[2].count_ones();
+        (bits * crate::constants::LANDAUER_BIT_COST) as u64
+    }
+
     /// Book deaths that happened off-CPU, and refresh the aggregates.
     ///
     /// On the GPU path the compute shader kills agents — `compute_toroidal.wgsl`
@@ -351,10 +378,7 @@ impl PhaseLattice {
                     deaths += 1;
 
                     // Thermodynamics: Entropy release (Landauer's Principle).
-                    let entropy_burst = (agent.genome as u64)
-                        .wrapping_add(agent.memory[0] as u64)
-                        .wrapping_add(agent.memory[1] as u64)
-                        .wrapping_add(agent.memory[2] as u64);
+                    let entropy_burst = Self::death_entropy(agent);
                     self.signals.total_entropy_released = self
                         .signals
                         .total_entropy_released
@@ -683,10 +707,7 @@ impl PhaseLattice {
                     agent.state_flags |= 0x01; // Mark as dead
 
                     // Thermodynamics: Entropy release (Landauer's Principle)
-                    let entropy_burst = (agent.genome as u64)
-                        .wrapping_add(agent.memory[0] as u64)
-                        .wrapping_add(agent.memory[1] as u64)
-                        .wrapping_add(agent.memory[2] as u64);
+                    let entropy_burst = Self::death_entropy(agent);
                     self.signals.total_entropy_released = self
                         .signals
                         .total_entropy_released
@@ -1023,10 +1044,12 @@ mod tests {
 
         assert_eq!(lattice.signals.total_entropy_released, 0);
         assert_eq!(lattice.reap_off_cpu_deaths(), 1, "one agent died");
+        // Landauer: SET BITS of genome + three memory words, not their values.
+        // 7 = 0b111 (3), 1 (1), 2 = 0b10 (1), 3 = 0b11 (2)  →  7 bits.
         assert_eq!(
             lattice.signals.total_entropy_released,
-            7 + 1 + 2 + 3,
-            "entropy burst is genome + the three memory words"
+            7 * crate::constants::LANDAUER_BIT_COST as u64,
+            "entropy burst prices erased information in bits"
         );
 
         // Idempotence: the snapshot is re-armed, so a second sweep with no
@@ -1034,6 +1057,34 @@ mod tests {
         let after_first = lattice.signals.total_entropy_released;
         assert_eq!(lattice.reap_off_cpu_deaths(), 0, "no new deaths");
         assert_eq!(lattice.signals.total_entropy_released, after_first);
+    }
+
+    #[test]
+    fn death_entropy_is_bounded_and_priced_in_bits_like_the_rest_of_the_kernel() {
+        // The bound is the whole point: an agent is 128 bits of information, so
+        // dissolving one can never release more than 128 * LANDAUER_BIT_COST.
+        // The old formula summed the words as numbers, so one death could
+        // release ~1.7e10 into a universe capped at MAX_ATP per agent — a
+        // different unit wearing the same name, and an unbounded faucet for any
+        // future that draws ATP back out of the entropy pool.
+        let mut a = PhaseAgentMinimal::default();
+        a.genome = u32::MAX;
+        a.memory = [u32::MAX; 3];
+        let max = PhaseLattice::death_entropy(&a);
+        assert_eq!(max, 128 * crate::constants::LANDAUER_BIT_COST as u64);
+        assert!(
+            max <= crate::constants::MAX_ATP as u64,
+            "a single death must not out-mass an agent's entire ATP capacity"
+        );
+
+        let mut zero = PhaseAgentMinimal::default();
+        zero.genome = 0;
+        zero.memory = [0; 3];
+        assert_eq!(
+            PhaseLattice::death_entropy(&zero),
+            0,
+            "an agent carrying no information erases none"
+        );
     }
 
     #[test]
