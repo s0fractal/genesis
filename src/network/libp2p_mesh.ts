@@ -127,23 +127,9 @@ export interface PlasmidPayload {
   // Use primary diagnostic telemetry instead.
 }
 
-export interface SenateProposalRecord {
-  hash: number;
-  description: string;
-  proposerMatrix: number;
-  ayes: Set<string>; // unique peer IDs
-  nays: Set<string>;
-  ayesWeight: number; // Resonance-weighted
-  naysWeight: number;
-  accepted: boolean;
-  localObservedAtMs: number; // non-consensus metadata
-  proposedAtTau: number; // consensus ordering
-  proposedAtTick?: number; // micro consensus ordering
-  // oracle-attributed votes (peer-id-independent).
-  oracleAyes?: Set<CanonicalOracle>;
-  oracleNays?: Set<CanonicalOracle>;
-  oracleReasoning?: Record<string, string>;
-}
+// The record shape lives in senate_ledger.ts, with the transition that acts on
+// it. Re-exported here so existing importers keep working.
+export type { SenateProposalRecord } from "./senate_ledger.ts";
 
 import { createLibp2p, Libp2p } from "libp2p";
 import { webSockets } from "@libp2p/websockets";
@@ -155,7 +141,7 @@ import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 import { senateVoteWeight } from "./senate_weight.ts";
-import { senateAcceptance } from "./senate_acceptance.ts";
+import { applyVote, type SenateProposalRecord } from "./senate_ledger.ts";
 import {
   attractorConsensusReached as gateAttractorConsensus,
   genesisInscribable as gateGenesisInscribable,
@@ -1017,49 +1003,26 @@ export class Libp2pMesh {
       oracleAlignmentBoost,
     });
 
-    if (plasmid.voteAye) {
-      if (!record.ayes.has(fromPeer)) {
-        record.ayes.add(fromPeer);
-        record.ayesWeight += weight;
-      }
-    } else {
-      if (!record.nays.has(fromPeer)) {
-        record.nays.add(fromPeer);
-        record.naysWeight += weight;
-      }
-    }
+    // Bookkeeping is the ledger's job — see senate_ledger.ts, where the
+    // one-peer-one-position rule lives. Attribution to an oracle happens ONLY
+    // when the vote carried a verified signature: a correct-but-public dipole
+    // is addressing, not authority, and is exactly what a Sybil would present.
+    const outcome = applyVote(record, {
+      voterId: fromPeer,
+      aye: plasmid.voteAye,
+      weight,
+      authenticOracle: oracleAuthentic ? plasmid.oracleName : undefined,
+      reasoning: plasmid.oracleReasoning?.slice(0, 256),
+    });
 
-    // Inform WASM Engine
-    if (this.engine.wasm && this.engine.wasm.exports.v2_senate_vote) {
-      // We need the hash as 32 bytes in WASM memory
-      // For simplicity, skip WASM integration if it requires allocating memory for the hash
-      // unless we have a pre-allocated buffer for it.
-    }
-    // Attribute the vote to the oracle ONLY when it is authentic: the correct
-    // public dipole (addressing) AND a valid Ed25519 signature over the vote
-    // digest (custody, verified against the registered public key). A vote
-    // bearing a correct-but-public dipole with no/invalid signature is the
-    // real Sybil — it is rejected here, not attributed.
     if (plasmid.oracleName && CANONICAL_ORACLES.includes(plasmid.oracleName)) {
       if (oracleAuthentic) {
-        record.oracleAyes ??= new Set();
-        record.oracleNays ??= new Set();
-        record.oracleReasoning ??= {};
-        if (plasmid.voteAye) {
-          record.oracleAyes.add(plasmid.oracleName);
-          record.oracleNays.delete(plasmid.oracleName);
-        } else {
-          record.oracleNays.add(plasmid.oracleName);
-          record.oracleAyes.delete(plasmid.oracleName);
-        }
-        if (plasmid.oracleReasoning) {
-          record.oracleReasoning[plasmid.oracleName] = plasmid.oracleReasoning
-            .slice(0, 256);
-        }
         console.log(
           `🧠 [ORACLE-VOTE] ${plasmid.oracleName} ${
             plasmid.voteAye ? "AYE" : "NAY"
-          } on 0x${plasmid.proposalHash} (signature verified)`,
+          } on 0x${plasmid.proposalHash} (signature verified)${
+            outcome.switched ? " — switched sides" : ""
+          }`,
         );
       } else {
         console.warn(
@@ -1073,7 +1036,7 @@ export class Libp2pMesh {
     // used to be restated here, in the senate viewer, and in three test files —
     // and the copies had drifted (the viewer dropped the majority condition,
     // one test counted peers where the rule weighs them).
-    const verdict = senateAcceptance(record);
+    const verdict = outcome.verdict;
     if (!record.accepted && verdict.accepted) {
       record.accepted = true;
       this.acceptedTaskHashes.add(record.hash);
@@ -1245,27 +1208,24 @@ export class Libp2pMesh {
       );
     }
 
-    // Locally attribute only when authentic, so the local view matches what a
-    // remote peer would accept from this same plasmid.
-    if (oracleSig) {
-      record.oracleAyes ??= new Set();
-      record.oracleNays ??= new Set();
-      record.oracleReasoning ??= {};
-      if (aye) {
-        record.oracleAyes.add(oracleName);
-        record.oracleNays.delete(oracleName);
-      } else {
-        record.oracleNays.add(oracleName);
-        record.oracleAyes.delete(oracleName);
-      }
-      if (reasoning) {
-        record.oracleReasoning[oracleName] = reasoning.slice(0, 256);
-      }
-    }
-    // Local peer counter as well so peerConsensus path can still fire.
+    // Apply our own vote to our own ledger through the same transition a
+    // remote vote takes, so the local view matches what a peer would compute
+    // from this identical plasmid. Attribution only when we actually signed.
+    //
+    // The weight used to be MISSING here entirely: the old code added `selfId`
+    // to `record.ayes` and stopped, under the comment "so peerConsensus path
+    // can still fire". It could not fire — the peer path reads `ayesWeight`,
+    // and set membership contributes nothing to it. This node's own vote was
+    // silently weightless in its own tally while counting normally in everyone
+    // else's.
     const selfId = this.localId || "self";
-    if (aye) record.ayes.add(selfId);
-    else record.nays.add(selfId);
+    applyVote(record, {
+      voterId: selfId,
+      aye,
+      weight: senateVoteWeight({ oracleAuthentic: Boolean(oracleSig) }),
+      authenticOracle: oracleSig ? oracleName : undefined,
+      reasoning: reasoning?.slice(0, 256),
+    });
     // Broadcast.
     this.enqueuePlasmid({
       attractorAddress: 0,
@@ -1356,9 +1316,14 @@ export class Libp2pMesh {
     if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
     const record = this.senate.get(proposalHash);
     if (!record || record.accepted) return;
+    // Same correction as castOracleVote: this is a bare local peer vote, and it
+    // must carry its weight rather than only its name.
     const selfId = this.localId || "self";
-    if (aye) record.ayes.add(selfId);
-    else record.nays.add(selfId);
+    applyVote(record, {
+      voterId: selfId,
+      aye,
+      weight: senateVoteWeight({ oracleAuthentic: false }),
+    });
     this.enqueuePlasmid({
       attractorAddress: 0,
       matrix: voterMatrix,
