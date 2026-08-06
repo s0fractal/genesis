@@ -281,59 +281,56 @@ dissipation ledger books exactly that difference and the identity holds whatever
 the geometry does. The test asserts `h*w >= active` across a spread of
 populations and row widths instead, and was confirmed to go red on the floor.
 
-### Not synchronised — measured, and the cause is a unit mismatch
+### Phase dynamics — two Q10-against-raw errors, and what fixing them did
 
-The Kuramoto coupling — the mechanism this project is named after, whose kernel
-is published as the `kuramoto-coherence` crate — produces no measurable
-synchronisation. `tools/structure_probe.ts`, capacity 4096 over 3000 ticks:
+The Kuramoto coupling this project is named after produced no measurable
+synchronisation: order parameter 0.02, no domains, no drift in the trait
+selection acts on. Two unit errors, found by measuring rather than reading.
 
-```text
-order parameter, read in the agents' own phase wrap : 0.055 → 0.023
-local order / global order (domain structure)       : 1.07
-mean metabolic_efficiency of the living             : 128.4 → 128.9
-```
+**The coupling term carried a factor of 1024 too many.** `total_coupling` is
+already a Q10 mean-field quantity and `k` is Q10, but the result was divided by
+`6 * Q10_SCALE` once and added directly to a phase of 0..127. Measured with
+`base_freq` zeroed, so that coupling was the only thing moving anything: median
+displacement 8 phase units per tick, maximum 64, and **132 of 256 agents moved
+by a quarter of the phase space in a single tick**. Every tick randomised the
+lattice. One more division puts it where it belongs — a small pull toward the
+neighbourhood mean.
 
-Zero order, no domains, no drift in the trait selection acts on. Phase-gated
-conduction was supposed to produce coherent clusters; measured, it produces
-none.
+**The Nyquist clamp read `base_freq` in the wrong units.** Ignition writes it as
+Q10 (`... * BB_FREQ_Q_SCALE`); the clamp compared it against `max_phase / 2`, a
+raw phase bound. Measured at ignition: **905 distinct natural frequencies going
+in, 2 coming out — −63 and +63 — with 1024 of 1024 agents pinned to the rail.**
+Two counter-rotating groups at the aliasing limit, with no internal variation.
+The clamp whose comment reads "Nyquist" was what put every oscillator _on_ the
+Nyquist limit.
 
-**A 0.63 that is geometry, not physics.** Read through the kernel's own
-trigonometry the order parameter looks like 0.63 — but agents wrap their phase
-at `1<<q_phase = 128` while `SINE_LUT` spans 256, so the population is confined
-to half the trigonometric circle, and a UNIFORM distribution there already reads
-as 2/π ≈ 0.637 with no synchronisation whatever. The probe reports both readings
-for exactly this reason.
-
-That half-circle is a real inconsistency — `PhaseTopology::new` still asserts
-`q_phase ∈ [2,7]` "for the 128-element SINE_LUT" while the physics indexes the
-256-element one, so the table was widened and the wrap was not. But it is
-**not** the cause: mapping the phase resolution onto the full circle was tried
-and moved the order parameter from 0.045 to 0.042. A negative result worth
-keeping.
-
-**The cause is that natural frequency is assigned in Q10 and clamped in raw
-phase units.** Ignition sets
-`base_freq = (rng % BB_FREQ_RANGE - BB_FREQ_OFFSET) * BB_FREQ_Q_SCALE`, spanning
-±2,048,000. `tick_physics` then clamps it against `max_phase / 2 = 63` — a bound
-in raw phase units, against a value in Q10. Measured at ignition:
+Measured after both, capacity 4096 over 3000 ticks:
 
 ```text
-905 distinct natural frequencies, range ±2,048,000
-after the Nyquist clamp: 2 distinct values, -63 and +63
-pinned to the rail: 1024 / 1024
+order parameter   0.055 → 0.413
+population        1024  → 4096   (carrying capacity; was 1024 → 1054)
+mean efficiency   128.4 → 131.0  (was 128.4 → 128.9)
 ```
 
-Every agent rotates at exactly ±63 phase units per tick in a space of 128 — half
-the circle per tick, maximal aliasing — split into two counter-rotating groups
-with no internal variation at all. Coupling cannot synchronise that, and the
-clamp whose comment says "Nyquist" is what puts every oscillator on the Nyquist
-limit.
+The world synchronises, fills its habitat, and the trait selection acts on
+actually moves.
 
-Fixing it means deciding where the Q10 boundary sits: divide `base_freq` by
-`Q_SCALE` in the drift, or clamp in Q10 and keep the units through. Either
-changes every agent's trajectory, so it changes the era, every golden trace and
-the law hash — which is why it is recorded here with its measurement rather than
-taken quietly.
+**A refuted hypothesis, kept.** The first suspect was the phase space: agents
+wrap at `1<<q_phase = 128` while `SINE_LUT` spans 256, so the population lives
+on half the trigonometric circle — where a _uniform_ distribution already reads
+as 2/π ≈ 0.637 and looks like order. That inconsistency is real, and
+`PhaseTopology::new` still asserts `q_phase ∈ [2,7]` "for the 128-element
+SINE_LUT" while the physics indexes the 256-element one. But mapping the
+resolution onto the full circle moved the order parameter from 0.045 to 0.042.
+It was not the cause, no law was changed on the strength of it, and
+`structure_probe.ts` reports both readings so that 0.63 is never again mistaken
+for synchronisation.
+
+**Still open here:** the lattice reaches a fixed point around tick 800 — order,
+local order and mean efficiency stop changing to the digit while the population
+sits at capacity. Saturation is a real ecological outcome, but a world that
+stops moving entirely is the crystal failure in a new costume, and nothing yet
+distinguishes "converged" from "stuck".
 
 ### Not conserved yet — known, named, open
 

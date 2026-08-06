@@ -9,6 +9,15 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 962 — Coherent. Era 961 lit the sun and closed the books, and its Kuramoto
+/// coupling still did nothing: measured order parameter 0.02, no domains, no
+/// drift in the selected trait. Two unit errors, both Q10-against-raw. The
+/// coupling term carried a factor of 1024 too many and displaced agents by a
+/// quarter of the phase space per tick; the Nyquist clamp read `base_freq` —
+/// stored in Q10 since ignition — against a raw phase bound, collapsing 905
+/// distinct natural frequencies to exactly two. Corrected, order reaches 0.41,
+/// the population fills its carrying capacity, and the selected trait moves.
+///
 /// 961 — Photosynthetic. Era 960 was a closed world: it burned down from any
 /// starting state and could never reproduce. This era's laws opened it (the sun
 /// pays), gated conduction by phase coherence, bounded predation by what the
@@ -19,7 +28,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 961; // 961 Photosynthetic
+pub const ERA_ID: u32 = 962; // 962 Coherent
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -103,13 +112,15 @@ pub fn canonical_law_hash() -> u32 {
 /// and forces a conscious bump — kept in lockstep with the deno mirror
 /// `omega/src/shared/law_hash.ts` (`OMEGA_LAW_HASH`).
 ///
-/// Moved from 0x30A95260 (Era 960) on 2026-08-06. That value was published to
+/// Moved again to Era 962 on 2026-08-07 when two Q10-against-raw unit errors
+/// in the phase dynamics were corrected — see ERA_ID. Moved from 0x30A95260
+/// (Era 960) on 2026-08-06. That value was published to
 /// the federation and cross-witnessed by trinity`s Substrate Court while seven
 /// changes to the physical operator had already landed underneath it — the
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0xA43F_38A1;
+pub const CANONICAL_LAW_HASH: u32 = 0x6EBC_304A;
 
 #[cfg(test)]
 mod tests {

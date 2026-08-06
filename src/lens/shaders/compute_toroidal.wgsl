@@ -251,7 +251,14 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Exact match of Rust i64 path: (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE
         // (HEBBIAN_DEFAULT_WEIGHT factors cancel out, leaving single division)
         let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE;
-        let coupling = (total_coupling * k) / (6i * Q10_SCALE);
+// One more Q10 division than this had. `total_coupling` is already a
+        // Q10 mean-field term and `k` is Q10, so the old form left a factor of
+        // 1024 in a value added directly to a phase of 0..127. Measured with
+        // base_freq zeroed: the coupling alone displaced 132 of 256 agents by a
+        // quarter of the phase space per tick, so every tick randomised the
+        // lattice and the order parameter sat at 0.02. Correctly scaled it is a
+        // small pull toward the neighbourhood mean, and order reaches 0.41.
+        let coupling = (total_coupling * k) / (6i * Q10_SCALE * Q10_SCALE);
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
@@ -387,8 +394,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             attractor_drift = attractor_drift + (sin_val * i32(a.pulse_amp)) / 1024;
         }
         // Adaptive Time-Stepping: Nyquist clamping for base_freq (matches Rust lattice.rs line 438-440)
-        let max_freq = i32(max_phase_mask / 2u);
-        let clamped_base_freq = clamp(agent.base_freq, -max_freq, max_freq);
+        // Nyquist in the units base_freq is STORED in. Ignition writes it as
+        // Q10; this clamped it against a raw phase bound, so 905 distinct
+        // natural frequencies collapsed to exactly two, -63 and +63, with every
+        // agent pinned to the rail.
+        let max_freq_q10 = i32(max_phase_mask / 2u) * Q10_SCALE;
+        let clamped_base_freq =
+            clamp(agent.base_freq, -max_freq_q10, max_freq_q10) / Q10_SCALE;
         let drift = (clamped_base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 

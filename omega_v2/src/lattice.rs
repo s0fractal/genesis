@@ -710,7 +710,7 @@ impl PhaseLattice {
                         - sum_cos as i64 * agent_sin as i64)
                         / (q10_scale as i64 * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i64))
                         as i32;
-                    let coupling = (total_coupling * k) / (6 * q10_scale);
+                    let coupling = (total_coupling * k) / (6 * q10_scale * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
@@ -890,8 +890,23 @@ impl PhaseLattice {
 
                     // Phase drift: base_freq + coupling + attractor field, accelerated by time dilation
                     // Adaptive Time-Stepping: Nyquist clamping for base_freq
-                    let max_freq = (max_phase / 2) as i32;
-                    let clamped_base_freq = agent.base_freq.clamp(-max_freq, max_freq);
+                    // Nyquist, in the units base_freq is actually stored in.
+                    //
+                    // `base_freq` is Q10 — ignition writes
+                    // `(rng % BB_FREQ_RANGE - BB_FREQ_OFFSET) * BB_FREQ_Q_SCALE`
+                    // — while this clamp was `max_phase / 2`, a bound in RAW
+                    // phase units. Measured consequence: 905 distinct natural
+                    // frequencies went in and 2 came out, -63 and +63, with
+                    // 1024 of 1024 agents pinned to the rail. Every oscillator
+                    // rotated half the phase space per tick in two
+                    // counter-rotating groups, so the Kuramoto coupling had
+                    // nothing to synchronise and the order parameter sat at
+                    // 0.02 — the clamp whose comment says "Nyquist" was what
+                    // put every oscillator ON the Nyquist limit.
+                    let max_freq_q10 = (max_phase / 2) as i32 * crate::constants::MATH_Q_SCALE;
+                    let clamped_base_freq =
+                        agent.base_freq.clamp(-max_freq_q10, max_freq_q10)
+                            / crate::constants::MATH_Q_SCALE;
                     let drift = (clamped_base_freq + coupling + attractor_drift)
                         * (time_dilation_multiplier as i32);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
@@ -2170,7 +2185,11 @@ mod tests {
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.signals.active_agent_count = 1;
         agents[0].phase = 100;
-        agents[0].base_freq = 10;
+        // base_freq is Q10 — 1024 is one phase unit per tick. It always was:
+        // ignition writes `(...) * BB_FREQ_Q_SCALE`. What changed is that the
+        // Nyquist clamp now reads it in those units instead of raw ones, so a
+        // bare `10` is 10/1024 of a phase unit and correctly moves nothing.
+        agents[0].base_freq = 10 * crate::constants::MATH_Q_SCALE;
         agents[0].energy = 1000;
         let before = agents[0].phase;
         lattice.tick_physics();
@@ -2186,47 +2205,58 @@ mod tests {
 
     #[test]
     fn test_tick_physics_kuramoto_coupling() {
-        let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(3);
-        lattice.minimal_agents_ptr = agents.as_mut_ptr();
-        lattice.signals.active_agent_count = 3;
-        // Agent 0 at phase 0, agent 1 at phase 32 (sin(32) ≈ 707 Q10), agent 2 dead
-        agents[0].phase = 0;
-        agents[0].energy = 1000;
-        agents[0].base_freq = 0;
-        agents[0].memory[1] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
-        agents[0].memory[2] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
-        agents[1].phase = 32;
-        agents[1].energy = 1000;
-        agents[1].base_freq = 0;
-        agents[1].memory[1] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
-        agents[1].memory[2] = crate::constants::HEBBIAN_DEFAULT_WEIGHT as u32;
-        agents[2].energy = 0; // dead
+        // Kuramoto's actual claim is that a coupled population CONVERGES, so
+        // that is what this asserts. It used to assert "agent 0's phase changed
+        // after one tick", which passed only because the coupling term carried
+        // an extra factor of 1024 and displaced agents by a quarter of the
+        // phase space every tick — the very pathology that kept the order
+        // parameter at 0.02. Correctly scaled, coupling is a small pull toward
+        // the neighbourhood mean: two agents in a three-slot lattice produce a
+        // sub-unit mean field that truncates to nothing, and rightly so.
+        const N: usize = 256;
+        let (mut lattice, mut agents, mut snapshot, _deltas) = make_lattice_with_q_phase(N, 7);
+        lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
+        lattice.signals.active_agent_count = N as u32;
+        lattice.signals.max_cells = N as u32;
 
-        let phase_before_0 = agents[0].phase;
-        let phase_before_1 = agents[1].phase;
+        // Ignite rather than hand-seed: the Big Bang gives agents genomes, and
+        // genome drives both the coupling gain (p_radius) and the metabolism.
+        // A lattice of identical zero genomes is a degenerate fixture that sits
+        // at a fixed point and would make this assertion untestable rather than
+        // false.
+        lattice.ignite_big_bang(0x51ED_2701, N as u32);
+        let active = lattice.signals.active_agent_count as usize;
+        for a in agents.iter_mut().take(active) {
+            a.base_freq = 0; // isolate coupling from natural frequency
+        }
 
-        lattice.tick_physics();
+        // Order parameter |mean(e^{iθ})|, in the agents' own 128-unit wrap.
+        let order = |ags: &[PhaseAgentMinimal]| -> f64 {
+            let (mut c, mut s, mut k) = (0.0f64, 0.0f64, 0.0f64);
+            for a in ags.iter().take(active) {
+                if a.energy == 0 || a.state_flags & 0x01 != 0 {
+                    continue;
+                }
+                let th = (a.phase as f64 / 128.0) * core::f64::consts::TAU;
+                c += th.cos();
+                s += th.sin();
+                k += 1.0;
+            }
+            if k == 0.0 { 0.0 } else { ((c / k).powi(2) + (s / k).powi(2)).sqrt() }
+        };
 
-        // With coupling, both agents should shift (coupling for phase 32 is not a multiple of 128)
-        assert_ne!(
-            agents[0].phase, phase_before_0,
-            "Agent 0 phase should change due to coupling"
-        );
-        assert_ne!(
-            agents[1].phase, phase_before_1,
-            "Agent 1 phase should change due to coupling"
-        );
+        let before = order(&agents);
+        // Convergence is gradual by design now; 400 ticks is not enough to
+        // clear the noise floor, and asserting on a horizon shorter than the
+        // process would just be a slow way of testing nothing.
+        for _ in 0..2500 {
+            lattice.tick_physics();
+        }
+        let after = order(&agents);
 
-        // The two agents must shift in opposite modular directions
-        // (one's coupling is positive, the other's negative).
-        let mask = lattice.topology.phase_mask() as i32 + 1;
-        let delta_0 = (agents[0].phase as i32 - phase_before_0 as i32).rem_euclid(mask);
-        let delta_1 = (agents[1].phase as i32 - phase_before_1 as i32).rem_euclid(mask);
-        // With alpha=64, the phase lag alters the symmetry of the coupling.
-        // As long as they both drifted deterministically, the test passes.
         assert!(
-            delta_0 != 0 || delta_1 != 0,
-            "Agents should shift due to coupling"
+            after > before + 0.1,
+            "a coupled population must converge: order {before:.3} -> {after:.3}"
         );
     }
 

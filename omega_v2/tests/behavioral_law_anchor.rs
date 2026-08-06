@@ -57,8 +57,13 @@ fn behavioural_anchor() -> u32 {
     sha256_u32(bytes)
 }
 
-/// Golden: the observed behaviour of Era 961.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xB8A3_A2B4;
+/// Golden: the observed behaviour of Era 962.
+///
+/// Moved from 0xB8A3A2B4 when the two Q10-against-raw unit errors in the phase
+/// dynamics were corrected. This is the anchor doing its job: neither error
+/// touched a constant, so the DECLARED law hash would not have moved on its own
+/// — this file is what forced the era bump.
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x5388_9649;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {
