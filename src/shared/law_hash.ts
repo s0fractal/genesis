@@ -27,7 +27,7 @@ import {
 
 /** Version anchor for the mathematical laws (mirrors `ERA_ID` in law_hash.rs;
  *  not part of the generated constant set). */
-export const ERA_ID = 964;
+export const ERA_ID = 965;
 
 /** The canonical operating topology — the exact `PhaseTopology` the static
  *  `OMEGA_LATTICE` in lib.rs is built with. Mirrored here (6 ints) and guarded
@@ -92,4 +92,4 @@ export function lawHashHex(value: number): string {
 
 /** Golden value of [`computeLawHash`] — pinned in lockstep with Rust
  *  `CANONICAL_LAW_HASH` (omega_v2/src/law_hash.rs). */
-export const OMEGA_LAW_HASH = 0x6cbd0eae;
+export const OMEGA_LAW_HASH = 0x193a0c73;

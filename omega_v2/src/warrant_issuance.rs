@@ -636,7 +636,9 @@ mod tests {
             ACTION_MUTATE,
             issued.issued_warrant,
             issued.aye_bits,
-            0, u32::MAX, &mut settings
+            0,
+            u32::MAX,
+            &mut settings
         ));
     }
 

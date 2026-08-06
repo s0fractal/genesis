@@ -524,10 +524,8 @@ impl PhaseLattice {
             // test instead; see `the_reaper_books_dissipation_but_never_a_mint`.
             if prev_system_energy > total_system_energy {
                 let dissipated = prev_system_energy - total_system_energy;
-                self.signals.total_entropy_released = self
-                    .signals
-                    .total_entropy_released
-                    .wrapping_add(dissipated);
+                self.signals.total_entropy_released =
+                    self.signals.total_entropy_released.wrapping_add(dissipated);
             }
 
             self.signals.total_energy = total_system_energy as u32;
@@ -682,8 +680,32 @@ impl PhaseLattice {
                     let mut sum_cos = 0i32;
                     let mut sum_sin = 0i32;
                     let default_weight = crate::constants::HEBBIAN_DEFAULT_WEIGHT;
+                    // THE SYNAPSES ARE CONNECTED TO SOMETHING NOW.
+                    //
+                    // This sum used to multiply every neighbour by the CONSTANT
+                    // `default_weight`, and the normalisation below divided by
+                    // that same constant — so the two cancelled exactly and the
+                    // learned weights, computed and clamped and stored every
+                    // tick since the file was written, reached nothing. Four
+                    // eras of a learning rule writing to a location no term
+                    // read. The comment above this block claimed the coupling
+                    // was modulated by them.
+                    //
+                    // An agent has two synapses, `weight_left` and
+                    // `weight_right`, learned against the neighbours at
+                    // n_indices[3] and [4] — the same two the Hebbian update
+                    // uses. The other six are ambient field and carry the
+                    // default. Normalising by the weights ACTUALLY USED, rather
+                    // than by the constant, is what keeps this from becoming the
+                    // Era-962 blowup again: strong synapses change WHOM an agent
+                    // listens to, not how hard it is pulled. A patch that agrees
+                    // amplifies its own members and discounts the outside, which
+                    // is the only mechanism in this kernel by which a boundary
+                    // could exist at all.
+                    let mut total_weight = 0i32;
+                    let mut coupled_neighbours = 0i32;
 
-                    for &n_idx in &n_indices {
+                    for (slot, &n_idx) in n_indices.iter().enumerate() {
                         if n_idx < active {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
@@ -693,11 +715,36 @@ impl PhaseLattice {
                                 // Topological Parallax Lens: Z-axis distance twists the phase interaction
                                 let n_phase = n.phase.wrapping_add(d_ortho * 4) & max_phase;
 
-                                sum_cos += crate::math::cos_q10(0, n_phase) * default_weight;
-                                sum_sin += crate::math::sin_q10(0, n_phase) * default_weight;
+                                let synapse = match slot {
+                                    3 => weight_left,
+                                    4 => weight_right,
+                                    _ => default_weight,
+                                };
+                                total_weight += synapse;
+                                coupled_neighbours += 1;
+
+                                sum_cos += crate::math::cos_q10(0, n_phase) * synapse;
+                                sum_sin += crate::math::sin_q10(0, n_phase) * synapse;
                             }
                         }
                     }
+                    // Mean weight over the neighbours that contributed. With
+                    // every synapse at default this is exactly `default_weight`
+                    // and the arithmetic below is bit-identical to the old form.
+                    let mean_weight = (total_weight / coupled_neighbours.max(1)).max(1);
+                    // NORMALISE BEFORE PROJECTING, and not for elegance.
+                    //
+                    // Weighting the sum multiplied its range by four (a synapse
+                    // reaches HEBBIAN_MAX_WEIGHT = 4096 against a default of
+                    // 1024), so the old order of operations — cross product
+                    // first, divide last — reaches 8 * 1024 * 4096 * 1024 ≈
+                    // 3.4e10 in the numerator. That is fine in the i64 the Rust
+                    // path happens to use and OVERFLOWS the i32 the shader has,
+                    // which would have been a silent divergence between
+                    // substrates in the one term the whole federation compares.
+                    // Dividing first puts both back under 8.4e6.
+                    let norm_cos = sum_cos / mean_weight;
+                    let norm_sin = sum_sin / mean_weight;
 
                     // Agent's own phase components shifted by Sakaguchi-Kuramoto alpha
                     let phase_with_lag =
@@ -706,10 +753,9 @@ impl PhaseLattice {
                     let agent_sin = crate::math::sin_q10(0, phase_with_lag);
 
                     // Wave Interference: sin(Ψ - θ - α) = sin(Ψ)cos(θ+α) - cos(Ψ)sin(θ+α)
-                    let total_coupling = ((sum_sin as i64 * agent_cos as i64
-                        - sum_cos as i64 * agent_sin as i64)
-                        / (q10_scale as i64 * crate::constants::HEBBIAN_DEFAULT_WEIGHT as i64))
-                        as i32;
+                    let total_coupling = ((norm_sin as i64 * agent_cos as i64
+                        - norm_cos as i64 * agent_sin as i64)
+                        / q10_scale as i64) as i32;
                     let coupling = (total_coupling * k) / (6 * q10_scale * q10_scale);
 
                     // Metabolic burn: decoded from phenotype
@@ -741,8 +787,7 @@ impl PhaseLattice {
                     // neutral-pressure burn exactly where it was. What changes is
                     // that burn is now flat across the day while income
                     // oscillates, so agents charge by day and spend by night.
-                    let base_burn =
-                        ((base_burn_raw * metabolic_pressure) / 1024).max(1) as u32;
+                    let base_burn = ((base_burn_raw * metabolic_pressure) / 1024).max(1) as u32;
 
                     // Resilience flat reduction
                     let resilience_reduction = phenotype.resilience as u32 / 128; // 0 or 1
@@ -765,8 +810,7 @@ impl PhaseLattice {
                     let solar = ((crate::constants::SOLAR_YIELD_Q10 as u64
                         * sun_multiplier.max(0) as u64)
                         / (1024 * 1024)) as u32;
-                    solar_input_this_tick =
-                        solar_input_this_tick.wrapping_add(solar as u64);
+                    solar_input_this_tick = solar_input_this_tick.wrapping_add(solar as u64);
 
                     let mut energy_delta = solar as i32 - (burn as i32);
                     let mut energy_diffusion = 0i32;
@@ -820,8 +864,9 @@ impl PhaseLattice {
                                 // odd-symmetric, so the pairwise transfer stays
                                 // antisymmetric and no ATP is created.
                                 let coherence = crate::math::cos_q10(n.phase, agent.phase).max(0);
-                                energy_diffusion +=
-                                    ((n.energy as i32 - agent.energy as i32) / 8) * coherence / 1024;
+                                energy_diffusion += ((n.energy as i32 - agent.energy as i32) / 8)
+                                    * coherence
+                                    / 1024;
                             }
                         }
                     }
@@ -985,9 +1030,8 @@ impl PhaseLattice {
                     // 0.02 — the clamp whose comment says "Nyquist" was what
                     // put every oscillator ON the Nyquist limit.
                     let max_freq_q10 = (max_phase / 2) as i32 * crate::constants::MATH_Q_SCALE;
-                    let clamped_base_freq =
-                        agent.base_freq.clamp(-max_freq_q10, max_freq_q10)
-                            / crate::constants::MATH_Q_SCALE;
+                    let clamped_base_freq = agent.base_freq.clamp(-max_freq_q10, max_freq_q10)
+                        / crate::constants::MATH_Q_SCALE;
                     // Structure does not drift. Gated here rather than by
                     // zeroing `base_freq`, so that dissolving back to motile
                     // restores the agent's own frequency instead of leaving it
@@ -1062,10 +1106,8 @@ impl PhaseLattice {
         let available = prev_system_energy.wrapping_add(solar_input_this_tick);
         if available > total_system_energy {
             let dissipated = available - total_system_energy;
-            self.signals.total_entropy_released = self
-                .signals
-                .total_entropy_released
-                .wrapping_add(dissipated);
+            self.signals.total_entropy_released =
+                self.signals.total_entropy_released.wrapping_add(dissipated);
         }
         self.signals.total_solar_input = self
             .signals
@@ -1582,7 +1624,10 @@ mod tests {
             lattice.signals.active_agent_count, 4,
             "the population grew into the empty part of the lattice"
         );
-        assert!(agents[2].energy > 0 && agents[3].energy > 0, "children live");
+        assert!(
+            agents[2].energy > 0 && agents[3].energy > 0,
+            "children live"
+        );
     }
 
     #[test]
@@ -1954,7 +1999,10 @@ mod tests {
         // fraction and leaves the rest empty, because mitosis needs somewhere to
         // put a child — a universe that starts full can never grow, and once the
         // sun made starvation rare it could never reproduce either.
-        assert_eq!(lattice.signals.max_cells, 50, "capacity is what was asked for");
+        assert_eq!(
+            lattice.signals.max_cells, 50,
+            "capacity is what was asked for"
+        );
         assert_eq!(
             lattice.signals.active_agent_count,
             50 * crate::constants::BIG_BANG_SEED_DENSITY_Q10 / 1024,
@@ -2252,12 +2300,12 @@ mod tests {
         agents[0].phase = 1; // avoid resonance bonus (1 % 64 != 0)
         agents[0].base_freq = 0;
         agents[0].genome = 128; // phenotypic efficiency 128 = base burn
-        // MIDNIGHT. This world is open now — photosynthesis pays every living
-        // agent `SOLAR_YIELD_Q10 * sun_multiplier`, and at the default
-        // causal_ticks of 0 the sun sits at neutral, so a low-burn agent GAINS
-        // and there is no decay to observe. Decay is a nocturnal fact here.
-        // day_phase = causal_ticks / 4, and sin_q10(0, 192) = -1024, so
-        // sun_multiplier = 1024 - 1024 = 0: no income, pure metabolism.
+                                // MIDNIGHT. This world is open now — photosynthesis pays every living
+                                // agent `SOLAR_YIELD_Q10 * sun_multiplier`, and at the default
+                                // causal_ticks of 0 the sun sits at neutral, so a low-burn agent GAINS
+                                // and there is no decay to observe. Decay is a nocturnal fact here.
+                                // day_phase = causal_ticks / 4, and sin_q10(0, 192) = -1024, so
+                                // sun_multiplier = 1024 - 1024 = 0: no income, pure metabolism.
         lattice.signals.proper_time.causal_ticks = 768;
         let before = agents[0].energy;
         lattice.tick_physics();
@@ -2331,7 +2379,11 @@ mod tests {
                 s += th.sin();
                 k += 1.0;
             }
-            if k == 0.0 { 0.0 } else { ((c / k).powi(2) + (s / k).powi(2)).sqrt() }
+            if k == 0.0 {
+                0.0
+            } else {
+                ((c / k).powi(2) + (s / k).powi(2)).sqrt()
+            }
         };
 
         let before = order(&agents);

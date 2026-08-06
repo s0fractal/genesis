@@ -318,13 +318,7 @@ pub fn is_action_lawful(
     // Senate issued, the recomputed hash will not match what they hold. That is
     // the whole mechanism — see the module header on what it does and does not
     // prove.
-    let expected = warrant_hash(
-        agent.genome,
-        action_code,
-        qh,
-        reason_hash,
-        expires_at_tick,
-    );
+    let expected = warrant_hash(agent.genome, action_code, qh, reason_hash, expires_at_tick);
     expected == presented_warrant
 }
 
@@ -462,7 +456,9 @@ mod tests {
             ACTION_TERMINATE,
             0,
             0,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 
@@ -480,7 +476,9 @@ mod tests {
             ACTION_TERMINATE,
             0,
             0,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 
@@ -501,7 +499,9 @@ mod tests {
             ACTION_TERMINATE,
             w,
             aye,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 
@@ -524,7 +524,9 @@ mod tests {
             ACTION_TERMINATE,
             w3,
             aye3,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
         // 4 AYEs should suffice.
         let aye4 = 0b01111;
@@ -540,7 +542,9 @@ mod tests {
             ACTION_TERMINATE,
             w4,
             aye4,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 
@@ -562,7 +566,9 @@ mod tests {
             ACTION_TERMINATE,
             w_mutate,
             aye,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 
@@ -584,7 +590,9 @@ mod tests {
             ACTION_TERMINATE,
             w_other,
             aye,
-            0, u32::MAX, &settings
+            0,
+            u32::MAX,
+            &settings
         ));
     }
 

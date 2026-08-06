@@ -129,7 +129,10 @@ fn the_books_close_as_an_open_system() {
             "energy vanished unbooked: {before} held + {solar} solar - {after} \
              held = {spent} spent, {released} booked"
         );
-        assert!(solar > 0, "the sun paid nothing — the world is closed again");
+        assert!(
+            solar > 0,
+            "the sun paid nothing — the world is closed again"
+        );
     }
 }
 
@@ -179,14 +182,23 @@ fn the_gate_is_actually_looking_at_something() {
         omega_v2::v2_ignite_big_bang(SEED, 2048);
 
         let before = omega_v2::v2_calculate_state_hash();
-        let entropy_before = omega_v2::OMEGA_LATTICE.lock().signals.total_entropy_released;
+        let entropy_before = omega_v2::OMEGA_LATTICE
+            .lock()
+            .signals
+            .total_entropy_released;
         for _ in 0..50 {
             omega_v2::v2_tick();
         }
         let after = omega_v2::v2_calculate_state_hash();
-        let entropy_after = omega_v2::OMEGA_LATTICE.lock().signals.total_entropy_released;
+        let entropy_after = omega_v2::OMEGA_LATTICE
+            .lock()
+            .signals
+            .total_entropy_released;
 
-        assert_ne!(before, after, "50 ticks changed nothing — the world is frozen");
+        assert_ne!(
+            before, after,
+            "50 ticks changed nothing — the world is frozen"
+        );
         assert!(
             entropy_after > entropy_before,
             "50 ticks dissipated nothing — metabolism is not running"

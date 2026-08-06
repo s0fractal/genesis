@@ -434,6 +434,61 @@ What did change is real but smaller than the story: the fraction wanders
 irregularly in 0–61% instead of square-waving 22 ↔ 96, and the physics no longer
 contains a global broadcast. Neither law makes organs.
 
+### Era 965 — the synapses were never connected
+
+`tick_physics` read two learned weights out of `memory[1]`/`memory[2]`, updated
+them by a Hebbian rule against the left and right neighbours' coherence, clamped
+them, raised them to `HEBBIAN_MAX_WEIGHT` on crystallisation, and wrote them
+back. Above the mean-field sum, a comment: _"Kuramoto coupling modulated by
+Hebbian weights."_
+
+It was not. The sum multiplied every neighbour by the **constant**
+`HEBBIAN_DEFAULT_WEIGHT`, and the normalisation three lines down divided by that
+same constant, so the two cancelled exactly. The shader had gone further and
+cancelled them algebraically, with a comment noting they cancel — the clearest
+possible statement of the defect, sitting in the code for four eras. A learning
+rule ran every tick on every agent and wrote to a location nothing read.
+`HEBBIAN_MAX_WEIGHT` sat in the law-hash preimage and under the shader's
+constant lock the whole time, guarding a drift that could not have mattered.
+
+Each neighbour now carries the synapse the agent learned for it, and the
+normalisation is the mean of the weights actually used — so a strong synapse
+changes **whom** an agent listens to, not how hard it is pulled. Normalising by
+the constant instead would have reintroduced the Era-962 blowup, where a
+mis-scaled coupling displaced agents by a quarter of the phase space per tick.
+
+`omega_v2/tests/hebbian_is_load_bearing.rs` asserts the property rather than the
+mechanism: two worlds identical except for their stored weights must not compute
+the same phases. Written against the broken kernel first, where the two
+trajectories came out bit-identical.
+
+_And it did not produce domains either._ Local-over-global order 1.093 → 1.092
+over 1204 samples. Three attempts now — a local threshold, reversible tissue,
+live synapses — and that ratio has not moved off 1. Shipped anyway, because a
+dead term claiming to be live is a defect on its own terms.
+
+**The structural limit worth naming:** an agent has synapses only along x, two
+of its eight neighbours, because it has three memory words and cannot store
+more. That asymmetry is a property of the data structure, not a modelling
+choice, and any real account of domains probably has to start by changing it.
+
+### The parity harness could report a build as a divergence
+
+While landing the above, `tests/wgsl_golden_trace_test.ts` reported six failures
+across substrates. There was no divergence: `cargo test` builds its own binary
+and passed, the `.wasm` was never rebuilt, and the harness compared an Era-964
+kernel against an Era-965 shader. Three bisection experiments went into chasing
+it.
+
+The harness reads the shader from **source** and the kernel from a **built
+artifact**, and had every byte it needed to notice. It now refuses to run when
+the wasm is older than `lattice.rs`, `constants.rs`, `math.rs` or `topology.rs`
+— as a test of its own, not a check inside the GPU-init path, where the failure
+was swallowed and downgraded to a skip.
+
+A test that can be red for reasons unrelated to its subject is worse than no
+test, because it is believed.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

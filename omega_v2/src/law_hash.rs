@@ -9,6 +9,26 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 965 — Synaptic. The Hebbian weights reach the physics for the first time.
+/// `tick_physics` read two learned weights out of memory, updated them against
+/// the left and right neighbours' coherence, clamped them, raised them to
+/// HEBBIAN_MAX_WEIGHT on crystallisation and wrote them back — and the mean-field
+/// sum multiplied every neighbour by the CONSTANT HEBBIAN_DEFAULT_WEIGHT, which
+/// the normalisation three lines down divided out again. Four eras of a learning
+/// rule writing to a location no term read, under a comment claiming the coupling
+/// was modulated by it, with HEBBIAN_MAX_WEIGHT sitting in this preimage and in
+/// the shader's constant lock guarding a drift that could not have mattered.
+/// Each neighbour now carries its synapse and the normalisation is the mean of
+/// the weights actually used, so strong synapses redirect attention rather than
+/// amplifying the pull.
+///
+/// It did NOT produce domains either: local-over-global order 1.093 -> 1.092
+/// across 1204 samples. Shipped because a dead term that claims to be live is a
+/// defect on its own, and `tests/hebbian_is_load_bearing.rs` now fails if it is
+/// ever severed again. An agent has synapses only along x — two of eight
+/// neighbours — because it has three memory words and cannot store more; that
+/// asymmetry is a property of the data structure, not a choice.
+///
 /// 964 — Local. Era 963 made crystallisation relative to the population's own
 /// p90, which stopped the latch but handed every agent the SAME number to read:
 /// the lattice crystallised and dissolved as one body, 22% <-> 96% in phase.
@@ -55,7 +75,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 964; // 964 Local
+pub const ERA_ID: u32 = 965; // 965 Synaptic
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -147,7 +167,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x6CBD_0EAE;
+pub const CANONICAL_LAW_HASH: u32 = 0x193A_0C73;
 
 #[cfg(test)]
 mod tests {

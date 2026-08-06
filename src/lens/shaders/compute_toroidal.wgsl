@@ -222,10 +222,24 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Photonic Substrate Readiness (DFT Mean-Field Approximation)
         // NOTE: No active_count guard — Rust has none either. Must iterate all 8 neighbors unconditionally.
         // NOTE: We accumulate WITHOUT * HEBBIAN_DEFAULT_WEIGHT to avoid dual-truncation divergence from Rust's i64 path.
-        // Rust: sum * HEBBIAN_DEFAULT_WEIGHT → divide by (Q10_SCALE * HEBBIAN_DEFAULT_WEIGHT) = identical to sum / Q10_SCALE.
-        // Max accumulator = 8 * 1024 = 8192. Product with agent_cos ≤ 8192 * 1024 = 8_388_608 < i32_max. ✓
+        // WEIGHTED BY THE SYNAPSES — mirrors PhaseLattice::tick_physics.
+        //
+        // This used to sum unweighted and divide by Q10_SCALE alone, with the
+        // comment noting that the HEBBIAN_DEFAULT_WEIGHT factors cancel. They
+        // did, on both substrates, which is exactly the defect: the learned
+        // weights multiplied in and divided straight back out, so the Hebbian
+        // rule ran every tick and changed nothing. Each neighbour now carries
+        // the synapse the agent learned for it — slots 3 and 4 are the left and
+        // right the update rule trains against, the rest are ambient field —
+        // and the normalisation is the mean of the weights actually used, so
+        // strong synapses redirect attention rather than amplifying the pull.
+        //
+        // Max accumulator = 8 * 1024 * 4096 = 33_554_432; product with agent_cos
+        // is taken after the division below, as in the Rust i64 path.
         var sum_cos: i32 = 0i;
         var sum_sin: i32 = 0i;
+        var total_weight: i32 = 0i;
+        var coupled_neighbours: i32 = 0i;
 
         for (var i = 0u; i < 8u; i = i + 1u) {
             let n_idx = n_indices[i];
@@ -237,8 +251,15 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                     if (ortho_agent > n_ortho) { d_ortho = ortho_agent - n_ortho; } else { d_ortho = n_ortho - ortho_agent; }
                     let n_phase = (n.phase + d_ortho * 4u) & max_phase_mask;
 
-                    sum_cos += cos_q10(0u, n_phase);
-                    sum_sin += sin_q10(0u, n_phase);
+                    var synapse: i32 = HEBBIAN_DEFAULT_WEIGHT;
+                    if (i == 3u) { synapse = weight_left; }
+                    if (i == 4u) { synapse = weight_right; }
+
+                    total_weight += synapse;
+                    coupled_neighbours += 1i;
+
+                    sum_cos += cos_q10(0u, n_phase) * synapse;
+                    sum_sin += sin_q10(0u, n_phase) * synapse;
                 }
             }
         }
@@ -248,9 +269,19 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let agent_cos = cos_q10(0u, agent_phase_shifted);
         let agent_sin = sin_q10(0u, agent_phase_shifted);
         
-        // Exact match of Rust i64 path: (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE
-        // (HEBBIAN_DEFAULT_WEIGHT factors cancel out, leaving single division)
-        let total_coupling = (sum_sin * agent_cos - sum_cos * agent_sin) / Q10_SCALE;
+        // Exact match of the Rust i64 path:
+        //   (sum_sin * agent_cos - sum_cos * agent_sin) / (Q10_SCALE * mean_weight)
+        // With every synapse at the default, mean_weight == HEBBIAN_DEFAULT_WEIGHT
+        // and this is bit-identical to the form it replaces.
+        var mean_weight: i32 = total_weight / max(coupled_neighbours, 1i);
+        mean_weight = max(mean_weight, 1i);
+        // Divide BEFORE the cross product. Weighting raised the sums by 4x, so
+        // projecting first would reach ~3.4e10 — fine in the Rust i64 path and
+        // an overflow here, i.e. a silent substrate divergence in the exact term
+        // the federation cross-witnesses.
+        let norm_cos = sum_cos / mean_weight;
+        let norm_sin = sum_sin / mean_weight;
+        let total_coupling = (norm_sin * agent_cos - norm_cos * agent_sin) / Q10_SCALE;
 // One more Q10 division than this had. `total_coupling` is already a
         // Q10 mean-field term and `k` is Q10, so the old form left a factor of
         // 1024 in a value added directly to a phase of 0..127. Measured with

@@ -105,7 +105,9 @@ fn main() {
         ACTION_TERMINATE,
         w,
         0b00111,
-        0, u32::MAX, &settings,
+        0,
+        u32::MAX,
+        &settings,
     );
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;

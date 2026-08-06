@@ -67,9 +67,7 @@ fn behavioural_anchor() -> u32 {
 
     // Hash every byte of every agent slot — phase, energy, genome, memory, the
     // lot — so any divergence in any term reaches the digest.
-    let bytes = unsafe {
-        core::slice::from_raw_parts(agents.as_ptr() as *const u8, AGENTS * 32)
-    };
+    let bytes = unsafe { core::slice::from_raw_parts(agents.as_ptr() as *const u8, AGENTS * 32) };
     sha256_u32(bytes)
 }
 
@@ -79,14 +77,13 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x55CC_3626;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xF7BB_C204;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {
     let observed = behavioural_anchor();
     assert_eq!(
-        observed,
-        BEHAVIOURAL_LAW_ANCHOR,
+        observed, BEHAVIOURAL_LAW_ANCHOR,
         "\nTHE PHYSICS CHANGED.\n\
          Observed behavioural anchor 0x{observed:08X}, pinned 0x{BEHAVIOURAL_LAW_ANCHOR:08X}.\n\
          The constant-based law hash cannot see a change in the SHAPE of an\n\

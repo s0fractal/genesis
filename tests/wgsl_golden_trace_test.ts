@@ -17,8 +17,49 @@ let wasm: WebAssembly.Instance;
 let exports: any;
 let memory: WebAssembly.Memory;
 
+/**
+ * Refuse to compare a stale CPU substrate against a fresh GPU one.
+ *
+ * This harness reads the shader from SOURCE and the kernel from a BUILT
+ * artifact. Edit both, rebuild neither, and it dutifully reports that the two
+ * substrates disagree — which is true, and says nothing about the physics.
+ *
+ * That is not hypothetical: on 2026-08-07 a weighted mean-field term was
+ * written into both substrates, `cargo test` was run (which builds its own
+ * binary and passes), the wasm was not rebuilt, and this file reported six
+ * failures. Three experiments went into bisecting a divergence that did not
+ * exist. The harness had every byte it needed to say so and said nothing.
+ *
+ * A test that can be green or red for reasons unrelated to its subject is worth
+ * less than no test, because it is believed.
+ */
+async function assertWasmIsFresh(wasmPath: string) {
+  const wasmAge = (await Deno.stat(wasmPath)).mtime?.getTime() ?? 0;
+  const sources = [
+    "omega_v2/src/lattice.rs",
+    "omega_v2/src/constants.rs",
+    "omega_v2/src/math.rs",
+    "omega_v2/src/topology.rs",
+  ];
+  const stale: string[] = [];
+  for (const s of sources) {
+    const t = (await Deno.stat(s).catch(() => null))?.mtime?.getTime();
+    if (t !== undefined && t > wasmAge) stale.push(s);
+  }
+  if (stale.length > 0) {
+    throw new Error(
+      `${wasmPath} is older than ${stale.join(", ")}.\n` +
+        `This harness compares a BUILT kernel against a SOURCE shader, so it ` +
+        `would be reporting the staleness of the build as a divergence ` +
+        `between substrates. Run \`npm run build:wasm\` and try again.`,
+    );
+  }
+}
+
 async function instantiateWasm(): Promise<WebAssembly.Instance> {
-  const bytes = await Deno.readFile("public/v2/omega_v2_core.wasm");
+  const path = "public/v2/omega_v2_core.wasm";
+  await assertWasmIsFresh(path);
+  const bytes = await Deno.readFile(path);
   const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
   return instance;
 }
@@ -66,6 +107,14 @@ const CONFIGS = [
   // and the `index >= active_count` early-return is reachable.
   { qSectors: 7, qRadial: 4, agents: 70, attractors: 4, ticks: 4 },
 ];
+
+// Runs unconditionally — including headless, where every GPU test is skipped.
+// The staleness check inside `instantiateWasm` is reached only on a machine with
+// WebGPU, and there it is swallowed by the init try/catch and downgraded to a
+// SKIP, which is the one outcome a build-freshness problem must never produce.
+Deno.test("the built kernel is not older than its Rust source", async () => {
+  await assertWasmIsFresh("public/v2/omega_v2_core.wasm");
+});
 
 if (gpuAvailable) {
   try {
