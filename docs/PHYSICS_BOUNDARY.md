@@ -550,9 +550,60 @@ the moment the half-circle artifact was removed from the denominator, which
 would have been read as "domains!" Both numbers were sampling.
 
 Local order is now bias-corrected (`R² = (k·r² − 1)/(k − 1)`) and reported in
-the agents' own wrap as well as the table's. Four hypotheses about domains have
-now been measured and refuted; the first three were measured with this
-instrument.
+the agents' own wrap as well as the table's — and the correction alone was not
+enough. `R̂²` is unbiased but noisy, and over eight neighbours it lands negative
+about half the time; taking `√max(0, R̂²)` per agent and averaging those keeps
+every upward excursion and floors every downward one, so the result is strictly
+positive whatever the world does. Measured against a field whose true order
+parameter is 0 by construction, that estimator returns **0.12**. omega's "local
+coherence" was 0.145, and it did not move when the coupling was switched off,
+when reproduction was switched off, or across five eras of physics changes —
+because it was reporting `k`.
+
+The average is now taken over `R̂²` unclipped, where the errors cancel, and the
+square root once at the end. `src/shared/order_parameter.ts` holds it;
+`tests/order_parameter_test.ts` pins it against fields with known R — 0, 0.3,
+0.6, 0.9 — and includes a guard showing the UNCORRECTED statistic really does
+sit at the √(π/4k) floor on the same fixture, so the assertions test the
+correction rather than the fixture.
+
+Four hypotheses about domains have now been measured and refuted; the first
+three were measured with this instrument.
+
+### The only structure in this world is not made by the coupling
+
+With the estimator fixed (above), local phase coherence is **real**: 0.114,
+against 0.000 for a synthetic field of the same shape whose true order is zero
+by construction. That is the first positive structural result omega has produced
+— a genuine spatial correlation, neighbours agreeing with each other more than
+they agree with the population.
+
+It is not made by the Kuramoto coupling. Three knockouts, each measured with the
+corrected estimator, each a single diagnostic edit reverted afterwards:
+
+```text
+                      global    local
+baseline               0.0152   0.1141
+coupling forced to 0   0.0153   0.1121
+reproduction disabled  0.0295   0.1103
+time dilation forced 1 0.0172   0.1283
+```
+
+Zeroing the coupling term entirely — the term this kernel is named for, the one
+two eras were spent repairing — moves local coherence by 2%. Removing
+reproduction removes the inheritance path and moves it by 3%. Removing time
+dilation moves it UP.
+
+**The source is unidentified, and that is the honest state.** Ignition is ruled
+out by inspection: `ignite_big_bang` draws phase from `Xorshift64`, so there is
+no spatial birthmark to inherit. What remains is phase-gated conduction, which
+correlates energy between in-phase neighbours without moving phase directly.
+That is a hypothesis and it has not been tested; four have been recorded as
+refuted already, and a fifth guess belongs here only once it is measured.
+
+What can be said: the global order parameter is 0.015, the coupling contributes
+nothing measurable to the local one, and whatever organises this lattice is not
+the mechanism the model is built around.
 
 ### Not conserved yet — known, named, open
 

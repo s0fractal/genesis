@@ -28,6 +28,8 @@
 //
 //   deno run --allow-read tools/structure_probe.ts [ticks] [capacity]
 
+import { OrderParameterEstimator } from "../src/shared/order_parameter.ts";
+
 const TICKS = Number(Deno.args[0] ?? 3000);
 const CAPACITY = Number(Deno.args[1] ?? 4096);
 const STRIDE = Number(Deno.args[2] ?? 0) ||
@@ -117,9 +119,8 @@ function survey() {
   // Local order over the same Moore neighbourhood the physics uses.
   const w = 1 << 6; // q_radial = 6
   const h = Math.max(1, Math.ceil(active / w));
-  let localSum = 0;
-  let localNativeSum = 0;
-  let localN = 0;
+  const localEst = new OrderParameterEstimator();
+  const localNativeEst = new OrderParameterEstimator();
   // Is the TISSUE spatially arranged, or just spatially random?
   //
   // `structure` above measures PHASE domains, which is a different question and
@@ -168,22 +169,11 @@ function survey() {
       }
     }
     if (k > 1) {
-      // BIAS-CORRECTED. The raw order parameter over k samples has a floor:
-      // even for perfectly random phases, E[r] ~ sqrt(pi/(4k)), which is 0.31
-      // for the eight-neighbour Moore set. Reporting raw r and dividing it by
-      // the global order — computed over thousands of agents, where the floor
-      // is negligible — manufactured a ratio out of nothing but sample size.
-      // It read ~1 while the global figure was inflated by the half-circle
-      // artifact, and jumped to 37 the moment that artifact was removed. Both
-      // numbers were sampling, not structure.
-      //
-      // E[r^2] = R^2 + (1 - R^2)/k, so R^2 = (k*r^2 - 1)/(k - 1) is unbiased.
-      const r2 = (c / k) ** 2 + (s / k) ** 2;
-      const corrected = (k * r2 - 1) / (k - 1);
-      localSum += Math.sqrt(Math.max(0, corrected));
-      const r2n = (cn / k) ** 2 + (sn / k) ** 2;
-      localNativeSum += Math.sqrt(Math.max(0, (k * r2n - 1) / (k - 1)));
-      localN++;
+      // Both accumulators are bias-corrected and CLIPPED ONCE, at the end.
+      // See src/shared/order_parameter.ts for why the per-agent clip that used
+      // to live here reported 0.12 on a field whose true order is zero.
+      localEst.add(c, s, k);
+      localNativeEst.add(cn, sn, k);
     }
   }
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
@@ -193,10 +183,9 @@ function survey() {
     alive: n,
     globalOrder,
     nativeOrder,
-    localOrder: localN > 0 ? localSum / localN : 0,
-    localOrderNative: localN > 0 ? localNativeSum / localN : 0,
-    structure: (localN > 0 ? localSum / localN : 0) /
-      Math.max(globalOrder, 1e-9),
+    localOrder: localEst.value(),
+    localOrderNative: localNativeEst.value(),
+    structure: localEst.value() / Math.max(globalOrder, 1e-9),
     tissueFraction: tissue / n,
     // 1.0 means the tissue flag has no spatial arrangement at all. Reported
     // even when the fraction is 0, where it is 0 by construction and says
