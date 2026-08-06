@@ -285,6 +285,41 @@ impl PhaseLattice {
         }
     }
 
+    /// What one predator may take from a prey holding `prey_energy` this tick.
+    ///
+    /// LAW (chosen 2026-08-06, see docs/PHYSICS_BOUNDARY.md): a predator's share
+    /// is bounded by the prey's per-neighbour capacity. You cannot eat what is
+    /// not there.
+    ///
+    /// The flat `PREDATOR_ENERGY_STEAL` minted ATP at the energy floor. A prey
+    /// with 3 ATP loses at most 3 — the debit saturates — while up to eight
+    /// predators each credited themselves the full 5. Up to 40 ATP appeared
+    /// from 3, every tick, and the closer the ecosystem ran to starvation the
+    /// faster it inflated. Selection pressure inverted exactly where it should
+    /// have been sharpest.
+    ///
+    /// Dividing by the Moore neighbourhood makes it conservative by
+    /// construction: at most eight predators, each taking at most
+    /// `prey_energy / 8`, remove at most `prey_energy` in total (integer
+    /// division floors, so the sum can only come in under).
+    ///
+    /// Above `PREDATOR_ENERGY_STEAL * 8` ATP the prey's capacity exceeds the
+    /// flat rate and the share is exactly the old constant — so a healthy
+    /// ecosystem behaves precisely as before, and only the starving regime,
+    /// which was the broken one, changes.
+    #[inline]
+    pub fn predation_share(prey_energy: u32) -> u32 {
+        // 8 = the Moore neighbourhood, i.e. the length of `n_indices` and the
+        // bound of the shader's neighbour loop. If that ever stops being 8,
+        // this divisor moves with it or the law stops being conservative.
+        let per_neighbour = prey_energy / 8;
+        if crate::constants::PREDATOR_ENERGY_STEAL < per_neighbour {
+            crate::constants::PREDATOR_ENERGY_STEAL
+        } else {
+            per_neighbour
+        }
+    }
+
     /// Entropy released when an agent dissolves — Landauer's principle over the
     /// information the lattice is about to forget.
     ///
@@ -594,7 +629,6 @@ impl PhaseLattice {
 
                     // Species Specialization (Predator-Prey)
                     let mut energy_delta = -(burn as i32);
-                    let steal = crate::constants::PREDATOR_ENERGY_STEAL as i32;
                     let mut energy_diffusion = 0i32;
 
                     for &n_idx in &n_indices {
@@ -602,10 +636,14 @@ impl PhaseLattice {
                             let n = &*snapshot.add(n_idx);
                             if n.energy > 0 {
                                 let adv = crate::agent::species_advantage(agent.genome, n.genome);
+                                // Both roles price the transfer off the PREY's
+                                // pre-tick energy, so the two sides of one
+                                // meal agree without talking. See
+                                // Self::predation_share for the law.
                                 if adv == 1 {
-                                    energy_delta += steal;
+                                    energy_delta += Self::predation_share(n.energy) as i32;
                                 } else if adv == -1 {
-                                    energy_delta -= steal;
+                                    energy_delta -= Self::predation_share(agent.energy) as i32;
                                 }
 
                                 energy_diffusion += (n.energy as i32 - agent.energy as i32) / 8;
@@ -1087,6 +1125,43 @@ mod tests {
         let after_first = lattice.signals.total_entropy_released;
         assert_eq!(lattice.reap_off_cpu_deaths(), 0, "no new deaths");
         assert_eq!(lattice.signals.total_entropy_released, after_first);
+    }
+
+    /// Predation must not mint ATP, at any prey energy, for any predator count.
+    ///
+    /// This is the property the flat rate violated: a prey holding 3 ATP could
+    /// only ever lose 3 (the debit saturates), while up to eight predators each
+    /// credited themselves 5 — up to 40 ATP conjured from 3, every tick, worst
+    /// exactly where the ecosystem was closest to collapse.
+    #[test]
+    fn predation_cannot_take_more_than_the_prey_holds() {
+        // Exhaustive over the whole legal energy range, all neighbour counts.
+        for prey_energy in 0..=crate::constants::MAX_ATP {
+            let share = PhaseLattice::predation_share(prey_energy);
+            for predators in 0..=8u32 {
+                assert!(
+                    share * predators <= prey_energy,
+                    "{predators} predators × {share} exceeds prey energy {prey_energy}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_healthy_prey_is_still_worth_the_old_flat_rate() {
+        // The law only bites in the starving regime. Above STEAL*8 the prey's
+        // per-neighbour capacity clears the flat rate, so a well-fed ecosystem
+        // behaves exactly as it did before.
+        let steal = crate::constants::PREDATOR_ENERGY_STEAL;
+        for prey_energy in (steal * 8)..=crate::constants::MAX_ATP {
+            assert_eq!(
+                PhaseLattice::predation_share(prey_energy),
+                steal,
+                "unchanged behaviour expected at {prey_energy} ATP"
+            );
+        }
+        // And a prey with nothing feeds nobody.
+        assert_eq!(PhaseLattice::predation_share(0), 0);
     }
 
     /// Reproduction must not create or destroy ATP.

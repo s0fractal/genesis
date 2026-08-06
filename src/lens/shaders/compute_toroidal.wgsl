@@ -78,6 +78,10 @@ const MAX_TIME_DILATION: u32 = 8u;
 const MAX_ATP: u32 = 4096u;
 const HEBBIAN_DEFAULT_WEIGHT: i32 = 1024;
 const HEBBIAN_MAX_WEIGHT: i32 = 4096;
+// Was inlined as a bare `5i` at the predation site while every other physical
+// constant sat in this block; named so it is visible to the same reader who
+// checks the rest against constants.rs.
+const PREDATOR_ENERGY_STEAL: u32 = 5u;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
 fn sin_q10(from_theta: u32, to_theta: u32) -> i32 {
@@ -271,7 +275,6 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Species Specialization (Predator-Prey)
 
         var energy_delta: i32 = -i32(burn);
-        let steal = 5i; // PREDATOR_ENERGY_STEAL
         var energy_diffusion: i32 = 0i;
 
         for (var i = 0u; i < 8u; i = i + 1u) {
@@ -280,8 +283,18 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let n = agents_in[n_idx];
                 if (n.energy > 0u) {
                     let adv = species_advantage(agent.genome, n.genome);
-                    if (adv == 1i) { energy_delta += steal; }
-                    else if (adv == -1i) { energy_delta -= steal; }
+                    // Mirrors PhaseLattice::predation_share exactly: a
+                    // predator's share is min(PREDATOR_ENERGY_STEAL,
+                    // prey_energy / 8), the 8 being this loop's own bound.
+                    // Both roles price the meal off the PREY's pre-tick energy,
+                    // so the two halves agree without communicating. The flat
+                    // rate minted ATP at the floor — a prey with 3 could feed
+                    // eight predators 5 each.
+                    if (adv == 1i) {
+                        energy_delta += i32(min(PREDATOR_ENERGY_STEAL, n.energy / 8u));
+                    } else if (adv == -1i) {
+                        energy_delta -= i32(min(PREDATOR_ENERGY_STEAL, agent.energy / 8u));
+                    }
                     
                     energy_diffusion += (i32(n.energy) - i32(agent.energy)) / 8i;
                 }
