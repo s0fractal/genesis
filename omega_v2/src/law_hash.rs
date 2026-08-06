@@ -9,6 +9,28 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 966 — Closed. The agents' phase circle and the trigonometry's phase circle
+/// are the same circle for the first time. `sin_q10` indexes a 256-entry table
+/// with `(to - from) & 0xFF` while agents wrapped at `1 << q_phase` = 128, so
+/// the space the agents lived in was HALF the space the physics measured. That
+/// is not a scale factor, it is a SEAM: phases 0 and 127 are one step apart on a
+/// circle of 128, and the table read them as 178.6 degrees apart. Measured,
+/// `cos_q10(0, 1) = 1024` and `cos_q10(0, 127) = -1024` — the two neighbours of
+/// phase 0, read as perfect agreement and perfect opposition. Conduction is
+/// gated on that cosine, so an agent shared freely with the neighbour on one
+/// side and refused the mirror-image one on the other. q_phase is now 8.
+///
+/// The reported order parameter was the same artifact: a UNIFORM distribution on
+/// half a circle reads as 2/pi = 0.637 through a table twice as wide, so the
+/// 0.41 Era 962 claimed as synchronisation was geometry. Read in the agents' own
+/// wrap the world has never synchronised — 0.055 then, 0.015 now.
+///
+/// It did not create domains. Bias-corrected local order is unchanged, 0.1461
+/// before and 0.1454 after; the local-over-global ratio rose only because the
+/// denominator shrank. Shipped because adjacent phases reading as antiphase is
+/// indefensible on its own, whatever it produces. See
+/// `tests/phase_circle_is_closed.rs`.
+///
 /// 965 — Synaptic. The Hebbian weights reach the physics for the first time.
 /// `tick_physics` read two learned weights out of memory, updated them against
 /// the left and right neighbours' coherence, clamped them, raised them to
@@ -75,7 +97,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 965; // 965 Synaptic
+pub const ERA_ID: u32 = 966; // 966 Closed
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -151,7 +173,7 @@ pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
 /// against (Substrate Court). Exposed as a value so deno-side mirrors and
 /// trinity status can pin it without an FFI round-trip.
 pub fn canonical_law_hash() -> u32 {
-    calculate_law_hash(&PhaseTopology::new(7, 7, 6, 20))
+    calculate_law_hash(&PhaseTopology::new(8, 7, 6, 20))
 }
 
 /// Golden value of [`canonical_law_hash`]. Pinned so any change to a physical
@@ -167,7 +189,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x193A_0C73;
+pub const CANONICAL_LAW_HASH: u32 = 0xCA4F_4EC9;
 
 #[cfg(test)]
 mod tests {

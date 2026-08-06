@@ -178,7 +178,7 @@ pub static EPIGENETIC_MEMORY: crate::sync::Spinlock<EpigeneticMemory> =
 pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> =
     crate::sync::Spinlock::new(PhaseLattice {
         topology: PhaseTopology {
-            q_phase: 7, // 128 elements the Sacred Seven!
+            q_phase: 8, // 256 — the same circle the SINE_LUT spans
             q_sectors: 7,
             q_radial: 6,
             q_math: 20,

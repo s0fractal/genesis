@@ -58,12 +58,21 @@ pub struct PhaseTopology {
 
 impl PhaseTopology {
     /// Creates a generic PhaseTopology for an average device budget.
-    /// CRIT-6 FIX: q_phase must be in [2, 7] for the 128-element SINE_LUT.
+    /// q_phase must be in [2, 8].
+    ///
+    /// The old bound was [2, 7] "for the 128-element SINE_LUT", which named the
+    /// wrong table. `tick_physics` does not use `SINE_LUT_128` — nothing does;
+    /// `sin_topo`/`cos_topo` are the only callers and nothing calls them. The
+    /// physics indexes `SINE_LUT`, 256 entries, one full period, masked with
+    /// `& 0xFF`. So the bound was holding the agents' circle to HALF the circle
+    /// the trigonometry measures, and 8 is the value at which the two are the
+    /// same circle. See `tests/phase_circle_is_closed.rs`.
+    ///
     /// q_sectors/q_radial must be < usize::BITS to prevent shift overflow.
     pub fn new(q_phase: u32, q_sectors: u32, q_radial: u32, q_math: u32) -> Self {
         assert!(
-            (2..=7).contains(&q_phase),
-            "q_phase must be in [2, 7] for 128-element LUT"
+            (2..=8).contains(&q_phase),
+            "q_phase must be in [2, 8]; 8 makes the agent circle equal the 256-entry SINE_LUT"
         );
         assert!(
             q_sectors < 32 && q_radial < 32,

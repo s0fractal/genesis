@@ -489,6 +489,71 @@ was swallowed and downgraded to a skip.
 A test that can be red for reasons unrelated to its subject is worse than no
 test, because it is believed.
 
+### Era 966 — the phase circle had a seam, and the order parameter was geometry
+
+`sin_q10(from, to)` indexes `SINE_LUT` — 256 entries, one full period — with
+`(to - from) & 0xFF`. Agents wrapped their phase at `1 << q_phase` = 128. The
+space the agents lived in was **half** the space the physics measured.
+
+That is not a scale factor. Two agents at phase 0 and phase 127 are one step
+apart on a circle of 128 — the coupling should pull them together. Measured:
+
+```text
+cos_q10(0,   1) =  1024   perfect agreement
+cos_q10(0, 127) = -1024   perfect opposition
+```
+
+Those are the two neighbours of phase 0, mirror images of each other, read as
+opposites. Conduction is gated on that cosine, so an agent shared energy freely
+with the neighbour on one side and refused the identical one on the other, for
+no reason but which side of the wrap it sat on. Half the phase span read as
+orthogonal instead of antiphase, so the coupling never fully reversed and there
+was no restoring force toward agreement across the seam.
+
+`q_phase` is now 8, which makes the agents' circle exactly the table's circle.
+Nothing about the trigonometry changed — the two circles became the same one.
+The old bound `q_phase ∈ [2,7]` was justified in a comment as being "for the
+128-element SINE_LUT", which names a table the physics does not use: nothing
+calls `sin_topo`/`cos_topo`, the only readers of `SINE_LUT_128`.
+
+**The reported order parameter was the same artifact.** A uniform distribution
+on half a circle reads as 2/π = 0.637 through a table twice as wide. The 0.41
+that Era 962 recorded as synchronisation was below that baseline — it was
+geometry. Read in the agents' own wrap, this world has never synchronised: 0.055
+before, 0.015 after.
+
+_And closing it did not create domains._ Bias-corrected local order, read in the
+agents' own wrap on both sides so the two are comparable:
+
+```text
+                  global    local*    ratio
+q_phase=7 (seam)  0.0546    0.1461     2.68
+q_phase=8 (closed) 0.0152    0.1454     9.55
+        * bias-corrected; 0 = indistinguishable from random in the neighbourhood
+```
+
+Local coherence is unchanged to three decimal places. The ratio improved because
+the **denominator** shrank. Shipped because adjacent phases reading as antiphase
+is indefensible on its own terms, not because it produced anything.
+
+### The structure probe was measuring its own sample size
+
+`structure = localOrder / globalOrder` compared an order parameter over eight
+neighbours against one over four thousand agents. The order parameter has a
+floor that depends on sample count: for eight random phases E[r] ≈ √(π/32) =
+0.31, so local order could never read below 0.31 no matter how disordered the
+neighbourhood.
+
+That floor, divided by an inflated global figure, produced a ratio of ~1 for
+five eras — read as "no domains", which happened to be true — and jumped to 37
+the moment the half-circle artifact was removed from the denominator, which
+would have been read as "domains!" Both numbers were sampling.
+
+Local order is now bias-corrected (`R² = (k·r² − 1)/(k − 1)`) and reported in
+the agents' own wrap as well as the table's. Four hypotheses about domains have
+now been measured and refuted; the first three were measured with this
+instrument.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

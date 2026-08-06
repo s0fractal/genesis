@@ -43,7 +43,7 @@ fn phases_with_weight(w: i32) -> Vec<u32> {
     let mut snapshot = vec![PhaseAgentMinimal::default(); AGENTS];
 
     let mut lattice = PhaseLattice::new_from_host_memory(
-        PhaseTopology::new(7, 7, 6, 20),
+        PhaseTopology::new(8, 7, 6, 20),
         core::ptr::null_mut(),
         agents.as_mut_ptr(),
     );

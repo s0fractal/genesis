@@ -38,7 +38,7 @@ fn behavioural_anchor() -> u32 {
     let mut snapshot = vec![PhaseAgentMinimal::default(); AGENTS];
 
     let mut lattice = PhaseLattice::new_from_host_memory(
-        PhaseTopology::new(7, 7, 6, 20),
+        PhaseTopology::new(8, 7, 6, 20),
         core::ptr::null_mut(),
         agents.as_mut_ptr(),
     );
@@ -77,7 +77,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xF7BB_C204;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xC2FD_6095;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {
@@ -103,7 +103,7 @@ fn the_anchor_is_actually_looking_at_something() {
     let mut agents = vec![PhaseAgentMinimal::default(); AGENTS];
     let mut snapshot = vec![PhaseAgentMinimal::default(); AGENTS];
     let mut lattice = PhaseLattice::new_from_host_memory(
-        PhaseTopology::new(7, 7, 6, 20),
+        PhaseTopology::new(8, 7, 6, 20),
         core::ptr::null_mut(),
         agents.as_mut_ptr(),
     );

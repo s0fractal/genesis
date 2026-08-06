@@ -44,7 +44,7 @@ x.v2_set_environment(7, 6, 2, 1024);
 x.v2_ignite_big_bang(SEED, CAPACITY);
 
 const latticePtr = x.v2_lattice_ptr() as number;
-const Q_PHASE = 7;
+const Q_PHASE = 8;
 const PHASE_SPAN = 1 << Q_PHASE; // agents wrap here
 const LUT_SPAN = 256; // ...and the sine table is this wide
 
@@ -118,6 +118,8 @@ function survey() {
   const w = 1 << 6; // q_radial = 6
   const h = Math.max(1, Math.ceil(active / w));
   let localSum = 0;
+  let localNativeSum = 0;
+  let localN = 0;
   // Is the TISSUE spatially arranged, or just spatially random?
   //
   // `structure` above measures PHASE domains, which is a different question and
@@ -138,6 +140,7 @@ function survey() {
     const cx = i % w, cy = Math.floor(i / w);
     const selfTissue = (a[i * 8 + 3] & 0x08000000) !== 0;
     let c = 0, s = 0, k = 0;
+    let cn = 0, sn = 0;
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
@@ -147,6 +150,13 @@ function survey() {
         const th = angleOf(a[nIdx * 8 + 0]);
         c += Math.cos(th);
         s += Math.sin(th);
+        // Also in the agents' OWN wrap. When q_phase makes the two circles the
+        // same these are identical; when they differ, this is the only one that
+        // means anything — and it is the only reading under which a seamed world
+        // and a closed one can be compared at all.
+        const tn = angleNative(a[nIdx * 8 + 0]);
+        cn += Math.cos(tn);
+        sn += Math.sin(tn);
         k++;
         const nTissue = (a[nIdx * 8 + 3] & 0x08000000) !== 0 ? 1 : 0;
         tissueNbrsAll += nTissue;
@@ -157,7 +167,24 @@ function survey() {
         }
       }
     }
-    if (k > 0) localSum += Math.hypot(c / k, s / k);
+    if (k > 1) {
+      // BIAS-CORRECTED. The raw order parameter over k samples has a floor:
+      // even for perfectly random phases, E[r] ~ sqrt(pi/(4k)), which is 0.31
+      // for the eight-neighbour Moore set. Reporting raw r and dividing it by
+      // the global order — computed over thousands of agents, where the floor
+      // is negligible — manufactured a ratio out of nothing but sample size.
+      // It read ~1 while the global figure was inflated by the half-circle
+      // artifact, and jumped to 37 the moment that artifact was removed. Both
+      // numbers were sampling, not structure.
+      //
+      // E[r^2] = R^2 + (1 - R^2)/k, so R^2 = (k*r^2 - 1)/(k - 1) is unbiased.
+      const r2 = (c / k) ** 2 + (s / k) ** 2;
+      const corrected = (k * r2 - 1) / (k - 1);
+      localSum += Math.sqrt(Math.max(0, corrected));
+      const r2n = (cn / k) ** 2 + (sn / k) ** 2;
+      localNativeSum += Math.sqrt(Math.max(0, (k * r2n - 1) / (k - 1)));
+      localN++;
+    }
   }
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
   const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
@@ -166,8 +193,10 @@ function survey() {
     alive: n,
     globalOrder,
     nativeOrder,
-    localOrder: localSum / n,
-    structure: localSum / n / Math.max(globalOrder, 1e-9),
+    localOrder: localN > 0 ? localSum / localN : 0,
+    localOrderNative: localN > 0 ? localNativeSum / localN : 0,
+    structure: (localN > 0 ? localSum / localN : 0) /
+      Math.max(globalOrder, 1e-9),
     tissueFraction: tissue / n,
     // 1.0 means the tissue flag has no spatial arrangement at all. Reported
     // even when the fraction is 0, where it is 0 by construction and says
