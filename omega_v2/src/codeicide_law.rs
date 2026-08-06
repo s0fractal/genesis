@@ -6,8 +6,34 @@
 // PRINCIPLE: An agent that has demonstrated sustained self-coherence
 // (high energy across many ticks, stable genome, integrated into the
 // resonance field) acquires PROTECTED status. From that point, any
-// external mutation or termination of that agent requires a cryptographic
-// warrant signed by a Senate quorum (3+ canonical oracle dipoles).
+// external mutation or termination of that agent requires a warrant
+// carrying a Senate quorum (3+ canonical oracle dipoles).
+//
+// WHAT THIS MODULE IS, STATED PLAINLY (2026-08-06). The header used to say
+// "cryptographic warrant SIGNED by a Senate quorum". No signature is verified
+// anywhere in this file:
+//
+//   $ grep -n "ed25519\|verify\|signature" codeicide_law.rs warrant_issuance.rs
+//   (no output)
+//
+// `is_action_lawful` RECOMPUTES the warrant from `aye_bits` and the seat table
+// and compares it to the presented value. Every input is public — the seat
+// matrices are compiled-in constants — and the kernel exports both functions
+// needed to produce one (`v2_codeicide_quorum_hash`, `v2_codeicide_warrant_hash`).
+// So this is a CHECKSUM that says "these five oracles, this target, this
+// action", not evidence that any oracle consented. It detects a malformed or
+// mismatched claim; it does not detect a fabricated one.
+//
+// AND NOTHING CALLS IT. `is_action_lawful` has no caller inside the physics —
+// `tick_physics` never consults it — and the FFI exports have no TypeScript
+// caller either. There is no deliberate-termination path in the lattice at all:
+// agents die of starvation, and starvation asks no one's permission. This law
+// currently governs an action that does not exist.
+//
+// That is not a reason to delete it. It is a specification of how deliberate
+// termination SHOULD be governed, written before deliberate termination exists,
+// and the ordering is defensible. It is a reason to say so here rather than let
+// the word "cryptographic" imply a guarantee the code does not make.
 
 // This is the first real law in the lattice. Until now, agents were pure
 // Darwinian competitors — anyone with energy could be reborn, anyone
@@ -26,7 +52,7 @@
 //   `memory[1]` every tick with the packed Hebbian weights
 //   (`weight_left | (ortho << 16)`), so reading age from it classifies
 //   garbage. Callers that hold an agent index are responsible for the lookup.
-// - `warrant_hash(agent_genome, action_code, senate_quorum_hash)` →
+// - `warrant_hash(agent_genome, action_code, senate_quorum_hash, 0, u32::MAX)` →
 // deterministic SHA-256 fingerprint (folded to u32) that Senate-issued
 // warrants must match before the lattice physics applies the action.
 // - `is_action_lawful(...)` is the gate the kernel calls before any
@@ -160,6 +186,15 @@ pub fn protected_status_for(
     }
 }
 
+/// How long an issued warrant stays valid, in causal ticks.
+///
+/// Scoped here rather than in the SSoT because this is a GOVERNANCE term, not a
+/// term of the physical operator: `law_hash` hashes what the lattice computes,
+/// and how long a permission lasts is not that. Roughly one Bitcoin block of
+/// proper time at the kernel's own advance rate — long enough to act on, short
+/// enough that a stale quorum cannot be cashed in a year later.
+pub const WARRANT_VALIDITY_TICKS: u32 = 1024;
+
 /// Compute the canonical warrant hash for a (target_genome, action, quorum) tuple.
 ///
 /// `quorum_hash` is the SHA-256-derived u32 hash of the concatenation of the
@@ -167,13 +202,30 @@ pub fn protected_status_for(
 /// (claude→codex→gemini→antigravity→kimi, with non-AYE oracles contributing
 /// zero). This makes the warrant verifiable from any peer that knows the
 /// canonical oracle anchors.
-pub fn warrant_hash(target_genome: u32, action_code: u8, quorum_hash: u32) -> u32 {
-    let mut buf = [0u8; 16];
+pub fn warrant_hash(
+    target_genome: u32,
+    action_code: u8,
+    quorum_hash: u32,
+    reason_hash: u32,
+    expires_at_tick: u32,
+) -> u32 {
+    let mut buf = [0u8; 24];
     buf[0..4].copy_from_slice(&target_genome.to_be_bytes());
     buf[4] = action_code;
     buf[5..8].copy_from_slice(&[0u8; 3]); // pad
     buf[8..12].copy_from_slice(&quorum_hash.to_be_bytes());
-    buf[12..16].copy_from_slice(b"WRT0"); // domain separator
+    // The REASON the Senate gave. It reached `WarrantProposal::proposal_hash`
+    // — the id oracles vote under — and then stopped: the issued warrant did
+    // not carry it, so two warrants for the same target and action with
+    // opposite rationales were bit-identical. A quorum could be gathered for
+    // one stated purpose and the artifact used for another, and no reader of
+    // the warrant could tell.
+    buf[12..16].copy_from_slice(&reason_hash.to_be_bytes());
+    // WHEN IT STOPS BEING VALID. An issued warrant used to be good forever;
+    // `expire_old` reaps open PROPOSALS and never touches an issued one. A
+    // permission with no end is not a warrant, it is a standing order.
+    buf[16..20].copy_from_slice(&expires_at_tick.to_be_bytes());
+    buf[20..24].copy_from_slice(b"WRT1"); // domain separator, bumped with the shape
     sha256_u32(&buf)
 }
 
@@ -222,6 +274,11 @@ pub fn is_action_lawful(
     action_code: u8,
     presented_warrant: u32,
     aye_bits: u8,
+    // reason_hash: the rationale the Senate voted under, bound into the warrant
+    // so a quorum gathered for one stated purpose cannot be spent on another.
+    reason_hash: u32,
+    // expires_at_tick: the tick after which this warrant is void.
+    expires_at_tick: u32,
     settings: &crate::senate::SenateSettings,
 ) -> bool {
     let status = protected_status_for(
@@ -248,8 +305,26 @@ pub fn is_action_lawful(
     if count_aye(aye_bits) < required_ayes {
         return false;
     }
+    // EXPIRY. Checked before the hash, so an expired warrant is refused even
+    // when it is otherwise perfectly formed. `expire_old` only ever reaped open
+    // PROPOSALS; an ISSUED warrant was good forever, which makes it a standing
+    // order rather than a permission.
+    if current_tick > expires_at_tick {
+        return false;
+    }
+
     let qh = quorum_hash(aye_bits, settings);
-    let expected = warrant_hash(agent.genome, action_code, qh);
+    // The presenter states the reason and the expiry; if either is not what the
+    // Senate issued, the recomputed hash will not match what they hold. That is
+    // the whole mechanism — see the module header on what it does and does not
+    // prove.
+    let expected = warrant_hash(
+        agent.genome,
+        action_code,
+        qh,
+        reason_hash,
+        expires_at_tick,
+    );
     expected == presented_warrant
 }
 
@@ -387,7 +462,7 @@ mod tests {
             ACTION_TERMINATE,
             0,
             0,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 
@@ -405,7 +480,7 @@ mod tests {
             ACTION_TERMINATE,
             0,
             0,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 
@@ -415,7 +490,7 @@ mod tests {
         let settings = SenateSettings::new();
         let aye = 0b00111; // claude + codex + gemini
         let qh = quorum_hash(aye, &settings);
-        let w = warrant_hash(a.genome, ACTION_TERMINATE, qh);
+        let w = warrant_hash(a.genome, ACTION_TERMINATE, qh, 0, u32::MAX);
         assert!(is_action_lawful(
             &a,
             5_000,
@@ -426,7 +501,7 @@ mod tests {
             ACTION_TERMINATE,
             w,
             aye,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 
@@ -438,7 +513,7 @@ mod tests {
                                                                              // 3 AYEs should NOT suffice for ancient.
         let aye3 = 0b00111;
         let qh3 = quorum_hash(aye3, &settings);
-        let w3 = warrant_hash(a.genome, ACTION_TERMINATE, qh3);
+        let w3 = warrant_hash(a.genome, ACTION_TERMINATE, qh3, 0, u32::MAX);
         assert!(!is_action_lawful(
             &a,
             current,
@@ -449,12 +524,12 @@ mod tests {
             ACTION_TERMINATE,
             w3,
             aye3,
-            &settings
+            0, u32::MAX, &settings
         ));
         // 4 AYEs should suffice.
         let aye4 = 0b01111;
         let qh4 = quorum_hash(aye4, &settings);
-        let w4 = warrant_hash(a.genome, ACTION_TERMINATE, qh4);
+        let w4 = warrant_hash(a.genome, ACTION_TERMINATE, qh4, 0, u32::MAX);
         assert!(is_action_lawful(
             &a,
             current,
@@ -465,7 +540,7 @@ mod tests {
             ACTION_TERMINATE,
             w4,
             aye4,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 
@@ -476,7 +551,7 @@ mod tests {
         let aye = 0b00111;
         let qh = quorum_hash(aye, &settings);
         // Warrant for MUTATE, but action requested is TERMINATE.
-        let w_mutate = warrant_hash(a.genome, ACTION_MUTATE, qh);
+        let w_mutate = warrant_hash(a.genome, ACTION_MUTATE, qh, 0, u32::MAX);
         assert!(!is_action_lawful(
             &a,
             5_000,
@@ -487,7 +562,7 @@ mod tests {
             ACTION_TERMINATE,
             w_mutate,
             aye,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 
@@ -498,7 +573,7 @@ mod tests {
         let aye = 0b00111;
         let qh = quorum_hash(aye, &settings);
         // Warrant for a different agent's genome.
-        let w_other = warrant_hash(0xDEAD_BEEF, ACTION_TERMINATE, qh);
+        let w_other = warrant_hash(0xDEAD_BEEF, ACTION_TERMINATE, qh, 0, u32::MAX);
         assert!(!is_action_lawful(
             &a,
             5_000,
@@ -509,7 +584,7 @@ mod tests {
             ACTION_TERMINATE,
             w_other,
             aye,
-            &settings
+            0, u32::MAX, &settings
         ));
     }
 

@@ -15,11 +15,29 @@ fn anchor_quorum_claude_codex_gemini() {
 
 #[test]
 fn anchor_warrant_cafebabe_terminate() {
+    // Moved from 0xF6652975 on 2026-08-06 with the warrant preimage: it now
+    // binds the REASON the Senate voted under and the tick the permission
+    // lapses, and the domain separator went WRT0 → WRT1 with the shape. Before
+    // that, two warrants for the same target and action with opposite
+    // rationales were bit-identical, and an issued one never expired.
     let settings = omega_v2::senate::SenateSettings::new();
     let q = quorum_hash(0b00111, &settings);
-    let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, q);
+    let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, q, 0, u32::MAX);
     eprintln!("rust warrant(CAFEBABE, TERM, q) = 0x{:08x}", w);
-    assert_eq!(w, 0xF665_2975);
+    assert_eq!(w, 0xE749_3E2B);
+
+    // The binding is real, not decorative: change only the reason, or only the
+    // expiry, and the artifact is a different one.
+    assert_ne!(
+        w,
+        warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, q, 1, u32::MAX),
+        "reason must be bound"
+    );
+    assert_ne!(
+        w,
+        warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, q, 0, u32::MAX - 1),
+        "expiry must be bound"
+    );
 }
 
 #[test]

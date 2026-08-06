@@ -1295,8 +1295,16 @@ pub extern "C" fn v2_codeicide_warrant_hash(
     target_genome: u32,
     action_code: u32,
     quorum_hash: u32,
+    reason_hash: u32,
+    expires_at_tick: u32,
 ) -> u32 {
-    crate::codeicide_law::warrant_hash(target_genome, action_code as u8, quorum_hash)
+    crate::codeicide_law::warrant_hash(
+        target_genome,
+        action_code as u8,
+        quorum_hash,
+        reason_hash,
+        expires_at_tick,
+    )
 }
 
 /// Compute the canonical Senate quorum hash from AYE bitmask.
@@ -1316,6 +1324,8 @@ pub extern "C" fn v2_codeicide_is_lawful(
     action_code: u32,
     presented_warrant: u32,
     aye_bits: u32,
+    reason_hash: u32,
+    expires_at_tick: u32,
 ) -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
@@ -1343,6 +1353,8 @@ pub extern "C" fn v2_codeicide_is_lawful(
                 action_code as u8,
                 presented_warrant,
                 aye_bits as u8,
+                reason_hash,
+                expires_at_tick,
                 &settings,
             ) {
                 1

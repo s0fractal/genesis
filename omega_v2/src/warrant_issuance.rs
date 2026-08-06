@@ -284,7 +284,14 @@ impl WarrantLedger {
 
         if current_power >= required_power {
             let qh = quorum_hash(p.aye_bits, settings);
-            p.issued_warrant = warrant_hash(p.target_genome, p.action_code, qh);
+            p.issued_warrant = warrant_hash(
+                p.target_genome,
+                p.action_code,
+                qh,
+                p.reason_hash,
+                p.raised_at
+                    .saturating_add(crate::codeicide_law::WARRANT_VALIDITY_TICKS),
+            );
             p.status = WARRANT_STATUS_ISSUED;
             self.issued_count = self.issued_count.wrapping_add(1);
 
@@ -419,7 +426,14 @@ mod tests {
         // Issued warrant must match the canonical Codeicide computation.
         let mut settings = crate::senate::SenateSettings::new();
         let qh = quorum_hash(0b00111, &mut settings);
-        let expected = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
+        let expected = warrant_hash(
+            0xCAFE_BABE,
+            ACTION_TERMINATE,
+            qh,
+            p.reason_hash,
+            p.raised_at
+                .saturating_add(crate::codeicide_law::WARRANT_VALIDITY_TICKS),
+        );
         assert_eq!(p.issued_warrant, expected);
         assert_eq!(ledger.issued_count, 1);
     }
@@ -532,9 +546,14 @@ mod tests {
         assert!(issued.is_issued());
         // The issued warrant + matching aye_bits MUST satisfy Codeicide.
         let mut settings = crate::senate::SenateSettings::new();
+        // Presented WITHIN the validity window: raised at 100, valid for
+        // WARRANT_VALIDITY_TICKS, so tick 900 is still inside it.
+        let expires = issued
+            .raised_at
+            .saturating_add(crate::codeicide_law::WARRANT_VALIDITY_TICKS);
         assert!(is_action_lawful(
             &agent,
-            5_000,
+            900,
             100, // birth_tick (from BIRTH_TICKS in production)
             1000,
             0,
@@ -542,6 +561,42 @@ mod tests {
             ACTION_TERMINATE,
             issued.issued_warrant,
             issued.aye_bits,
+            issued.reason_hash,
+            expires,
+            &mut settings
+        ));
+
+        // And REFUSED once it lapses. An issued warrant used to be valid
+        // forever — `expire_old` only ever reaped open proposals — so a quorum
+        // gathered once could be cashed at any later moment.
+        assert!(!is_action_lawful(
+            &agent,
+            expires + 1,
+            100,
+            1000,
+            0,
+            1000,
+            ACTION_TERMINATE,
+            issued.issued_warrant,
+            issued.aye_bits,
+            issued.reason_hash,
+            expires,
+            &mut settings
+        ));
+
+        // And REFUSED when the reason is not the one the Senate voted under.
+        assert!(!is_action_lawful(
+            &agent,
+            900,
+            100,
+            1000,
+            0,
+            1000,
+            ACTION_TERMINATE,
+            issued.issued_warrant,
+            issued.aye_bits,
+            issued.reason_hash ^ 0xFFFF_FFFF,
+            expires,
             &mut settings
         ));
     }
@@ -581,7 +636,7 @@ mod tests {
             ACTION_MUTATE,
             issued.issued_warrant,
             issued.aye_bits,
-            &mut settings
+            0, u32::MAX, &mut settings
         ));
     }
 

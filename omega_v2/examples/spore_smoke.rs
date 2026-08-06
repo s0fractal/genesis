@@ -83,7 +83,7 @@ fn main() {
     println!("quorum_hash(claude+codex+gem) = 0x{:08x}", qh);
     all_ok &= qh == 0x0955_2B74;
 
-    let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh);
+    let w = warrant_hash(0xCAFE_BABE, ACTION_TERMINATE, qh, 0, u32::MAX);
     println!("warrant_hash(CAFE,TERM,qh)  = 0x{:08x}", w);
     all_ok &= w == 0xF665_2975;
 
@@ -105,7 +105,7 @@ fn main() {
         ACTION_TERMINATE,
         w,
         0b00111,
-        &settings,
+        0, u32::MAX, &settings,
     );
     println!("codeicide_check_lawful      = {}", lawful);
     all_ok &= lawful;
