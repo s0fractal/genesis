@@ -23,16 +23,48 @@ async function instantiateWasm(): Promise<WebAssembly.Instance> {
   return instance;
 }
 
+// The first field is `q_sectors`, NOT `q_phase`. It used to be called
+// `topology` and the test name printed it as `q_phase=`, which made the suite
+// look like it swept the phase resolution across 2/5/7. It never did:
+// `v2_set_environment(q_sectors, q_radial, _q_harmonics, weather)` has no
+// q_phase parameter, `tick_physics` never reads q_sectors, and
+// `v2_reset_runtime_state` leaves `topology` alone — so every config ran the
+// identical lattice at the static q_phase=7. Nine tests, one point in the
+// parameter space, presented as nine.
+//
+// `agents` and `qRadial` together choose the grid: w = 1 << qRadial,
+// h = max(1, agents / w). Both were fixed at 8 and 3, giving w=8, h=1 — a grid
+// one row tall, where the y-axis toroidal wrap is degenerate (every vertical
+// neighbour resolves back to row 0), every neighbour index is < active so the
+// out-of-range guards on both substrates are unreachable, and 8 < the
+// workgroup size of 64 so the multi-workgroup dispatch path never runs.
 const CONFIGS = [
-  { topology: 2, attractors: 0, ticks: 1 },
-  { topology: 5, attractors: 1, ticks: 2 },
-  { topology: 7, attractors: 4, ticks: 8 },
-  { topology: 7, attractors: 0, ticks: 4 }, // DEBUG: no-attractor baseline
-  { topology: 7, attractors: 4, ticks: 3 }, // DEBUG: attractor 3-tick check
-  { topology: 7, attractors: 4, ticks: 1 },
-  { topology: 7, attractors: 4, ticks: 8 },
-  { topology: 7, attractors: 4, ticks: 16 },
-  { topology: 7, attractors: 4, ticks: 32 },
+  { qSectors: 2, qRadial: 3, agents: 8, attractors: 0, ticks: 1 },
+  { qSectors: 5, qRadial: 3, agents: 8, attractors: 1, ticks: 2 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 8 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 0, ticks: 4 }, // no-attractor baseline
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 3 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 1 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 8 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 16 },
+  { qSectors: 7, qRadial: 3, agents: 8, attractors: 4, ticks: 32 },
+
+  // A grid that is genuinely two-dimensional: w=8, h=3. First config in which
+  // the vertical wrap moves an agent to a different row, so the y-axis of the
+  // torus is exercised at all.
+  { qSectors: 7, qRadial: 3, agents: 24, attractors: 4, ticks: 8 },
+
+  // A grid that does NOT divide evenly: w=8, h = 20/8 = 2, so h*w = 16 and
+  // agents 16..19 sit outside the rectangle. `wrap_index_2d` can never return
+  // their indices, so they read eight neighbours and are the neighbour of
+  // nobody — a documented one-way energy tap. Both substrates implement it
+  // identically, so parity should hold; this config exists so that if they ever
+  // stop agreeing about the overhang, something says so.
+  { qSectors: 7, qRadial: 3, agents: 20, attractors: 4, ticks: 8 },
+
+  // Past the 64-wide workgroup, so `dispatchWorkgroups` issues more than one
+  // and the `index >= active_count` early-return is reachable.
+  { qSectors: 7, qRadial: 4, agents: 70, attractors: 4, ticks: 4 },
 ];
 
 if (gpuAvailable) {
@@ -85,23 +117,23 @@ if (gpuAvailable) {
 }
 
 if (gpuAvailable) {
-  const AGENT_COUNT = 8; // DEBUG: reduced to isolate tick-4 attractor drift
   const SEED = 0x64_4D_53_45;
 
   for (const conf of CONFIGS) {
     Deno.test({
-      name:
-        `wgsl: toroidal parity [q_phase=${conf.topology}, attr=${conf.attractors}, ticks=${conf.ticks}]`,
+      name: `wgsl: toroidal parity [q_sectors=${conf.qSectors}, w=${
+        1 << conf.qRadial
+      }, n=${conf.agents}, attr=${conf.attractors}, ticks=${conf.ticks}]`,
       async fn() {
         // --- 1. Reset Runtime State ---
         (exports.v2_reset_runtime_state as CallableFunction)();
         (exports.v2_set_environment as CallableFunction)(
-          conf.topology,
-          3,
+          conf.qSectors,
+          conf.qRadial,
           2,
           1024,
         );
-        (exports.v2_ignite_big_bang as CallableFunction)(SEED, AGENT_COUNT);
+        (exports.v2_ignite_big_bang as CallableFunction)(SEED, conf.agents);
 
         if (conf.attractors > 0) {
           (exports.v2_set_attractor as CallableFunction)(
@@ -150,7 +182,7 @@ if (gpuAvailable) {
         const agentBytes = new Uint8Array(
           memory.buffer,
           agentsPtr,
-          AGENT_COUNT * 32,
+          conf.agents * 32,
         );
         const sineLutBytes = new Int32Array(memory.buffer, lutQ10Ptr, 256);
         const attractorBytes = new Uint8Array(memory.buffer, attractorPtr, 80);
@@ -329,7 +361,7 @@ if (gpuAvailable) {
           const pass = encoder.beginComputePass();
           pass.setPipeline(pipeline);
           pass.setBindGroup(0, i % 2 === 0 ? bindGroupA : bindGroupB);
-          pass.dispatchWorkgroups(Math.ceil(AGENT_COUNT / 64));
+          pass.dispatchWorkgroups(Math.ceil(conf.agents / 64));
           pass.end();
 
           const outBuf = i % 2 === 0 ? agentsOutBuf : agentsInBuf;
