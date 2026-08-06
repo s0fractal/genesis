@@ -359,14 +359,38 @@ crystallisation → tissue freezes that alignment in place, permanently.** So th
 0.413 is real coherence, but it is _fossilised_ coherence. The world
 synchronises, fills its habitat, grows rich, and turns to stone.
 
-**The open question is what tissue should be.** A hundred percent tissue is not
-differentiation — an organ implies some structure and some motile cells. Three
-knobs are visible: crystallisation is irreversible with no path back; the
-threshold is absolute (`MAX_ATP - 1000`) rather than relative to the population,
-so universal wealth makes it universal; and it costs nothing, so there is no
-pressure against it. Which of those is the mistake is a claim about what these
-organisms are, so `structure_probe.ts` now reports the tissue fraction and none
-of the three has been touched.
+**Tissue is now relative and reversible, and the world breathes.** Three knobs
+were visible; two were turned and the third deliberately left alone.
+
+_Relative._ The threshold was `MAX_ATP - 1000`, a fixed wealth line that every
+agent crosses once the population is at carrying capacity and the sun outpaces
+metabolism. It is now `max(p90_energy, MAX_ATP/2)` — being in the top decile is
+a claim about your neighbours, so it cannot become universal by construction.
+The floor guards the degenerate start before the histogram has run.
+
+_Reversible._ Nothing cleared the flag, so the first agent to qualify was
+structure forever. An agent that falls out of the top decile or meets stress
+again dissolves back to motile. `base_freq` is no longer zeroed on
+crystallisation — the drift is gated on the flag instead — because zeroing it
+destroys the frequency there would be to return to.
+
+_Left alone:_ tissue burns a quarter of normal. That is a subsidy, not a cost,
+and it is why crystallisation ran away — but with a relative ceiling it can no
+longer do so, and changing two things at once would leave neither measured.
+
+```text
+tissue fraction, capacity 4096 over 6000 ticks
+  before:  0% → 100% by tick 640, and 100% forever
+  after :  cycles 22% ↔ 96%, mean 48.6%
+```
+
+**Still not differentiation, and worth saying so.** What emerged is a global
+oscillation — the whole population ossifying and dissolving together — not
+spatial structure. A body has persistent regions that are structural while
+others stay motile; this has phases in time rather than organs in space. The
+local-over-global order ratio would show the difference and currently sits near
+1, which is the same "no domains" reading as before. So the fossil is gone and
+the organism is not yet there.
 
 ### Not conserved yet — known, named, open
 

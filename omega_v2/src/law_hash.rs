@@ -9,6 +9,15 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 963 — Differentiated. Era 962's coupling worked, and the world used it to
+/// turn to stone: measured 100% tissue by tick 640, 4091 of 4096 agents
+/// advancing zero phase per tick. Crystallisation was a one-way door with an
+/// ABSOLUTE wealth threshold, so a population at carrying capacity crossed it
+/// entirely. It is now relative to the population's own p90 and reversible, and
+/// the drift is gated on the flag rather than destroying `base_freq` — so an
+/// agent that falls out of the top decile becomes motile again. Measured after:
+/// the tissue fraction cycles between 22% and 96% instead of latching at 100%.
+///
 /// 962 — Coherent. Era 961 lit the sun and closed the books, and its Kuramoto
 /// coupling still did nothing: measured order parameter 0.02, no domains, no
 /// drift in the selected trait. Two unit errors, both Q10-against-raw. The
@@ -28,7 +37,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 962; // 962 Coherent
+pub const ERA_ID: u32 = 963; // 963 Differentiated
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -120,7 +129,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x6EBC_304A;
+pub const CANONICAL_LAW_HASH: u32 = 0x7256_28A1;
 
 #[cfg(test)]
 mod tests {

@@ -828,16 +828,53 @@ impl PhaseLattice {
                     );
 
                     // Emergent Organ Differentiation (Tissue Crystallization)
+                    //
+                    // RELATIVE, not absolute. The threshold was
+                    // `MAX_ATP - 1000` — a fixed wealth line — so once the
+                    // population reached carrying capacity and the sun outpaced
+                    // metabolism, EVERY agent crossed it. Measured: 100% tissue
+                    // by tick 640, 4091 of 4096 agents advancing zero phase per
+                    // tick. That is not differentiation; an organ implies some
+                    // structure and some motile cells, and a lattice that is
+                    // entirely structure is a fossil.
+                    //
+                    // Being in the top decile is a claim about your neighbours,
+                    // so it cannot become universal by construction: `p90_energy`
+                    // moves with the population. The MAX_ATP/2 floor guards the
+                    // degenerate start where the histogram has not run and p90
+                    // is still zero, which would otherwise crystallise everyone
+                    // alive on the first tick.
+                    let tissue_threshold = core::cmp::max(
+                        self.signals.p90_energy,
+                        crate::constants::MAX_ATP / 2,
+                    );
                     if !is_tissue
                         && ortho_agent > 0
-                        && agent.energy > crate::constants::MAX_ATP - 1000
+                        && agent.energy > tissue_threshold
                         && thermodynamic_stress < 5
                     {
                         agent.state_flags |= crate::agent::FLAG_TISSUE_LOCKED;
                         is_tissue = true;
-                        agent.base_freq = 0; // Structurally rigid
                         weight_left = crate::constants::HEBBIAN_MAX_WEIGHT;
                         weight_right = crate::constants::HEBBIAN_MAX_WEIGHT;
+                    }
+
+                    // ...AND BACK. Crystallisation used to be a one-way door:
+                    // nothing anywhere cleared the flag, so the first agent to
+                    // qualify was structure forever regardless of what happened
+                    // to it afterwards. A cell that falls out of the top decile,
+                    // or that finds itself under stress again, dissolves back
+                    // into a motile one — which is what makes the tissue
+                    // fraction an equilibrium rather than a ratchet.
+                    //
+                    // `base_freq` is no longer zeroed on crystallisation (the
+                    // drift is gated on `is_tissue` instead), because zeroing it
+                    // destroys the natural frequency and leaves nothing to
+                    // return to.
+                    if is_tissue && (agent.energy <= tissue_threshold || thermodynamic_stress >= 5)
+                    {
+                        agent.state_flags &= !crate::agent::FLAG_TISSUE_LOCKED;
+                        is_tissue = false;
                     }
 
                     // Dynamic Orthogonal Branching (5D escape)
@@ -907,8 +944,16 @@ impl PhaseLattice {
                     let clamped_base_freq =
                         agent.base_freq.clamp(-max_freq_q10, max_freq_q10)
                             / crate::constants::MATH_Q_SCALE;
-                    let drift = (clamped_base_freq + coupling + attractor_drift)
-                        * (time_dilation_multiplier as i32);
+                    // Structure does not drift. Gated here rather than by
+                    // zeroing `base_freq`, so that dissolving back to motile
+                    // restores the agent's own frequency instead of leaving it
+                    // inert.
+                    let drift = if is_tissue {
+                        0
+                    } else {
+                        (clamped_base_freq + coupling + attractor_drift)
+                            * (time_dilation_multiplier as i32)
+                    };
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
 
                     // Philosophy Vector 10/12: Thermodynamic Conservation

@@ -45,6 +45,22 @@ fn behavioural_anchor() -> u32 {
     lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
     lattice.ignite_big_bang(SEED, AGENTS as u32);
 
+    // Push the fixture into the tissue regime as well as the ordinary one.
+    //
+    // Without this the anchor covered only the metabolic path: 24 ticks from
+    // Big Bang energies never reaches the crystallisation threshold, so when
+    // tissue was made relative and reversible on 2026-08-07 — a change to the
+    // physical operator affecting every agent at capacity — this file stayed
+    // green. An anchor that misses a whole branch of the law is an anchor for
+    // the branches it happens to touch.
+    let active = lattice.signals.active_agent_count as usize;
+    for (i, a) in agents.iter_mut().take(active).enumerate() {
+        if i % 3 == 0 {
+            a.energy = omega_v2::constants::MAX_ATP - 8; // eligible to crystallise
+            a.memory[1] = 1 << 16; // ortho > 0, the other precondition
+        }
+    }
+
     for _ in 0..TICKS {
         lattice.tick_physics();
     }
@@ -63,7 +79,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x5388_9649;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x0B6A_5BC4;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {

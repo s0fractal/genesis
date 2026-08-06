@@ -342,12 +342,28 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Emergent Organ Differentiation (Tissue Crystallization)
-        if (!is_tissue && ortho_agent > 0u && agent.energy > MAX_ATP - 1000u && thermodynamic_stress < 5u) {
+        //
+        // RELATIVE and REVERSIBLE — mirrors PhaseLattice::tick_physics. The
+        // threshold was the fixed line MAX_ATP - 1000, which every agent crossed
+        // once the population reached carrying capacity: measured 100% tissue by
+        // tick 640, with 4091 of 4096 advancing zero phase per tick. Being in
+        // the top decile is a claim about your neighbours and cannot become
+        // universal; the MAX_ATP/2 floor guards the start, before the p90
+        // histogram has run.
+        let tissue_threshold = max(signals.p90_energy, MAX_ATP / 2u);
+        if (!is_tissue && ortho_agent > 0u && agent.energy > tissue_threshold && thermodynamic_stress < 5u) {
             agent.state_flags = agent.state_flags | 0x08000000u;
             is_tissue = true;
-            agent.base_freq = 0i;
             weight_left = HEBBIAN_MAX_WEIGHT;
             weight_right = HEBBIAN_MAX_WEIGHT;
+        }
+        // ...and back. Nothing used to clear this flag, so the first agent to
+        // qualify was structure forever. base_freq is no longer zeroed on
+        // crystallisation — the drift is gated on is_tissue instead — because
+        // zeroing it destroys the frequency there would be to return to.
+        if (is_tissue && (agent.energy <= tissue_threshold || thermodynamic_stress >= 5u)) {
+            agent.state_flags = agent.state_flags & ~0x08000000u;
+            is_tissue = false;
         }
 
         // Dynamic Orthogonal Branching (5D escape)
@@ -401,7 +417,12 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let max_freq_q10 = i32(max_phase_mask / 2u) * Q10_SCALE;
         let clamped_base_freq =
             clamp(agent.base_freq, -max_freq_q10, max_freq_q10) / Q10_SCALE;
-        let drift = (clamped_base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
+        // Structure does not drift. Gated rather than zeroing base_freq, so
+        // dissolving back to motile restores the agent's own frequency.
+        var drift = 0i;
+        if (!is_tissue) {
+            drift = (clamped_base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
+        }
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
