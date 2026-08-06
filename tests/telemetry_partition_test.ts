@@ -8,6 +8,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.submitTestimony({
     substrate: "webgpu",
     source: "gpu-readback",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xBBBB,
@@ -17,6 +18,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.submitTestimony({
     substrate: "wasm",
     source: "wasm-memory",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xBBBB,
@@ -30,6 +32,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.submitTestimony({
     substrate: "webgpu",
     source: "gpu-readback",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xDEAD, // Drift!
@@ -39,6 +42,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.submitTestimony({
     substrate: "wasm",
     source: "wasm-memory",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xBBBB,
@@ -53,6 +57,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.resolveArbitration({
     substrate: "sp1",
     source: "zk-proof",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xBBBB,
@@ -68,6 +73,7 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   court.submitTestimony({
     substrate: "webgpu",
     source: "gpu-readback",
+    derivation: "computed",
     lawHash: 0xCCCC,
     preStateHash: 0xDDDD,
     postStateHash: 0xDDDD,
@@ -78,13 +84,14 @@ Deno.test("Substrate Court consensus and ZK arbitration", () => {
   // We can verify this internally if needed, but for now we just ensure it doesn't trigger new arbitrations
 });
 
-Deno.test("Substrate Court timeout arbitration", async () => {
+Deno.test("Substrate Court: an unanswered arbitration convicts nobody", () => {
   const court = new SubstrateCourt();
 
-  // Tick 1: Drift detected (WebGPU deviates)
+  // Tick 1: two substrates that each ran the transition, and disagree.
   court.submitTestimony({
     substrate: "webgpu",
     source: "gpu-readback",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xDEAD,
@@ -94,6 +101,7 @@ Deno.test("Substrate Court timeout arbitration", async () => {
   court.submitTestimony({
     substrate: "wasm",
     source: "wasm-memory",
+    derivation: "computed",
     lawHash: 0xAAAA,
     preStateHash: 0xBBBB,
     postStateHash: 0xBBBB,
@@ -102,16 +110,16 @@ Deno.test("Substrate Court timeout arbitration", async () => {
   });
 
   assertEquals(court.isolatedSubstrates.size, 0);
+  assertEquals(court.verdictFor(1), "drift");
 
-  // Wait for arbitration timeout (5000ms internally, we'll invoke the private handler directly or mock timers in a real suite, but here we just wait or call it)
-  // For test stability without 5s delays, we will directly call the timeout handler if accessible, or we use fake time.
-  // Since handleArbitrationTimeout is private, we can cast to any to call it for testing:
-  (court as any).handleArbitrationTimeout(1);
+  // The arbiter never answers.
+  (court as unknown as { handleArbitrationTimeout(t: number): void })
+    .handleArbitrationTimeout(1);
 
-  // After timeout, both substrates should be isolated because SP1 did not arrive
-  assert(court.isolatedSubstrates.has("webgpu"));
-  assert(court.isolatedSubstrates.has("wasm"));
-
-  // Verify receipt was generated
-  assert(court.quarantineReceipts.has("timeout_quarantine_tick_1"));
+  // REGRESSION: this used to isolate BOTH, turning "I could not find out" into
+  // a conviction of everyone present — and since isolated substrates have their
+  // testimony dropped, one unanswered request permanently blinded the organ.
+  assertEquals(court.isolatedSubstrates.size, 0, "silence is not evidence");
+  assertEquals(court.quarantineReceipts.size, 0);
+  assert(court.unresolvedTicks.has(1), "the debt is recorded, not hidden");
 });

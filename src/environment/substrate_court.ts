@@ -14,9 +14,36 @@ export type WitnessSubstrate = "webgpu" | "wasm" | "sp1";
 export type WitnessSource = "gpu-readback" | "wasm-memory" | "zk-proof";
 export type ProofKind = "mock" | "sp1-stark" | "groth16";
 
+/**
+ * Where a witness's state came from.
+ *
+ * `computed` — this substrate executed the transition and is reporting its OWN
+ * result. Only these are evidence.
+ *
+ * `mirrored` — this substrate is reporting state it received from another. It
+ * can corroborate nothing: comparing a mirror against its source asks whether
+ * a copy equals the thing it was copied from.
+ *
+ * The distinction is not pedantry. Until 2026-08-06 this court took two
+ * testimonies from ONE state — `renderer.tick()` writes only GPU buffers and
+ * never touches WASM agent memory, so the "wasm" witness hashed a mirror the
+ * GPU had filled at the last readback, and its pre- and post-state hashes were
+ * equal by construction — then convicted on the fact that the two used
+ * different hash functions, and quarantined both substrates when the arbiter it
+ * called never answered. An organ that manufactures a second opinion out of one
+ * observation does not detect drift; it fabricates it.
+ */
+export type WitnessDerivation = "computed" | "mirrored";
+
+/** What the court can honestly say about a tick. */
+export type CourtVerdict = "agreement" | "drift" | "not-assessed";
+
 export interface StateWitness {
   substrate: WitnessSubstrate;
   source: WitnessSource;
+  /** Omitted defaults to `mirrored`: a witness that does not claim to have
+   *  computed the transition must not be counted as if it had. Fail closed. */
+  derivation?: WitnessDerivation;
   proofKind?: ProofKind;
   lawHash: number;
   preStateHash: number;
@@ -32,6 +59,9 @@ export class SubstrateCourt {
   // Substrates that have failed arbitration and are temporarily isolated
   public isolatedSubstrates = new Set<WitnessSubstrate>();
   public quarantineReceipts = new Set<string>(); // Store isolation receipts
+  /** Ticks where drift was seen and the arbiter never answered. Visible debt,
+   *  not a conviction — see handleArbitrationTimeout. */
+  public unresolvedTicks = new Set<number>();
   public transitionReceipts = new Set<string>(); // Store transitions into isolation
 
   constructor() {}
@@ -52,17 +82,46 @@ export class SubstrateCourt {
     this.checkConsensus(testimony.tick);
   }
 
+  /** The court's honest reading of a tick. */
+  public verdictFor(tick: number): CourtVerdict {
+    const records = this.testimonies.get(tick);
+    if (!records) return "not-assessed";
+
+    const computed = [...records.values()].filter(
+      (w) => w.derivation === "computed",
+    );
+    // Two independent computations of the same transition, or nothing to say.
+    if (computed.length < 2) return "not-assessed";
+
+    const [first, ...rest] = computed;
+    const agrees = rest.every(
+      (w) =>
+        w.postStateHash === first.postStateHash && w.lawHash === first.lawHash,
+    );
+    return agrees ? "agreement" : "drift";
+  }
+
   /** Check if we have drift between the fast substrates (WebGPU vs WASM). */
   private checkConsensus(tick: number): void {
     const records = this.testimonies.get(tick)!;
+
+    const verdict = this.verdictFor(tick);
+    if (verdict === "not-assessed") {
+      // Nothing to arbitrate and nothing to celebrate. Silence here is the
+      // point: the alternative is an organ that reports agreement it never
+      // established, which is how a court becomes a rubber stamp.
+      return;
+    }
+    if (verdict === "agreement") {
+      this.prune(tick - 100);
+      return;
+    }
 
     const gpu = records.get("webgpu");
     const wasm = records.get("wasm");
 
     if (gpu && wasm) {
-      if (
-        gpu.postStateHash !== wasm.postStateHash || gpu.lawHash !== wasm.lawHash
-      ) {
+      {
         // Drift detected! Trigger ZK arbitration if not already pending
         if (!this.pendingArbitrations.has(tick)) {
           const timeoutId = setTimeout(
@@ -72,9 +131,6 @@ export class SubstrateCourt {
           this.pendingArbitrations.set(tick, timeoutId as unknown as number);
           this.requestArbitration(tick, gpu, wasm);
         }
-      } else {
-        // Consensus reached, we can garbage collect older ticks
-        this.prune(tick - 100);
       }
     }
   }
@@ -95,20 +151,23 @@ export class SubstrateCourt {
   private handleArbitrationTimeout(tick: number): void {
     if (this.pendingArbitrations.has(tick)) {
       clearTimeout(this.pendingArbitrations.get(tick));
-      console.error(
-        `[SubstrateCourt] Arbitration timeout for tick ${tick}. Quarantining involved substrates.`,
+      console.warn(
+        `[SubstrateCourt] Arbitration for tick ${tick} went unanswered. ` +
+          `Drift stands UNRESOLVED — no substrate is convicted on silence.`,
       );
 
-      const records = this.testimonies.get(tick);
-      if (records) {
-        // If SP1 testimony did not arrive, we cannot decide who is right. Isolate both fast substrates.
-        if (records.has("webgpu")) this.isolatedSubstrates.add("webgpu");
-        if (records.has("wasm")) this.isolatedSubstrates.add("wasm");
-
-        const receipt = `timeout_quarantine_tick_${tick}`;
-        this.quarantineReceipts.add(receipt);
-        this.transitionReceipts.add(receipt);
-      }
+      // The arbiter did not answer, so the court does not know which substrate
+      // was right. It used to isolate BOTH — converting "I could not find out"
+      // into a conviction of everyone present, which then silenced every future
+      // testimony (`submitTestimony` drops isolated substrates), so a single
+      // unanswered request permanently blinded the organ.
+      //
+      // Uncertainty is not guilt. This is the same rule the Bitcoin anchor
+      // already follows, where UNREACHABLE is a distinct verdict from MISMATCH:
+      // failing to ask is not evidence of forgery. The unresolved tick is
+      // recorded so the debt is visible, and `resolveArbitration` can still
+      // convict later if a real proof arrives.
+      this.unresolvedTicks.add(tick);
       this.pendingArbitrations.delete(tick);
     }
   }

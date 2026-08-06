@@ -709,10 +709,22 @@ ${debateMd || "(no recorded arguments)"}
         );
         mesh.enqueueBinaryFrame(frame);
 
-        // Substrate Court - Submit WASM Testimony
+        // Substrate Court.
+        //
+        // MIRRORED, and labelled as such. `renderer.tick()` dispatches the GPU
+        // compute pass and writes no WASM agent memory, so this hash is of the
+        // snapshot the GPU left here at the last readback — which is why
+        // preStateHash and postStateHash above are equal every frame. WASM did
+        // not compute this transition and must not be counted as if it had.
+        //
+        // Until the Rust kernel actually ticks in production there is ONE
+        // computation and one state, so the court will return `not-assessed`
+        // rather than agreement. That is the honest reading: this organ needs a
+        // second independent execution, not a second hash of the same bytes.
         court.submitTestimony({
           substrate: "wasm",
           source: "wasm-memory",
+          derivation: "mirrored",
           lawHash: lawHash,
           preStateHash: preStateHash,
           postStateHash: postStateHash,
@@ -720,14 +732,24 @@ ${debateMd || "(no recorded arguments)"}
           tick: absoluteTick,
         });
 
-        // Async request for WebGPU Testimony
-        renderer.readStateFromGPUAndHash().then((gpuResult) => {
+        // Async request for WebGPU Testimony — the substrate that did compute it.
+        renderer.readStateFromGPUAndHash().then(() => {
           court.submitTestimony({
             substrate: "webgpu",
             source: "gpu-readback",
-            lawHash: lawHash, // WebGPU uses the same law for now
-            preStateHash: preStateHash, // Usually readback happens after, so pre is approximated
-            postStateHash: gpuResult.goldenTraceNum, // GPU state hash
+            derivation: "computed",
+            // The shader's own law, once it can report one. Copying WASM's
+            // value here made law drift — one of the two things this court
+            // exists to catch — structurally undetectable.
+            lawHash: lawHash,
+            preStateHash: preStateHash,
+            // The SAME function over the state the GPU produced, now mirrored
+            // into WASM memory by the readback above. It used to be
+            // `goldenTraceNum`, a sampled mul/xor hash over ~32 agents,
+            // compared against a full SHA-256 over all of them: two different
+            // functions that agree with probability 2^-32, so every tick that
+            // landed both testimonies was ruled a drift.
+            postStateHash: engine.getStateHash(),
             entropyDelta: entropyDelta,
             tick: absoluteTick,
           });
