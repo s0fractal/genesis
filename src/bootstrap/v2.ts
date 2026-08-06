@@ -27,6 +27,8 @@ import { CANONICAL_ORACLES, oracleDipole } from "../network/oracle_identity.ts";
 import { PhiBridge } from "../network/phi_bridge.ts";
 import { buildLawTelemetry } from "../network/spore_frame.ts";
 import { CompostSynapse } from "../network/compost_synapse.ts";
+import { computeToroidalSrc } from "../lens/renderer_modes.ts";
+import { kernelSharedLawHash, shaderLawHash } from "../shared/shader_law.ts";
 // Translation Policy bloat removed
 
 let oracleWorker: Worker | null = null;
@@ -672,6 +674,25 @@ ${debateMd || "(no recorded arguments)"}
 
     // Substrate Court
     const court = new SubstrateCourt();
+    // The physics each substrate DECLARES, hashed the same way over the same
+    // eleven constants. Computed once — the shader text is fixed at build time
+    // and the kernel's constants are compiled in.
+    const kernelLaw = await kernelSharedLawHash();
+    let shaderLaw: number | null = null;
+    try {
+      shaderLaw = await shaderLawHash(computeToroidalSrc);
+    } catch (e) {
+      console.error("[LAW-DRIFT] cannot read the shader's law:", e);
+    }
+    if (shaderLaw !== null && shaderLaw !== kernelLaw) {
+      console.error(
+        `[LAW-DRIFT] shader declares 0x${
+          (shaderLaw >>> 0).toString(16)
+        } where ` +
+          `the kernel declares 0x${(kernelLaw >>> 0).toString(16)} — the two ` +
+          `substrates are running different physics`,
+      );
+    }
     /** State and tick of the last readback, so the verifier can replay the
      *  interval the GPU actually ran rather than guess one. */
     let lastVerified:
@@ -781,7 +802,7 @@ ${debateMd || "(no recorded arguments)"}
                   substrate: "wasm",
                   source: "wasm-memory",
                   derivation: "computed",
-                  lawHash: lawHash,
+                  lawHash: kernelLaw,
                   preStateHash: lastVerified.hash,
                   postStateHash: replayed,
                   entropyDelta: entropyDelta,
@@ -805,10 +826,15 @@ ${debateMd || "(no recorded arguments)"}
             substrate: "webgpu",
             source: "gpu-readback",
             derivation: "computed",
-            // The shader's own law, once it can report one. Copying WASM's
-            // value here made law drift — one of the two things this court
-            // exists to catch — structurally undetectable.
-            lawHash: lawHash,
+            // THE SHADER'S OWN LAW, parsed from the source the GPU compiled.
+            // This used to copy the WASM value with a note saying "WebGPU uses
+            // the same law for now", which made law drift — one of the two
+            // things this court exists to catch — structurally undetectable: a
+            // shader built from different constants would testify to the
+            // kernel's physics. Both sides now hash the same eleven constants
+            // in the same order, so equality is a claim about the substrates
+            // rather than about one of them twice.
+            lawHash: shaderLaw ?? kernelLaw,
             preStateHash: preStateHash,
             // The SAME function over the state the GPU produced, now mirrored
             // into WASM memory by the readback above. It used to be

@@ -1,4 +1,5 @@
 import computeToroidalSrc from "./shaders/compute_toroidal.wgsl?raw";
+export { computeToroidalSrc };
 import renderV2Src from "./shaders/render_v2.wgsl?raw";
 import { RendererBuffers } from "./renderer_buffers.ts";
 import { OmegaV2Engine } from "../environment/v2_bridge.ts";
