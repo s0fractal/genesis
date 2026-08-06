@@ -194,6 +194,34 @@ Burn now depends only on `metabolic_pressure`. The mean is unchanged (one Q10
 factor left the numerator and the divisor together), but burn is flat across the
 day while income follows the sky, so agents charge by day and spend by night.
 
+### Growth — the Big Bang does not fill the universe
+
+`ignite_big_bang(seed, capacity)` seeds `BIG_BANG_SEED_DENSITY_Q10 / 1024` of
+the lattice with life and leaves the rest empty; `max_cells` records the
+capacity the host allocated. When a fertile parent finds no vacancy among the
+living, `darwinian_mitosis` appends a child at the frontier and grows
+`active_agent_count`, stopping at `max_cells`.
+
+Before this, the argument was both capacity and living count, so every slot was
+occupied at t=0. Mitosis places a child in a vacancy, and a vacancy only appears
+when something dies — so reproduction was gated on mortality, and a world with a
+sun strong enough to keep everyone alive was **sterile by construction**. Not a
+tuning problem: measured at `SOLAR_YIELD_Q10 = 18432`, 1024 alive at tick 1500,
+the richest agent past the fertility threshold, zero deaths and therefore zero
+births.
+
+Empty Center, taken literally: the world begins with room.
+
+Measured after — capacity 4096, seeded 1024, over 5000 ticks: first birth at
+tick 2525, ten by the end, population 1024 → 1034, books still closing to the
+joule. Reproduction is now slow and earned rather than impossible, which is what
+the solar calibration was chosen for: only the fittest cross the threshold.
+
+Both the GPU dispatch and the buffer sizing already handle a moving population —
+`v2_renderer` reads `active_agent_count` from the uniform every frame and
+dispatches from it, and the agent buffers are sized to the whole WASM array — so
+growth needed no host change.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
@@ -221,23 +249,7 @@ not have would be the same failure as the tautological audit above.
    bounded now and the trace is finally true, so the return path is buildable;
    it has not been built, and inventing it is a decision about what the world
    is, not a repair.
-4. **Birth needs a vacancy, and a vacancy needs a death — so an immortal world
-   is a sterile one.** This is the third failure mode, and unlike the first two
-   it is structural rather than a matter of tuning. `darwinian_mitosis` places a
-   child by scanning `0..active` for an agent at zero energy; nothing grows the
-   lattice, so population is fixed at ignition and can only turn over.
-   Reproduction therefore requires mortality — and a sun set strong enough that
-   the fittest reach maturity is also strong enough that nobody starves.
-   Measured at `SOLAR_YIELD_Q10 = 18432`: 1024 alive at tick 1500, richest agent
-   2026 against a threshold of 2048, poorest 1113, **zero deaths and therefore
-   zero births**.
-
-   Three ways out, none of them a repair: let the lattice grow past its ignition
-   count; widen the burn distribution so the unfit genuinely starve under the
-   same sky; or accept a fixed immortal population and call mitosis
-   replacement-only. Each is a different claim about what these organisms are,
-   so none is made here.
-5. **Proper time is still the host's `+1`.** The kernel law
+4. **Proper time is still the host's `+1`.** The kernel law
    (`1024 / (1 + stress/32)`) never runs on the substrate that does, so time
    dilation — stressed regions ageing more slowly — is a documented mechanic
    with no execution. Applying the kernel law verbatim would cycle `day_phase`

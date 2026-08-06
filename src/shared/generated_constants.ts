@@ -147,6 +147,11 @@ export const Q16_FACTOR_ANCIENT_AGE = 163840;
 export const ANCIENT_AGE_TICKS = 10240;
 export const PREDATOR_ENERGY_STEAL = 5;
 /**
+ * Fraction of the allocated lattice that the Big Bang seeds with life (256/1024 = 25%). The rest is the room the world grows into. Ignition used to fill every slot, which made reproduction impossible by construction: mitosis places a child in a vacancy, a vacancy needs a death, and a world that starts full has neither. Empty Center, taken literally.
+ */
+export const BIG_BANG_SEED_DENSITY_Q10 = 256;
+
+/**
  * Q10 ATP per living agent per tick at neutral sun (18432/1024 = 18); zero at midnight, 36 at noon. Calibrated by measurement, not taste (tools/ecology_probe.ts): at this yield the FITTEST agents reach the 2048 reproduction threshold and the rest do not, which is what makes an environment selective rather than merely survivable. Below it (9216) nobody approaches maturity; well above it every agent clears the bar at once and efficiency stops mattering. Note the homeostat pushes back: metabolic_pressure scales burn with the population's own average wealth, so yield and equilibrium are not proportional.
  */
 export const SOLAR_YIELD_Q10 = 18432;

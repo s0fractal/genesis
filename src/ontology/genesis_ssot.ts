@@ -244,6 +244,17 @@ export const CONSTANTS = {
     expr: "(MAX_ATP * Q16_FACTOR_ANCIENT_AGE) >> 16",
   },
   PREDATOR_ENERGY_STEAL: { type: "u32", expr: "(MAX_ATP / 1024) + 1" },
+  BIG_BANG_SEED_DENSITY_Q10: {
+    type: "u32",
+    value: 256,
+    note:
+      "Fraction of the allocated lattice that the Big Bang seeds with life " +
+      "(256/1024 = 25%). The rest is the room the world grows into. Ignition " +
+      "used to fill every slot, which made reproduction impossible by " +
+      "construction: mitosis places a child in a vacancy, a vacancy needs a " +
+      "death, and a world that starts full has neither. Empty Center, taken " +
+      "literally.",
+  },
   SOLAR_YIELD_Q10: {
     type: "u32",
     value: 18432,

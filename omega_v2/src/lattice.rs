@@ -196,6 +196,27 @@ impl PhaseLattice {
         // Critical: Prevent C-style buffer overflow if JS asks for more than .bss can hold!
         let safe_population = core::cmp::min(initial_population, crate::MAX_MINIMAL_AGENTS as u32);
 
+        // THE BIG BANG DOES NOT FILL THE UNIVERSE.
+        //
+        // It used to: `initial_population` became both the capacity and the
+        // living count, so every slot was occupied at t=0. Mitosis places a
+        // child by finding a vacancy, and a vacancy only appears when something
+        // dies — so a world that starts full can never grow, and once the sun
+        // made starvation rare it could never reproduce either. Measured: 1024
+        // alive at tick 1500, richest agent past the fertility threshold, and
+        // zero births, because there was nowhere to put a child.
+        //
+        // So `initial_population` is now the CAPACITY — what the host allocated
+        // and what the GPU buffers are sized for — and life is seeded into a
+        // fraction of it. The rest is the room the world grows into.
+        self.signals.max_cells = safe_population;
+        let seeded = core::cmp::max(
+            1,
+            (safe_population as u64 * crate::constants::BIG_BANG_SEED_DENSITY_Q10 as u64 / 1024)
+                as u32,
+        );
+        let safe_population = core::cmp::min(seeded, safe_population);
+
         self.signals.active_agent_count = safe_population;
         let mut rng = crate::math::Xorshift64::new(root_seed);
         let max_phase = (1u32 << self.topology.q_phase) - 1;
@@ -1045,7 +1066,26 @@ impl PhaseLattice {
                         next_dead_idx += 1;
                     }
                     if next_dead_idx >= active {
-                        break; // lattice is full — no vacancy for anyone
+                        // No vacancy among the living — so grow into the empty
+                        // part of the universe, if any is left. This is the
+                        // difference between a population that can only replace
+                        // its dead and one that can actually increase: without
+                        // it, reproduction is gated on mortality, and a world
+                        // where the sun keeps everyone alive is sterile.
+                        //
+                        // Bounded by `max_cells`, the capacity the host
+                        // allocated and sized its GPU buffers for, so growth
+                        // stops at carrying capacity rather than running off the
+                        // end of the array.
+                        let frontier = self.signals.active_agent_count as usize;
+                        if frontier < self.signals.max_cells as usize
+                            && frontier < crate::MAX_MINIMAL_AGENTS
+                        {
+                            next_dead_idx = frontier;
+                            self.signals.active_agent_count += 1;
+                        } else {
+                            break; // at carrying capacity
+                        }
                     }
 
                     parent.energy -= crate::constants::MITOSIS_COST; // Mitosis friction
@@ -1371,6 +1411,54 @@ mod tests {
         assert!(released > 0, "a genome mutation always erases some bits");
     }
 
+    /// Reproduction must not be gated on somebody dying first.
+    ///
+    /// Mitosis places a child in a vacancy. When the Big Bang filled every slot,
+    /// the only vacancies were graves — so a world where the sun keeps everyone
+    /// alive could never reproduce, and measured at SOLAR_YIELD_Q10 = 18432 it
+    /// did not: 1024 alive at tick 1500, the richest agent past the fertility
+    /// threshold, zero deaths, zero births.
+    #[test]
+    fn a_population_grows_into_empty_space_without_anyone_dying() {
+        let (mut lattice, mut agents, _s, _d) = make_lattice_with_q_phase(16, 7);
+        lattice.signals.max_cells = 16;
+        lattice.signals.active_agent_count = 2;
+        // Two fertile agents, nobody dead, no vacancy behind them.
+        for a in agents.iter_mut().take(2) {
+            a.energy = crate::constants::MITOSIS_THRESHOLD;
+            a.state_flags = 0;
+        }
+        agents[0].genome = 0x0F0F_0F0F;
+        agents[1].genome = 0x3333_3333;
+
+        let born = lattice.darwinian_mitosis();
+        assert_eq!(born, 2, "both fertile parents should reproduce");
+        assert_eq!(
+            lattice.signals.active_agent_count, 4,
+            "the population grew into the empty part of the lattice"
+        );
+        assert!(agents[2].energy > 0 && agents[3].energy > 0, "children live");
+    }
+
+    #[test]
+    fn growth_stops_at_carrying_capacity() {
+        let (mut lattice, mut agents, _s, _d) = make_lattice_with_q_phase(8, 7);
+        // Capacity equals the living count: the world is already as big as the
+        // host allocated for, so there is nowhere to put a child and nobody is
+        // charged for trying.
+        lattice.signals.max_cells = 3;
+        lattice.signals.active_agent_count = 3;
+        for a in agents.iter_mut().take(3) {
+            a.energy = crate::constants::MITOSIS_THRESHOLD;
+        }
+        let before: u64 = agents.iter().take(3).map(|a| a.energy as u64).sum();
+
+        assert_eq!(lattice.darwinian_mitosis(), 0, "no room, no births");
+        assert_eq!(lattice.signals.active_agent_count, 3, "and no growth");
+        let after: u64 = agents.iter().take(3).map(|a| a.energy as u64).sum();
+        assert_eq!(before, after, "a refused birth is still free");
+    }
+
     /// A full lattice must refuse to reproduce, not charge for a phantom child.
     #[test]
     fn mitosis_on_a_full_lattice_costs_nothing() {
@@ -1680,7 +1768,21 @@ mod tests {
         let (mut lattice, mut agents, _snapshot, _deltas) = make_lattice(100);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
         lattice.ignite_big_bang(12345, 50);
-        assert_eq!(lattice.signals.active_agent_count, 50);
+
+        // The argument is CAPACITY, not the living count. Ignition seeds a
+        // fraction and leaves the rest empty, because mitosis needs somewhere to
+        // put a child — a universe that starts full can never grow, and once the
+        // sun made starvation rare it could never reproduce either.
+        assert_eq!(lattice.signals.max_cells, 50, "capacity is what was asked for");
+        assert_eq!(
+            lattice.signals.active_agent_count,
+            50 * crate::constants::BIG_BANG_SEED_DENSITY_Q10 / 1024,
+            "life is seeded into a fraction of the room"
+        );
+        assert!(
+            lattice.signals.active_agent_count < lattice.signals.max_cells,
+            "the Big Bang must leave the world somewhere to grow"
+        );
         assert!(agents[0].energy > 0);
         assert!(agents[0].genome > 0 || agents[1].genome > 0); // At least some entropy
     }
@@ -1905,8 +2007,10 @@ mod tests {
     fn test_delta_snapshot_respects_max_deltas() {
         let (mut lattice, mut agents, mut snapshot, mut deltas) = make_lattice(10);
         lattice.minimal_agents_ptr = agents.as_mut_ptr();
-        lattice.signals.active_agent_count = 10;
-        lattice.ignite_big_bang(99, 10);
+        // Ignite with capacity 40 so the seeded quarter is the 10 agents this
+        // test needs changed; the argument is capacity, not the living count.
+        lattice.ignite_big_bang(99, 40);
+        assert_eq!(lattice.signals.active_agent_count, 10, "seeded population");
         // Limit deltas to 3 — only first 3 changes should be reported
         let count = unsafe {
             lattice.generate_delta_snapshot(

@@ -50,8 +50,9 @@ function signals() {
 function census() {
   const agentsPtr = x.v2_agents_ptr() as number;
   const a = new Uint32Array(memory.buffer, agentsPtr, AGENTS * 8);
+  const live = signals().activeCount;
   let alive = 0, energy = 0, minE = Infinity, maxE = 0;
-  for (let i = 0; i < AGENTS; i++) {
+  for (let i = 0; i < Math.min(live, AGENTS); i++) {
     const e = a[i * 8 + 1];
     const flags = a[i * 8 + 3];
     if (e > 0 && (flags & 1) === 0) {

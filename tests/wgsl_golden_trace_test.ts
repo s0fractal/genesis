@@ -133,7 +133,13 @@ if (gpuAvailable) {
           2,
           1024,
         );
-        (exports.v2_ignite_big_bang as CallableFunction)(SEED, conf.agents);
+        // The Big Bang seeds a FRACTION of capacity (BIG_BANG_SEED_DENSITY_Q10) and
+        // leaves the rest empty, so ask for the capacity that yields exactly the
+        // agent count this config is about.
+        (exports.v2_ignite_big_bang as CallableFunction)(
+          SEED,
+          conf.agents * 1024 / 256,
+        );
 
         if (conf.attractors > 0) {
           (exports.v2_set_attractor as CallableFunction)(

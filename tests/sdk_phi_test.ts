@@ -19,7 +19,12 @@ Deno.test("SDK: calculateGoldenTrace exactly matches Rust WASM parity", async ()
 
   // Ignite 1024 agents
   const AGENT_COUNT = 1024;
-  (exports.v2_ignite_big_bang as CallableFunction)(0xABCDEF, AGENT_COUNT);
+  // Ignition seeds BIG_BANG_SEED_DENSITY_Q10 of capacity and leaves the rest
+  // empty, so ask for the capacity that yields AGENT_COUNT living agents.
+  (exports.v2_ignite_big_bang as CallableFunction)(
+    0xABCDEF,
+    AGENT_COUNT * 1024 / 256,
+  );
 
   // Read uniform signals
   const latticePtr = (exports.v2_lattice_ptr as CallableFunction)() as number;
