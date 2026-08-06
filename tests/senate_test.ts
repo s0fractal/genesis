@@ -37,8 +37,8 @@ Deno.test("senate hash: descriptions diverging within the first 64 bytes differ"
   assert(senateHash(short) !== senateHash(long));
 });
 
-Deno.test("Era 1030 trigger requires 10+ entries AND 5+ unique matrices", () => {
-  // Mirror of WebRTCV2Mesh.checkEra1030Trigger condition.
+Deno.test("senate-convened trigger requires 10+ entries AND 5+ unique matrices", () => {
+  // Mirror of WebRTCV2Mesh.checkSenateConvened condition.
   function shouldUnlock(entries: number, uniqueMatrices: number): boolean {
     return entries >= 10 && uniqueMatrices >= 5;
   }

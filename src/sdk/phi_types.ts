@@ -38,7 +38,7 @@ export class PhaseAgentParser {
     // Bit 0 (LSB): is_locked
     // Bits 1-7: species_id
     // Bits 8-23: traits
-    // Bit 24: Era 1020 "born near attractor" bit (0x0100_0000)
+    // Bit 24: "born near attractor" bit (0x0100_0000)
     const isLocked = (stateFlags & 1) !== 0;
     const speciesId = (stateFlags >> 1) & 0x7F;
     const traits = (stateFlags >> 8) & 0xFFFF;

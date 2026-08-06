@@ -8,18 +8,21 @@
 
 import { assertEquals, assertNotEquals } from "jsr:@std/assert@1";
 import {
-  ERA_1040_PROPOSAL,
-  ERA_1040_PROPOSAL_HASH,
   senateHash,
+  ZK_NOTARIZATION_PROPOSAL,
+  ZK_NOTARIZATION_PROPOSAL_HASH,
 } from "../src/network/senate_proposals.ts";
 
 Deno.test("the Era-1040 key is DERIVED from its text and matches the frozen anchor", () => {
   // If this fails you changed the proposal's TEXT, which changes its IDENTITY.
   // That is a governance act: an already-open proposal keyed by the old hash
-  // becomes unreachable. Update ERA_1040_PROPOSAL_HASH deliberately, in the
+  // becomes unreachable. Update ZK_NOTARIZATION_PROPOSAL_HASH deliberately, in the
   // same change, and say so in the commit.
-  assertEquals(senateHash(ERA_1040_PROPOSAL), ERA_1040_PROPOSAL_HASH);
-  assertEquals(ERA_1040_PROPOSAL_HASH, 0x5507_4120);
+  assertEquals(
+    senateHash(ZK_NOTARIZATION_PROPOSAL),
+    ZK_NOTARIZATION_PROPOSAL_HASH,
+  );
+  assertEquals(ZK_NOTARIZATION_PROPOSAL_HASH, 0x5507_4120);
 });
 
 Deno.test("senateHash reproduces the genesis senate anchors", () => {
@@ -42,8 +45,8 @@ Deno.test("senateHash zero-pads to 64 bytes and truncates beyond it", () => {
 
 Deno.test("distinct short descriptions produce distinct keys", () => {
   assertNotEquals(senateHash("Era 1040 zk"), senateHash("Era 1041 senate"));
-  assertNotEquals(senateHash(ERA_1040_PROPOSAL), senateHash(""));
+  assertNotEquals(senateHash(ZK_NOTARIZATION_PROPOSAL), senateHash(""));
   // And the Era-1040 key is NOT the genesis first_proposal_hash anchor, which
   // hashes a different canonical string.
-  assertNotEquals(ERA_1040_PROPOSAL_HASH, 0x3008_3117);
+  assertNotEquals(ZK_NOTARIZATION_PROPOSAL_HASH, 0x3008_3117);
 });

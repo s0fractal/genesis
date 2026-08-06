@@ -8,7 +8,7 @@
 // diverge by ≥ PARTITION_DIFF_THRESHOLD_Q16.
 
 // On partition detection, the monitor surfaces an alarm AND can
-// auto-raise an investigation proposal via the Era 1090 warrant
+// auto-raise an investigation proposal via the warrant
 // issuance flow (caller-provided callback).
 
 // SECURITY NOTE: a malicious relay could broadcast a fake digest

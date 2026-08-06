@@ -1,5 +1,40 @@
 # OMEGA-64 Historical Era Ledger
 
+## Era numerals → capability names (retired 2026-08-06)
+
+Era numbers no longer appear in runtime code. They were a numbering that only
+one reader could decode: `era1030Unlocked` meant "the Senate can receive
+proposals", and nothing but memory said so. Worse, the numbering is not even
+unique across this project — `liquid` runs its own era sequence where Era 1030
+means PN-CAD Sovereignty, so the same numeral names two different things in two
+substrates of the same federation.
+
+The code now says what it means. This table is the join key between the two
+vocabularies, and between the runtime and everything below in this file.
+
+| Retired era | Field / method now                              | Event now                     | Fires when                                             |
+| ----------- | ----------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| 1020        | `attractorConsensusReached`                     | `attractor-consensus-reached` | 3+ peers agree on the attractor field                  |
+| 1030        | `senateConvened` / `checkSenateConvened()`       | `senate-convened`             | ≥10 ledger entries across ≥5 unique matrices           |
+| 1030 (task) | —                                               | `senate-task-accepted`        | a proposal reaches acceptance                          |
+| 1040        | `autoRatifyZkNotarization()`                    | —                             | every 5th verified mitosis proof self-AYEs the proposal |
+| 1050        | `genesisInscribed` / `checkGenesisInscription()` | `genesis-inscribed`           | 100 unique verified mitosis proofs                     |
+| 1060        | `oracleSenateConvened` / `checkOracleSenateConvened()` | `oracle-senate-convened` | genesis inscribed AND ≥1 accepted task            |
+| 1070        | `visionRatified` / `checkVisionRatification()`   | `vision-ratified`             | an oracle-proposed vision reaches acceptance           |
+
+**Two era numerals are frozen and were deliberately NOT renamed**: the strings
+`"Era 1040 ZK"` and `"Task 0090: Era 1040 - ZK-Notarized Mutations"` are hash
+preimages behind the genesis anchors `0x15302EC1` and `0x30083117`, which feed
+`GENESIS_HASH_LEGACY_V1_0 = 0x716ea2f8`. A preimage cannot be renamed, only
+re-hashed, and re-hashing changes the identity of the protocol. Any future
+sweep over `Era [0-9]+` must skip them.
+
+Also unchanged: the `xNNNN_` file prefixes (`x2E00_status.ts`,
+`x6C00_topology_audit.ts`). Those are substrate ABI positions, a different
+scheme entirely, and they address rather than date.
+
+---
+
 > **Read as history, not as the live mechanism.** This is an era-by-era record;
 > mechanisms evolve. Notably, Era 1060's "phase-resonance acceptance" (the v1.0
 > public-dipole model) was superseded by **Φ-protocol v1.1**, where authority is

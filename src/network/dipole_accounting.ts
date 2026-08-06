@@ -1,6 +1,6 @@
 // DIPOLE Accounting (pure, testable)
 //
-// Extracted from `libp2p_mesh.ts` so the Era 1050 odometer logic can live on
+// Extracted from `libp2p_mesh.ts` so the verified-proof odometer can live on
 // the unit-test surface — the mesh class itself is unimportable in Deno
 // tests (native WebRTC dependency chain), which is exactly why
 // `verifiedDipoleCount` spent its entire life at 0: the increment path was
@@ -55,7 +55,7 @@ export function verifyDipoleAnnouncement(d: DipoleAnnouncement): boolean {
  */
 export class DipoleAccountant {
   private seen: Set<string> = new Set();
-  /** Era 1050 odometer: unique verified mitosis proofs. */
+  /** Genesis odometer: unique verified mitosis proofs. */
   public verifiedCount = 0;
 
   /**

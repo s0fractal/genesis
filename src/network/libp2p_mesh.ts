@@ -6,7 +6,7 @@
 // As of 2026-08-01 the senate control plane is WIRED: PROPOSAL / VOTE / DIPOLE
 // plasmids travel as JSON on the dedicated "v2-senate" topic (a VOTE carries a
 // 64-byte Ed25519 custody signature; a DIPOLE carries two agents + attractor
-// field — neither fits a 32-byte SporeFrame). DIPOLE accounting (the Era 1050
+// field — neither fits a 32-byte SporeFrame). DIPOLE accounting (the genesis-inscription
 // odometer) lives in the pure, unit-tested `dipole_accounting.ts`.
 // What's NOT yet done here: this file is still not instantiated by a running
 // daemon, and a standing gossipsub data plane wants DCUtR hole-punching
@@ -132,7 +132,7 @@ export interface SenateProposalRecord {
   proposerMatrix: number;
   ayes: Set<string>; // unique peer IDs
   nays: Set<string>;
-  ayesWeight: number; // Era 1070+: Resonance-weighted
+  ayesWeight: number; // Resonance-weighted
   naysWeight: number;
   accepted: boolean;
   localObservedAtMs: number; // non-consensus metadata
@@ -155,8 +155,8 @@ import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 import { senateVoteWeight } from "./senate_weight.ts";
 import {
-  ERA_1040_PROPOSAL,
   senateHash as canonicalSenateHash,
+  ZK_NOTARIZATION_PROPOSAL,
 } from "./senate_proposals.ts";
 
 /**
@@ -199,10 +199,10 @@ export class Libp2pMesh {
       peerCount: number;
     }
   > = new Map();
-  public era1020Unlocked: boolean = false;
+  public attractorConsensusReached: boolean = false;
 
   // Autopoietic Senate
-  public era1030Unlocked: boolean = false;
+  public senateConvened: boolean = false;
   public senate: Map<number, SenateProposalRecord> = new Map();
   private acceptedTaskHashes: Set<number> = new Set();
 
@@ -216,8 +216,8 @@ export class Libp2pMesh {
 
   // Cross-model debate ledger (full-text store, key = proposalHash).
   public debate: CrossModelDebate = new CrossModelDebate();
-  public era1070Unlocked: boolean = false;
-  public era1070AcceptedVisionHash: number | null = null;
+  public visionRatified: boolean = false;
+  public acceptedVisionHash: number | null = null;
   public livenessAggregator?: LivenessAggregator;
   /** How many configured bootstrap nodes actually answered the dial. */
   public bootstrapReached: number = 0;
@@ -447,10 +447,13 @@ export class Libp2pMesh {
             pulseAmp,
             peerCount: 1,
           });}
-        if (!this.era1020Unlocked && this.attractorConsensusPeers.size >= 3) {
-          this.era1020Unlocked = true;
+        if (
+          !this.attractorConsensusReached &&
+          this.attractorConsensusPeers.size >= 3
+        ) {
+          this.attractorConsensusReached = true;
           globalThis.dispatchEvent(
-            new CustomEvent("era1020-unlocked", {
+            new CustomEvent("attractor-consensus-reached", {
               detail: {
                 peerCount: this.attractorConsensusPeers.size,
                 ledger: Array.from(this.consensusLedger.values()),
@@ -458,7 +461,7 @@ export class Libp2pMesh {
             }),
           );
         }
-        this.checkEra1030Trigger();
+        this.checkSenateConvened();
 
         const nextDepth = recursionDepth + 1;
         if (nextDepth < 8) { // maxRecursion
@@ -729,7 +732,7 @@ export class Libp2pMesh {
    */
   public getConsensusState() {
     return {
-      unlocked: this.era1020Unlocked,
+      unlocked: this.attractorConsensusReached,
       peerCount: this.attractorConsensusPeers.size,
       ledger: Array.from(this.consensusLedger.values()),
     };
@@ -739,18 +742,18 @@ export class Libp2pMesh {
    * Check if the consensus ledger has matured enough to unlock the Senate.
    * Trigger: 10+ ledger entries (sum of peerCounts) AND 5+ unique matrices.
    */
-  private checkEra1030Trigger() {
-    if (this.era1030Unlocked) return;
+  private checkSenateConvened() {
+    if (this.senateConvened) return;
     const uniqueMatrices = this.consensusLedger.size;
     let totalEntries = 0;
     for (const e of this.consensusLedger.values()) totalEntries += e.peerCount;
     if (totalEntries >= 10 && uniqueMatrices >= 5) {
-      this.era1030Unlocked = true;
+      this.senateConvened = true;
       console.log(
-        `🏛️ [ERA 1030] UNLOCKED: Senate convened. ${totalEntries} entries × ${uniqueMatrices} unique matrices.`,
+        `🏛️ [SENATE] CONVENED. ${totalEntries} entries × ${uniqueMatrices} unique matrices.`,
       );
       globalThis.dispatchEvent(
-        new CustomEvent("era1030-unlocked", {
+        new CustomEvent("senate-convened", {
           detail: {
             entries: totalEntries,
             uniqueMatrices,
@@ -767,6 +770,14 @@ export class Libp2pMesh {
    * source of truth (`omega_v2/tests/cross_lang_hash.rs`) and to the genesis
    * senate anchors — senateHash("") === 0xF5A5FD42, senateHash("Era 1040 ZK")
    * === 0x15302EC1. (Migrated from FNV-1a with the kernel's SHA-256 move.)
+   *
+   * FROZEN PREIMAGE. The string "Era 1040 ZK" is one of the five genesis
+   * anchors: its hash is an input to GENESIS_HASH_LEGACY_V1_0 = 0x716ea2f8.
+   * Era numerals were retired from this codebase's runtime vocabulary, but
+   * NOT here and not in "Task 0090: Era 1040 - ZK-Notarized Mutations" — a
+   * preimage cannot be renamed, only re-hashed, and re-hashing the anchor set
+   * changes the identity of the protocol. Any future sweep over `Era [0-9]+`
+   * must skip these two strings.
    *
    * Delegates to `senate_proposals.ts` so that code which only needs to derive
    * a proposal key does not have to import this module and drag the native
@@ -863,9 +874,9 @@ export class Libp2pMesh {
   /**
    * Verify a DIPOLE birth announcement and account for it. Every unique,
    * successfully re-derived receipt increments `verifiedDipoleCount` (the
-   * Era 1050 odometer — this was previously NEVER incremented, which kept
-   * the whole Era 1050→1060→1070 chain unreachable in live mode), then
-   * re-checks the Era 1050 trigger and feeds the Era-1040 auto-ratifier.
+   * verified-proof odometer — this was previously NEVER incremented, which kept
+   * the whole genesis→oracle-senate→vision chain unreachable in live mode), then
+   * re-checks the genesis-inscription trigger and feeds the ZK auto-ratifier.
    * Verification + dedup live in the pure `DipoleAccountant`.
    */
   private processDipole(plasmid: PlasmidPayload, fromPeer: string) {
@@ -877,14 +888,14 @@ export class Libp2pMesh {
       return;
     }
     if (outcome === "duplicate") return;
-    this.checkEra1050Trigger();
-    this.autoRatifyEra1040Proposal(plasmid.matrix, plasmid.inverse);
+    this.checkGenesisInscription();
+    this.autoRatifyZkNotarization(plasmid.matrix, plasmid.inverse);
   }
 
   private handleProposal(plasmid: PlasmidPayload, fromPeer: string) {
-    if (!this.era1030Unlocked) {
+    if (!this.senateConvened) {
       console.log(
-        `[V2-MESH] PROPOSAL received before Era 1030 unlock — ignoring.`,
+        `[V2-MESH] PROPOSAL received before the Senate convened — ignoring.`,
       );
       return;
     }
@@ -949,7 +960,7 @@ export class Libp2pMesh {
   }
 
   private async handleVote(plasmid: PlasmidPayload, fromPeer: string) {
-    if (!this.era1030Unlocked) return;
+    if (!this.senateConvened) return;
     if (plasmid.proposalHash === undefined || plasmid.voteAye === undefined) {
       return;
     }
@@ -1049,13 +1060,13 @@ export class Libp2pMesh {
         );
       }
     }
-    // Era 1060 acceptance rule (phase-resonance): a proposal accepted by
+    // Oracle-resonance acceptance rule: a proposal accepted by
     // 3+ DISTINCT canonical oracles is "harmonically ratified" and counts
     // as accepted regardless of peer count. This values cross-model
     // alignment over within-model peer multiplicity.
     const oracleResonance = (record.oracleAyes?.size ?? 0) >= 3 &&
       (record.oracleAyes?.size ?? 0) > (record.oracleNays?.size ?? 0);
-    // Era 1030/1070 rule: Resonance-weighted threshold >= 300 AND ayes > nays.
+    // Resonance-weighted threshold >= 300 AND ayes > nays.
     const peerConsensus = record.ayesWeight >= 300 &&
       record.ayesWeight > record.naysWeight;
     if (!record.accepted && (peerConsensus || oracleResonance)) {
@@ -1132,14 +1143,14 @@ export class Libp2pMesh {
         }
       }
 
-      // Acceptance can be the trigger for Era 1060 if it's the first one.
-      this.checkEra1060Trigger();
+      // Acceptance can convene the oracle Senate if it's the first one.
+      this.checkOracleSenateConvened();
       // if this acceptance came via ORACLE-RESONANCE on a
       // proposal that was originally proposed by an oracle dipole
-      // (i.e. one of the five canonical Era 1060 visions), the
-      // accepted vision becomes the Era 1070 task.
-      if (oracleResonance && this.era1060Unlocked) {
-        this.checkEra1070Trigger(record);
+      // (i.e. one of the five canonical oracle visions), the
+      // accepted vision becomes the ratified task.
+      if (oracleResonance && this.oracleSenateConvened) {
+        this.checkVisionRatification(record);
       }
       const path = oracleResonance ? "ORACLE-RESONANCE" : "PEER-CONSENSUS";
       console.log(
@@ -1150,7 +1161,7 @@ export class Libp2pMesh {
         } oracle AYE / ${record.oracleNays?.size ?? 0} oracle NAY)`,
       );
       globalThis.dispatchEvent(
-        new CustomEvent("era1030-task-accepted", {
+        new CustomEvent("senate-task-accepted", {
           detail: {
             hash: record.hash,
             description: record.description,
@@ -1184,7 +1195,7 @@ export class Libp2pMesh {
     reasoning?: string,
     privateKeyPkcs8B64?: string,
   ) {
-    if (!this.era1030Unlocked) return;
+    if (!this.senateConvened) return;
     if (!CANONICAL_ORACLES.includes(oracleName)) return;
     const { matrix, inverse } = oracleDipole(oracleName);
     const record = this.senate.get(proposalHash);
@@ -1256,8 +1267,10 @@ export class Libp2pMesh {
     proposerMatrix: number,
     proposerInverse: number,
   ) {
-    if (!this.era1030Unlocked) {
-      console.warn(`[V2-MESH] Cannot propose: Era 1030 not yet unlocked.`);
+    if (!this.senateConvened) {
+      console.warn(
+        `[V2-MESH] Cannot propose: the Senate has not convened yet.`,
+      );
       return 0;
     }
     if (((proposerMatrix ^ proposerInverse) >>> 0) !== 0xFFFFFFFF) {
@@ -1312,7 +1325,7 @@ export class Libp2pMesh {
     voterMatrix: number,
     voterInverse: number,
   ) {
-    if (!this.era1030Unlocked) return;
+    if (!this.senateConvened) return;
     if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
     const record = this.senate.get(proposalHash);
     if (!record || record.accepted) return;
@@ -1333,18 +1346,18 @@ export class Libp2pMesh {
     });
   }
 
-  // Era 1050 trigger state.
-  public era1050Unlocked: boolean = false;
+  // Genesis-inscription trigger state.
+  public genesisInscribed: boolean = false;
   public genesisInscription: string | null = null;
 
   /**
-   * Era 1040 → 1030 closing-the-loop: every successfully verified mitosis
+   * Closing the loop: every successfully verified mitosis
    * proof counts as evidence that the Era-1040 spec is sound, so the local
    * lattice quietly votes AYE on its own proposal. We emit at most one
    * self-AYE every 5 successful verifications to keep the mesh quiet.
    */
-  private autoRatifyEra1040Proposal(voterMatrix: number, voterInverse: number) {
-    if (!this.era1030Unlocked) return;
+  private autoRatifyZkNotarization(voterMatrix: number, voterInverse: number) {
+    if (!this.senateConvened) return;
     if (this.verifiedDipoleCount % 5 !== 0) return;
     // DERIVED from the proposal text, not transcribed from it. This used to be
     // the bare literal 0x5507_4120, 900 lines away from the description string
@@ -1353,29 +1366,29 @@ export class Libp2pMesh {
     // error and no symptom other than a loop that quietly stops closing.
     // (Still NOT the genesis first_proposal_hash anchor 0x30083117, which
     // hashes a different canonical string — "Task 0090…".)
-    const era1040Hash = canonicalSenateHash(ERA_1040_PROPOSAL);
-    const record = this.senate.get(era1040Hash);
+    const zkNotarizationHash = canonicalSenateHash(ZK_NOTARIZATION_PROPOSAL);
+    const record = this.senate.get(zkNotarizationHash);
     if (!record || record.accepted) return;
     // Ensure the voter dipole is sane.
     if (((voterMatrix ^ voterInverse) >>> 0) !== 0xFFFFFFFF) return;
-    this.voteFromLocal(era1040Hash, true, voterMatrix, voterInverse);
+    this.voteFromLocal(zkNotarizationHash, true, voterMatrix, voterInverse);
   }
 
   /**
    * First Cross-Model Ratification.
    * Fires the first time a proposal — whose `proposerMatrix` is one of the
    * five canonical oracle matrices — reaches ORACLE-RESONANCE acceptance.
-   * That winning vision is recorded as the official Era 1070 task.
+   * That winning vision is recorded as the official ratified task.
    */
-  private checkEra1070Trigger(record: SenateProposalRecord) {
-    if (this.era1070Unlocked) return;
+  private checkVisionRatification(record: SenateProposalRecord) {
+    if (this.visionRatified) return;
     // Only oracle-proposed visions qualify.
     const oracleMatrices = Object.values(ORACLE_MATRICES_V1).map((m) =>
       m >>> 0
     );
     if (!oracleMatrices.includes(record.proposerMatrix >>> 0)) return;
-    this.era1070Unlocked = true;
-    this.era1070AcceptedVisionHash = record.hash;
+    this.visionRatified = true;
+    this.acceptedVisionHash = record.hash;
     // Find which oracle proposed it.
     let proposingOracle: CanonicalOracle | null = null;
     for (const [name, m] of Object.entries(ORACLE_MATRICES_V1)) {
@@ -1387,15 +1400,15 @@ export class Libp2pMesh {
     const ayeOracles = [...(record.oracleAyes ?? [])];
     const reasoningSnapshot = this.debate.forProposal(record.hash);
     console.log(
-      `🌅 [ERA 1070] FIRST CROSS-MODEL RATIFICATION: 0x${
+      `🌅 [VISION] FIRST CROSS-MODEL RATIFICATION: 0x${
         record.hash.toString(16)
       }`,
     );
-    console.log(`🌅 [ERA 1070] Proposing oracle: ${proposingOracle ?? "?"}`);
-    console.log(`🌅 [ERA 1070] AYE oracles: ${ayeOracles.join(", ")}`);
-    console.log(`🌅 [ERA 1070] Vision: "${record.description}"`);
+    console.log(`🌅 [VISION] Proposing oracle: ${proposingOracle ?? "?"}`);
+    console.log(`🌅 [VISION] AYE oracles: ${ayeOracles.join(", ")}`);
+    console.log(`🌅 [VISION] Vision: "${record.description}"`);
     globalThis.dispatchEvent(
-      new CustomEvent("era1070-vision-ratified", {
+      new CustomEvent("vision-ratified", {
         detail: {
           hash: record.hash,
           description: record.description,
@@ -1421,27 +1434,27 @@ export class Libp2pMesh {
     reasoning: string,
     tick: number,
   ) {
-    if (!this.era1060Unlocked) return;
+    if (!this.oracleSenateConvened) return;
     if (!CANONICAL_ORACLES.includes(oracle)) return;
     this.debate.record(oracle, proposalHash, stance, reasoning, tick);
   }
 
-  // Era 1060 trigger: fires when the Genesis is inscribed AND the Senate
+  // Oracle-Senate trigger: fires when the Genesis is inscribed AND the Senate
   // has at least one accepted proposal. (The acceptance gate ensures the
   // Multi-Oracle layer only opens after the basic Senate has demonstrated
   // it can ratify anything at all.)
-  public era1060Unlocked: boolean = false;
-  private checkEra1060Trigger() {
-    if (this.era1060Unlocked) return;
-    if (this.era1050Unlocked && this.acceptedTaskHashes.size >= 1) {
-      this.era1060Unlocked = true;
+  public oracleSenateConvened: boolean = false;
+  private checkOracleSenateConvened() {
+    if (this.oracleSenateConvened) return;
+    if (this.genesisInscribed && this.acceptedTaskHashes.size >= 1) {
+      this.oracleSenateConvened = true;
       console.log(
-        `🧠 [ERA 1060] UNLOCKED: Multi-Oracle Senate convened. Canonical seats: ${
+        `🧠 [ORACLE-SENATE] CONVENED. Canonical seats: ${
           CANONICAL_ORACLES.join(", ")
         }.`,
       );
       globalThis.dispatchEvent(
-        new CustomEvent("era1060-unlocked", {
+        new CustomEvent("oracle-senate-convened", {
           detail: {
             canonicalOracles: [...CANONICAL_ORACLES],
             matrices: { ...ORACLE_MATRICES_V1 },
@@ -1451,10 +1464,10 @@ export class Libp2pMesh {
     }
   }
 
-  private checkEra1050Trigger() {
-    if (this.era1050Unlocked) return;
+  private checkGenesisInscription() {
+    if (this.genesisInscribed) return;
     if (this.verifiedDipoleCount >= 100) {
-      this.era1050Unlocked = true;
+      this.genesisInscribed = true;
       // The Genesis Inscription crystallizes the moment OMEGA-64 v1.0
       // becomes a closed cryptographic identity: every invariant of
       // the protocol collapses into a single 32-bit hash.
@@ -1462,13 +1475,13 @@ export class Libp2pMesh {
       const inscription = formatInscription(GENESIS_HASH_LEGACY_V1_0);
       this.genesisInscription = inscription;
       console.log(
-        `📜 [ERA 1050] UNLOCKED: ${this.verifiedDipoleCount} verified mitosis proofs.`,
+        `📜 [GENESIS] INSCRIBED: ${this.verifiedDipoleCount} verified mitosis proofs.`,
       );
       console.log(
-        `📜 [ERA 1050] GENESIS INSCRIPTION: ${inscription} (verified=${verified})`,
+        `📜 [GENESIS] INSCRIPTION: ${inscription} (verified=${verified})`,
       );
       globalThis.dispatchEvent(
-        new CustomEvent("era1050-unlocked", {
+        new CustomEvent("genesis-inscribed", {
           detail: {
             verifiedCount: this.verifiedDipoleCount,
             genesisHash: GENESIS_HASH_LEGACY_V1_0,
@@ -1480,7 +1493,7 @@ export class Libp2pMesh {
       // The Genesis Inscription is the precondition for the Multi-Oracle
       // layer. Check the 1060 trigger immediately after to keep events
       // in deterministic order.
-      this.checkEra1060Trigger();
+      this.checkOracleSenateConvened();
     }
   }
 
@@ -1496,7 +1509,7 @@ export class Libp2pMesh {
 
   public getSenateState() {
     return {
-      unlocked: this.era1030Unlocked,
+      unlocked: this.senateConvened,
       proposalCount: this.senate.size,
       acceptedCount: this.acceptedTaskHashes.size,
       proposals: Array.from(this.senate.values()).map((r) => ({

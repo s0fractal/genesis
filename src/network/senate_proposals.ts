@@ -30,16 +30,16 @@ export function senateHash(description: string): number {
 }
 
 /**
- * Era 1040 → 1030, the autopoietic first proposal: the lattice asking itself to
+ * The autopoietic first proposal: the lattice asking itself to
  * notarize its own mutations. Submitted by `bootstrap/v2.ts` on the
- * `era1030-unlocked` event and self-ratified by `autoRatifyEra1040Proposal`
+ * `senate-convened` event and self-ratified by `autoRatifyZkNotarization`
  * once verified mitosis proofs accumulate.
  */
-export const ERA_1040_PROPOSAL =
+export const ZK_NOTARIZATION_PROPOSAL =
   "ZK-Notarized Mutations — every darwinian_mitosis emits an SP1 STARK proof; peers reject mutations without a valid receipt.";
 
 /**
- * Frozen key of ERA_1040_PROPOSAL. NOT the genesis `firstProposalHash` anchor
+ * Frozen key of ZK_NOTARIZATION_PROPOSAL. NOT the genesis `firstProposalHash` anchor
  * (0x30083117), which hashes a different canonical string ("Task 0090…").
  */
-export const ERA_1040_PROPOSAL_HASH = 0x5507_4120;
+export const ZK_NOTARIZATION_PROPOSAL_HASH = 0x5507_4120;

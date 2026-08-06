@@ -1,14 +1,14 @@
 // end-to-end test — five oracle visions, three AYE oracles
-// on Claude's, ORACLE-RESONANCE acceptance, era1070-vision-ratified fires.
+// on Claude's, ORACLE-RESONANCE acceptance, the vision-ratified event fires.
 
 // Pure logic test (no WebRTC scaffolding). Mirrors the acceptance TALLY rule
-// as it lives in WebRTCV2Mesh.handleVote + checkEra1070Trigger — i.e. the
+// as it lives in WebRTCV2Mesh.handleVote + checkVisionRatification — i.e. the
 // resonance arithmetic AFTER a vote has been authenticated. The authority
 // layer (each oracle vote requires a valid Ed25519 signature; a public dipole
 // is not authority) is covered by oracle_custody_test.ts and
 // multi_oracle_senate_test.ts. The votes below are assumed already-authentic;
 // this file only checks that the post-authentication tallying, freezing, and
-// era1070 latch behave correctly.
+// vision-ratified latch behave correctly.
 
 import { assert, assertEquals } from "jsr:@std/assert";
 import {
@@ -79,7 +79,7 @@ function isOracleProposed(record: ProposalRecord): boolean {
   );
 }
 
-Deno.test("era1070: claude's vision wins via three oracle AYE votes", async () => {
+Deno.test("vision ratification: claude's vision wins via three oracle AYE votes", async () => {
   const proposals = seedProposals();
   const claudeProposal = proposals.get(0xC1A11_001)!;
   castOracleVote(claudeProposal, "codex", true);
@@ -89,7 +89,7 @@ Deno.test("era1070: claude's vision wins via three oracle AYE votes", async () =
   assertEquals(claudeProposal.oracleAyes.size, 3); // claude (self) + codex + gemini
 });
 
-Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", async () => {
+Deno.test("vision ratification: only oracle-proposed proposals trigger the vision-ratification path", async () => {
   const proposals = seedProposals();
   // Add a non-oracle proposal (random dipole).
   const fakeHash = 0xFADE_BABE >>> 0;
@@ -107,12 +107,12 @@ Deno.test("era1070: only oracle-proposed proposals trigger the Era 1070 path", a
   }
   // It accepts via ORACLE-RESONANCE...
   assertEquals(fake.accepted, true);
-  // ...but checkEra1070Trigger should NOT fire because proposerMatrix
+  // ...but checkVisionRatification should NOT fire because proposerMatrix
   // is not one of the canonical oracle matrices.
   assertEquals(isOracleProposed(fake), false);
 });
 
-Deno.test("era1070: tied AYE/NAY does NOT accept", async () => {
+Deno.test("vision ratification: tied AYE/NAY does NOT accept", async () => {
   const proposals = seedProposals();
   const claude = proposals.get(0xC1A11_001)!;
   // claude already has self-AYE; add 2 NAYs to bring it to 1 AYE / 2 NAY.
@@ -123,7 +123,7 @@ Deno.test("era1070: tied AYE/NAY does NOT accept", async () => {
   assertEquals(claude.oracleNays.size, 2);
 });
 
-Deno.test("era1070: acceptance freezes vote tallies after the third AYE", async () => {
+Deno.test("vision ratification: acceptance freezes vote tallies after the third AYE", async () => {
   const proposals = seedProposals();
   const claude = proposals.get(0xC1A11_001)!;
   for (const o of ["codex", "gemini", "antigravity", "kimi"] as Oracle[]) {
@@ -135,7 +135,7 @@ Deno.test("era1070: acceptance freezes vote tallies after the third AYE", async 
   assertEquals(claude.oracleAyes.size, 3);
 });
 
-Deno.test("era1070: debate ledger captures the cross-model arguments", async () => {
+Deno.test("vision ratification: debate ledger captures the cross-model arguments", async () => {
   const debate = new CrossModelDebate();
   debate.record(
     "claude",
@@ -178,15 +178,15 @@ Deno.test("era1070: debate ledger captures the cross-model arguments", async () 
   assertEquals(args.length, 5);
 });
 
-Deno.test("era1070: at most one vision can be the FIRST ratified", async () => {
-  // First-ratification semantics: era1070Unlocked is a one-shot latch.
-  let era1070Unlocked = false;
+Deno.test("vision ratification: at most one vision can be the FIRST ratified", async () => {
+  // First-ratification semantics: visionRatified is a one-shot latch.
+  let visionRatified = false;
   let acceptedHash: number | null = null;
   const trigger = (record: ProposalRecord) => {
-    if (era1070Unlocked) return;
+    if (visionRatified) return;
     if (!isOracleProposed(record)) return;
     if (!record.accepted) return;
-    era1070Unlocked = true;
+    visionRatified = true;
     acceptedHash = record.hash;
   };
   const proposals = seedProposals();
@@ -200,6 +200,6 @@ Deno.test("era1070: at most one vision can be the FIRST ratified", async () => {
   castOracleVote(codexVision, "antigravity", true);
   trigger(codexVision);
   // claude was first.
-  assertEquals(era1070Unlocked, true);
+  assertEquals(visionRatified, true);
   assertEquals(acceptedHash, 0xC1A11_001);
 });

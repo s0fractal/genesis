@@ -1,4 +1,4 @@
-# OMEGA-64 | Strategic, Tactical & Meta-Intentional Roadmap (Era 310+)
+# OMEGA-64 | Strategic, Tactical & Meta-Intentional Roadmap
 
 Far-horizon vision is now source-addressed at
 `src/x7F00_global_swarm_vision.myc.md`. A draft projection layer for Trinity and
@@ -12,7 +12,7 @@ from being mistaken for immediate backlog.
 метафізичні цілі системи.
 
 👉
-**[Ознайомитись з Виконаними Етапами (COMPLETED_STAGES.md)](./docs/COMPLETED_STAGES.md)**
+**[Історія по ерах — docs/ERAS_ARCHIVE.md](./docs/ERAS_ARCHIVE.md)**
 👈
 
 ## Легенда статусів
@@ -221,7 +221,7 @@ On-Chain економіки. Активний фокус перенесено н
 - Винести атракторне поле у Shared Memory (видимість для всіх агентів).
 - Розробити візуалізацію: Пульсуючі матриці + дерево реальностей.
 
-### 🌌 Era 920-960: Dynamic Lattice & Environmental Resonance
+### 🌌 Dynamic Lattice & Environmental Resonance
 
 **Ontology Direction: «Theory of Constraints & Living Resource Ontology»**
 
@@ -296,7 +296,7 @@ On-Chain економіки. Активний фокус перенесено н
   (Дарвінізм), а нові константи пишуться в `UniformBuffer` для WebGPU. Жодних
   виділень пам'яті (allocations).
 
-### Era 1000: Fourier/Taylor Phase Routing (Hyperbolic DNS) [🔧 IN PROGRESS]
+### Fourier/Taylor Phase Routing (Hyperbolic DNS) [🔧 IN PROGRESS]
 
 **Ontology Direction: «The Math of Addressing»**
 
@@ -334,7 +334,7 @@ unicast — сам `greedy_next_hop` із `routing.rs` транспортом щ
   миттєво доставляти повідомлення між ортогональними світами, просто скасовуючи
   і додаючи похідні фази.
 
-### Era 1100: Bare-Metal Substrate (no_std Core)
+### Bare-Metal Substrate (no_std Core)
 
 **Ontology Direction: «Silicon to Mycelium (Device Independence)»**
 

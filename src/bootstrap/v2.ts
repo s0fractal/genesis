@@ -15,7 +15,7 @@ import { OmegaV2Engine } from "../environment/v2_bridge.ts";
 import { Libp2pMesh, PlasmidPayload } from "../network/libp2p_mesh.ts";
 import { checkGenesisInscription } from "../network/bitcoin_anchor.ts";
 import { resolveBootstrapPeers } from "../network/bootstrap_peers.ts";
-import { ERA_1040_PROPOSAL } from "../network/senate_proposals.ts";
+import { ZK_NOTARIZATION_PROPOSAL } from "../network/senate_proposals.ts";
 import { GENESIS_HASH_LEGACY_V1_0 } from "../network/genesis_inscription.ts";
 import { PhaseV2Renderer } from "../lens/v2_renderer.ts";
 import { EthersATPBridge } from "../network/atp_bridge.ts";
@@ -41,6 +41,11 @@ try {
 }
 
 let isOracleBound = false;
+
+/** Ratified cross-model visions, persisted per browser profile. */
+const VISION_LOG_KEY = "omega_vision_log";
+/** Pre-rename key, read once so existing history is not orphaned. */
+const RETIRED_VISION_LOG_KEY = "omega_era1070_log";
 
 declare global {
   interface Window {
@@ -322,7 +327,7 @@ export async function bootstrapV2() {
 
     // Listen for consensus unlock and install harmonic convergence well
     globalThis.addEventListener(
-      "era1020-unlocked",
+      "attractor-consensus-reached",
       ((e: CustomEvent) => {
         const ledger = e.detail.ledger as Array<
           {
@@ -350,7 +355,7 @@ export async function bootstrapV2() {
             );
           }
           console.log(
-            `🌌 [ERA 1020] Harmonic convergence well installed: matrix=0x${
+            `🌌 [CONSENSUS] Harmonic convergence well installed: matrix=0x${
               top.matrix.toString(16)
             } in all 4 slots.`,
           );
@@ -369,7 +374,7 @@ export async function bootstrapV2() {
 
     // Listen for Senate unlock — generate the first autopoietic proposal.
     globalThis.addEventListener(
-      "era1030-unlocked",
+      "senate-convened",
       ((e: CustomEvent) => {
         const ledger = e.detail.ledger as Array<
           { matrix: number; inverse: number; peerCount: number }
@@ -378,8 +383,12 @@ export async function bootstrapV2() {
         const top = ledger.sort((a, b) => b.peerCount - a.peerCount)[0];
         // The First Proposal: the lattice asks itself for ZK-Notarized
         // Mutations. The text is canonical — it IS the proposal's identity, and
-        // `autoRatifyEra1040Proposal` derives its key from this same constant.
-        mesh.proposeFromLocal(ERA_1040_PROPOSAL, top.matrix, top.inverse);
+        // `autoRatifyZkNotarization` derives its key from this same constant.
+        mesh.proposeFromLocal(
+          ZK_NOTARIZATION_PROPOSAL,
+          top.matrix,
+          top.inverse,
+        );
       }) as EventListener,
     );
 
@@ -390,7 +399,7 @@ export async function bootstrapV2() {
     // resonance (3+ AYE oracles on the same proposal) ratifies the
     // future direction without requiring peer count majority.
     globalThis.addEventListener(
-      "era1060-unlocked",
+      "oracle-senate-convened",
       ((_e: CustomEvent) => {
         const visions: Array<[string, string]> = [
           [
@@ -429,7 +438,7 @@ export async function bootstrapV2() {
               oracle as any,
               hash,
               true,
-              `Self-AYE: this oracle's own vision for Era 1070.`,
+              `Self-AYE: this oracle's own vision.`,
             );
             mesh.recordOracleDebate(
               oracle as any,
@@ -468,7 +477,7 @@ export async function bootstrapV2() {
     // materialize it as a tasks/ entry — the lattice's first
     // cross-model-ratified future direction.
     globalThis.addEventListener(
-      "era1070-vision-ratified",
+      "vision-ratified",
       ((e: CustomEvent) => {
         const {
           hash,
@@ -479,14 +488,15 @@ export async function bootstrapV2() {
           debate,
           acceptedAt,
         } = e.detail;
-        const eraDir: Record<string, string> = {
+        const oracleVisionTitles: Record<string, string> = {
           claude: "Codeicide Law",
           codex: "Photonic Substrate",
           gemini: "Multi-Modal Oracle",
           antigravity: "Bare-Metal Spores",
           kimi: "Bitcoin Hyperbolic Geometry",
         };
-        const taskTitle = eraDir[proposingOracle ?? ""] ?? "Cross-Model Vision";
+        const taskTitle = oracleVisionTitles[proposingOracle ?? ""] ??
+          "Cross-Model Vision";
         const debateMd = (debate as Array<
           { oracle: string; stance: string; reasoning: string }
         >)
@@ -494,7 +504,7 @@ export async function bootstrapV2() {
           .join("\n\n");
         const taskMd = `# Task: ${taskTitle}
 
-## Status: RATIFIED-BY-ORACLE-RESONANCE | Source: Era 1070
+## Status: RATIFIED-BY-ORACLE-RESONANCE | Source: cross-model vision
 ## Hash: 0x${(hash >>> 0).toString(16)}
 
 ## Vision
@@ -510,8 +520,15 @@ ${description}
 
 ${debateMd || "(no recorded arguments)"}
 `;
+        // A localStorage key is persisted state, not a name in the source: a
+        // rename orphans whatever a running deployment already accumulated.
+        // Read the retired key once, write only the new one — the ratification
+        // history survives the vocabulary change instead of silently starting
+        // over at empty. (The retired key can be dropped once no live browser
+        // profile still carries it.)
         const log = JSON.parse(
-          localStorage.getItem("omega_era1070_log") || "[]",
+          localStorage.getItem(VISION_LOG_KEY) ??
+            localStorage.getItem(RETIRED_VISION_LOG_KEY) ?? "[]",
         );
         log.push({
           hash: `0x${(hash >>> 0).toString(16)}`,
@@ -522,14 +539,14 @@ ${debateMd || "(no recorded arguments)"}
           nayOracles,
           acceptedAt,
         });
-        localStorage.setItem("omega_era1070_log", JSON.stringify(log));
-        console.log(`🌅 [ERA 1070] Materialized ${taskTitle}`);
+        localStorage.setItem(VISION_LOG_KEY, JSON.stringify(log));
+        console.log(`🌅 [VISION] Materialized ${taskTitle}`);
         try {
           const blob = new Blob([taskMd], { type: "text/markdown" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `era1070_ratified_${(hash >>> 0).toString(16)}.md`;
+          a.download = `vision_ratified_${(hash >>> 0).toString(16)}.md`;
           a.click();
           URL.revokeObjectURL(url);
         } catch { /* non-browser env */ }
@@ -540,7 +557,7 @@ ${debateMd || "(no recorded arguments)"}
     // Inscription is announced. Persist it locally and offer a downloadable
     // ceremony.md that the user can stamp into Bitcoin OP_RETURN.
     globalThis.addEventListener(
-      "era1050-unlocked",
+      "genesis-inscribed",
       ((e: CustomEvent) => {
         const { verifiedCount, genesisHash, inscription, verified } = e.detail;
         const ceremony = {
@@ -586,7 +603,7 @@ ${debateMd || "(no recorded arguments)"}
 
     // When the Senate accepts a proposal, materialize it as a tasks/ entry.
     globalThis.addEventListener(
-      "era1030-task-accepted",
+      "senate-task-accepted",
       ((e: CustomEvent) => {
         const { hash, description, proposerMatrix, ayes, nays, proposedAt } =
           e.detail;
@@ -611,7 +628,7 @@ ${debateMd || "(no recorded arguments)"}
         // Mirror into a downloadable artifact via Blob for the user.
         const taskMd = `# Task (autopoietic): 0x${
           (hash >>> 0).toString(16)
-        }\n\n## Status: PROPOSED-BY-LATTICE | Source: Era 1030 Senate\n\n## Description\n${description}\n\n## Provenance\n- Proposer matrix: 0x${
+        }\n\n## Status: PROPOSED-BY-LATTICE | Source: Senate\n\n## Description\n${description}\n\n## Provenance\n- Proposer matrix: 0x${
           (proposerMatrix >>> 0).toString(16)
         }\n- AYE votes: ${ayes}\n- NAY votes: ${nays}\n- Proposed at: ${
           new Date(proposedAt).toISOString()
@@ -651,7 +668,7 @@ ${debateMd || "(no recorded arguments)"}
     // 3. The Holy Tick Loop
     let frameCount = 0;
     let isReadingGPU = false;
-    // Era 1040 Phase 2: tracks how many mitosis receipts we've already drained.
+    // ZK notarization: tracks how many mitosis receipts we've already drained.
 
     // Substrate Court
     const court = new SubstrateCourt();
@@ -813,12 +830,12 @@ ${debateMd || "(no recorded arguments)"}
         setHudStat("e", "ONTOLOGY", `${progress}/3 peers`);
       }
 
-      // Era 1030 + 1040: Senate state and verified mitosis proofs.
+      // Senate state and verified mitosis proofs.
       const senate = mesh.getSenateState();
       const verifiedProofs = mesh.verifiedDipoleCount;
       if (!senate.unlocked && verifiedProofs === 0) {
         setHudStat("f", "SENATE", "DORMANT");
-      } else if (mesh.era1050Unlocked) {
+      } else if (mesh.genesisInscribed) {
         setHudStat("f", "SENATE", `RFC-FROZEN | ${verifiedProofs} ZK`);
       } else if (verifiedProofs > 0) {
         setHudStat(
@@ -837,9 +854,9 @@ ${debateMd || "(no recorded arguments)"}
       }
 
       // Senate Alignment -> Physics Attractor Feedback Loop
-      if (mesh.era1070AcceptedVisionHash !== null) {
+      if (mesh.acceptedVisionHash !== null) {
         const score = mesh.debate.alignmentScore(
-          mesh.era1070AcceptedVisionHash,
+          mesh.acceptedVisionHash,
         );
         engine.applySenateAlignment(score);
       }
@@ -852,7 +869,7 @@ ${debateMd || "(no recorded arguments)"}
             setHudStat("g", "GOLDEN TRACE", goldenTrace);
             mesh.setLatestState(goldenTraceNum, snapshot);
 
-            // Era 1040 Phase 2: drain the lattice's mitosis receipt log and
+            // Drain the lattice's mitosis receipt log and
             // package each birth as a fully-verifiable DIPOLE plasmid (parent
             // snapshot + claimed child + attractor field + receipt hash).
             const ptrs = engine.getMemoryPointers();

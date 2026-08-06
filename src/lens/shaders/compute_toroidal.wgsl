@@ -31,7 +31,7 @@ struct SignalStore {
     _pad2: u32,
 }
 
-// Era 1010: Attractor Matrix (16 bytes)
+// Attractor Matrix (16 bytes)
 struct AttractorMatrix {
     matrix: u32,
     inverse: u32,
@@ -39,7 +39,7 @@ struct AttractorMatrix {
     pulse_amp: u32,
 }
 
-// Era 1010: Attractor Array (80 bytes, binding 8)
+// Attractor Array (80 bytes, binding 8)
 struct AttractorArray {
     count: u32,
     pad0: u32,
@@ -324,7 +324,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (new_energy > MAX_ATP) { new_energy = MAX_ATP; }
         }
 
-        // --- 4. Cosmic Attractor Navigation (Era 1010) ---
+        // --- 4. Cosmic Attractor Navigation ---
         var attractor_drift: i32 = 0i;
         let attractor_count = min(attractor_array.count, 4u);
         for (var j = 0u; j < attractor_count; j = j + 1u) {

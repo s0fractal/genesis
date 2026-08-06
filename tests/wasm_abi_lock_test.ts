@@ -81,7 +81,9 @@ Deno.test("every WASM export the host calls exists as a free Rust export", () =>
   const unresolved: string[] = [];
   for (const [name, files] of ts) {
     if (!rust.has(name)) {
-      unresolved.push(`${name} (called from ${[...new Set(files)].join(", ")})`);
+      unresolved.push(
+        `${name} (called from ${[...new Set(files)].join(", ")})`,
+      );
     }
   }
   // If this fails, the host is calling into a symbol the kernel does not
@@ -107,7 +109,7 @@ Deno.test("REGRESSION: no exported symbol takes a self receiver", () => {
       offenders.push(`${entry.name}: ${m[1]}`);
     }
   }
-  assertEquals(offenders, [], "extern \"C\" exports that take a receiver");
+  assertEquals(offenders, [], 'extern "C" exports that take a receiver');
 });
 
 Deno.test("v2_ingest_cosmic_entropy is a callable free export", () => {

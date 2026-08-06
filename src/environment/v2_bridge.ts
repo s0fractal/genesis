@@ -238,7 +238,7 @@ export class OmegaV2Engine {
       (exports.v2_delta_buffer_ptr as CallableFunction)() as number;
     const attractorPtr =
       (exports.v2_attractor_array_ptr as CallableFunction)() as number;
-    // Era 1040 Phase 2: Mitosis receipt log (16-byte aligned ring buffer).
+    // Mitosis receipt log (16-byte aligned ring buffer).
     const mitosisLogPtrFn = exports.v2_mitosis_log_ptr as
       | CallableFunction
       | undefined;
@@ -294,7 +294,7 @@ export class OmegaV2Engine {
     return signals[12];
   }
 
-  /** Era 1040 Phase 2: total mitosis receipts written since boot. */
+  /** Total mitosis receipts written since boot. */
   public getMitosisLogTotal(): number {
     if (!this.wasmInstance) return 0;
     const fn = this.wasmInstance.exports.v2_mitosis_log_total as

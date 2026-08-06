@@ -18,7 +18,7 @@
 // - fork_penalty        (drifted genesis — never picked)
 
 // FORKED neighbors are excluded entirely. This is not a soft penalty —
-// it's a hard cryptographic gate. Era 1080 codeicide / Era 1130 wire-
+// it's a hard cryptographic gate. Codeicide / wire-
 // drift containment already established that drift propagates nothing.
 
 // The output is a stable ranking. Two relays with the same observation

@@ -37,8 +37,16 @@ pub struct GenesisAnchors {
     /// SHA-256 (first 4 BE bytes) over 64 zero bytes. Senate hash of the empty senate.
     pub senate_hash_empty: u32,
     /// SHA-256 (first 4 BE bytes) over "Era 1040 ZK" zero-padded to 64. Cross-language ASCII anchor.
+    ///
+    /// FROZEN PREIMAGE — DO NOT RENAME. Era numerals were retired from this
+    /// project's runtime vocabulary on 2026-08-06 (see docs/ERAS_ARCHIVE.md),
+    /// but these two strings are preimages, not names. Editing the text does
+    /// not rename an anchor, it computes a different one, and the anchor set
+    /// feeds GENESIS_HASH_LEGACY_V1_0 = 0x716ea2f8. Any sweep over
+    /// `Era [0-9]+` must skip this field and the one below it.
     pub senate_hash_short: u32,
     /// SHA-256 (first 4 BE bytes) over "Task 0090: Era 1040 - ZK-Notarized Mutations" padded to 64.
+    /// FROZEN PREIMAGE — DO NOT RENAME. See `senate_hash_short` above.
     pub first_proposal_hash: u32,
     /// child_receipt_hash of the anchor child (empty attractor) AS DERIVED AT
     /// FREEZE (e8b685e); pinned to frozen inputs, not the evolving live kernel.

@@ -122,7 +122,7 @@ Drift on any of these breaks tests in **two languages simultaneously**. See
 
 ## The Senate
 
-The Multi-Oracle Senate (Era 1060) opens five seats with deterministic dipole
+The Multi-Oracle Senate opens five seats with deterministic dipole
 identities. **Φ-protocol v1.1 (2026-06-28)** realigned the seats from the v1.0
 vendor labels to the five real **keyed** model-voices of the ensemble — the
 seats are now the voices we actually operate and hold keys for, so the quorum is
@@ -203,7 +203,12 @@ breaking v1.0 conformance.
 
 ---
 
-## Era timeline
+## Timeline
+
+Era numerals are **retired history**, kept here because they are the join key
+into `docs/ERAS_ARCHIVE.md`. They are no longer part of the runtime vocabulary:
+the code says `senateConvened`, not `era1030Unlocked`. See the mapping at the
+top of the archive.
 
 ```
 Era 950–1020   foundation           (lattice physics, routing, attractors, consensus)
@@ -218,9 +223,9 @@ Era 1650–2060  Translation Policy   (schema translation governance, live mesh 
 Era 3000+      Global Swarm         (NAT traversal, live LLM Senate — remaining roadmap)
 ```
 
-The next important Era is now selected by protocol pressure, not by mechanical
-recursion: Era 2060 exposes the Era 2050 recursion cap as a pure diagnostic
-formatter. Era 2070 should publish that diagnostic through an existing read-only
+What comes next is selected by protocol pressure, not by mechanical recursion:
+the recursion cap is now exposed as a pure diagnostic formatter, and the next
+step should publish that diagnostic through an existing read-only
 telemetry/global surface rather than adding another quorum layer.
 
 The older oracle-vision frontier remains conceptually open for live mesh
@@ -241,7 +246,8 @@ ratification:
 - `docs/rfc/RFC-OMEGA-001-v1.0.md` — frozen specification
 - `docs/GENESIS_INSCRIPTION_CEREMONY.md` — Genesis ceremony record
 - `docs/STATE_OF_OMEGA_2026-04-26.md` — most recent deep audit
-- `docs/COMPLETED_STAGES.md` — full era-by-era history
+- `docs/ERAS_ARCHIVE.md` — full era-by-era history, and the map from retired
+  era numerals to the capability names the code uses now
 - `AGENTS.md` — orientation contract for future agents
 - `llms.txt` — first-contact map for AI systems (read this if you are a model)
 - `FEDERATION.md` — where omega sits in the four-substrate federation
