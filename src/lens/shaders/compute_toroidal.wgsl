@@ -94,15 +94,26 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
 fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
     if (a_genome == b_genome) { return 0i; }
     
-    // Inline xorshift32 for A
+    // Inline xorshift32 for A. The zero-genome sentinel REPLACES the hash, it
+    // is not fed through it — mirroring agent.rs::species_advantage, which is
+    // the reference this shader is held bit-for-bit against. Hashing the
+    // sentinel here gave ha=0x87985AA5 where Rust gives 0x12345678, flipping
+    // the predator/prey sign for every zero-genome agent (±5 ATP per neighbour
+    // per tick, in the consensus energy path).
     var ha = a_genome;
-    if (ha == 0u) { ha = 0x12345678u; }
-    ha = ha ^ (ha << 13u); ha = ha ^ (ha >> 17u); ha = ha ^ (ha << 5u);
-    
+    if (ha == 0u) {
+        ha = 0x12345678u;
+    } else {
+        ha = ha ^ (ha << 13u); ha = ha ^ (ha >> 17u); ha = ha ^ (ha << 5u);
+    }
+
     // Inline xorshift32 for B
     var hb = b_genome;
-    if (hb == 0u) { hb = 0x12345678u; }
-    hb = hb ^ (hb << 13u); hb = hb ^ (hb >> 17u); hb = hb ^ (hb << 5u);
+    if (hb == 0u) {
+        hb = 0x12345678u;
+    } else {
+        hb = hb ^ (hb << 13u); hb = hb ^ (hb >> 17u); hb = hb ^ (hb << 5u);
+    }
     
     let delta = ha - hb;
     if (delta == 0u) { return 0i; }

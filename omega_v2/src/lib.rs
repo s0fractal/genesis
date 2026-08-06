@@ -1064,7 +1064,13 @@ pub extern "C" fn v2_apply_senate_patch(
         return 0; // Unauthorized: caller is not a canonical oracle
     }
     match patch_type {
-        1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
+        // SET_QUORUM. Clamped to the same [3, 8] band update_quorum() enforces
+        // (senate.rs). Unclamped, `arg1 as u8` accepted 0 — sanctuary and
+        // ancient agents terminable with zero AYEs — and 255, where
+        // codeicide_law's ANCIENT rule `quorum_threshold + 1` wraps to 0 in
+        // release (the workspace profile does not set overflow-checks), which
+        // is the same hole by the opposite end.
+        1 => { settings.quorum_threshold = (arg1.clamp(3, 8)) as u8; 1 },
         2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
         3 => { settings.ancient_age_ticks = arg1; 1 }, // SET_ANCIENT_AGE
         4 // CHALLENGE_SEAT

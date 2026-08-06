@@ -237,7 +237,11 @@ pub fn is_action_lawful(
         return true;
     }
     let required_ayes = if status == STATUS_ANCIENT {
-        settings.quorum_threshold + 1
+        // saturating: a wrapped threshold would make the ANCIENT rule STRICTER
+        // to compute and WEAKER in effect (255 + 1 == 0 in release, where the
+        // workspace profile leaves overflow-checks off). Ancient agents must
+        // fail closed, never open, on a malformed threshold.
+        settings.quorum_threshold.saturating_add(1)
     } else {
         settings.quorum_threshold
     };
