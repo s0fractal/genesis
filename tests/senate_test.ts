@@ -1,5 +1,6 @@
 // Senate JS-side determinism + Era 1030 trigger logic.
 import { assert, assertEquals } from "jsr:@std/assert";
+import { senateAcceptance } from "../src/network/senate_acceptance.ts";
 import { sha256_u32 } from "../src/sdk/phi_crypto.ts";
 
 // The canonical senate hash: SHA-256 (first 4 BE bytes) over the UTF-8
@@ -48,9 +49,15 @@ Deno.test("senate-convened trigger requires 10+ entries AND 5+ unique matrices",
   assertEquals(shouldUnlock(50, 8), true);
 });
 
-Deno.test("senate acceptance rule: 3+ AYE peers AND ayes > nays", () => {
+Deno.test("senate acceptance rule: 3+ AYE oracles AND ayes > nays", () => {
+  // Asks the live rule rather than restating it. The counts here are ORACLE
+  // seats: the peer path is weighted, not counted, and is covered by
+  // senate_vote_weight_test.ts.
   function shouldAccept(ayes: number, nays: number): boolean {
-    return ayes >= 3 && ayes > nays;
+    return senateAcceptance({
+      oracleAyes: { size: ayes },
+      oracleNays: { size: nays },
+    }).accepted;
   }
   assertEquals(shouldAccept(2, 0), false); // not enough ayes
   assertEquals(shouldAccept(3, 3), false); // tie

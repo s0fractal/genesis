@@ -16,6 +16,8 @@
 // - AYE→NAY toggling still moves the oracle between sets atomically.
 
 import { assert, assertEquals } from "jsr:@std/assert";
+import { senateAcceptance } from "../src/network/senate_acceptance.ts";
+import { ORACLE_BASE_WEIGHT } from "../src/network/senate_weight.ts";
 import { oracleDipole } from "../src/network/oracle_identity.ts";
 import {
   oracleVoteDigest,
@@ -95,11 +97,18 @@ async function applyVote(
     record.oracleAyes.delete(oracleName);
     record.nays.add(oracleName);
   }
-  const oracleResonance = record.oracleAyes.size >= 3 &&
-    record.oracleAyes.size > record.oracleNays.size;
-  const peerConsensus = record.ayes.size >= 3 &&
-    record.ayes.size > record.nays.size;
-  if (peerConsensus || oracleResonance) record.accepted = true;
+  // Was a hand-written mirror whose peer path read `ayes.size >= 3` — a COUNT
+  // of three peers, where the live rule weighs them and needs 300. It had
+  // drifted from the mesh and nothing said so. Now it asks the rule itself.
+  // Peer weight is modelled at the oracle base of 100 per signed seat.
+  if (
+    senateAcceptance({
+      oracleAyes: record.oracleAyes,
+      oracleNays: record.oracleNays,
+      ayesWeight: record.ayes.size * ORACLE_BASE_WEIGHT,
+      naysWeight: record.nays.size * ORACLE_BASE_WEIGHT,
+    }).accepted
+  ) record.accepted = true;
   return "applied";
 }
 

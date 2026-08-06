@@ -1,4 +1,5 @@
 import { PhiClient } from "../sdk/phi_client.ts";
+import { senateAcceptance } from "../network/senate_acceptance.ts";
 
 const SIGNALING_URL = "wss://omega-federation.deno.dev";
 
@@ -72,10 +73,12 @@ class SenateViewer {
           };
         }
 
-        // Auto-ratify if 3 Oracles agree
-        if (prop.oracleAyes.size >= 3) {
-          prop.accepted = true;
-        }
+        // The viewer must render the SAME rule the mesh enforces. It used to
+        // carry its own copy — `oracleAyes.size >= 3` with no majority
+        // condition — so a proposal with 3 AYE and 5 NAY oracles displayed as
+        // ACCEPTED while the mesh rejected it. An operator's window onto
+        // governance that disagrees with governance is worse than no window.
+        prop.accepted = senateAcceptance(prop).accepted;
 
         this.render();
       }

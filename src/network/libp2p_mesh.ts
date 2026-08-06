@@ -155,6 +155,7 @@ import { webRTC } from "@libp2p/webrtc";
 import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { identify } from "@libp2p/identify"; // gossipsub requires it (libp2p v3)
 import { senateVoteWeight } from "./senate_weight.ts";
+import { senateAcceptance } from "./senate_acceptance.ts";
 import {
   senateHash as canonicalSenateHash,
   ZK_NOTARIZATION_PROPOSAL,
@@ -1061,16 +1062,12 @@ export class Libp2pMesh {
         );
       }
     }
-    // Oracle-resonance acceptance rule: a proposal accepted by
-    // 3+ DISTINCT canonical oracles is "harmonically ratified" and counts
-    // as accepted regardless of peer count. This values cross-model
-    // alignment over within-model peer multiplicity.
-    const oracleResonance = (record.oracleAyes?.size ?? 0) >= 3 &&
-      (record.oracleAyes?.size ?? 0) > (record.oracleNays?.size ?? 0);
-    // Resonance-weighted threshold >= 300 AND ayes > nays.
-    const peerConsensus = record.ayesWeight >= 300 &&
-      record.ayesWeight > record.naysWeight;
-    if (!record.accepted && (peerConsensus || oracleResonance)) {
+    // The acceptance rule lives in senate_acceptance.ts and nowhere else. It
+    // used to be restated here, in the senate viewer, and in three test files —
+    // and the copies had drifted (the viewer dropped the majority condition,
+    // one test counted peers where the rule weighs them).
+    const verdict = senateAcceptance(record);
+    if (!record.accepted && verdict.accepted) {
       record.accepted = true;
       this.acceptedTaskHashes.add(record.hash);
 
@@ -1170,10 +1167,12 @@ export class Libp2pMesh {
       // proposal that was originally proposed by an oracle dipole
       // (i.e. one of the five canonical oracle visions), the
       // accepted vision becomes the ratified task.
-      if (oracleResonance && this.oracleSenateConvened) {
+      if (verdict.via === "ORACLE" && this.oracleSenateConvened) {
         this.checkVisionRatification(record);
       }
-      const path = oracleResonance ? "ORACLE-RESONANCE" : "PEER-CONSENSUS";
+      const path = verdict.via === "ORACLE"
+        ? "ORACLE-RESONANCE"
+        : "PEER-CONSENSUS";
       console.log(
         `🏛️ [SENATE] ACCEPTED via ${path} 0x${
           record.hash.toString(16)

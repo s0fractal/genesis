@@ -17,6 +17,7 @@ import {
   oracleDipole,
 } from "../src/network/oracle_identity.ts";
 import { CrossModelDebate } from "../src/network/cross_model_debate.ts";
+import { senateAcceptance } from "../src/network/senate_acceptance.ts";
 
 type Oracle = typeof CANONICAL_ORACLES[number];
 
@@ -64,12 +65,12 @@ function castOracleVote(record: ProposalRecord, oracle: Oracle, aye: boolean) {
     record.oracleNays.add(oracle);
     record.oracleAyes.delete(oracle);
   }
-  if (
-    record.oracleAyes.size >= 3 &&
-    record.oracleAyes.size > record.oracleNays.size
-  ) {
+  // The real rule, not a copy of it. This file used to restate the tally in
+  // its own words and could therefore never have caught the mesh breaking.
+  const verdict = senateAcceptance(record);
+  if (verdict.accepted) {
     record.accepted = true;
-    record.acceptedVia = "ORACLE";
+    record.acceptedVia = verdict.via ?? undefined;
   }
 }
 
