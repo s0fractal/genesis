@@ -549,6 +549,47 @@ export class OmegaV2Engine {
       .v2_calculate_law_hash as CallableFunction)() as number;
   }
 
+  /** How many agents the kernel's live verifier can replay, 0 if unavailable. */
+  public verifyCapacity(): number {
+    const fn = this.wasmInstance?.exports
+      .v2_verify_capacity as CallableFunction;
+    return fn ? (fn() as number) : 0;
+  }
+
+  /**
+   * Ask the REFERENCE law where `ticks` steps from `from` should land.
+   *
+   * This is the second witness the Substrate Court has never had. The GPU was
+   * at some state at tick T and is at another at tick T+K; the Rust kernel —
+   * the law the shader is a port OF — replays that same interval in its own
+   * scratch memory and reports. Agreement then means two substrates computed
+   * the same transition, instead of one substrate being hashed twice.
+   *
+   * Returns null when the kernel declines: more agents than `verifyCapacity()`,
+   * or nothing to replay. Never 0 as a verdict — 0 is a legal hash.
+   */
+  public verifyReplay(
+    from: Uint8Array,
+    active: number,
+    ticks: number,
+  ): number | null {
+    const cap = this.verifyCapacity();
+    if (cap === 0 || active === 0 || active > cap) return null;
+    const ptrFn = this.wasmInstance?.exports
+      .v2_verify_scratch_ptr as CallableFunction;
+    const runFn = this.wasmInstance?.exports
+      .v2_verify_replay_scratch as CallableFunction;
+    if (!ptrFn || !runFn || !this.memory) return null;
+
+    const bytes = active * 32;
+    if (from.byteLength < bytes) return null;
+    new Uint8Array(this.memory.buffer, ptrFn() as number, bytes).set(
+      from.subarray(0, bytes),
+    );
+    const hash = runFn(active, ticks) as number;
+    return hash === 0 ? null : hash;
+  }
+
   public getStateHash(): number {
     if (!this.wasmInstance) return 0;
     return (this.wasmInstance.exports

@@ -127,7 +127,12 @@ export class PhaseV2Renderer {
   }
 
   public async readStateFromGPUAndHash(): Promise<
-    { goldenTrace: string; goldenTraceNum: number; snapshot: Uint8Array }
+    {
+      goldenTrace: string;
+      goldenTraceNum: number;
+      snapshot: Uint8Array;
+      replications: number;
+    }
   > {
     return await this.readback.readStateFromGPUAndHash(this.buffers);
   }

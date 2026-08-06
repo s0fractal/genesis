@@ -109,6 +109,46 @@ pub static SHADOW_LATTICE_MEMORY: crate::sync::Spinlock<[PhaseAgentMinimal; MAX_
         }; MAX_MINIMAL_AGENTS],
     );
 
+/// How many agents the live verifier can replay.
+///
+/// The Rust kernel is the REFERENCE law and the GPU is what executes it, so the
+/// only way to know they still agree on this machine — not on the machine where
+/// `wgsl_golden_trace_test` last ran — is to re-run the reference over the
+/// state the GPU produced and compare. That costs a full tick per agent per
+/// tick replayed, on the CPU, in a frame budget the renderer already owns.
+///
+/// So it is bounded, and the bound is honest: above this the court reports that
+/// it could not check rather than pretending it did. A coupled lattice cannot
+/// be verified in part — every agent reads eight neighbours and the torus wraps
+/// — so sampling is not available; the choice is all of it or none of it.
+pub const VERIFY_MAX_AGENTS: usize = 8192;
+
+/// Scratch lattice for the verifier. Never the live state.
+pub static VERIFY_AGENTS: crate::sync::Spinlock<[PhaseAgentMinimal; VERIFY_MAX_AGENTS]> =
+    crate::sync::Spinlock::new(
+        [PhaseAgentMinimal {
+            phase: 0,
+            energy: 0,
+            base_freq: 0,
+            state_flags: 0,
+            genome: 0,
+            memory: [0; 3],
+        }; VERIFY_MAX_AGENTS],
+    );
+
+/// The verifier's own pre-tick snapshot, so it does not borrow the live one.
+pub static VERIFY_SNAPSHOT: crate::sync::Spinlock<[PhaseAgentMinimal; VERIFY_MAX_AGENTS]> =
+    crate::sync::Spinlock::new(
+        [PhaseAgentMinimal {
+            phase: 0,
+            energy: 0,
+            base_freq: 0,
+            state_flags: 0,
+            genome: 0,
+            memory: [0; 3],
+        }; VERIFY_MAX_AGENTS],
+    );
+
 /// Parallel birth-tick array. Indexed by agent position.
 /// Kept outside PhaseAgentMinimal to preserve 32-byte ABI alignment.
 pub static BIRTH_TICKS: crate::sync::Spinlock<[u32; MAX_MINIMAL_AGENTS]> =
@@ -174,6 +214,7 @@ pub static OMEGA_LATTICE: crate::sync::Spinlock<PhaseLattice> =
         #[cfg(not(feature = "spore"))]
         attractors_ptr: core::ptr::null(),
         active_agent_count: 0,
+        quiet: false,
     });
 
 /// Φ-Маніфест: Bitcoin φ-Anchor Chain.
@@ -414,6 +455,80 @@ pub extern "C" fn v2_mitosis_sweep() -> u32 {
     unsafe {
         let mut lattice = OMEGA_LATTICE.lock();
         lattice.darwinian_mitosis()
+    }
+}
+
+/// The verifier's capacity, so the host can tell before it asks.
+#[cfg(not(feature = "spore"))]
+#[no_mangle]
+pub extern "C" fn v2_verify_capacity() -> u32 {
+    crate::VERIFY_MAX_AGENTS as u32
+}
+
+/// Where the host writes the state the verifier should replay FROM.
+///
+/// The differential the Substrate Court needs is: the GPU was at S at tick T,
+/// it is at S' at tick T+K, and the reference law says K steps from S land on
+/// S'. The host holds S from the previous readback; it writes it here and asks.
+///
+/// Replaying from the LIVE array instead would answer a different question —
+/// "where does the kernel think we go next" — which no GPU testimony ever
+/// arrives to meet, because the GPU has advanced K ticks by the time the next
+/// readback happens, not one.
+#[cfg(not(feature = "spore"))]
+#[no_mangle]
+pub extern "C" fn v2_verify_scratch_ptr() -> *mut u8 {
+    unsafe { crate::VERIFY_AGENTS.lock().as_mut_ptr() as *mut u8 }
+}
+
+/// Run the REFERENCE law `ticks` steps over whatever is in the verify scratch,
+/// and hash the result.
+///
+/// This is the second witness the court has never had. The Rust kernel — the
+/// law the shader is a port OF — re-executes the interval the GPU just ran, in
+/// its own memory, and reports where the lattice should be.
+///
+/// Isolated by construction: a private lattice over the scratch buffers, a copy
+/// of the live signals, and `quiet` set so the deaths it computes do not publish
+/// compost onto the Φ-bus. It never touches the live array.
+///
+/// Returns 0 when it declines — nothing to replay, or more agents than
+/// `v2_verify_capacity`. 0 is a legal hash, so the host MUST check capacity
+/// rather than read 0 as a verdict.
+#[cfg(not(feature = "spore"))]
+#[no_mangle]
+pub extern "C" fn v2_verify_replay_scratch(active: u32, ticks: u32) -> u32 {
+    unsafe {
+        let count = active as usize;
+        if count == 0 || count > crate::VERIFY_MAX_AGENTS {
+            return 0;
+        }
+
+        let (topology, mut signals, attractors) = {
+            let live = OMEGA_LATTICE.lock();
+            (live.topology, live.signals, live.attractors_ptr)
+        };
+        signals.active_agent_count = active;
+
+        let mut scratch = crate::VERIFY_AGENTS.lock();
+        let mut snap = crate::VERIFY_SNAPSHOT.lock();
+
+        let mut replay = crate::lattice::PhaseLattice::new_from_host_memory(
+            topology,
+            core::ptr::null_mut(),
+            scratch.as_mut_ptr(),
+        );
+        replay.signals = signals;
+        replay.tick_snapshot_ptr = snap.as_mut_ptr();
+        replay.attractors_ptr = attractors;
+        replay.quiet = true;
+
+        for _ in 0..ticks {
+            replay.tick_physics();
+        }
+
+        let bytes = core::slice::from_raw_parts(scratch.as_ptr() as *const u8, count * 32);
+        crate::crypto::sha256_u32(bytes)
     }
 }
 

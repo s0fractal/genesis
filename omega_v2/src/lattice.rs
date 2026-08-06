@@ -21,6 +21,7 @@ pub struct DeltaItem {
     pub genome: u32,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct SignalStore {
     pub dirty_flags: u32,
@@ -64,6 +65,15 @@ pub struct PhaseLattice {
     #[cfg(not(feature = "spore"))]
     pub attractors_ptr: *const crate::attractor::AttractorArray,
     pub active_agent_count: u32,
+    /// Suppress Φ-bus emission. Set on a lattice that exists only to be
+    /// replayed for verification: its agents die like any others, and the
+    /// compost messages those deaths would publish are not events in the world
+    /// — they are an artifact of asking "what would have happened". A verifier
+    /// that talks on the bus is no longer a verifier.
+    ///
+    /// Appended after every field JS reads, so the 208-byte uniform head that
+    /// `ffi_layout.rs` pins is untouched.
+    pub quiet: bool,
 }
 
 unsafe impl Send for PhaseLattice {}
@@ -94,6 +104,7 @@ impl PhaseLattice {
             tick_snapshot_ptr: core::ptr::null_mut(),
             #[cfg(not(feature = "spore"))]
             attractors_ptr: core::ptr::null(),
+            quiet: false,
             active_agent_count: 0,
         }
     }
@@ -483,9 +494,12 @@ impl PhaseLattice {
                         .total_entropy_released
                         .wrapping_add(entropy_burst);
 
-                    let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
-                    let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
-                    buf.push(compost);
+                    if !self.quiet {
+                        let compost =
+                            crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
+                        let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+                        buf.push(compost);
+                    }
                 }
             }
 
@@ -911,9 +925,12 @@ impl PhaseLattice {
                         .total_entropy_released
                         .wrapping_add(entropy_burst);
 
-                    let compost = crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
-                    let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
-                    buf.push(compost);
+                    if !self.quiet {
+                        let compost =
+                            crate::phi_protocol::PhiMessage::encode_compost(agent, i as u64);
+                        let mut buf = crate::PHI_MESSAGE_BUFFER.lock();
+                        buf.push(compost);
+                    }
                 }
             }
         }

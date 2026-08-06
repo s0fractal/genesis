@@ -672,6 +672,15 @@ ${debateMd || "(no recorded arguments)"}
 
     // Substrate Court
     const court = new SubstrateCourt();
+    /** State and tick of the last readback, so the verifier can replay the
+     *  interval the GPU actually ran rather than guess one. */
+    let lastVerified:
+      | { tick: number; active: number; hash: number; state: Uint8Array }
+      | null = null;
+    /** Mitosis writes children into the array between readbacks, so the GPU did
+     *  not simply run K steps from the retained state. Verification skips those
+     *  intervals instead of reporting a drift it caused itself. */
+    let mitosisSincePrevReadback = false;
 
     const loop = () => {
       tickFps();
@@ -733,7 +742,65 @@ ${debateMd || "(no recorded arguments)"}
         });
 
         // Async request for WebGPU Testimony — the substrate that did compute it.
-        renderer.readStateFromGPUAndHash().then(() => {
+        renderer.readStateFromGPUAndHash().then((gpuResult) => {
+          if (gpuResult.replications > 0) mitosisSincePrevReadback = true;
+          // THE SECOND WITNESS, as a differential over the interval the GPU
+          // just ran. `lastVerified` holds the state and tick from the previous
+          // readback; the reference law replays exactly that many steps from
+          // exactly that state and says where the lattice should be now.
+          //
+          // Replaying from the CURRENT state instead would answer "where does
+          // the kernel think we go next" — a question no GPU testimony ever
+          // arrives to meet, because by the next readback the GPU has advanced
+          // K ticks, not one.
+          //
+          // Skipped when the interval was perturbed: `v2_mitosis_sweep` writes
+          // children into the array between readbacks and `overwriteGPUState`
+          // pushes them back, so the GPU did not simply run K steps from S.
+          // Skipped above `verifyCapacity()` too — a coupled lattice cannot be
+          // verified in part, so the choice is all of it or none. In both cases
+          // the court reports `not-assessed` rather than inventing agreement.
+          const activeNow =
+            engine.getMemoryPointers().uniformBytes.byteLength > 0
+              ? new Uint32Array(
+                engine.getMemoryPointers().uniformBytes.buffer,
+                engine.getMemoryPointers().uniformBytes.byteOffset + 32 + 16,
+                1,
+              )[0]
+              : 0;
+          if (lastVerified && !mitosisSincePrevReadback) {
+            const k = absoluteTick - lastVerified.tick;
+            if (k > 0 && k < 600 && lastVerified.active === activeNow) {
+              const replayed = engine.verifyReplay(
+                lastVerified.state,
+                activeNow,
+                k,
+              );
+              if (replayed !== null) {
+                court.submitTestimony({
+                  substrate: "wasm",
+                  source: "wasm-memory",
+                  derivation: "computed",
+                  lawHash: lawHash,
+                  preStateHash: lastVerified.hash,
+                  postStateHash: replayed,
+                  entropyDelta: entropyDelta,
+                  tick: absoluteTick,
+                });
+              }
+            }
+          }
+          const ptrsNow = engine.getMemoryPointers();
+          lastVerified = {
+            tick: absoluteTick,
+            active: activeNow,
+            hash: engine.getStateHash(),
+            state: new Uint8Array(
+              ptrsNow.agentBytes.subarray(0, activeNow * 32),
+            ),
+          };
+          mitosisSincePrevReadback = false;
+
           court.submitTestimony({
             substrate: "webgpu",
             source: "gpu-readback",

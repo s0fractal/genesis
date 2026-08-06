@@ -19,7 +19,17 @@ export class RendererReadback {
   public async readStateFromGPUAndHash(
     buffers: RendererBuffers,
   ): Promise<
-    { goldenTrace: string; goldenTraceNum: number; snapshot: Uint8Array }
+    {
+      goldenTrace: string;
+      goldenTraceNum: number;
+      snapshot: Uint8Array;
+      /** Children written into the array during this readback. The live
+       *  verifier skips any interval this is non-zero for: mitosis perturbs the
+       *  state between readbacks, so the GPU did not simply run K steps from
+       *  where it was, and a differential over that interval would report a
+       *  drift the CPU caused itself. */
+      replications: number;
+    }
   > {
     const now = performance.now();
     if (
@@ -30,6 +40,7 @@ export class RendererReadback {
         goldenTrace: this.cachedGoldenTrace,
         goldenTraceNum: this.cachedGoldenTraceNum,
         snapshot: this.cachedSnapshot,
+        replications: 0, // cached hit: no sweep ran
       };
     }
     this.lastReadbackTime = now;
@@ -89,6 +100,7 @@ export class RendererReadback {
       goldenTrace: this.cachedGoldenTrace,
       goldenTraceNum: this.cachedGoldenTraceNum,
       snapshot,
+      replications: numReplications,
     };
   }
 
