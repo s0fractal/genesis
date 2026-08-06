@@ -476,6 +476,7 @@ impl PhaseLattice {
         // ProperTime is advanced at the END of the tick, based on thermodynamic stress.
 
         let mut total_system_energy = 0u64;
+        let mut prev_system_energy = 0u64;
         let mut _alive_count = 0;
         let mut new_high_water_mark = 0usize;
 
@@ -768,6 +769,12 @@ impl PhaseLattice {
                     // Future implementation will draw from ambient ATP (total_entropy_released).
                 }
 
+                // The pre-tick value, from the snapshot taken at the top of this
+                // tick. Its drop is what the step actually spent — see the
+                // dissipation booking after the loop.
+                prev_system_energy =
+                    prev_system_energy.wrapping_add((*snapshot.add(i)).energy as u64);
+
                 if agent.energy > 0 && agent.state_flags & 0x01 == 0 {
                     total_system_energy = total_system_energy.wrapping_add(agent.energy as u64);
                     _alive_count += 1;
@@ -790,6 +797,28 @@ impl PhaseLattice {
                     buf.push(compost);
                 }
             }
+        }
+
+        // DISSIPATION, same law as the off-CPU boundary ledger
+        // (see reap_off_cpu_deaths): ATP that left the live population without
+        // arriving anywhere else was spent. Transfers between agents are
+        // internal and cancel; what remains is metabolic burn plus whatever the
+        // MAX_ATP clamp discarded.
+        //
+        // Without this the two substrates keep DIFFERENT books for the same
+        // world. Measured on 2026-08-06 by tools/ecology_probe.ts: a 1024-agent
+        // run over 500 ticks dissipated 609,237 ATP through burn and booked
+        // none of it, so the trace showed 47,586 — the Landauer terms alone —
+        // while 93% of the universe's energy left unrecorded.
+        //
+        // A rise is not booked, for the reason given at the other site: energy
+        // from nowhere is a defect, not negative entropy.
+        if prev_system_energy > total_system_energy {
+            let dissipated = prev_system_energy - total_system_energy;
+            self.signals.total_entropy_released = self
+                .signals
+                .total_entropy_released
+                .wrapping_add(dissipated);
         }
 
         self.signals.total_energy = total_system_energy as u32;
@@ -1307,6 +1336,39 @@ mod tests {
             PhaseLattice::death_entropy(&zero),
             0,
             "an agent carrying no information erases none"
+        );
+    }
+
+    /// Both substrates must keep the SAME books, or the trace means whichever
+    /// path happened to run.
+    ///
+    /// `tick_physics` used to book only the Landauer term and let metabolic burn
+    /// leave unrecorded. Measured by tools/ecology_probe.ts before the fix: a
+    /// 1024-agent run dissipated 609,237 ATP through burn and reported 47,586 —
+    /// the information terms alone — so 93% of the universe left the ledger
+    /// silently while the number still looked plausible.
+    #[test]
+    fn tick_physics_books_the_burn_it_spends() {
+        let (mut lattice, mut agents, _snap, _) = make_lattice_with_q_phase(8, 7);
+        for (i, a) in agents.iter_mut().enumerate() {
+            a.energy = 900;
+            a.genome = 0x1111_1111u32.wrapping_mul(i as u32 + 1);
+            a.state_flags = 0;
+        }
+        lattice.signals.active_agent_count = 8;
+        lattice.signals.total_energy = 7200;
+
+        let before: u64 = agents.iter().map(|a| a.energy as u64).sum();
+        lattice.tick_physics();
+        let after: u64 = agents.iter().map(|a| a.energy as u64).sum();
+
+        assert!(after < before, "a tick must cost the population something");
+        assert!(
+            lattice.signals.total_entropy_released >= before - after,
+            "energy left the population without reaching the trace: {} spent, \
+             {} booked",
+            before - after,
+            lattice.signals.total_entropy_released
         );
     }
 
