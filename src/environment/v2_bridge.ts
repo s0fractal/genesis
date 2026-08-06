@@ -152,15 +152,13 @@ export class OmegaV2Engine {
       const exportBigBang = instance.exports
         .v2_ignite_big_bang as CallableFunction;
       if (exportBigBang && this.currentTopology) {
-        // Deterministic Boot Seed from Genesis Entropy
-        const entropyBytes = this.getGenesisEntropy();
-        const seedView = new DataView(
-          entropyBytes.buffer,
-          entropyBytes.byteOffset,
-          4,
-        );
-        const seed = seedView.getUint32(0, true) ^
-          this.currentTopology.maxAllocatedAgents;
+        // Deterministic Boot Seed. The kernel XORs the genesis entropy in
+        // itself (v2_ignite_big_bang, lib.rs), reading the SAME first LE word
+        // this side used to read. Mixing it in here cancelled it exactly —
+        // (ge ^ n) ^ ge == n — so the Bitcoin anchor contributed zero bits and
+        // the lattice was seeded by an agent count while the log printed the
+        // pre-cancellation value. Pass the host's own term only.
+        const seed = this.currentTopology.maxAllocatedAgents;
         exportBigBang(seed, this.currentTopology.maxAllocatedAgents);
         console.log(
           `🎆 [V2-BRIDGE] The Big Bang was ignited with deterministic seed 0x${

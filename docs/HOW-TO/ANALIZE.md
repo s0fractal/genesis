@@ -535,10 +535,18 @@ cd /tmp/omega-ci && deno fmt --check && deno lint
 
 ### Parity
 
+Паритетний тест читає `DEBUG_WGSL_PARITY` і `ANTIGRAVITY_AGENT` на верхньому
+рівні модуля, тож без `--allow-env` він падає `NotCapable` ще до першого тесту —
+та сама пастка, через яку §8 переписували у v3. Прапорці обов'язкові:
+
 ```bash
-deno test --allow-read tests/wgsl_golden_trace_test.ts
+deno test --allow-read --allow-env tests/wgsl_golden_trace_test.ts
 deno test --allow-read tests/routing_bridge_test.ts tests/routing_mesh_test.ts
 ```
+
+І пам'ятайте, що зелений прогін тут нічого не доводить без GPU: за відсутності
+WebGPU (або під `ANTIGRAVITY_AGENT=1`) набір сам себе вимикає і виходить
+зеленим. Вимагайте `10 passed`, а не «ok».
 
 ### Codeicide Scan
 

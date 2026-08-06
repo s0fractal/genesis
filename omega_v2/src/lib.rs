@@ -417,6 +417,19 @@ pub extern "C" fn v2_mitosis_sweep() -> u32 {
     }
 }
 
+/// Book deaths for a substrate that owns the per-agent step (WebGPU).
+///
+/// Call this on the same readback that drives `v2_mitosis_sweep`, AFTER the
+/// GPU state has been copied into `v2_agents_ptr`. Returns deaths booked.
+/// See `PhaseLattice::reap_off_cpu_deaths` for why the shader cannot do it.
+#[no_mangle]
+pub extern "C" fn v2_reap_deaths() -> u32 {
+    unsafe {
+        let mut lattice = OMEGA_LATTICE.lock();
+        lattice.reap_off_cpu_deaths()
+    }
+}
+
 // ERA 6000 FFI
 #[no_mangle]
 pub extern "C" fn v2_delta_buffer_ptr() -> *const u8 {
@@ -1064,7 +1077,13 @@ pub extern "C" fn v2_apply_senate_patch(
         return 0; // Unauthorized: caller is not a canonical oracle
     }
     match patch_type {
-        1 => { settings.quorum_threshold = arg1 as u8; 1 }, // SET_QUORUM
+        // SET_QUORUM. Clamped to the same [3, 8] band update_quorum() enforces
+        // (senate.rs). Unclamped, `arg1 as u8` accepted 0 — sanctuary and
+        // ancient agents terminable with zero AYEs — and 255, where
+        // codeicide_law's ANCIENT rule `quorum_threshold + 1` wraps to 0 in
+        // release (the workspace profile does not set overflow-checks), which
+        // is the same hole by the opposite end.
+        1 => { settings.quorum_threshold = (arg1.clamp(3, 8)) as u8; 1 },
         2 => { settings.sanctuary_energy_multiplier = arg1; 1 }, // SET_SANCTUARY_MULT
         3 => { settings.ancient_age_ticks = arg1; 1 }, // SET_ANCIENT_AGE
         4 // CHALLENGE_SEAT

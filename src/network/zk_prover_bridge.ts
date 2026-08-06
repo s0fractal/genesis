@@ -2,6 +2,7 @@
 // Asynchronously generates STARK proofs for new Mitosis receipts using omega_zk_host.
 
 import { drainMitosisLog, MitosisReceipt } from "./mitosis_log_reader.ts";
+import { CANONICAL_TOPOLOGY } from "../shared/law_hash.ts";
 
 export interface ZKProofBundle {
   kind: string;
@@ -255,10 +256,18 @@ export class ZKProverBridge {
         `[zk_prover_bridge] Triggering ZK Physics Rollup for ${activeCount} agents...`,
       );
 
-      // ZK Rollup Bitmap Compression
-      // Only send agents that have mutated, accompanied by a sparse bitmap and Merkle root.
-      const changed_indices = [];
-      const changed_agents = [];
+      // Every active agent goes into the proof.
+      //
+      // This used to send a "sparse" subset (`state_flags & 1 || i % 16 === 0`)
+      // under a `changed_agents` key, with a hardcoded all-zero `merkle_root`.
+      // Two things were wrong. The host's TickRollupJson requires a field named
+      // `agents` with no serde alias or default (omega_zk_host/src/main.rs), so
+      // every call died on `missing field 'agents'` and the rollup path had
+      // never once run from the app. And a proof over 1/16 of the lattice with
+      // a stub root is not a proof of the tick — it would have been worse than
+      // the error if it had parsed. Real bitmap compression needs a previous
+      // root to diff against; until that exists, prove the whole state.
+      const agents = [];
       const agentView = new DataView(
         agentBytes.buffer,
         agentBytes.byteOffset,
@@ -268,22 +277,18 @@ export class ZKProverBridge {
         const offset = i * 32;
         const state_flags = agentView.getUint32(offset + 12, true);
 
-        // Simulate sparse extraction (in production, compare against previous root)
-        if ((state_flags & 0x01) !== 0 || i % 16 === 0) {
-          changed_indices.push(i);
-          changed_agents.push({
-            phase: agentView.getUint32(offset + 0, true),
-            energy: agentView.getUint32(offset + 4, true),
-            base_freq: agentView.getInt32(offset + 8, true),
-            state_flags: state_flags,
-            genome: agentView.getUint32(offset + 16, true),
-            memory: [
-              agentView.getUint32(offset + 20, true),
-              agentView.getUint32(offset + 24, true),
-              agentView.getUint32(offset + 28, true),
-            ],
-          });
-        }
+        agents.push({
+          phase: agentView.getUint32(offset + 0, true),
+          energy: agentView.getUint32(offset + 4, true),
+          base_freq: agentView.getInt32(offset + 8, true),
+          state_flags: state_flags,
+          genome: agentView.getUint32(offset + 16, true),
+          memory: [
+            agentView.getUint32(offset + 20, true),
+            agentView.getUint32(offset + 24, true),
+            agentView.getUint32(offset + 28, true),
+          ],
+        });
       }
 
       const attractors = [];
@@ -303,17 +308,20 @@ export class ZKProverBridge {
         });
       }
 
+      // Topology comes from CANONICAL_TOPOLOGY, not from literals. The old
+      // values (q_sectors 1, q_radial 1, q_math 0, weather_multiplier 1) named
+      // a law the lattice does not run, so even a parsing rollup would have
+      // attested the wrong physics. `q_phase` stays a parameter because the
+      // caller knows the live value.
       const rollup = {
         q_phase: qPhase,
-        q_sectors: 1,
-        q_radial: 1,
-        q_math: 0,
-        weather_multiplier: 1,
+        q_sectors: CANONICAL_TOPOLOGY.q_sectors,
+        q_radial: CANONICAL_TOPOLOGY.q_radial,
+        q_math: CANONICAL_TOPOLOGY.q_math,
+        weather_multiplier: CANONICAL_TOPOLOGY.weather_multiplier,
+        alpha: CANONICAL_TOPOLOGY.alpha,
         active_count: activeCount,
-        bitmap: changed_indices,
-        changed_agents: changed_agents,
-        merkle_root:
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
+        agents,
         attractors,
       };
 

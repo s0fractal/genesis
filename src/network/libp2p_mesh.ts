@@ -411,14 +411,14 @@ export class Libp2pMesh {
   }
 
   private handleSyncBinMessage(peerId: string, eventData: Uint8Array) {
-    // Absolute Immune Quarantine (OSI L4 Hardware Drop)
-    // We don't even parse bytes from quarantined peers.
-    if (
-      (this as any).investigator?.isQuarantined?.(peerId) ||
-      (this as any).livenessAggregator?.isQuarantined?.(peerId)
-    ) {
-      return;
-    }
+    // NOTE: a quarantine gate used to sit here, calling `isQuarantined` on
+    // `investigator` and `livenessAggregator` through `any` casts. Neither
+    // symbol exists: `investigator` is declared nowhere and LivenessAggregator
+    // has no such method, so both optional chains resolved to undefined on
+    // every packet. The `any` casts hid that from `deno check`. A security
+    // control that reads as implemented and is unconditionally a no-op is
+    // worse than an absent one — reinstate it as a real, typed gate or not
+    // at all.
     const frame = frameFromBytes(eventData);
     if (!frame) return;
     const packet = parseV2SyncFrame(frame);
@@ -500,7 +500,7 @@ export class Libp2pMesh {
 
     // Passive Phase Routing
     if (packet.ta !== undefined && this.router && this.selfAddress.raw !== 0) {
-      let hopCount = packet.hc;
+      const hopCount = packet.hc;
       const maxHops = packet.mh;
       if (hopCount >= maxHops) return;
 
@@ -529,16 +529,22 @@ export class Libp2pMesh {
 
       if (distSelf > distSender) return;
 
-      // Calculate time curvature penalty for routing this frame
-      const tauDiff = Math.abs(tauSelf - tauSender);
-      if (tauDiff > 0) {
-        const penalty = Math.floor(
-          (tauDiff * 8) + ((tauDiff * tauDiff) / 1024),
-        );
-        // Burn more ATP (hopCount) when bending space-time
-        hopCount += penalty;
-        if (hopCount >= maxHops) return;
-      }
+      // NOTE: an inline time-curvature penalty used to sit here, adding
+      // `tauDiff*8 + tauDiff²/1024` to hopCount. It was wrong three ways and
+      // its removal is deliberate:
+      //   1. `tau` here is v2_get_golden_trace() — a sampled STOCHASTIC HASH of
+      //      the lattice (lattice.rs), not an ordinal tick. The Rust law it
+      //      copied (routing.rs) means tau as a Bitcoin-block-height-like
+      //      ordinal, so |a-b| over two hashes is noise, not a distance.
+      //   2. It never clamped. Rust clamps min(abs_diff, 64) and so does the
+      //      routing_bridge fallback; this third copy did not.
+      //   3. The penalty for tauDiff==1 is already 8, and maxHops is 8 — so ANY
+      //      nonzero hash difference returned early, BEFORE setIntent and
+      //      BEFORE the divergence check + syncRecovery.onDivergence below.
+      //      The moment two peers diverged — the only case recovery exists for
+      //      — the recovery path became unreachable.
+      // hyperbolicDistanceToroidal3D above already applies the clamped
+      // curvature penalty inside the kernel. One law, one site.
     }
 
     const slot = this.peerSlots.get(peerId);

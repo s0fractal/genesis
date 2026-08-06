@@ -1,65 +1,70 @@
+// TS producer ↔ Rust host wire test for the physics tick rollup.
+//
+// This file used to be wrapped in `if (import.meta.main)`, which is FALSE under
+// `deno test` — so it reported "running 0 tests from ./tests/
+// zk_rollup_integration_test.ts" and read exactly like a passing suite. It was
+// the only thing in the tree that exercised `generateTickRollup`, and while it
+// was silent the producer emitted a field named `changed_agents` where
+// TickRollupJson (omega_zk_host/src/main.rs) requires `agents` — no serde alias,
+// no default — so every rollup from the app died on `missing field 'agents'`.
+//
+// omega_zk_host/tests/wire_rollup.rs guards the same seam from the Rust side
+// with its own hand-written JSON, i.e. Rust against Rust. THIS test is the
+// other half: the real TS producer against the real Rust parser. Keep it that
+// way — if you find yourself hardcoding the payload here, you have rebuilt
+// wire_rollup.rs and lost the only thing this file checks.
+import { assertEquals, assertExists } from "jsr:@std/assert";
 import { ZKProverBridge } from "../src/network/zk_prover_bridge.ts";
 
-async function run() {
-  console.log("🌌 [TEST] Testing ZK Physics Rollup Generation");
-
-  // Create a mock agent array (2 agents)
+/** Two agents and one attractor, laid out in the 32-byte agent ABI. */
+function fixture(): { agents: Uint8Array; attractors: Uint8Array } {
   const activeCount = 2;
-  const agentBytes = new Uint8Array(activeCount * 32);
-  const agentView = new DataView(agentBytes.buffer);
+  const agents = new Uint8Array(activeCount * 32);
+  const av = new DataView(agents.buffer);
+  av.setUint32(0, 100, true); // phase
+  av.setUint32(4, 2000, true); // energy
+  av.setInt32(8, 10, true); // base_freq
+  av.setUint32(12, 0, true); // state_flags
+  av.setUint32(16, 0x1111_1111, true); // genome
+  av.setUint32(32 + 0, 200, true);
+  av.setUint32(32 + 4, 3000, true);
+  av.setInt32(32 + 8, -5, true);
+  av.setUint32(32 + 12, 0, true);
+  av.setUint32(32 + 16, 0x2222_2222, true);
 
-  // Agent 0
-  agentView.setUint32(0, 100, true); // phase
-  agentView.setUint32(4, 2000, true); // energy
-  agentView.setInt32(8, 10, true); // base_freq
-  agentView.setUint32(12, 0, true); // state_flags
-  agentView.setUint32(16, 0x1111_1111, true); // genome
-
-  // Agent 1
-  agentView.setUint32(32 + 0, 200, true); // phase
-  agentView.setUint32(32 + 4, 3000, true); // energy
-  agentView.setInt32(32 + 8, -5, true); // base_freq
-  agentView.setUint32(32 + 12, 0, true); // state_flags
-  agentView.setUint32(32 + 16, 0x2222_2222, true); // genome
-
-  // Create a mock attractor array (1 attractor)
-  const attractorBytes = new Uint8Array(16 + 16);
-  const attractorView = new DataView(attractorBytes.buffer);
-  attractorView.setUint32(0, 1, true); // count
-
-  attractorView.setUint32(16, 0xAAAA_BBBB, true); // matrix
-  attractorView.setUint32(20, (~0xAAAA_BBBB) >>> 0, true); // inverse
-  attractorView.setUint32(24, 10, true); // pulse_freq
-  attractorView.setUint32(28, 256, true); // pulse_amp
-
-  const prover = new ZKProverBridge();
-
-  console.log("[TEST] Generating Tick Rollup STARK...");
-  const bundle = await prover.generateTickRollup(
-    agentBytes,
-    attractorBytes,
-    activeCount,
-    8,
-  );
-
-  if (bundle) {
-    console.log(`[TEST] ✅ Rollup STARK generated successfully!`);
-    console.log(`[TEST] publicValues:`, bundle.publicValues);
-
-    console.log("[TEST] Verifying STARK locally...");
-    const valid = await prover.verifyExternalProof(bundle);
-    if (valid) {
-      console.log(`[TEST] ✅ STARK verified successfully!`);
-    } else {
-      console.error(`[TEST] ❌ STARK verification failed!`);
-      Deno.exit(1);
-    }
-  } else {
-    console.error(`[TEST] ❌ Rollup STARK generation failed!`);
-    Deno.exit(1);
-  }
+  const attractors = new Uint8Array(16 + 16);
+  const tv = new DataView(attractors.buffer);
+  tv.setUint32(0, 1, true); // count
+  tv.setUint32(16, 0xAAAA_BBBB, true); // matrix
+  tv.setUint32(20, (~0xAAAA_BBBB) >>> 0, true); // inverse — dipole law
+  tv.setUint32(24, 10, true); // pulse_freq
+  tv.setUint32(28, 256, true); // pulse_amp
+  return { agents, attractors };
 }
 
-if (import.meta.main) {
-  run();
-}
+Deno.test({
+  name: "the TS rollup payload is accepted by the Rust host (wire parity)",
+  // Needs the SP1 toolchain and a cargo build; same gate the sibling zk tests use.
+  ignore: Deno.env.get("CI") === "true",
+  async fn() {
+    const { agents, attractors } = fixture();
+    const bundle = await new ZKProverBridge().generateTickRollup(
+      agents,
+      attractors,
+      2,
+      7,
+    );
+
+    // A null here is the regression this file exists for: the host rejected
+    // the payload (historically `missing field 'agents'`) and the bridge
+    // swallowed it as a warning.
+    assertExists(
+      bundle,
+      "host refused the TS-produced rollup — check TickRollupJson field names " +
+        "in omega_zk_host/src/main.rs against the object in generateTickRollup",
+    );
+    assertEquals(bundle.kind, "stark-mock-rollup");
+    assertEquals(bundle.verified, true);
+    assertExists(bundle.publicValues);
+  },
+});
