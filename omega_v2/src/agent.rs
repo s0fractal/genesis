@@ -41,7 +41,7 @@ pub struct Phenotype {
 /// Tissue Crystallization marker
 pub const FLAG_TISSUE_LOCKED: u32 = 0x0800_0000;
 
-/// AGE, packed into `state_flags` bits 8..25.
+/// AGE, packed into `state_flags` bits 8..23.
 ///
 /// The agent struct is 32 bytes and both other substrates mirror it byte for
 /// byte, so a new field would touch the ABI, the WGSL struct and the ZK guest.
