@@ -239,7 +239,10 @@ function survey(prevPhase?: Uint32Array) {
     // The coupling is an i32 added straight to an integer phase. If it rounds
     // to zero it does not act at all — "weak" and "absent" are different
     // claims, and only one of them is fixable by scaling.
-    const cv = new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[5];
+    // memory[0] packs the phase residue (low 10) and the coupling at its old
+    // resolution (high 16, signed) since the residue landed there.
+    const cv =
+      (new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[5] >> 16) << 16 >> 16;
     if (cv === 0) couplingZero++;
     cSum += Math.abs(cv);
     // The EFFECTIVE natural frequency: what the Nyquist clamp leaves. Reporting

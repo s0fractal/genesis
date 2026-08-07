@@ -751,6 +751,69 @@ question is where the residue lives: an agent has three memory words,
 through mitosis, and widening the agent touches the ABI, the shader struct and
 the ZK guest.
 
+### Era 968 — the phase advance stopped discarding its fractional part
+
+Every term that moves a phase — natural frequency, Kuramoto coupling, attractor
+drift — was truncated to a whole phase unit before it reached `agent.phase`. The
+coupling's mean magnitude was 0.103 units, and it was **exactly zero for 89.7%
+of living agents every tick**. For nine agents in ten the term this kernel is
+named for did not act. Not weakly — at all.
+
+The whole drift is now summed at Q10 and the remainder banked in the low ten
+bits of `memory[0]`, euclidean so the bank never runs backwards. A pull of 0.1
+becomes one whole unit after ten ticks instead of vanishing ten times. Tissue
+banks nothing, so an agent that dissolves back to motile resumes from a clean
+residue rather than discharging a debt accumulated while it was frozen.
+
+`omega_v2/tests/coupling_below_one_quantum.rs` asserts the property rather than
+the mechanism: with `base_freq` zeroed, so the coupling is the only term that
+can move anything, an agent must eventually move. Verified RED — **14.3% of the
+population had bit-identical phases after 512 ticks**.
+
+_It did not synchronise the world._ Global order 0.0147 → 0.0149, velocity
+correlation +0.0083 → +0.0105, local phase order 0.0510 → 0.0533. Shipped
+because a force discarded nine times in ten is a defect on its own terms, and
+because resolution is now an axis that can be tuned at all.
+
+Two things that axis immediately showed, both measured and left unshipped:
+
+```text
+BB_FREQ_Q_SCALE   spread    global   velCorr    localPhase   tissue
+     1024          ±32      0.0143   +0.0071      0.0507      0.273
+      128          ±4       0.0154   −0.0003      0.0256      0.001
+       32          ±1       0.0278   −0.0008      0.0318      0.000
+        8          ±0.25    0.0240   −0.0009      0.0309      0.000
+```
+
+Narrowing the frequency spread toward the coupling's scale doubles global order
+— to 0.028, which is still nothing — while extinguishing crystallisation
+entirely and driving coordinated motion to zero. Not a trade worth taking.
+
+And the Sakaguchi lag still does not matter. Swept 0°–90° with the coupling now
+acting, steady-state order tail-averaged over 30000 ticks: 0.088, 0.095, 0.156,
+0.106, 0.139, 0.125. No trend. α was expected to become measurable once the
+coupling could act; it did not.
+
+### A convergence test that was passing on a coin flip
+
+`test_tick_physics_kuramoto_coupling` read the order parameter once at 2500
+ticks and required `after > before + 0.1`, on the grounds that Kuramoto's claim
+is that a coupled population converges — with every natural frequency zeroed,
+that should mean r → 1 for any positive coupling.
+
+It does not. Tail-averaged over 30000 ticks at six different lags the order
+wanders in a band around 0.12, a little above the N=256 sampling floor of
+√(π/4N) = 0.055, and never climbs. A single reading at 2500 ticks lands on
+either side of the threshold depending on where in that wander it falls. The
+assertion was not measuring convergence; it was sampling noise, and it had been
+adjusted once already to make it pass.
+
+It now asserts what the coupling demonstrably does — lifts the population off
+its starting arrangement and holds it measurably higher — which is
+discriminating rather than merely weaker: with `base_freq` zeroed and no
+effective coupling the phases are bit-identical at tick 30000 and the order is
+exactly `before`.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

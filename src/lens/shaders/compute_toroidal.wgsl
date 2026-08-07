@@ -289,7 +289,18 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // quarter of the phase space per tick, so every tick randomised the
         // lattice and the order parameter sat at 0.02. Correctly scaled it is a
         // small pull toward the neighbourhood mean, and order reaches 0.41.
-        let coupling = (total_coupling * k) / (6i * Q10_SCALE * Q10_SCALE);
+        // THE COUPLING KEEPS ITS FRACTIONAL PART — mirrors
+        // PhaseLattice::tick_physics. Truncating this to an integer phase made
+        // it exactly zero for 89.7% of living agents every tick: not a weak
+        // force, no force. The remainder is banked in memory_x.
+        //
+        // WGSL `/` truncates toward zero and `%` follows it, while Rust's
+        // div_euclid/rem_euclid floor. They differ for negative numerators,
+        // which is most of the time here, so the euclidean form is written out
+        // rather than assumed.
+        let coupling_q10 = (total_coupling * k) / (6i * Q10_SCALE);
+        // The stress term reads the OLD resolution, bit-identical to before.
+        let coupling_stress = coupling_q10 / Q10_SCALE;
 
         // --- 3. Metabolic burn (decoded from phenotype) ---
         let efficiency_adj = 2i - i32(p_efficiency / 64u);
@@ -371,7 +382,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         energy_delta += energy_diffusion;
 
         // Philosophy Vector 3: Relativistic Chronotopology (Time Dilation)
-        let thermodynamic_stress = u32(abs(coupling)) + u32(abs(energy_diffusion));
+        let thermodynamic_stress = u32(abs(coupling_stress)) + u32(abs(energy_diffusion));
         var time_dilation_multiplier = 1u + (thermodynamic_stress / CHRONOTOPOLOGY_STRESS_DIVISOR);
         if (time_dilation_multiplier > MAX_TIME_DILATION) {
             time_dilation_multiplier = MAX_TIME_DILATION;
@@ -430,7 +441,7 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Pack Hebbian weight and Ortho deviation back into memory
-        agent.memory_x = u32(coupling);
+
         agent.memory_y = u32(weight_left) | (ortho_agent << 16u);
         agent.memory_z = u32(weight_right);
 
@@ -465,15 +476,39 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // natural frequencies collapsed to exactly two, -63 and +63, with every
         // agent pinned to the rail.
         let max_freq_q10 = i32(max_phase_mask / 2u) * Q10_SCALE;
-        let clamped_base_freq =
-            clamp(agent.base_freq, -max_freq_q10, max_freq_q10) / Q10_SCALE;
+        // Kept in Q10 — mirrors PhaseLattice::tick_physics. Dividing here
+        // truncated every natural frequency to a whole phase unit per tick.
+        let clamped_base_freq_q10 =
+            clamp(agent.base_freq, -max_freq_q10, max_freq_q10);
         // Structure does not drift. Gated rather than zeroing base_freq, so
         // dissolving back to motile restores the agent's own frequency.
-        var drift = 0i;
+        //
+        // ONE ACCUMULATOR FOR THE WHOLE PHASE ADVANCE — mirrors
+        // PhaseLattice::tick_physics. Every term is summed at Q10 and the
+        // remainder is banked in memory_x rather than discarded; truncating each
+        // term separately is what made the coupling exactly zero for 89.7% of
+        // agents every tick. WGSL `/` truncates toward zero where Rust's
+        // div_euclid floors, and drifts are negative about half the time, so the
+        // euclidean form is written out rather than assumed.
+        //
+        // Structure banks nothing, so dissolving back to motile resumes from a
+        // clean residue instead of discharging a debt built up while frozen.
+        var drift_q10 = 0i;
+        var residue_in = 0i;
         if (!is_tissue) {
-            drift = (clamped_base_freq + coupling + attractor_drift) * i32(time_dilation_multiplier);
+            drift_q10 = (clamped_base_freq_q10 + coupling_q10
+                + attractor_drift * Q10_SCALE) * i32(time_dilation_multiplier);
+            residue_in = i32(agent.memory_x & 0x3FFu);
         }
+        let drift_acc = residue_in + drift_q10;
+        var drift = drift_acc / Q10_SCALE;
+        if ((drift_acc % Q10_SCALE) != 0 && drift_acc < 0) {
+            drift = drift - 1i;
+        }
+        let residue_out = drift_acc - drift * Q10_SCALE;
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
+        agent.memory_x = (u32(residue_out) & 0x3FFu)
+            | ((u32(coupling_stress) & 0xFFFFu) << 16u);
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         // Philosophy Vector 10: Thermodynamic Conservation

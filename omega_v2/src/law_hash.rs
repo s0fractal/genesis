@@ -9,6 +9,37 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 968 — Quantised. The phase advance stopped throwing away its fractional
+/// part. Every term — natural frequency, Kuramoto coupling, attractor drift —
+/// was truncated to a whole phase unit before it reached `agent.phase`.
+/// Measured on Era 967: the coupling's mean magnitude was 0.103 units and it was
+/// EXACTLY ZERO for 89.7% of living agents every tick. For nine agents in ten
+/// the term this kernel is named for did not act — not weakly, at all.
+///
+/// Scaling could not fix it. A sweep of KURAMOTO_COUPLING_BASE over
+/// 1024..524288 found the first value large enough to survive truncation was
+/// already large enough to overshoot: only the existing setting converged a
+/// zero-spread population, everything above destroyed order instead of building
+/// it. There is no setting between "absent" and "too big" when the next
+/// representable value above zero is one whole phase unit.
+///
+/// So the whole drift is summed at Q10 and the remainder banked in the low ten
+/// bits of `memory[0]`, euclidean so it never runs backwards. A pull of 0.1
+/// becomes one unit after ten ticks instead of vanishing ten times. Tissue banks
+/// nothing, so dissolving back to motile resumes clean rather than discharging a
+/// debt built up while frozen.
+///
+/// It did not synchronise the world: global order 0.0147 -> 0.0149, velocity
+/// correlation +0.0083 -> +0.0105, local phase order 0.0510 -> 0.0533. Shipped
+/// because a force that is discarded nine times in ten is a defect on its own
+/// terms, and because resolution is now an axis that can be tuned at all.
+///
+/// Two things that axis then showed, both left unshipped and recorded:
+/// narrowing the frequency spread toward the coupling's scale (BB_FREQ_Q_SCALE
+/// 1024 -> 128/32/8) doubles global order to 0.028 but extinguishes tissue
+/// entirely and drives velocity correlation to zero; and the Sakaguchi lag still
+/// has no measurable effect, 0 to 90 degrees, even now that the coupling acts.
+///
 /// 967 — Unsaturated. The Big Bang drew natural frequencies from ±2000 phase
 /// units per tick while the Nyquist clamp caps them at ±max_phase/2 = ±128.
 /// Measured: 95% of the living population pinned exactly AT the clamp, mean
@@ -117,7 +148,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 967; // 967 Unsaturated
+pub const ERA_ID: u32 = 968; // 968 Quantised
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -224,7 +255,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0xC161_6C9D;
+pub const CANONICAL_LAW_HASH: u32 = 0xC4C0_4A8E;
 
 #[cfg(test)]
 mod tests {

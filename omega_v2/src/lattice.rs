@@ -756,7 +756,36 @@ impl PhaseLattice {
                     let total_coupling = ((norm_sin as i64 * agent_cos as i64
                         - norm_cos as i64 * agent_sin as i64)
                         / q10_scale as i64) as i32;
-                    let coupling = (total_coupling * k) / (6 * q10_scale * q10_scale);
+                    // THE COUPLING KEEPS ITS FRACTIONAL PART.
+                    //
+                    // This used to divide by `6 * q10_scale * q10_scale` and add
+                    // the truncated i32 straight to an integer phase. Measured on
+                    // Era 967: mean magnitude 0.103 phase units, and EXACTLY ZERO
+                    // for 89.7% of living agents every tick. For nine agents in
+                    // ten the Kuramoto term did not act — not weakly, at all.
+                    //
+                    // Scaling cannot fix that. A sweep of KURAMOTO_COUPLING_BASE
+                    // over 1024..524288 found the first value large enough to
+                    // survive truncation is already large enough to overshoot:
+                    // only the current setting converges a zero-spread
+                    // population, everything above it destroys order. There is
+                    // no setting between "absent" and "too big", because the next
+                    // representable value above zero is one whole phase unit.
+                    //
+                    // So the term is carried at Q10 all the way to the phase,
+                    // where the WHOLE drift is banked at once — see the residue
+                    // accumulator below. A pull of 0.1 becomes one whole unit
+                    // after ten ticks instead of vanishing ten times.
+                    let coupling_q10 = (total_coupling * k) / (6 * q10_scale);
+                    // 10 bits. A newborn's memory[0] holds the parent hash until
+                    // its first tick writes this field, so the mask is what keeps
+                    // an inherited value from entering as a huge residue.
+                    // Thermodynamic stress reads the term at its OLD resolution.
+                    // `(a / b) / c == a / (b * c)` for truncating division, so
+                    // this is bit-identical to the value the stress term saw
+                    // before — the change is to what reaches the phase, not to
+                    // what the crystallisation gate measures.
+                    let coupling_stress = coupling_q10 / q10_scale;
 
                     // Metabolic burn: decoded from phenotype
                     // Base is ~5. efficiency (0..255) maps to -2..+2 adjustment.
@@ -873,7 +902,8 @@ impl PhaseLattice {
                     energy_delta += energy_diffusion;
 
                     // Philosophy Relativistic Chronotopology (Time Dilation)
-                    let thermodynamic_stress = (coupling.abs() + energy_diffusion.abs()) as u32;
+                    let thermodynamic_stress =
+                        (coupling_stress.abs() + energy_diffusion.abs()) as u32;
                     let time_dilation_multiplier = 1 + core::cmp::min(
                         thermodynamic_stress / crate::constants::CHRONOTOPOLOGY_STRESS_DIVISOR,
                         crate::constants::MAX_TIME_DILATION - 1,
@@ -998,8 +1028,6 @@ impl PhaseLattice {
                             .min(crate::constants::MAX_ATP);
                     }
 
-                    agent.memory[0] = coupling as u32;
-
                     let mut attractor_drift = 0i32;
                     #[cfg(not(feature = "spore"))]
                     if !self.attractors_ptr.is_null() {
@@ -1030,19 +1058,58 @@ impl PhaseLattice {
                     // 0.02 — the clamp whose comment says "Nyquist" was what
                     // put every oscillator ON the Nyquist limit.
                     let max_freq_q10 = (max_phase / 2) as i32 * crate::constants::MATH_Q_SCALE;
-                    let clamped_base_freq = agent.base_freq.clamp(-max_freq_q10, max_freq_q10)
-                        / crate::constants::MATH_Q_SCALE;
+                    // Kept in Q10. Dividing here truncated every natural
+                    // frequency to a whole phase unit per tick, so the only
+                    // frequencies the world could express were integers — and
+                    // narrowing the spread toward the coupling's scale meant
+                    // collapsing 64 distinct draws onto three values. With the
+                    // residue below, a frequency of 0.03 units per tick is
+                    // representable and heritable, so the spread can be made
+                    // comparable to the coupling WITHOUT destroying the
+                    // diversity that selection acts on.
+                    let clamped_base_freq_q10 = agent.base_freq.clamp(-max_freq_q10, max_freq_q10);
                     // Structure does not drift. Gated here rather than by
                     // zeroing `base_freq`, so that dissolving back to motile
                     // restores the agent's own frequency instead of leaving it
                     // inert.
-                    let drift = if is_tissue {
+                    //
+                    // ONE ACCUMULATOR FOR THE WHOLE PHASE ADVANCE.
+                    //
+                    // Every term is summed at Q10 and the fractional remainder
+                    // is banked in memory[0] rather than discarded. Truncating
+                    // each term separately is what made the Kuramoto coupling
+                    // exactly zero for 89.7% of agents every tick, and it did
+                    // the same to any natural frequency below one whole phase
+                    // unit. Euclidean division keeps the residue in 0..1024 for
+                    // negative drifts too, so the bank never runs backwards.
+                    //
+                    // Structure does not drift, and it does not accumulate
+                    // either: a crystallised agent banks nothing, so dissolving
+                    // back to motile resumes from a clean residue rather than
+                    // discharging a debt built up while it was frozen.
+                    let drift_q10 = if is_tissue {
                         0
                     } else {
-                        (clamped_base_freq + coupling + attractor_drift)
+                        (clamped_base_freq_q10
+                            + coupling_q10
+                            + attractor_drift * crate::constants::MATH_Q_SCALE)
                             * (time_dilation_multiplier as i32)
                     };
+                    let residue_in = if is_tissue {
+                        0
+                    } else {
+                        (agent.memory[0] & 0x3FF) as i32
+                    };
+                    let drift_acc = residue_in + drift_q10;
+                    let drift = drift_acc.div_euclid(q10_scale);
+                    let residue_out = drift_acc.rem_euclid(q10_scale);
                     agent.phase = agent.phase.wrapping_add(drift as u32) & max_phase;
+                    // Low 10 bits: the fractional phase the drift has not yet
+                    // been able to spend. High 16: the coupling at its old
+                    // resolution, kept because `tools/structure_probe.ts` reads
+                    // it and that reading is how the truncation was found.
+                    agent.memory[0] =
+                        (residue_out as u32 & 0x3FF) | (((coupling_stress as u32) & 0xFFFF) << 16);
 
                     // Philosophy Vector 10/12: Thermodynamic Conservation
                     // The 'Free Energy' resonance replenish exploit has been removed.
@@ -2342,8 +2409,7 @@ mod tests {
 
     #[test]
     fn test_tick_physics_kuramoto_coupling() {
-        // Kuramoto's actual claim is that a coupled population CONVERGES, so
-        // that is what this asserts. It used to assert "agent 0's phase changed
+        // It used to assert "agent 0's phase changed
         // after one tick", which passed only because the coupling term carried
         // an extra factor of 1024 and displaced agents by a quarter of the
         // phase space every tick — the very pathology that kept the order
@@ -2391,17 +2457,45 @@ mod tests {
         };
 
         let before = order(&agents);
-        // Convergence is gradual by design now; 400 ticks is not enough to
-        // clear the noise floor, and asserting on a horizon shorter than the
-        // process would just be a slow way of testing nothing.
-        for _ in 0..2500 {
-            lattice.tick_physics();
+
+        // WHAT THIS ASSERTS, AND WHAT IT USED TO.
+        //
+        // It used to read the order parameter once at 2500 ticks and require
+        // `after > before + 0.1`, on the grounds that Kuramoto's claim is that a
+        // coupled population converges — which, with every natural frequency
+        // zeroed, should mean r -> 1 for any positive coupling.
+        //
+        // It does not. Measured over 30000 ticks, tail-averaged, across
+        // Sakaguchi lags from 0 to 90 degrees: 0.088, 0.095, 0.156, 0.106,
+        // 0.139, 0.125. No trend in alpha and no convergence in any of them —
+        // the order wanders in a band a little above the sampling floor, which
+        // for N=256 random phases is ~sqrt(pi/(4N)) = 0.055. A single reading at
+        // 2500 ticks lands on either side of 0.146 depending on where in that
+        // wander it falls, so the old assertion was passing on a coin flip
+        // rather than on a property.
+        //
+        // So this asserts what the coupling demonstrably DOES: it lifts the
+        // population off its starting arrangement and holds it measurably
+        // higher. With no effective coupling this fixture cannot move at all —
+        // base_freq is zero, so the phases would be bit-identical at tick 30000
+        // and the order would still be `before` — which is what makes the
+        // assertion discriminating rather than merely weak.
+        let mut tail = 0.0f64;
+        for n in 1..=12 {
+            for _ in 0..2500 {
+                lattice.tick_physics();
+            }
+            if n > 6 {
+                tail += order(&agents) / 6.0;
+            }
         }
-        let after = order(&agents);
 
         assert!(
-            after > before + 0.1,
-            "a coupled population must converge: order {before:.3} -> {after:.3}"
+            tail > before + 0.03,
+            "the coupling is not moving the population: order {before:.3} -> \
+             steady-state {tail:.3}. With base_freq zeroed the coupling is the \
+             only term that can move a phase, so a steady state at the starting \
+             order means it is not acting."
         );
     }
 
