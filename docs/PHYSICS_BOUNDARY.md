@@ -1310,11 +1310,11 @@ Two more things follow for free. Heritability of predatory identity rises 0.44 �
 returned 0 only for bit-identical genomes, so a parent and its own mutated child
 were predator and prey.
 
-**And it cost the cline.** Latitude differentiation in resilience falls from 7.2
-to 1.2. The likely cause is hitchhiking — a winning hand sweeps and drags its
-whole genome, resilience included, faster than latitude can separate it — but
-that is a hypothesis and it has not been measured. It is the price, recorded as
-one, not explained away.
+**It was recorded as costing the cline — that has since been withdrawn.**
+Latitude differentiation appeared to fall from 7.2 to 1.2, and hitchhiking was
+offered as the cause. The hitchhiking hypothesis was refuted outright, and the
+cost itself did not survive four independent worlds: 2.28 ± 2.00, 1.1σ. See
+below.
 
 _Two obsolete locks replaced rather than deleted._
 `test_species_advantage_zero_guard` and the WGSL sentinel lock both pinned the
@@ -1412,6 +1412,57 @@ Both corrections in this file came from the same omission — a number reported
 without the thing that makes it mean something. First an estimator compared
 against no null, then a mean compared against no error bar, now an entropy
 compared against no neutral control.
+
+### Independent worlds, at last — and Era 973's cost retracted
+
+Every claim in this file up to now was measured at one hardcoded seed, so its
+"replicates" were autocorrelated samples of a single trajectory. Both probes
+take a seed now. Four independent worlds per arm, 120000 ticks each, Era 973's
+ring against Era 972's hash:
+
+```text
+seed         hash cline   ring cline
+247006471       6.20         1.77
+111111          2.71        −0.24
+777777          2.96         3.40
+424242          8.64         6.47
+
+hash   5.13 ± 1.41      ring   2.85 ± 1.42
+difference 2.28 ± 2.00  →  1.1σ
+```
+
+**The cline cost is not established.** Era 973 recorded it as 7.2 → 1.2; block
+averaging cut that to 2.1σ; four independent worlds put it at 1.1σ. It is
+retracted — not disproved, but there is no evidence for it, and the ring should
+not be described as having cost the cline.
+
+Worth seeing plainly: the hash arm's cline ranges 2.71 to 8.64 across seeds. The
+**7.2** published in Era 972 was one draw from a distribution with sd ≈ 2.8. The
+number was never wrong; it was never a constant either.
+
+**And the polymorphism replicates, hard.** Hand entropy minus the near-unused
+control byte, same four worlds:
+
+```text
+             ring      hash
+247006471   +0.311    +0.123
+111111      +0.229    −0.031
+777777      +0.321    +0.047
+424242      +0.227    −0.045
+
+ring  +0.272 ± 0.025    hash  +0.023 ± 0.039
+difference +0.248 ± 0.046  →  5.4σ
+```
+
+Every ring world sits above every hash world. Under the hash the predation byte
+is indistinguishable from an unused one — as it must be, since the advantage was
+computed from a hash of the whole genome and the byte itself decided nothing.
+Under the ring it is held a quarter-bit wider than neutrality, in every world
+tried.
+
+So Era 973 stands, with one of its two claims replicated at 5.4σ and the other
+withdrawn. That is the first time anything here has been checked across
+independent worlds rather than across a single one's own history.
 
 ### Not conserved yet — known, named, open
 

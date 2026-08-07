@@ -34,11 +34,14 @@ use crate::topology::PhaseTopology;
 /// against 8.0 for a flat spread over all 256. The trait refuses to converge
 /// where every other trait in this world settles on one value.
 ///
-/// AND IT COST THE CLINE. Latitude differentiation in resilience falls from 7.2
-/// to 1.2. The likely cause is hitchhiking — a winning hand sweeps and drags its
-/// whole genome, resilience included, faster than latitude can separate it — but
-/// that is a hypothesis and it has not been measured. Recorded as the price,
-/// not explained away.
+/// IT WAS RECORDED AS COSTING THE CLINE — WITHDRAWN. Latitude differentiation
+/// appeared to fall from 7.2 to 1.2, with hitchhiking offered as the cause. The
+/// hitchhiking hypothesis was refuted (hands are nearly genetically independent,
+/// 0.800 against a 0.846 null) and the cost itself did not survive replication:
+/// four independent worlds per arm put it at 2.28 ± 2.00, 1.1 sigma. The
+/// polymorphism did survive, at 5.4 sigma — hand entropy sits +0.272 ± 0.025
+/// above a near-unused control byte under the ring, against +0.023 ± 0.039 under
+/// the hash, with every ring world above every hash world.
 ///
 /// 972 — Latitudinal. The sun stops falling on everything equally, and
 /// children stop being born anywhere.

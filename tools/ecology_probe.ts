@@ -37,7 +37,12 @@ const TICKS = Number(Deno.args[0] ?? 2000);
 const AGENTS = Number(Deno.args[1] ?? 4096);
 const WEATHER = Number(Deno.args[2] ?? 1024);
 const MITOSIS_EVERY = 10; // matches the renderer's readback cadence
-const SEED = 0x0EC0_0107;
+// Independent worlds, not blocks within one. Every claim in
+// docs/PHYSICS_BOUNDARY.md up to 2026-08-07 was measured at this one seed,
+// so its 'replicates' were autocorrelated samples of a single trajectory.
+// A difference that survives across seeds is a property of the physics; one
+// that does not is a property of this world's particular history.
+const SEED = Number(Deno.args[3] ?? 0) || 0x0EC0_0107;
 
 const bytes = await Deno.readFile("./public/v2/omega_v2_core.wasm");
 const { instance } = await WebAssembly.instantiate(bytes, { env: {} });
