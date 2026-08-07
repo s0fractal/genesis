@@ -1038,6 +1038,57 @@ the entire latitude law outside its reach. It is 256 agents now, four rows, the
 minimum that can tell an equator from a pole. That is the third fixture gap this
 session: tissue, then age, now latitude.
 
+### How much of the cline does mixing eat? 57%.
+
+Era 972 left a claim to check rather than a knob to turn: the cline is seven
+units where the same environmental range moves the trait seventy under a uniform
+sky, and one cell of dispersal per generation was blamed. Blame is not a
+measurement.
+
+The upper bound is what each band would reach if it were a world of its own.
+With latitude switched off (`LATITUDE_AMPLITUDE_Q10 = 0`) and the metabolic cost
+set to each band's own effective environment — computed from the insolation the
+latitude formula actually delivers there — in the same physics:
+
+```text
+band       insolation  weather-equiv   isolated   in the cline   excess
+equator          993          1056        66.2          76.6      +10.4
+mid1             800          1310        63.8          76.0      +12.2
+mid2             514          2040        62.1          72.8      +10.7
+pole             297          3532        49.4          69.4      +20.0
+
+spread                                    16.8           7.2
+```
+
+**The cline realises 43% of what isolation would give.** And every band sits
+above its own optimum, the pole by twenty units — it is receiving migrants from
+richer latitudes faster than selection can purge them. That is migration load,
+and it is largest exactly where the theory says it should be: in the smallest,
+most extreme band.
+
+_The dose-response confirms the mechanism rather than assuming it._ Cline width
+against gradient strength, everything else fixed:
+
+```text
+amplitude   equator  mid1  mid2  pole   spread   alive
+    0          59.5  60.7  59.0  60.0     −0.6    4096   ← null control
+  384          56.4  54.2  55.5  54.9      1.5    4096
+  768          76.6  76.0  72.8  69.4      7.2    4082
+  960          72.8  67.6  68.8  66.5      6.3    3625
+```
+
+Zero gradient gives zero cline — **−0.6, within noise of nothing** — which is
+the control that says the seven units at 768 are not an artifact of how the
+bands are cut. Growth is super-linear from 384 to 768, twice the gradient for
+five times the cline, as cline width ~ σ/√s predicts. And at 960 the cline
+**falls** while the population starts dying: past a point the poor band does not
+adapt, it empties.
+
+So 768 is near the differentiation optimum for the current dispersal, the limit
+is gene flow, and the way to a deeper cline is less mixing rather than a harsher
+pole. Recorded before turning anything, because three knobs in a row had gone
+the same way and the fourth needed a reason that was not "it worked last time".
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
