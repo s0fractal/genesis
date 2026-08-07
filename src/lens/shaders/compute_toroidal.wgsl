@@ -84,6 +84,7 @@ const HEBBIAN_MAX_WEIGHT: i32 = 4096;
 const PREDATOR_ENERGY_STEAL: u32 = 5u;
 // Q10 ATP per agent per tick at neutral sun. Mirrors constants.rs
 // SOLAR_YIELD_Q10 — the one term that enters this world from outside.
+const SENESCENCE_TICKS: u32 = 512u;
 const SOLAR_YIELD_Q10: u32 = 18432u;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
@@ -310,7 +311,16 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var maintenance_cost = (set_bits / STRUCTURAL_MAINTENANCE_DIVISOR) * LANDAUER_BIT_COST;
         if (maintenance_cost == 0u) { maintenance_cost = 1u; }
         
-        let base_cost = (maintenance_cost * topology.weather_multiplier) / 1024u;
+        // SENESCENCE — mirrors PhaseLattice::tick_physics. Upkeep rises with
+        // age until it outruns what photosynthesis pays, so death stays an
+        // energy outcome and the conservation books close unchanged. The rate is
+        // scaled by the `resilience` gene: a single lifespan for everyone ages
+        // the population as one cohort, and the resulting boom-bust amplified
+        // until the world collapsed.
+        let age = (agent.state_flags & 0x00FFFF00u) >> 8u;
+        let senescence_ticks = SENESCENCE_TICKS * (1u + p_resilience / 64u);
+        let senesced = (maintenance_cost * (senescence_ticks + age)) / senescence_ticks;
+        let base_cost = (senesced * topology.weather_multiplier) / 1024u;
         let raw_base = i32(base_cost) + efficiency_adj;
         if (raw_base > 1i) { base_burn = u32(raw_base); }
 
@@ -509,6 +519,11 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         var new_phase = (agent.phase + u32(drift)) & max_phase_mask;
         agent.memory_x = (u32(residue_out) & 0x3FFu)
             | ((u32(coupling_stress) & 0xFFFFu) << 16u);
+        // One tick older, saturating — an age that wraps would make the oldest
+        // agents the youngest and hand them a second life for free.
+        var next_age = age + 1u;
+        if (next_age > 65535u) { next_age = 65535u; }
+        agent.state_flags = (agent.state_flags & ~0x00FFFF00u) | (next_age << 8u);
 
         // --- 5. Cosmic Resonance: The Dipole Invariant (Yin-Yang Balance) ---
         // Philosophy Vector 10: Thermodynamic Conservation

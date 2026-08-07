@@ -37,6 +37,7 @@ import {
   MAX_TIME_DILATION,
   PREDATOR_ENERGY_STEAL,
   RESONANCE_PHASE_MODULUS,
+  SENESCENCE_TICKS,
   SOLAR_YIELD_Q10,
   STRUCTURAL_MAINTENANCE_DIVISOR,
 } from "./generated_constants.ts";
@@ -62,6 +63,10 @@ export const SHARED_PHYSICS_CONSTANTS = [
   "HEBBIAN_MAX_WEIGHT",
   "PREDATOR_ENERGY_STEAL",
   "SOLAR_YIELD_Q10",
+  // Era 969: the senescence clock. It sets how fast upkeep outruns income, so a
+  // shader compiled with a different value runs a world with a different
+  // lifespan — the difference between an ecology and a photograph.
+  "SENESCENCE_TICKS",
 ] as const;
 
 /** What the kernel says those constants are. */
@@ -77,6 +82,7 @@ export const KERNEL_SHARED_VALUES: Record<string, number> = {
   HEBBIAN_MAX_WEIGHT,
   PREDATOR_ENERGY_STEAL,
   SOLAR_YIELD_Q10,
+  SENESCENCE_TICKS,
 };
 
 /**

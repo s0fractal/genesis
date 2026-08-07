@@ -798,9 +798,41 @@ impl PhaseLattice {
                         (set_bits / crate::constants::STRUCTURAL_MAINTENANCE_DIVISOR)
                             * crate::constants::LANDAUER_BIT_COST,
                     );
+                    // SENESCENCE. Upkeep doubles every SENESCENCE_TICKS, so an
+                    // agent eventually costs more to run than photosynthesis
+                    // pays it and dies of its own accumulated expense.
+                    //
+                    // Death stays an ENERGY outcome — no special case, no
+                    // separate mortality rule — so `death_entropy` books it and
+                    // the conservation ledger closes exactly as before.
+                    //
+                    // This is what makes the world an ecology rather than a
+                    // filter. Without it the lattice fills by tick 550 and then
+                    // nothing is born and nothing dies again, at any weather
+                    // from 1024 to 7168: selection ran once and stopped.
+                    // The RATE is heritable, and it has to be. With one
+                    // lifespan for everybody the population ages as a single
+                    // cohort: measured at SENESCENCE_TICKS=512, everything born
+                    // during the fill died together around tick 20000, the
+                    // survivors refilled together, and the wave came back larger
+                    // each time until the world collapsed to 349 agents by tick
+                    // 60000. Boom and bust, amplifying.
+                    //
+                    // `resilience` is the gene for it — it is called that, and
+                    // until now it did nothing but subtract 0 or 1 from the
+                    // burn. Scaling the senescence clock by it spreads lifespans
+                    // about fivefold across the population, which desynchronises
+                    // the cohorts AND makes longevity something selection can
+                    // actually act on. The trait was decoded from the genome and
+                    // heritable through mitosis the whole time; it just had
+                    // nothing worth deciding.
+                    let age = crate::agent::age_of(agent.state_flags);
+                    let senescence_ticks = crate::constants::SENESCENCE_TICKS as u64
+                        * (1 + phenotype.resilience as u64 / 64);
+                    let senesced = (maintenance_cost as u64 * (senescence_ticks + age as u64))
+                        / senescence_ticks;
                     // Apply Bitcoin UTXO Weather (1024 = 1.0x)
-                    let base_cost =
-                        (maintenance_cost as u64 * self.topology.weather_multiplier as u64) / 1024;
+                    let base_cost = (senesced * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);
 
                     // Apply metabolic pressure only. The sun is a SOURCE, not a
@@ -1110,6 +1142,10 @@ impl PhaseLattice {
                     // it and that reading is how the truncation was found.
                     agent.memory[0] =
                         (residue_out as u32 & 0x3FF) | (((coupling_stress as u32) & 0xFFFF) << 16);
+
+                    // The agent got one tick older. Saturating, and only here in
+                    // the living branch — a corpse's age is not a quantity.
+                    agent.state_flags = crate::agent::with_age_incremented(agent.state_flags);
 
                     // Philosophy Vector 10/12: Thermodynamic Conservation
                     // The 'Free Energy' resonance replenish exploit has been removed.

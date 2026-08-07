@@ -89,7 +89,7 @@ function survey(prevPhase?: Uint32Array) {
   const alive: number[] = []; // indices
   let sumCos = 0, sumSin = 0;
   let natCos = 0, natSin = 0;
-  let effSum = 0, effMin = 255, effMax = 0;
+  let effSum = 0, effMin = 255, effMax = 0, resSum = 0;
   let tissue = 0;
   let maxPhase = 0;
   for (let i = 0; i < active; i++) {
@@ -111,6 +111,10 @@ function survey(prevPhase?: Uint32Array) {
     // one that has converged.
     if ((a[i * 8 + 3] & 0x08000000) !== 0) tissue++;
     const eff = a[i * 8 + 4] & 0xFF; // metabolic_efficiency, the burn trait
+    // resilience (genome bits 16..23) — since Era 969 it scales the senescence
+    // clock, so it is the trait longevity selection acts on directly. Before
+    // that it only ever subtracted 0 or 1 from the burn.
+    resSum += (a[i * 8 + 4] >>> 16) & 0xFF;
     effSum += eff;
     if (eff < effMin) effMin = eff;
     if (eff > effMax) effMax = eff;
@@ -278,6 +282,7 @@ function survey(prevPhase?: Uint32Array) {
     velocityCorrelation: velAll,
     velocityCorrelationMotile: velMotile,
     meanEfficiency: effSum / n,
+    meanResilience: resSum / n,
     effMin,
     effMax,
     maxPhaseSeen: maxPhase,

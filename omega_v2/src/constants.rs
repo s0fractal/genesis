@@ -112,6 +112,7 @@ pub const ESP_GLOBAL_ENERGY_CONSERVATION_ENFORCED: i32 = 1;
 pub const MAX_ATP: u32 = 4096;
 pub const BB_ENERGY_RANGE: u32 = 1024;
 pub const BB_ENERGY_BASE: u32 = 128;
+pub const SENESCENCE_TICKS: u32 = 512;
 pub const BB_FREQ_RANGE: u32 = 64;
 pub const BB_FREQ_OFFSET: i32 = 32;
 pub const BB_FREQ_STEP: i32 = 1000;

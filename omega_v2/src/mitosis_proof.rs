@@ -85,6 +85,13 @@ pub fn derive_mitosis_child(
     let species = genome & 0x7F;
     state_flags = (state_flags & !0xFE) | (species << 1);
 
+    // A newborn is newborn. `state_flags` is inherited wholesale from the
+    // parent, and since Era 969 it carries AGE in bits 8..24 — so without this
+    // a child would be born already senescent, at exactly the age at which its
+    // parent could afford to reproduce, and would inherit that debt forever.
+    // Clearing it is what makes birth a reset rather than a continuation.
+    state_flags &= !crate::agent::AGE_MASK;
+
     // Thermodynamic Epistemology (Landauer's Principle):
     // Deduct exact energy cost for every bit flipped during mitosis.
     let flipped_bits = (parent.genome ^ genome).count_ones();

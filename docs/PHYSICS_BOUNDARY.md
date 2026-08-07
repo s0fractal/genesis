@@ -892,6 +892,72 @@ income covers its burn, so nothing is ever marginal. `signals.p90_age` and
 itself is fatal would have to keep replacing its population, which is the one
 condition under which selection can act more than once.
 
+### Era 969 — the world evolves
+
+Maintenance now rises with AGE, until an agent's upkeep outruns what
+photosynthesis pays it. Age is packed into `state_flags` bits 8..23, which
+nothing used. **Death stays an energy outcome** — no separate mortality rule —
+so `death_entropy` books it and the conservation ledger closes exactly as
+before.
+
+**The rate is heritable, and it has to be.** With one lifespan for everybody the
+population ages as a single cohort. Measured at a uniform `SENESCENCE_TICKS`:
+
+```text
+tick    alive   deaths
+10000    4055       62
+20000    4096     4120   ← everything born during the fill, dying together
+40000    4096     8360   ← the wave returns, larger
+60000     349    12285   ← collapse
+```
+
+Scaling the clock by the `resilience` gene spreads lifespans about fivefold.
+That gene is called resilience, is decoded from the genome and inherited through
+mitosis, and until now only ever subtracted 0 or 1 from the burn — it had
+nothing worth deciding. Now it decides how long you live.
+
+```text
+tick     alive   efficiency   resilience
+1         1024      128.35       125.13
+9600      3881      131.53       135.31
+19700     3883      131.77       137.95
+29800     3229      131.40       150.63
+39900     2218      126.52       173.10
+60000     4006      118.67       180.61
+```
+
+**Resilience rises 125 → 181, monotonically, over 60000 ticks.** That is
+directional selection on the trait senescence acts on, and it is the first time
+anything in this repository has evolved. The comparison is not a statistical
+control but it does not need to be: in Era 968 the population was frozen from
+tick 550 — no births, no deaths — so no trait could move at all, and metabolic
+efficiency was identical to the second decimal ten thousand ticks apart.
+
+Metabolic efficiency moves the other way, 128 → 119. Not claimed as anything:
+efficiency and resilience are different bytes of one genome mutated by a shared
+mask, so linkage is as likely an explanation as a trade-off, and neither has
+been measured.
+
+The population still oscillates — it dips to 2218 around tick 40000 and recovers
+to 4006 — so the cohort wave is damped rather than gone. `SENESCENCE_TICKS` is
+in the law-hash preimage (25 words now; the buffer was exactly the size of the
+old 24, so the next law to join would have panicked on a slice bound rather than
+failing a test).
+
+### Two packing bugs, and what they looked like
+
+`AGE_MASK` was written `0x0001_FF00` — nine bits, saturating at 511 — beside a
+comment promising seventeen and a ceiling of 131071. Senescence therefore capped
+at a fixed multiplier a few thousand ticks in, the population died back once and
+then stabilised, and that is **indistinguishable from the frozen world the
+change was meant to fix**. Widened to seventeen bits it then overlapped
+`BIRTH_NEAR_ATTRACTOR_FLAG` on bit 24, so clearing a newborn's age erased the
+record of where it was born; two existing tests caught that one.
+
+A packed field is a claim about which bits belong to whom, and nothing was
+checking it. `population_turns_over.rs` now asserts the width, the saturation
+and non-overlap with every flag sharing the word.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

@@ -2,12 +2,41 @@ use crate::constants::{
     BB_FREQ_OFFSET, BB_FREQ_Q_SCALE, BB_FREQ_RANGE, BIG_BANG_SEED_DENSITY_Q10, CHILD_ENERGY_SEED,
     CHRONOTOPOLOGY_STRESS_DIVISOR, DELTA_ENERGY_DIVISOR, DELTA_PHASE_DIVISOR,
     KURAMOTO_COUPLING_BASE, LANDAUER_BIT_COST, MAX_ATP, MAX_TIME_DILATION, MITOSIS_COST,
-    MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SOLAR_YIELD_Q10, STRUCTURAL_MAINTENANCE_DIVISOR,
+    MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SENESCENCE_TICKS, SOLAR_YIELD_Q10,
+    STRUCTURAL_MAINTENANCE_DIVISOR,
 };
 use crate::crypto::sha256_u32;
 use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
+///
+/// 969 — Mortal. The population replaces itself for the first time.
+///
+/// Measured on Era 968: the lattice fills to capacity by tick 550 and then
+/// NOTHING IS BORN AND NOTHING DIES, for the rest of the run. All 3072 births
+/// were fill-up, exactly capacity minus the ignition population, and the trait
+/// the physics selects on froze with them — metabolic efficiency 128.35 -> 133.32
+/// by tick 2400 and identical to the second decimal at tick 20000. Sweeping the
+/// metabolic cost did not help: weather 1024..7168 moved the freezing point and
+/// nothing else, with sterility above ~7000 and no band between. A world that
+/// filters once and then holds still is a photograph of an ecology.
+///
+/// Death was reachable only by energy hitting zero, and at equilibrium every
+/// agent's income covered its burn, so nobody was ever marginal. Maintenance
+/// now rises with AGE — packed into `state_flags` bits 8..23, which nothing
+/// used — until upkeep outruns what photosynthesis pays. Death stays an ENERGY
+/// outcome, so `death_entropy` books it and the conservation ledger closes
+/// exactly as before.
+///
+/// THE RATE IS HERITABLE, and it has to be. With one lifespan for everybody the
+/// population ages as a single cohort: measured, everything born during the fill
+/// died together around tick 20000, the survivors refilled together, and the
+/// wave returned larger each time until the world collapsed to 349 agents by
+/// tick 60000. Scaling the clock by the `resilience` gene — which is called that
+/// and until now only ever subtracted 0 or 1 from the burn — spreads lifespans
+/// about fivefold, desynchronises the cohorts and makes longevity something
+/// selection can act on. Measured after: the population dips to 2218 and
+/// recovers to 4006 at tick 60000, with deaths continuing throughout.
 ///
 /// 968 — Quantised. The phase advance stopped throwing away its fractional
 /// part. Every term — natural frequency, Kuramoto coupling, attractor drift —
@@ -148,13 +177,16 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 968; // 968 Quantised
+pub const ERA_ID: u32 = 969; // 969 Mortal
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
 pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
-    // 24 words: era + 5 original + 9 Era-961 + 3 Era-967 + 6 topology.
-    let mut buf = [0u8; 96];
+    // 25 words: era + 5 original + 9 Era-961 + 3 Era-967 + 1 Era-969 + 6
+    // topology. The buffer is sized past the current count on purpose — it was
+    // exactly 96 bytes for 24 words, so the next law to join the preimage would
+    // have panicked on a slice bound rather than failing a test.
+    let mut buf = [0u8; 128];
     let mut p = 0;
 
     // 1. ERA ID
@@ -215,6 +247,15 @@ pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
     buf[p..p + 4].copy_from_slice(&BB_FREQ_Q_SCALE.to_le_bytes());
     p += 4;
 
+    // 2d. The senescence clock.
+    //
+    // It decides how fast an agent's upkeep outruns its income, which is to say
+    // how long anything lives. A node running a different value runs a world
+    // where the population turns over at a different rate — or, at the value
+    // this era replaced, does not turn over at all.
+    buf[p..p + 4].copy_from_slice(&SENESCENCE_TICKS.to_le_bytes());
+    p += 4;
+
     // 3. Current Phase Topology Constraints
     buf[p..p + 4].copy_from_slice(&topology.q_phase.to_le_bytes());
     p += 4;
@@ -255,7 +296,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0xC4C0_4A8E;
+pub const CANONICAL_LAW_HASH: u32 = 0x2DEF_BF77;
 
 #[cfg(test)]
 mod tests {

@@ -214,6 +214,16 @@ export const CONSTANTS = {
   // of the living population sat exactly AT the clamp: 4000 distinct draws
   // collapsing onto two values, every agent turning half the circle per tick.
   // A quarter of Nyquist leaves the distribution intact — measured, 0% clamped.
+  // Senescence. Metabolic maintenance is multiplied by (1 + age/this), so an
+  // agent's upkeep doubles every SENESCENCE_TICKS and eventually outruns what
+  // photosynthesis pays it. Death here stays an energy outcome rather than a
+  // special case, so the conservation books close exactly as before.
+  //
+  // Without it the lattice fills to capacity by tick 550 and then nothing is
+  // born and nothing dies, forever — measured over 20000 ticks, at every
+  // weather from 1024 to 7168. Selection ran once during the fill and never
+  // again.
+  SENESCENCE_TICKS: { type: "u32", value: 512 },
   BB_FREQ_RANGE: { type: "u32", value: 64 },
   BB_FREQ_OFFSET: { type: "i32", value: 32 },
   BB_FREQ_STEP: { type: "i32", value: 1000 },

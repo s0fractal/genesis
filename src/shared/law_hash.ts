@@ -24,13 +24,14 @@ import {
   MITOSIS_COST,
   MITOSIS_THRESHOLD,
   PREDATOR_ENERGY_STEAL,
+  SENESCENCE_TICKS,
   SOLAR_YIELD_Q10,
   STRUCTURAL_MAINTENANCE_DIVISOR,
 } from "./generated_constants.ts";
 
 /** Version anchor for the mathematical laws (mirrors `ERA_ID` in law_hash.rs;
  *  not part of the generated constant set). */
-export const ERA_ID = 968;
+export const ERA_ID = 969;
 
 /** The canonical operating topology — the exact `PhaseTopology` the static
  *  `OMEGA_LATTICE` in lib.rs is built with. Mirrored here (6 ints) and guarded
@@ -74,6 +75,9 @@ function lawWords(): number[] {
     BB_FREQ_RANGE,
     BB_FREQ_OFFSET,
     BB_FREQ_Q_SCALE,
+    // Era 969: the senescence clock — how fast upkeep outruns income, which is
+    // how long anything lives.
+    SENESCENCE_TICKS,
     CANONICAL_TOPOLOGY.q_phase,
     CANONICAL_TOPOLOGY.q_sectors,
     CANONICAL_TOPOLOGY.q_radial,
@@ -102,4 +106,4 @@ export function lawHashHex(value: number): string {
 
 /** Golden value of [`computeLawHash`] — pinned in lockstep with Rust
  *  `CANONICAL_LAW_HASH` (omega_v2/src/law_hash.rs). */
-export const OMEGA_LAW_HASH = 0xc4c04a8e;
+export const OMEGA_LAW_HASH = 0x2defbf77;
