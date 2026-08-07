@@ -101,35 +101,22 @@ fn cos_q10(from_theta: u32, to_theta: u32) -> i32 {
 
 // Circular Food Web
 fn species_advantage(a_genome: u32, b_genome: u32) -> i32 {
-    if (a_genome == b_genome) { return 0i; }
-    
-    // Inline xorshift32 for A. The zero-genome sentinel REPLACES the hash, it
-    // is not fed through it — mirroring agent.rs::species_advantage, which is
-    // the reference this shader is held bit-for-bit against. Hashing the
-    // sentinel here gave ha=0x87985AA5 where Rust gives 0x12345678, flipping
-    // the predator/prey sign for every zero-genome agent (±5 ATP per neighbour
-    // per tick, in the consensus energy path).
-    var ha = a_genome;
-    if (ha == 0u) {
-        ha = 0x12345678u;
-    } else {
-        ha = ha ^ (ha << 13u); ha = ha ^ (ha >> 17u); ha = ha ^ (ha << 5u);
-    }
-
-    // Inline xorshift32 for B
-    var hb = b_genome;
-    if (hb == 0u) {
-        hb = 0x12345678u;
-    } else {
-        hb = hb ^ (hb << 13u); hb = hb ^ (hb >> 17u); hb = hb ^ (hb << 5u);
-    }
-    
-    let delta = ha - hb;
+    // ASYMMETRIC CYCLIC FOOD WEB — mirrors agent.rs::species_advantage.
+    //
+    // This compared avalanche hashes of the whole genome, which measured as a
+    // perfectly fair coin: every genome beat exactly half of any panel, and half
+    // of the actual living population too, because a hash decorrelates from
+    // whatever the population has become. The ring is now the predation TRAIT
+    // itself — genome bits 8..15 — so whatever the population converges on,
+    // something beats it. Equal hands are neutral, which is reachable in a way
+    // that bit-identical genomes were not.
+    let pa = (a_genome >> 8u) & 0xFFu;
+    let pb = (b_genome >> 8u) & 0xFFu;
+    let delta = (pa - pb) & 0xFFu;
     if (delta == 0u) { return 0i; }
-    if (delta < 0x80000000u) { return 1i; }
+    if (delta < 128u) { return 1i; }
     return -1i;
 }
-
 
 fn wrap_index_2d(x: i32, y: i32, w: i32, h: i32) -> u32 {
     let wx = (x + w) % w;

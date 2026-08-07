@@ -162,3 +162,62 @@ fn predation_is_a_fair_coin_with_no_gradient() {
          intended; it is not something to discover later."
     );
 }
+
+/// Is the food web frequency-dependent — does it care where the population is?
+///
+/// The two tests above measure fairness against a UNIFORM panel, and a cyclic
+/// rule is fair there too: on a ring of 256, every hand beats exactly 128 of a
+/// uniform spread, same as a hash does. So neither of them can tell a coin from
+/// a food web. The difference only shows against a panel that is CLUSTERED,
+/// which is what a real population is.
+///
+/// A cyclic tournament has the property that matters: whatever the population
+/// has converged on, something beats it. That is what stops a predatory trait
+/// from being a free ratchet — the winner becomes the majority and the majority
+/// becomes the target — and it is what the comment above `species_advantage`
+/// has always claimed ("asymmetric cyclic food web ... ring distance") while the
+/// implementation compared avalanche hashes and decorrelated from everything.
+///
+/// Measured in situ before this test existed: win rate against the actual living
+/// population, 60000 ticks in, mean 0.499 with sd 0.0117 against a coin's
+/// 0.0221. The population is genetically narrowed and spatially kin-structured,
+/// and the food web could not see any of it.
+#[test]
+fn a_clustered_population_can_be_exploited() {
+    // A population converged on one predatory hand, as a real one would be.
+    let mut rng = omega_v2::math::Xorshift64::new(0x0C10_0107);
+    let hand = 0x40u32;
+    let panel: Vec<u32> = (0..512)
+        .map(|_| {
+            // Everything else about the genome varies; the predation trait does
+            // not. Anything that reads only the hash will see 512 unrelated
+            // genomes and score 50% against them.
+            (rng.next_u32() & !0x0000_FF00) | (hand << 8)
+        })
+        .collect();
+
+    // The hand that a cyclic rule says beats that majority.
+    let counter = (rng.next_u32() & !0x0000_FF00) | (((hand + 64) & 0xFF) << 8);
+
+    let wins = panel
+        .iter()
+        .filter(|&&other| omega_v2::agent::species_advantage(counter, other) == 1)
+        .count();
+    let rate = wins as f64 / panel.len() as f64;
+
+    std::eprintln!(
+        "  counter-hand beats {:.1}% of a converged population",
+        rate * 100.0
+    );
+
+    assert!(
+        rate > 0.90,
+        "\nTHE FOOD WEB CANNOT SEE THE POPULATION.\n\
+         A genome carrying the hand that should beat a converged majority wins\n\
+         {:.1}% of the time — a coin flip. `species_advantage` compares avalanche\n\
+         hashes, so it decorrelates from whatever the population has actually\n\
+         become: there is no hand that beats the current one, no arms race, and\n\
+         no reason for a predatory trait to be anything in particular.",
+        rate * 100.0
+    );
+}

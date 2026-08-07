@@ -1,24 +1,26 @@
 // WGSL ↔ Rust `species_advantage` semantics lock.
 //
-// This test exists because of a measured divergence (audit 2026-08-06). Both
-// sides guard `genome == 0` with the sentinel 0x12345678, but they applied it
-// differently:
+// This file used to guard a hash. Both substrates computed the advantage from
+// `xorshift32(genome)` and both special-cased `genome == 0` with the sentinel
+// 0x12345678 — but they applied it differently, one substituting the sentinel
+// and the other substituting it and then hashing it anyway. That flipped the
+// predator/prey sign for every zero-genome agent, ±5 ATP per neighbour per tick,
+// in the consensus energy path, on two substrates that are supposed to be
+// bit-identical.
 //
-//   Rust  (agent.rs)               WGSL (compute_toroidal.wgsl, before)
-//   ha = if g == 0 { SENTINEL }    ha = g; if (ha == 0) { ha = SENTINEL; }
-//        else { xorshift32(g) }    ha = xorshift32(ha);   // hashes SENTINEL too
+// Era 973 removed the hash. The advantage is now a cyclic comparison of the
+// predation trait — genome bits 8..15 — because the hash measured as a perfectly
+// fair coin: every genome beat exactly half of any panel, and half of the actual
+// living population too. There is no sentinel left to disagree about, and no
+// branch for the two substrates to take differently.
 //
-// For genome 0 that is 0x12345678 on one substrate and 0x87985AA5 on the other,
-// which flips the sign of the predator/prey advantage — ±5 ATP per neighbour
-// per tick, in the consensus energy path, silently, on two substrates that are
-// supposed to be bit-identical.
-//
-// `wgsl_golden_trace_test.ts` cannot catch it: `ignite_big_bang` draws genomes
-// from xorshift, so it never generates 0, and that test also self-disables
-// without a GPU. This is a SOURCE-STRUCTURE lock, not a behavioural proof — it
-// asserts the shader keeps the sentinel out of the hash. A real behavioural
-// check needs a GPU and a zero-genome fixture in the golden trace.
-import { assert, assertEquals } from "jsr:@std/assert";
+// What still needs locking is what replaced it. `wgsl_golden_trace_test.ts`
+// exercises the pair behaviourally but self-disables without a GPU, so this
+// stays a SOURCE-STRUCTURE lock: it asserts both sides read the same byte and
+// split the ring at the same place. Getting either wrong is silent and
+// substrate-local, which is exactly the shape of the bug that made this file
+// necessary in the first place.
+import { assert } from "jsr:@std/assert";
 
 const SHADER = new URL(
   "../src/lens/shaders/compute_toroidal.wgsl",
@@ -26,14 +28,11 @@ const SHADER = new URL(
 );
 const AGENT_RS = new URL("../omega_v2/src/agent.rs", import.meta.url);
 
-const SENTINEL = "0x12345678";
-
-/** Body of `fn species_advantage(...) -> i32 { ... }`, comments stripped. */
-async function shaderFnBody(): Promise<string> {
-  const src = await Deno.readTextFile(SHADER);
-  const start = src.indexOf("fn species_advantage");
-  assert(start >= 0, "compute_toroidal.wgsl has no species_advantage fn");
-  // Brace-match from the first `{` after the signature.
+/** Body of `fn species_advantage(...)`, comments stripped. */
+async function fnBody(url: URL, sig: string): Promise<string> {
+  const src = await Deno.readTextFile(url);
+  const start = src.indexOf(sig);
+  assert(start >= 0, `${url.pathname} has no ${sig}`);
   let i = src.indexOf("{", start);
   let depth = 0;
   const from = i;
@@ -44,52 +43,47 @@ async function shaderFnBody(): Promise<string> {
   return src.slice(from, i + 1).replace(/\/\/[^\n]*/g, "");
 }
 
-Deno.test("both substrates still guard genome 0 with the same sentinel", async () => {
-  const body = await shaderFnBody();
-  const rust = await Deno.readTextFile(AGENT_RS);
-  assert(
-    body.includes(`${SENTINEL}u`),
-    "shader lost the zero-genome sentinel entirely",
-  );
-  assert(
-    rust.includes(SENTINEL),
-    "agent.rs lost the zero-genome sentinel entirely",
-  );
-});
-
-Deno.test("the shader does NOT feed the sentinel through xorshift32", async () => {
-  const body = await shaderFnBody();
-
-  // Every xorshift step must live in an `else` branch — i.e. be unreachable
-  // once the sentinel has been substituted. Count the shift ops and the
-  // else-branches that contain them.
-  const shiftOps = body.match(/\^\s*\(\w+\s*<<\s*13u\)/g) ?? [];
-  assertEquals(
-    shiftOps.length,
-    2,
-    "expected exactly two xorshift32 chains (one per genome)",
-  );
-
-  // For each sentinel assignment, the text between it and the next shift op
-  // must contain an `else` — otherwise the hash runs over the sentinel.
-  const re = new RegExp(`${SENTINEL}u\\s*;([\\s\\S]*?)<<\\s*13u`, "g");
-  const gaps = [...body.matchAll(re)];
-  assertEquals(gaps.length, 2, "expected two sentinel→xorshift regions");
-  for (const [, gap] of gaps) {
+Deno.test("both substrates read the same byte of the genome", async () => {
+  const shader = await fnBody(SHADER, "fn species_advantage");
+  const rust = await fnBody(AGENT_RS, "pub fn species_advantage");
+  for (const [name, body] of [["shader", shader], ["agent.rs", rust]]) {
     assert(
-      /\belse\b/.test(gap),
-      "sentinel is assigned and then hashed — this is the exact 2026-08-06 " +
-        "divergence: Rust returns the RAW sentinel for genome 0, so the " +
-        "shader must not run xorshift32 over it",
+      />>\s*8u?\)?\s*&\s*0xFF/.test(body),
+      `${name} does not extract bits 8..15 — the predation trait moved, and a ` +
+        `substrate reading a different byte plays a different food web`,
     );
   }
 });
 
-Deno.test("the lock is actually looking at something", async () => {
-  const body = await shaderFnBody();
-  assert(body.length > 200, "parsed shader fn body is implausibly short");
-  assert(
-    body.includes("a_genome") && body.includes("b_genome"),
-    "parsed the wrong function",
-  );
+Deno.test("both substrates split the ring at the same place", async () => {
+  const shader = await fnBody(SHADER, "fn species_advantage");
+  const rust = await fnBody(AGENT_RS, "pub fn species_advantage");
+  for (const [name, body] of [["shader", shader], ["agent.rs", rust]]) {
+    assert(
+      /delta\s*<\s*128/.test(body),
+      `${name} does not split the 256-hand ring at 128 — an off-by-one here ` +
+        `reverses who eats whom for one hand in every pairing`,
+    );
+    assert(
+      /0xFF/.test(body),
+      `${name} does not wrap the difference to the ring`,
+    );
+  }
+});
+
+Deno.test("the hash is gone from both, along with its sentinel", async () => {
+  const shader = await fnBody(SHADER, "fn species_advantage");
+  const rust = await fnBody(AGENT_RS, "pub fn species_advantage");
+  for (const [name, body] of [["shader", shader], ["agent.rs", rust]]) {
+    assert(
+      !body.includes("0x12345678"),
+      `${name} still carries the zero-genome sentinel; the hash it guarded is ` +
+        `gone, so a leftover sentinel is a branch nothing else takes`,
+    );
+    assert(
+      !/<<\s*13/.test(body),
+      `${name} still hashes the genome — Era 973 replaced that with the ring ` +
+        `because a hash beats exactly half of anything and cannot be climbed`,
+    );
+  }
 });

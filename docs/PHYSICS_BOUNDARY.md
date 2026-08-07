@@ -1277,6 +1277,54 @@ suggests: it has no gradient, so nobody can be good at it; kin neutrality would
 move under two percent of the budget and none of it on net; and its actual
 function is churn, priced at seven joules moved per joule of turnover bought.
 
+### Era 973 — the food web starts seeing the population it is part of
+
+`species_advantage` compared avalanche hashes of the whole genome, under a
+comment that has read _"asymmetric cyclic food web … ring distance"_ since it
+was written. The measurements in the previous sections showed what it actually
+was: a perfectly fair coin, beating exactly half of any panel and half of the
+living population too, with less spread than chance allows.
+
+The ring is now the predation **trait** — genome bits 8..15, the byte that was
+always meant to be about an agent's dealings with its neighbours. `a` beats `b`
+when it sits in the half-ring ahead of it. Rock-paper-scissors with 256 hands.
+
+**It holds polymorphism, which nothing here has done before.** Shannon entropy
+of the predation hand, over 150000 ticks:
+
+```text
+ignition   7.83
+tail       7.30      (8.0 = flat across all 256 hands)
+```
+
+The trait refuses to converge. Every other trait in this world settles on one
+value — resilience finds an optimum, efficiency finds an optimum — because the
+selection on them points one way. This one points at whatever the majority is
+doing, so the winner becomes the majority and the majority becomes the target.
+That is the first time this lattice has held more than one strategy at once, and
+it comes from the shape of the relation rather than from any gradient.
+
+Two more things follow for free. Heritability of predatory identity rises 0.44 →
+0.61, because one byte survives mutation better than a whole-genome hash. And
+**equal hands are neutral** — kin recognition, reachable at last: the old rule
+returned 0 only for bit-identical genomes, so a parent and its own mutated child
+were predator and prey.
+
+**And it cost the cline.** Latitude differentiation in resilience falls from 7.2
+to 1.2. The likely cause is hitchhiking — a winning hand sweeps and drags its
+whole genome, resilience included, faster than latitude can separate it — but
+that is a hypothesis and it has not been measured. It is the price, recorded as
+one, not explained away.
+
+_Two obsolete locks replaced rather than deleted._
+`test_species_advantage_zero_guard` and the WGSL sentinel lock both pinned the
+hash and its `genome == 0` special case — a real past bug where the shader
+hashed the sentinel and produced the opposite predator/prey sign in the
+consensus path. That concern is structurally gone: no hash, no sentinel, no
+branch to disagree about. What replaced them locks what matters now — both
+substrates reading the same byte and splitting the ring at the same place,
+either of which is silent and substrate-local if it drifts.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

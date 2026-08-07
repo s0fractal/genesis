@@ -90,6 +90,7 @@ function survey(prevPhase?: Uint32Array) {
   let sumCos = 0, sumSin = 0;
   let natCos = 0, natSin = 0;
   let effSum = 0, effMin = 255, effMax = 0, resSum = 0;
+  const hands = new Float64Array(256);
   let tissue = 0;
   let maxPhase = 0;
   for (let i = 0; i < active; i++) {
@@ -115,6 +116,11 @@ function survey(prevPhase?: Uint32Array) {
     // clock, so it is the trait longevity selection acts on directly. Before
     // that it only ever subtracted 0 or 1 from the burn.
     resSum += (a[i * 8 + 4] >>> 16) & 0xFF;
+    // The predation hand (genome bits 8..15). Since Era 973 it is the ring the
+    // food web turns on, so its SPREAD is the question: a trait under
+    // frequency-dependent selection should refuse to converge, where every other
+    // trait here settles on one value.
+    hands[(a[i * 8 + 4] >>> 8) & 0xFF]++;
     effSum += eff;
     if (eff < effMin) effMin = eff;
     if (eff > effMax) effMax = eff;
@@ -343,6 +349,18 @@ function survey(prevPhase?: Uint32Array) {
     velocityCorrelationMotile: velMotile,
     meanEfficiency: effSum / n,
     meanResilience: resSum / n,
+    // Shannon entropy of the predation hand, in bits. 8.0 is a flat spread over
+    // all 256, 0.0 is everyone playing the same hand.
+    handEntropy: (() => {
+      let h = 0;
+      for (const c of hands) {
+        if (c > 0) {
+          const p = c / n;
+          h -= p * Math.log2(p);
+        }
+      }
+      return h;
+    })(),
     hammingNeighbour: nbrHamN > 0 ? nbrHam / nbrHamN : 0,
     hammingRandom: randHamN > 0 ? randHam / randHamN : 0,
     resilienceEquator: bandN[0] > 0 ? bandRes[0] / bandN[0] : 0,

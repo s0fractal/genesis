@@ -10,6 +10,36 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 973 — Cyclic. The food web starts seeing the population it is part of.
+///
+/// `species_advantage` compared avalanche hashes of the whole genome, under a
+/// comment that has read "asymmetric cyclic food web ... ring distance" since it
+/// was written. Measured, it was a perfectly fair coin: every genome beat
+/// exactly half of any panel, sd 0.0124 where a real coin gives 0.0221, because
+/// a hash beats half of anything by construction. Against the LIVING population
+/// — genetically narrowed, kin-structured, 60000 ticks in — mean win rate 0.499,
+/// sd 0.0117. Forty-two percent of every joule this world transfers moved
+/// through a relation with no gradient and no dependence on what anyone had
+/// become.
+///
+/// The ring is now the predation TRAIT: genome bits 8..15, the byte that was
+/// always meant to be about an agent's dealings with its neighbours. `a` beats
+/// `b` when it sits in the half-ring ahead of it, so whatever the population
+/// converges on, something beats it — the winner becomes the majority and the
+/// majority becomes the target. Equal hands are neutral, and unlike the old
+/// bit-identical test that is something a lineage can actually hold.
+///
+/// IT HOLDS POLYMORPHISM, which nothing here has done before. Shannon entropy
+/// of the predation hand over 150000 ticks: 7.83 at ignition, 7.30 at the tail,
+/// against 8.0 for a flat spread over all 256. The trait refuses to converge
+/// where every other trait in this world settles on one value.
+///
+/// AND IT COST THE CLINE. Latitude differentiation in resilience falls from 7.2
+/// to 1.2. The likely cause is hitchhiking — a winning hand sweeps and drags its
+/// whole genome, resilience included, faster than latitude can separate it — but
+/// that is a hypothesis and it has not been measured. Recorded as the price,
+/// not explained away.
+///
 /// 972 — Latitudinal. The sun stops falling on everything equally, and
 /// children stop being born anywhere.
 ///
@@ -273,7 +303,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 972; // 972 Latitudinal
+pub const ERA_ID: u32 = 973; // 973 Cyclic
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -400,7 +430,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0xC135_66D6;
+pub const CANONICAL_LAW_HASH: u32 = 0x4D0E_1949;
 
 #[cfg(test)]
 mod tests {
