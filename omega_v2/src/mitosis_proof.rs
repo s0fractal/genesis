@@ -102,7 +102,24 @@ pub fn derive_mitosis_child(
     }
 
     PhaseAgentMinimal {
-        phase: parent.phase.wrapping_add(half_phase),
+        // MASKED. This wrote `parent.phase + half_phase` raw, so with q_phase=8
+        // a parent at 255 produced a child at 383 — outside the wrap every other
+        // write in the kernel respects. The `spore` path a few lines away in
+        // lattice.rs has always masked it; this one never did.
+        //
+        // The blast radius was narrow: the trigonometry masks internally
+        // (`(to - from) & 0xFF`), the next tick masks the phase back, and a
+        // newborn cannot reproduce in the sweep that created it — so
+        // `max_phase_mask + 1 - diff` in the attractor scan above could not
+        // underflow on it. The physics was unaffected. The STATE was still
+        // wrong, and an instrument reading the field directly saw 370 where the
+        // wrap ends at 255.
+        //
+        // Found by `tests/agent_layout_test.ts` on its first run — an
+        // integration test over the built artifact, asserting that each field
+        // satisfies a bound only that field can satisfy. 354 unit tests did not
+        // see it, because none of them read a newborn's phase.
+        phase: parent.phase.wrapping_add(half_phase) & max_phase_mask,
         energy,
         base_freq: parent.base_freq,
         state_flags,
@@ -160,11 +177,34 @@ mod tests {
     }
 
     #[test]
-    fn child_phase_is_parent_plus_half() {
-        let p = parent();
+    fn child_phase_is_half_a_turn_from_its_parent_and_inside_the_wrap() {
+        // This asserted `c.phase == p.phase + 64` with no mask, which is what
+        // the code did and what made it wrong: a parent near the top of the
+        // wrap produced a child outside it. The half-turn is the intent; the
+        // wrap is the invariant, and the old assertion pinned the first while
+        // contradicting the second.
         let arr = empty_array();
-        let c = derive_mitosis_child(&p, &arr, 7);
-        assert_eq!(c.phase, p.phase.wrapping_add(64));
+        for q_phase in [5u32, 7, 8] {
+            let mask = (1u32 << q_phase) - 1;
+            let half = 1u32 << (q_phase - 1);
+            for start in [0u32, 1, half - 1, half, mask - 1, mask] {
+                let mut p = parent();
+                p.phase = start;
+                let c = derive_mitosis_child(&p, &arr, q_phase);
+                assert!(
+                    c.phase <= mask,
+                    "q_phase {q_phase}: parent at {start} produced a child at \
+                     {}, outside the wrap that ends at {mask}",
+                    c.phase
+                );
+                assert_eq!(
+                    c.phase,
+                    start.wrapping_add(half) & mask,
+                    "q_phase {q_phase}: child should sit half a turn from its \
+                     parent, wrapped"
+                );
+            }
+        }
     }
 
     #[test]

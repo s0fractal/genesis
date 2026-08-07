@@ -14,7 +14,7 @@
 # OMEGA-64 🧬 — Φ Protocol v1.0 (FROZEN)
 
 **Genesis Hash:** `0x716EA2F8` · **OP_RETURN:** `OMEGA1:716ea2f8` · **Narrative
-era:** 2060 · **Law era (`ERA_ID`):** 973 · **Law hash:** `0x4D0E1949`
+era:** 2060 · **Law era (`ERA_ID`):** 974 · **Law hash:** `0x5F9B2ABC`
 
 OMEGA-64 is a deterministic, GPU-accelerated artificial-life simulation mesh
 with a self-modifying ontology, cross-AI Senate, and a frozen cryptographic

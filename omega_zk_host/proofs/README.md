@@ -62,11 +62,23 @@ bundles move together or not at all.
 
 ## Artifacts
 
-| File                                       | kind               | receipt_hash          | proof size  | verified |
-| ------------------------------------------ | ------------------ | --------------------- | ----------- | -------- |
-| [`selftest_cpu.json`](selftest_cpu.json)   | `stark-cpu`        | `0x1b18eea0…520d9bd2` | 5,571,884 B | ✅       |
-| [`arbitrary_cpu.json`](arbitrary_cpu.json) | `stark-cpu`        | `0x965ca894…97266ad3` | 5,571,884 B | ✅       |
-| [`rollup_cpu.json`](rollup_cpu.json)       | `stark-cpu-rollup` | `0x0` (Mode 3)        | 5,572,648 B | ✅       |
+| File                                       | kind               | proof size  | verified |
+| ------------------------------------------ | ------------------ | ----------- | -------- |
+| [`selftest_cpu.json`](selftest_cpu.json)   | `stark-cpu`        | 7,429,775 B | ✅       |
+| [`arbitrary_cpu.json`](arbitrary_cpu.json) | `stark-cpu`        | 7,429,775 B | ✅       |
+| [`rollup_cpu.json`](rollup_cpu.json)       | `stark-cpu-rollup` | 7,430,775 B | ✅       |
+
+**Regenerated 2026-08-07 for Era 974.** `derive_mitosis_child` stopped writing a
+newborn's phase outside the wrap, which changed the guest, which changed the
+vkey, which made all three previous bundles attest a different program — the
+exact failure this directory documents from July, except this time the host said
+so in one line instead of `pc_start != vk.pc_start`.
+
+`arbitrary_receipt.json` was reissued with them. The host refused to prove the
+old one, correctly, with **"local pre-flight: claimed child does not match
+derivation"** — the receipt claimed a child derived under the previous law.
+Guest sources, committed ELF, receipt and bundles moved together, which is the
+rule this file states and the first time it has been exercised end to end.
 
 All three attest the same program:
 

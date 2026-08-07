@@ -1,6 +1,6 @@
 // cross-language anchor — JS deriveMitosisChild must produce the
 // same child as the Rust source-of-truth in omega_v2::mitosis_proof.
-import { assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert";
 import {
   AgentMinimal,
   AttractorEntry,
@@ -28,10 +28,28 @@ Deno.test("mitosis proof: deterministic without attractors", async () => {
   assertEquals(c1, c2);
 });
 
-Deno.test("mitosis proof: child phase = parent + half", async () => {
-  const p = parent();
-  const c = deriveMitosisChild(p, [], 7);
-  assertEquals(c.phase, (p.phase + 64) >>> 0);
+Deno.test("mitosis proof: child sits half a turn away, inside the wrap", () => {
+  // This asserted `parent.phase + 64` with no mask, which is what both
+  // implementations did and what made them wrong: a parent near the top of the
+  // wrap produced a child outside it. The half-turn is the intent; staying
+  // inside the circle is the invariant, and the old assertion pinned the first
+  // while contradicting the second.
+  for (const qPhase of [5, 7, 8]) {
+    const mask = (1 << qPhase) - 1;
+    const half = 1 << (qPhase - 1);
+    for (const start of [0, 1, half - 1, half, mask - 1, mask]) {
+      const c = deriveMitosisChild({ ...parent(), phase: start }, [], qPhase);
+      assertEquals(
+        c.phase,
+        (start + half) & mask,
+        `q_phase ${qPhase}: parent at ${start}`,
+      );
+      assert(
+        c.phase <= mask,
+        `q_phase ${qPhase}: child at ${c.phase} is outside a wrap ending ${mask}`,
+      );
+    }
+  }
 });
 
 Deno.test("mitosis proof: child energy = CHILD_ENERGY_SEED minus flips", async () => {
@@ -90,7 +108,9 @@ Deno.test("mitosis proof: receipt hash sensitivity", async () => {
 Deno.test("mitosis proof: cross-language anchor (no attractors)", async () => {
   const p = parent();
   const c = deriveMitosisChild(p, [], 7);
-  assertEquals(c.phase, 128);
+  // 0, not 128: with q_phase=7 the wrap ends at 127, so a parent at 64 gives a
+  // child at 128 & 127. Kept in lockstep with omega_v2/tests/mitosis_anchor.rs.
+  assertEquals(c.phase, 0);
   assertEquals(c.energy, 1020);
   assertEquals(c.base_freq, 7);
   assertEquals(c.state_flags, 56);

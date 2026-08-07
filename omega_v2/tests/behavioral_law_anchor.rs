@@ -74,8 +74,17 @@ fn behavioural_anchor() -> u32 {
         }
     }
 
-    for _ in 0..TICKS {
+    for t in 1..=TICKS {
         lattice.tick_physics();
+        // MITOSIS TOO. This ran `tick_physics` alone, so the whole reproduction
+        // law was outside the anchor's reach: when Era 974 changed
+        // `derive_mitosis_child` — a change to the physical operator that
+        // altered every newborn's phase — this file stayed green. Same class of
+        // gap as the tissue branch in Era 963 and the latitude row in Era 972,
+        // and the third time a fixture has had to be widened after the fact.
+        if t % 10 == 0 {
+            lattice.darwinian_mitosis();
+        }
     }
 
     // Hash every byte of every agent slot — phase, energy, genome, memory, the
@@ -90,7 +99,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x77DE_75B6;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x1D85_E064;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {

@@ -10,6 +10,34 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 974 — Wrapped. A newborn's phase stays inside the wrap.
+///
+/// `derive_mitosis_child` wrote `parent.phase + half_phase` with no mask, so
+/// with q_phase=8 a parent at 255 produced a child at 383 — outside the circle
+/// every other write in the kernel respects. The `spore` path in lattice.rs has
+/// always masked it; this one never did, and the ZK guest reproduced the same
+/// unmasked value, so all three substrates agreed on a state none of them
+/// should have been able to represent.
+///
+/// The blast radius was narrow. The trigonometry masks internally
+/// (`(to - from) & 0xFF`), the next tick masks the phase back, and a newborn
+/// cannot reproduce in the sweep that created it, so the attractor scan's
+/// `max_phase_mask + 1 - diff` could not underflow on it. No measurement in
+/// docs/PHYSICS.md changes. The STATE was still wrong.
+///
+/// Found by `tests/agent_layout_test.ts` on its first run — an integration test
+/// over the built wasm asserting each field satisfies a bound only that field
+/// can satisfy. It read a phase of 370 where the wrap ends at 255. Three hundred
+/// and fifty-four unit tests did not see it, because none of them read a
+/// newborn's phase, and two of them PINNED the unmasked value as correct.
+///
+/// The guest ELF and all three checked-in STARK proofs were regenerated: the law
+/// changed, so the old bundles attest a different program, and the repository's
+/// own rule is that guest sources, committed ELF and bundles move together or
+/// not at all. The committed `arbitrary_receipt.json` had to be reissued too —
+/// the host refused to prove it, correctly, with "claimed child does not match
+/// derivation".
+///
 /// 973 — Cyclic. The food web starts seeing the population it is part of.
 ///
 /// `species_advantage` compared avalanche hashes of the whole genome, under a
@@ -306,7 +334,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 973; // 973 Cyclic
+pub const ERA_ID: u32 = 974; // 974 Wrapped
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -433,7 +461,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x4D0E_1949;
+pub const CANONICAL_LAW_HASH: u32 = 0x5F9B_2ABC;
 
 #[cfg(test)]
 mod tests {

@@ -22,7 +22,11 @@ fn anchor_parent() -> PhaseAgentMinimal {
 fn anchor_no_attractors_phase() {
     let p = anchor_parent();
     let c = derive_mitosis_child(&p, &AttractorArray::new(), 7);
-    assert_eq!(c.phase, 128);
+    // 0, not 128. With q_phase=7 the wrap ends at 127, and the child sits half
+    // a turn from a parent at 64 — which is 128, which is outside it. The
+    // derivation masked nothing until Era 974, so this anchor pinned a child
+    // that could not exist in the lattice it was born into.
+    assert_eq!(c.phase, 0);
     assert_eq!(c.energy, 1020);
     assert_eq!(c.base_freq, 7);
     assert_eq!(c.state_flags, 56); // Era 0219: species << 1

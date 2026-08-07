@@ -12,7 +12,7 @@
     ]
   },
   "child": {
-    "phase": 128,
+    "phase": 0,
     "energy": 1023,
     "base_freq": 5,
     "state_flags": 16777448,
@@ -32,6 +32,6 @@
     }
   ],
   "qPhase": 7,
-  "receiptHash": "965ca89466f4bb25bf9c32e3c25cc606837846f5fe37b58ac9fb9b7a97266ad3",
+  "receiptHash": "6eeec28c53c13e0635ef60ec9f7e5e55dda0b8cf3eafd2645834d0315a73b5d5",
   "tick": 0
 }

@@ -1,4 +1,4 @@
-# The law as it stands — Era 973
+# The law as it stands — Era 974
 
 What this world is, now. Not how it got here: `PHYSICS_BOUNDARY.md` is the
 journal — 1500 lines of era-by-era changes, measurements and retractions — and
@@ -172,7 +172,7 @@ looks like a discovery right up until someone checks.
 | The food web                                                          | `omega_v2/src/agent.rs::species_advantage`           |
 | Constants (edit here, not in `constants.rs` — that file is generated) | `src/ontology/genesis_ssot.ts`                       |
 | The GPU mirror                                                        | `src/lens/shaders/compute_toroidal.wgsl`             |
-| Declared law hash                                                     | `omega_v2/src/law_hash.rs` — `0x4D0E1949`            |
+| Declared law hash                                                     | `omega_v2/src/law_hash.rs` — `0x5F9B2ABC`            |
 | Behavioural anchor (what a constant list cannot see)                  | `omega_v2/tests/behavioral_law_anchor.rs`            |
 | Instruments                                                           | `tools/structure_probe.ts`, `tools/ecology_probe.ts` |
 | The journal                                                           | `docs/PHYSICS_BOUNDARY.md`                           |

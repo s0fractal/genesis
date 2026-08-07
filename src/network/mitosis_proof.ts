@@ -368,7 +368,13 @@ export function deriveMitosisChild(
   if (childEnergy <= 0) childEnergy = 1;
 
   return {
-    phase: ((parent.phase + halfPhase) >>> 0) & 0xFFFF_FFFF,
+    // MASKED — mirrors `derive_mitosis_child` in omega_v2/src/mitosis_proof.rs.
+    // Both sides wrote `parent.phase + halfPhase` raw, so a parent near the top
+    // of the wrap produced a child outside it: 383 where q_phase=8 ends at 255.
+    // This is the third mirror of that law — Rust, the SP1 guest (same code) and
+    // this — and the host's pre-flight ("claimed child does not match
+    // derivation") is what catches the two disagreeing.
+    phase: (parent.phase + halfPhase) & maxPhaseMask,
     energy: childEnergy >>> 0,
     base_freq: parent.base_freq | 0,
     state_flags: stateFlags,
