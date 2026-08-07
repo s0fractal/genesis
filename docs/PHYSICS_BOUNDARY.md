@@ -1089,6 +1089,50 @@ is gene flow, and the way to a deeper cline is less mixing rather than a harsher
 pole. Recorded before turning anything, because three knobs in a row had gone
 the same way and the fourth needed a reason that was not "it worked last time".
 
+### Dispersal and fecundity are the same resource — two refutations
+
+The previous section ended with a plan: gene flow limits the cline, so reduce
+dispersal. Before turning that knob, the assumption behind it was checked, and
+it was false.
+
+**89% of births were already teleporting.** Era 972 sends a child to its
+parent's neighbourhood when there is a vacancy there and to the first free slot
+anywhere when there is not. Counted over 60000 ticks at capacity: **2405 local
+births against 19959 distant ones**. The neighbourhood of a living agent is
+almost always full, so the fallback was not a fallback — it was the rule, and
+the seven-unit cline was achieved with barely a tenth of dispersal being local.
+
+That looked like an easy win. It was not:
+
+```text
+                         equator  mid1  mid2  pole   spread   alive
+teleport fallback (972)     76.6  76.0  72.8  69.4      7.2    4082
+local only, no fallback     77.4  80.7  77.9  73.2      4.2    2832
+radius 2, no fallback       74.0  68.5  68.3  71.2      2.8    2778
+radius 4, no fallback       63.2  66.6  66.3  69.1     −5.9    3255
+radius 8, no fallback       76.2  74.6  72.9  68.8      7.4    3398
+isolated-world bound                                   16.8
+```
+
+Refusing to place a child that has no room beside its parent **narrows** the
+cline, and widening the search radius does not recover it. Every variant also
+sits well below carrying capacity. Nothing here beats simply letting the child
+teleport.
+
+**Because a free cell is two things at once.** It is a dispersal destination and
+it is a reproductive opportunity, and in this world they are the same resource.
+Gene flow cannot be reduced by restricting where children may go without
+reducing how often they are born at all — and selection acts through
+differential reproduction, so the cure removes more differentiation than the
+disease.
+
+Decoupling them needs a different mechanism, not a different radius: something
+that opens space near a parent specifically, or lets an offspring wait for space
+instead of forfeiting. Neither is implemented and neither is claimed.
+
+Era 972's behaviour stands unchanged. The two variants are recorded because the
+refutation is the result.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
