@@ -2351,7 +2351,11 @@ mod tests {
         // the neighbourhood mean: two agents in a three-slot lattice produce a
         // sub-unit mean field that truncates to nothing, and rightly so.
         const N: usize = 256;
-        let (mut lattice, mut agents, mut snapshot, _deltas) = make_lattice_with_q_phase(N, 7);
+        // q_phase 8, matching the canonical topology since Era 966. On 7 this
+        // fixture was testing a phase space the world no longer has — and one
+        // whose circle is half the sine table's, so the coupling it measured
+        // was the seamed reading.
+        let (mut lattice, mut agents, mut snapshot, _deltas) = make_lattice_with_q_phase(N, 8);
         lattice.tick_snapshot_ptr = snapshot.as_mut_ptr();
         lattice.signals.active_agent_count = N as u32;
         lattice.signals.max_cells = N as u32;
@@ -2367,14 +2371,14 @@ mod tests {
             a.base_freq = 0; // isolate coupling from natural frequency
         }
 
-        // Order parameter |mean(e^{iθ})|, in the agents' own 128-unit wrap.
+        // Order parameter |mean(e^{iθ})|, in the agents' own wrap.
         let order = |ags: &[PhaseAgentMinimal]| -> f64 {
             let (mut c, mut s, mut k) = (0.0f64, 0.0f64, 0.0f64);
             for a in ags.iter().take(active) {
                 if a.energy == 0 || a.state_flags & 0x01 != 0 {
                     continue;
                 }
-                let th = (a.phase as f64 / 128.0) * core::f64::consts::TAU;
+                let th = (a.phase as f64 / 256.0) * core::f64::consts::TAU;
                 c += th.cos();
                 s += th.sin();
                 k += 1.0;

@@ -234,9 +234,14 @@ function survey(prevPhase?: Uint32Array) {
   // agent's own natural frequency — the two terms that are summed to make the
   // phase advance. "The coupling does nothing" is a claim about a ratio, and
   // the ratio has never been printed.
-  let cSum = 0, fSum = 0, cN = 0, clamped = 0;
+  let cSum = 0, fSum = 0, cN = 0, clamped = 0, couplingZero = 0;
   for (const i of alive) {
-    cSum += Math.abs(new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[5]);
+    // The coupling is an i32 added straight to an integer phase. If it rounds
+    // to zero it does not act at all — "weak" and "absent" are different
+    // claims, and only one of them is fixable by scaling.
+    const cv = new Int32Array(a.buffer, a.byteOffset + i * 32, 8)[5];
+    if (cv === 0) couplingZero++;
+    cSum += Math.abs(cv);
     // The EFFECTIVE natural frequency: what the Nyquist clamp leaves. Reporting
     // the raw `base_freq` overstates it by an order of magnitude, because
     // tick_physics clamps to ±max_phase/2 before dividing out the Q10 scale.
@@ -263,6 +268,7 @@ function survey(prevPhase?: Uint32Array) {
     // nothing — read it together with tissueFraction, never alone.
     tissueClustering: pAny > 0 ? pGiven / pAny : 0,
     meanAbsCoupling: cN > 0 ? cSum / cN : 0,
+    fractionCouplingExactlyZero: cN > 0 ? couplingZero / cN : 0,
     meanAbsBaseFreq: cN > 0 ? fSum / cN : 0,
     fractionAtNyquistClamp: cN > 0 ? clamped / cN : 0,
     velocityCorrelation: velAll,

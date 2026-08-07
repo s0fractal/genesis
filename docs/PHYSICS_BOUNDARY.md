@@ -685,6 +685,72 @@ exactly the defect Era 961 closed for nine others. They are also edited in
 the first edit went into the generated file and the generator quietly restored
 it.
 
+### The coupling cannot be turned up — it rounds to zero
+
+Era 967 ended with an obvious next move: the coupling is 0.6% of what moves a
+phase, so raise it until it is comparable to the frequency spread, which is what
+Kuramoto locking requires. Swept `KURAMOTO_COUPLING_BASE` over 1024..524288 and
+measured neighbour velocity correlation at each point:
+
+```text
+K         |coupling|   velocity correlation
+1024          0.10          +0.0083
+8192          2.23          +0.0081
+16384         4.68          +0.0193
+24576         7.13          +0.0369
+32768         9.46          +0.0456
+49152        13.74          +0.0542   ← apparent peak
+65536        19.30          +0.0227
+131072       41.23          −0.0004
+```
+
+That looked like a result, and the control supported it: at K=1024 with
+crystallisation disabled the correlation is +0.0007, so the rise was not simply
+the loss of frozen cells.
+
+**A unit test refused it, and was right.** `test_tick_physics_kuramoto_coupling`
+seeds 256 agents with `base_freq = 0` — zero frequency spread, the case where
+any positive coupling must converge — and asserts the order parameter rises.
+Sweeping the same K through that fixture:
+
+```text
+K = 1×1024   converges
+K = 4×1024   0.046 → 0.087
+K = 8×1024   0.046 → 0.016
+K = 16×1024  0.046 → 0.057
+K = 24×1024  0.046 → 0.040
+K = 32×1024  0.046 → 0.069
+K = 48×1024  0.046 → 0.031
+```
+
+Only the current value converges. Above it the numbers are noise, not a trend:
+the coupling stops building order and starts destroying it, immediately. So the
+velocity correlation at K=49152 is far more likely the signature of an unstable
+integrator kicking neighbours in correlated ways than of coordination. **Not
+shipped.** The sweep is recorded because the refutation is the useful part.
+
+**Why raising it cannot work.** `coupling` is an `i32` added directly to an
+integer phase, and:
+
+```text
+mean |coupling|                  0.103
+coupling EXACTLY zero    89.7% of living agents, every tick
+mean effective |base_freq|      16.19
+```
+
+The coupling is not weak. For nine agents in ten it **does not exist** — the
+mean-field term truncates to zero before it reaches the phase. And the next
+representable value above zero is 1, so there is no setting between "absent" and
+"a step large enough to overshoot". That is the whole shape of the sweep.
+
+_The named next step, not taken here:_ the coupling needs sub-unit resolution —
+a per-agent fractional phase residue, so a pull of 0.1 accumulates into one
+whole phase unit over ten ticks instead of vanishing ten times. The open design
+question is where the residue lives: an agent has three memory words,
+`memory[0]` already carries the coupling for diagnostics and a parent hash
+through mitosis, and widening the agent touches the ABI, the shader struct and
+the ZK guest.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
