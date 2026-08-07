@@ -98,7 +98,13 @@ function survey(prevPhase?: Uint32Array) {
   let sumCos = 0, sumSin = 0;
   let natCos = 0, natSin = 0;
   let effSum = 0, effMin = 255, effMax = 0, resSum = 0;
-  const hands = new Float64Array(256);
+  // Every byte of the genome, so the predation hand can be compared against
+  // controls living in the same run under the same drift. A trait held open by
+  // frequency dependence should be distinguishable from one that is merely not
+  // selected — and from one that IS selected, which should narrow. Without
+  // those neighbours in the table, "7.30 of a possible 8.0" is a number with
+  // nothing to be large or small against.
+  const byteHist = [0, 1, 2, 3].map(() => new Float64Array(256));
   let tissue = 0;
   let maxPhase = 0;
   for (let i = 0; i < active; i++) {
@@ -128,7 +134,10 @@ function survey(prevPhase?: Uint32Array) {
     // food web turns on, so its SPREAD is the question: a trait under
     // frequency-dependent selection should refuse to converge, where every other
     // trait here settles on one value.
-    hands[(a[i * 8 + 4] >>> 8) & 0xFF]++;
+    byteHist[0][a[i * 8 + 4] & 0xFF]++;
+    byteHist[1][(a[i * 8 + 4] >>> 8) & 0xFF]++;
+    byteHist[2][(a[i * 8 + 4] >>> 16) & 0xFF]++;
+    byteHist[3][(a[i * 8 + 4] >>> 24) & 0xFF]++;
     effSum += eff;
     if (eff < effMin) effMin = eff;
     if (eff > effMax) effMax = eff;
@@ -396,15 +405,23 @@ function survey(prevPhase?: Uint32Array) {
     // the population is — the signature of a clonal sweep.
     linkageRatio: totalVar > 0 ? withinVar / totalVar : 1,
     distinctHands: byHand.size,
-    handEntropy: (() => {
-      let h = 0;
-      for (const c of hands) {
-        if (c > 0) {
-          const p = c / n;
-          h -= p * Math.log2(p);
+    ...(() => {
+      const ent = (hist: Float64Array) => {
+        let h = 0;
+        for (const c of hist) {
+          if (c > 0) {
+            const p = c / n;
+            h -= p * Math.log2(p);
+          }
         }
-      }
-      return h;
+        return h;
+      };
+      return {
+        entropyEfficiency: ent(byteHist[0]),
+        handEntropy: ent(byteHist[1]),
+        entropyResilience: ent(byteHist[2]),
+        entropyRadiance: ent(byteHist[3]),
+      };
     })(),
     hammingNeighbour: nbrHamN > 0 ? nbrHam / nbrHamN : 0,
     hammingRandom: randHamN > 0 ? randHam / randHamN : 0,

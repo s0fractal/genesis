@@ -1376,6 +1376,43 @@ or replicates. Where it rests on a knockout that changes something by an order
 of magnitude — predation moving 42% of transfer, the coupling being exactly zero
 for 89.7% of agents, the population frozen at 3072 births forever — it does not.
 
+### The polymorphism claim, with the control it was missing
+
+Era 973 reported the predation hand at Shannon entropy 7.30 against a maximum of
+8.0 and called it maintained polymorphism. That number had nothing to be large
+or small against. A byte under **no** selection would also stay spread — drift
+is slow with 4096 agents — so "it did not converge" is not evidence of anything
+on its own.
+
+The control lives in the same run: the other three genome bytes, under the same
+drift, the same population size, the same mutation.
+
+```text
+byte         role                              entropy (bits, max 8.0)
+resilience   16..23  longevity, selected        6.657 ± 0.053
+efficiency   0..7    metabolic burn, selected   7.042 ± 0.038
+radiance     24..31  near-unused                7.227 ± 0.020
+hand         8..15   predation, cyclic          7.355 ± 0.024
+
+at ignition, all four                           7.81
+```
+
+Drift narrows everything — all four start at 7.81 and none stays there. What
+matters is the ordering, and it is exactly the one the theory predicts: the two
+bytes under directional selection are narrowed most, the near-unused byte sits
+between, and **the hand is held wider than neutrality** — 0.128 ± 0.031 above
+the unused control, about 4σ.
+
+That is the signature of balancing selection proper. It does not merely fail to
+narrow the trait; it actively resists narrowing more than no selection at all
+does. The Era-973 claim survives, but the honest magnitude is a tenth of a bit
+above neutral, not "7.30 of a possible 8.0".
+
+Both corrections in this file came from the same omission — a number reported
+without the thing that makes it mean something. First an estimator compared
+against no null, then a mean compared against no error bar, now an entropy
+compared against no neutral control.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
