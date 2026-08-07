@@ -953,7 +953,25 @@ impl PhaseLattice {
                                     energy_delta -= Self::predation_share(agent.energy) as i32;
                                 }
 
-                                // CONDUCTION IS GATED BY PHASE COHERENCE.
+                                // CONDUCTION IS GATED BY PHASE COHERENCE —
+                                // and this gate is what phase is FOR.
+                                //
+                                // Measured by knocking the gate out while
+                                // leaving conduction alone: the population
+                                // falls from 3770 to 2244 and the polymorphism
+                                // halves. Forty percent of everything alive
+                                // depends on this line deciding who shares with
+                                // whom.
+                                //
+                                // Nothing depends on phases synchronising. The
+                                // coupling is 0.6% of what moves a phase, the
+                                // order parameter is 0.015, and five eras of
+                                // trying to raise either produced only better
+                                // instruments. `phase` is an identity
+                                // coordinate — nearness in it means affinity —
+                                // and the oscillator vocabulary around it names
+                                // something this world does not do. See
+                                // docs/PHYSICS.md, "What phase actually names".
                                 //
                                 // Ungated, this term moves up to the full energy
                                 // gradient every tick and is by far the strongest

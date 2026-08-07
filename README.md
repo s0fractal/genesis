@@ -21,6 +21,12 @@ with a self-modifying ontology, cross-AI Senate, and a frozen cryptographic
 protocol identity. It is not a web app — it is a **closed mathematical system**
 that computes its own future direction.
 
+**What "phase" means here, since the name misleads:** phase is an identity
+coordinate, not an oscillator. Nearness in it decides which neighbours pool
+energy — knock that gate out and 40% of the population dies — while nothing at
+all depends on phases synchronising. See
+[`docs/PHYSICS.md`](docs/PHYSICS.md#what-phase-actually-names).
+
 **What the physics actually does, measured rather than claimed:** the world
 evolves — turnover is driven by heritable senescence, and a cyclic food web
 holds its predation trait wider than neutrality at 5.4σ across independent

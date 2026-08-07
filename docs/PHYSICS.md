@@ -75,6 +75,40 @@ Kept because it is correct, not because it does much. Naming these is the point:
 a reader who sees "Kuramoto" in the repo name should know what it currently
 amounts to.
 
+### What "phase" actually names
+
+The project is called a phase lattice and its central term is borrowed from
+coupled oscillators. That borrowing is what has misdirected five eras of work,
+including all of mine: I kept trying to make the population **synchronise**,
+because that is what oscillators do.
+
+The measurements say phase does something else entirely. It decides **who is
+compatible with whom** — which neighbours pool energy and which refuse each
+other. Two agents close in phase are metabolically joined; two far apart are
+strangers sharing a wall. That is not a frequency. It is closer to an
+**archetype**: a position in a space of kinds, where nearness means affinity.
+
+The federation already models it that way where it has room to. Liquid — a
+separate private substrate, not to be conflated with this one — carries a
+five-dimensional `PhaseState`, and its dimensions are named for aspects of a
+stance rather than of a wave:
+
+```ts
+phi; // the angle
+cycles; // Attention, Focus, Intention, Time
+omega, delta, energy, kappa;
+```
+
+**omega's 8-bit phase is the one-dimensional projection of that.** A single
+coordinate of identity, which is why proximity in it decides sharing, and why
+nothing has ever made it oscillate usefully.
+
+The field is still called `phase` in the kernel, the shader and the ZK guest,
+and it will stay that way: it is an ABI shared byte-for-byte across three
+substrates, and renaming a field to fix a metaphor would be the most expensive
+way possible to make a point. The name to get right is the one in the reader's
+head, and it is this section.
+
 **Phase is load-bearing — as an address, not as an oscillator.** This is the
 distinction the project's name obscures, and it is measurable. Conduction is
 gated on `cos(θ_n − θ_a)`: neighbours in phase pool energy, neighbours out of
