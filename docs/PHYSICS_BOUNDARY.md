@@ -1133,6 +1133,63 @@ instead of forfeiting. Neither is implemented and neither is claimed.
 Era 972's behaviour stands unchanged. The two variants are recorded because the
 refutation is the result.
 
+### Predation is real, heritable, and has no neutral pairs
+
+Three mechanisms in this kernel turned out to be doing nothing when finally
+measured — the Hebbian weights, the Kuramoto coupling, the latitude the anchor
+could not see. Predation had never been checked, so it was checked before
+anything was built on top of it.
+
+**It is not inert.** Over 20000 ticks at capacity:
+
+```text
+predation moved      1.21e9 ATP   (gain and loss identical to the byte)
+conduction moved     1.67e9 ATP
+predation share of all transfer   42%
+```
+
+Gain equalling loss exactly is the Era-961 conservation fix still holding under
+a load three orders of magnitude larger than the tests exercise.
+
+**And it is heritable — 0.44.** `species_advantage` derives the relationship
+from `xorshift32_once(genome)`, an avalanche hash, and mitosis flips several
+bits at once, so a child's place in the food web looked likely to be re-rolled
+at every birth. Measured against a null taken from _unrelated_ genomes rather
+than assumed from the shape of the return type:
+
+```text
+child agrees with parent on a 256-species panel   72.2%
+two unrelated genomes agree                        50.6%
+heritability, scaled between the two                0.44
+```
+
+Nearly half of a parent's position survives a birth. `predation_heritability.rs`
+locks it: if the hash is ever changed in a way that destroys inheritance, 42% of
+this world's energy quietly becomes a lottery, and that test is what would say
+so.
+
+**But there are no neutral pairs.** `species_advantage` returns 0 only for
+genomes that are bit-identical, so **100% of neighbour comparisons are
+antagonistic** — a parent and its own mutated child are predator and prey to
+each other. There is no kin, and therefore no species: only a total antagonistic
+ordering in which every relationship is one-directional feeding.
+
+Whether that matters depends on whether relatives are neighbours at all, which
+is measurable and was measured. Mean Hamming distance between genomes, 32 bits
+wide:
+
+```text
+neighbouring pairs   13.55
+random pairs         14.60   (not 16 — selection has narrowed the population)
+excess relatedness    1.06 bits, 7.2% closer than strangers
+```
+
+So kin structure exists and is weak, which is what 89% teleporting dispersal
+predicts. A similarity threshold on `species_advantage` would create species and
+let a patch stop eating itself — recorded as the obvious next mechanism, and
+**not** built, because the last three mechanisms guessed from a plausible story
+were all refuted by the measurement that should have come first.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

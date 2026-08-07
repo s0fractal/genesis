@@ -279,6 +279,47 @@ function survey(prevPhase?: Uint32Array) {
     bandN[band]++;
   }
 
+  // ARE NEIGHBOURS RELATED?
+  //
+  // Everything about kin — species boundaries, whether a food web can have
+  // neutral pairs, whether a patch can be internally anything — depends on
+  // neighbours being more related than strangers. With 89% of births landing at
+  // the first free slot anywhere, they may not be. Mean Hamming distance
+  // between neighbouring genomes, against the same statistic for random pairs
+  // drawn from the same population, which is the only baseline that means
+  // anything.
+  let nbrHam = 0, nbrHamN = 0;
+  for (const i of alive) {
+    const gi = a[i * 8 + 4];
+    const cx = i % w, cy = Math.floor(i / w);
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      const nIdx = ((cy + dy + h) % h) * w + ((cx + dx + w) % w);
+      if (a[nIdx * 8 + 1] === 0) continue;
+      let x = (gi ^ a[nIdx * 8 + 4]) >>> 0, c = 0;
+      while (x) {
+        c += x & 1;
+        x >>>= 1;
+      }
+      nbrHam += c;
+      nbrHamN++;
+    }
+  }
+  let randHam = 0, randHamN = 0;
+  for (let k = 0; k < 4096 && alive.length > 1; k++) {
+    // Deterministic stride pairing, not a PRNG: the probe must stay
+    // reproducible, and any fixed pairing that is not spatial will do.
+    const p1 = alive[(k * 37) % alive.length];
+    const p2 = alive[(k * 101 + 7) % alive.length];
+    if (p1 === p2) continue;
+    let x = (a[p1 * 8 + 4] ^ a[p2 * 8 + 4]) >>> 0, c = 0;
+    while (x) {
+      c += x & 1;
+      x >>>= 1;
+    }
+    randHam += c;
+    randHamN++;
+  }
+
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
   const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
 
@@ -302,6 +343,8 @@ function survey(prevPhase?: Uint32Array) {
     velocityCorrelationMotile: velMotile,
     meanEfficiency: effSum / n,
     meanResilience: resSum / n,
+    hammingNeighbour: nbrHamN > 0 ? nbrHam / nbrHamN : 0,
+    hammingRandom: randHamN > 0 ? randHam / randHamN : 0,
     resilienceEquator: bandN[0] > 0 ? bandRes[0] / bandN[0] : 0,
     resilienceMid1: bandN[1] > 0 ? bandRes[1] / bandN[1] : 0,
     resilienceMid2: bandN[2] > 0 ? bandRes[2] / bandN[2] : 0,
