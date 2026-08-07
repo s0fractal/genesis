@@ -1464,6 +1464,75 @@ So Era 973 stands, with one of its two claims replicated at 5.4σ and the other
 withdrawn. That is the first time anything here has been checked across
 independent worlds rather than across a single one's own history.
 
+### Knockout audit — what this world is actually made of
+
+Every mechanism disabled in turn, two independent seeds each, 60000 ticks,
+everything else untouched. Error bars are half the seed-to-seed range, which
+with two seeds is crude and is stated rather than dressed up.
+
+```text
+                alive        resilience   hand entropy    tissue
+                             (mean)       above neutral   fraction
+baseline        3377 ± 183    67.6 ± 1.6   +0.340 ± 0.019   0.002
+predation off   3537 ±  32    74.1 ± 11.2  +0.074 ± 0.162   0.010
+conduction off  4096 ±   0    58.4 ± 3.9   +0.544 ± 0.129   0.406
+coupling off    3373 ±  48    61.6 ± 0.7   +0.200 ± 0.067   0.002
+tissue off      3239 ±  84    67.6 ± 2.0   +0.174 ± 0.051   0.004
+dilation off    3431 ±  29    74.3 ± 1.1   +0.266 ± 0.043   0.005
+senescence off  4096 ±   0   102.7 ± 0.5   +0.041 ± 0.004   0.099
+```
+
+**Senescence is the keystone.** Without it the population pins at capacity and
+never moves again — the pre-Era-969 world — and the polymorphism collapses to
++0.041, indistinguishable from an unselected byte. Era 973's frequency-dependent
+food web produces nothing at all without the turnover Era 969 supplies. No shape
+of relation can select on a population that never replaces anyone.
+
+**Predation off collapses the polymorphism** (+0.074, with an error bar half the
+size of the effect), which is the confirmation the ring is what holds the hand
+open rather than something else in the run.
+
+### The tissue subsystem is extinct, and two constants explain it
+
+The audit's other headline is a number that should not be there: **tissue
+fraction 0.002.** Crystallisation — Eras 963 through 970, the relative
+threshold, the reversibility, the dedifferentiation — essentially never fires in
+the world as it now stands.
+
+Two candidates, both calibrated for a world that no longer exists, and they were
+measured rather than guessed at.
+
+_The stress gate is not the blocker._ Crystallisation requires
+`thermodynamic_stress < 5`. Of the two terms in that stress, the coupling is
+below 5 on its own for **100%** of the living, and 99.7% satisfy the `ortho > 0`
+precondition, so conduction is the only term that can be holding it shut —
+consistent with tissue returning to 0.406 when conduction is knocked out. But
+raising the gate twentyfold barely moves it:
+
+```text
+gate      tissue   alive   hand entropy
+< 5       0.002     3377     +0.340
+< 20      0.016     3310     +0.208
+< 100     0.032     3211     +0.168
+```
+
+_The energy floor is._ Crystallisation also requires
+`energy > max(local_mean, MAX_ATP/2)` — above **2048**. Measured in the same
+world: mean energy per agent **690**, and the single richest agent averages
+**2468**. Almost nobody can ever cross it.
+
+That floor was added in Era 964 as a guard against the degenerate start, where
+the histogram had not run and `p90_energy` was still zero. It was a sensible
+guard in a world whose agents sat near the cap. Era 969 made the world poorer —
+senescence converts standing energy into turnover — and the absolute floor did
+not move with it.
+
+**And reviving it costs.** Every setting that raises the tissue fraction lowers
+both the population and the polymorphism. So this is not a bug to fix by reflex:
+the subsystem may simply be vestigial now, and that is a decision with numbers
+attached rather than an oversight to patch. It is named here so it is made on
+purpose.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
