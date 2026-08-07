@@ -1,3 +1,11 @@
+# Physics boundary table — and the journal
+
+> **Looking for what the law IS?** `docs/PHYSICS.md` states the current physics
+> in one page, with the measured magnitude of every mechanism. This file is how
+> it got there: thirteen eras of changes, measurements, refutations and two
+> retractions, in the order they happened. The boundary definitions immediately
+> below still govern; everything after them is the record.
+
 # Era 2070: Physics Boundary Table
 
 To protect the OMEGA-64 organism from "mythological bloat" and ensure strict

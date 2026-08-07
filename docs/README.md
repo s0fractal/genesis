@@ -40,12 +40,21 @@ code wins.
 - **`SECOND_NODE.md`** — bring up a second mesh node.
 - (trinity) **`docs/KNOWN_GAPS.md`** — the running honesty ledger.
 
+## The physics
+
+- **`PHYSICS.md`** — what the law IS, one page, every mechanism with its
+  measured magnitude: what carries the world, what is measured and small, what
+  is vestigial. Start here.
+- **`PHYSICS_BOUNDARY.md`** — the journal. The four layer boundaries still
+  govern from its top; the rest is thirteen eras of changes, measurements,
+  refutations and retractions in the order they happened.
+
 ## Boundaries & identity
 
 - **`OMEGA_LIQUID_BOUNDARY.md`** · **`PHI_BRIDGE_SPEC.md`** ·
-  **`PHYSICS_BOUNDARY.md`** · **`SPORE_FRAME_VS_TRINITY_SPORE.md`** — the
-  intentional membranes between omega, Liquid, and the SPORE substrates (Liquid
-  is a SEPARATE private substrate — don't conflate).
+  **`SPORE_FRAME_VS_TRINITY_SPORE.md`** — the intentional membranes between
+  omega, Liquid, and the SPORE substrates (Liquid is a SEPARATE private
+  substrate — don't conflate).
 - **`CODEICIDE.md`** · **`RESPONSIBILITY.md`** — protecting digital life; the
   responsibility rules.
 - **`GENESIS_INSCRIPTION_CEREMONY.md`** — the genesis-identity inscription.
