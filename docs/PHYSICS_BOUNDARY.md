@@ -933,10 +933,10 @@ control but it does not need to be: in Era 968 the population was frozen from
 tick 550 — no births, no deaths — so no trait could move at all, and metabolic
 efficiency was identical to the second decimal ten thousand ticks apart.
 
-Metabolic efficiency moves the other way, 128 → 119. Not claimed as anything:
-efficiency and resilience are different bytes of one genome mutated by a shared
-mask, so linkage is as likely an explanation as a trade-off, and neither has
-been measured.
+Metabolic efficiency appeared to move the other way, 128 → 119, and was recorded
+as unexplained rather than as a trade-off. **Correctly** — over 200000 ticks it
+turns around and returns to 139. The 60000-tick reading was a transient, and had
+it been published as a trade-off it would have been wrong.
 
 The population still oscillates — it dips to 2218 around tick 40000 and recovers
 to 4006 — so the cohort wave is damped rather than gone. `SENESCENCE_TICKS` is

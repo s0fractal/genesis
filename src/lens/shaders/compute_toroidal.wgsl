@@ -318,7 +318,10 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // the population as one cohort, and the resulting boom-bust amplified
         // until the world collapsed.
         let age = (agent.state_flags & 0x00FFFF00u) >> 8u;
-        let senescence_ticks = SENESCENCE_TICKS * (1u + p_resilience / 64u);
+        // Scale before dividing — mirrors PhaseLattice::tick_physics. `1 + res/64`
+        // collapsed 256 gene values onto four lifespan classes, and selection
+        // stalled at the class boundary because further gain bought nothing.
+        let senescence_ticks = (SENESCENCE_TICKS * (64u + p_resilience)) / 64u;
         let senesced = (maintenance_cost * (senescence_ticks + age)) / senescence_ticks;
         let base_cost = (senesced * topology.weather_multiplier) / 1024u;
         let raw_base = i32(base_cost) + efficiency_adj;

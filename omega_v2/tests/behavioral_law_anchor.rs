@@ -55,6 +55,14 @@ fn behavioural_anchor() -> u32 {
     // the branches it happens to touch.
     let active = lattice.signals.active_agent_count as usize;
     for (i, a) in agents.iter_mut().take(active).enumerate() {
+        // Spread AGES across the fixture. 24 ticks from ignition leaves every
+        // agent younger than 25, where the senescence multiplier rounds to 1 for
+        // all of them — so when the longevity gradient changed on 2026-08-07,
+        // from four lifespan classes to 256, this file stayed green. Same gap as
+        // the tissue branch had before it was seeded: an anchor that never
+        // enters a regime is an anchor for the regimes it happens to touch.
+        a.state_flags = (a.state_flags & !omega_v2::agent::AGE_MASK)
+            | ((((i as u32) * 977) % 20_000) << omega_v2::agent::AGE_SHIFT);
         if i % 3 == 0 {
             a.energy = omega_v2::constants::MAX_ATP - 8; // eligible to crystallise
             a.memory[1] = 1 << 16; // ortho > 0, the other precondition
@@ -77,7 +85,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0xDB9F_E176;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x633B_74AD;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {

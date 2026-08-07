@@ -10,6 +10,32 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 970 — Graded. The longevity gradient is finer than the gene again.
+///
+/// Era 969 scaled the senescence clock by `1 + resilience / 64` — integer
+/// division, so 256 possible values of the gene collapsed onto FOUR lifespan
+/// classes. Selection could not distinguish resilience 192 from 255, and
+/// measured over 200000 ticks the trait climbed to 189.6 and stalled there,
+/// just under the class boundary where any further gain bought nothing. That
+/// plateau read like a mutation-selection balance and was arithmetic.
+///
+/// `(64 + resilience) / 64` keeps all 256 steps — 1.0x at 0 through 5.0x at
+/// 255. Two things improved, and they have the same cause:
+///
+///   Selection keeps working. Resilience reaches 205.5 at tick 200000 and is
+///   still climbing, against 189.6 stalled.
+///
+///   The population stops oscillating. Four lifespan classes meant four
+///   synchronised cohorts, and the demographic wave that Era 969 damped but did
+///   not remove was them. With lifespans spread continuously the population sits
+///   at 4096 from tick 59400 onward, where the coarse gradient still dipped to
+///   2759.
+///
+/// The behavioural anchor did not see this change and had to be taught: its
+/// fixture runs 24 ticks from ignition, where every agent is younger than 25 and
+/// the senescence multiplier rounds to 1 for all of them. Ages are now seeded
+/// across it, the same repair the tissue branch needed in Era 963.
+///
 /// 969 — Mortal. The population replaces itself for the first time.
 ///
 /// Measured on Era 968: the lattice fills to capacity by tick 550 and then
@@ -177,7 +203,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 969; // 969 Mortal
+pub const ERA_ID: u32 = 970; // 970 Graded
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -296,7 +322,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x2DEF_BF77;
+pub const CANONICAL_LAW_HASH: u32 = 0x8F56_1EA2;
 
 #[cfg(test)]
 mod tests {

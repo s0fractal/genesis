@@ -827,8 +827,20 @@ impl PhaseLattice {
                     // heritable through mitosis the whole time; it just had
                     // nothing worth deciding.
                     let age = crate::agent::age_of(agent.state_flags);
-                    let senescence_ticks = crate::constants::SENESCENCE_TICKS as u64
-                        * (1 + phenotype.resilience as u64 / 64);
+                    // The gradient has to be finer than the gene. `1 + res/64`
+                    // is integer division, so 256 possible resilience values
+                    // collapsed onto FOUR lifespan classes and selection could
+                    // not distinguish 192 from 255. Measured over 200000 ticks
+                    // the trait climbed to 189.6 and stalled there — just under
+                    // the 192 boundary, where any further gain bought nothing.
+                    // That plateau was the arithmetic, not a mutation-selection
+                    // balance.
+                    //
+                    // Scaling before dividing keeps all 256 steps: 1.0x at
+                    // resilience 0 through 5.0x at 255.
+                    let senescence_ticks = (crate::constants::SENESCENCE_TICKS as u64
+                        * (64 + phenotype.resilience as u64))
+                        / 64;
                     let senesced = (maintenance_cost as u64 * (senescence_ticks + age as u64))
                         / senescence_ticks;
                     // Apply Bitcoin UTXO Weather (1024 = 1.0x)
