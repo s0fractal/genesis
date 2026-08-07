@@ -814,6 +814,84 @@ discriminating rather than merely weaker: with `base_freq` zeroed and no
 effective coupling the phases are bit-identical at tick 30000 and the order is
 exactly `before`.
 
+### This world evolves exactly once, and then stops forever
+
+Eight eras went into the phase layer. None of them asked the question the
+project is actually named for: does the population EVOLVE?
+
+The instrument could not have answered it. `ecology_probe.ts` counted births and
+not deaths — so a world at capacity with no mortality at all reported the same
+health as a thriving one. It counts deaths by transition now, slot by slot,
+every tick: the kernel exposes no death counter, and inferring one from
+population change would miss every death a birth backfilled in the same sweep,
+which in a full world is all of them.
+
+What it says about the default environment:
+
+```text
+tick    alive   births   deaths
+1       1024        0        0
+550     4096     3072        0
+2000    4096     3072        0
+20000   4096     3072        0
+```
+
+Nothing is born and nothing dies after tick 550. Every birth was fill-up (3072 =
+4096 − 1024). And the trait the physics selects on freezes with it:
+
+```text
+metabolic efficiency, weather 1024
+  tick 1      128.35     (the ignition distribution)
+  tick 2400   133.32
+  tick 20000  133.32     ← identical to the second decimal
+```
+
+Full range intact — min 0, max 255 — so the variation is there. Nothing acts on
+it.
+
+**Harsher weather does not fix it, it only moves the freezing point.**
+`weather_multiplier` scales metabolic maintenance and is a Layer B parameter, so
+this sweep changes what the world costs to live in without changing what it is:
+
+```text
+weather   alive   births   deaths   deaths at 5k / 10k / 20k
+ 1024      4096     3072        0     0 / 0 / 0
+ 5120      4096     3079        7     7 / 7 / 7
+ 5632      4096     3134       62    62 / 62 / 62
+ 6144      4096     3151       79    76 / 79 / 79
+ 7168      1696      674        2     — sterile, never fills
+```
+
+Turnover is a **transient**, at every setting. A few dozen agents die on the
+approach to equilibrium and then the world freezes again. Above ~7000 the world
+does not freeze full, it fails to fill at all: metabolism eats the surplus
+before anything reaches the reproduction threshold. There are two regimes,
+frozen and sterile, and no band between them.
+
+The trait behaves the same way. At weather 5632 efficiency reaches 150.08 by
+tick 2500 — a much larger shift than the default's 133.32 — and then holds it to
+tick 20000 without moving. Harsher weather filters harder during the fill and
+then stops just as completely.
+
+**So this is a single-generation filter, not an ecology.** Selection runs once,
+while the lattice is filling, and never again. Once every slot is occupied,
+mitosis has nowhere to put a child and nothing ever dies to make room.
+
+_A hypothesis of mine, refuted in passing._ Conduction is the strongest transfer
+in the model and equalises energy between neighbours, so it looked like the
+thing erasing the differences selection needs. Disabling it at weather 5632
+raises deaths from 62 to **6524** — a hundredfold — and the trait drifts _less_:
++16.0 against +21.7 with conduction on. Turnover and selection are not the same
+quantity here, and the drift is driven by which agents reproduce, not by which
+die.
+
+_What the next lever probably is, unmeasured and therefore unclaimed:_ death is
+reachable only through energy hitting zero, and at equilibrium every agent's
+income covers its burn, so nothing is ever marginal. `signals.p90_age` and
+`BIRTH_TICKS` already track age and nothing consumes them. A world where age
+itself is fatal would have to keep replacing its population, which is the one
+condition under which selection can act more than once.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

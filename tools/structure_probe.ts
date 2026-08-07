@@ -38,6 +38,7 @@ const TICKS = Number(Deno.args[0] ?? 3000);
 const CAPACITY = Number(Deno.args[1] ?? 4096);
 const STRIDE = Number(Deno.args[2] ?? 0) ||
   Math.max(1, Math.floor(TICKS / 60));
+const WEATHER = Number(Deno.args[3] ?? 1024);
 const SEED = 0x0EC0_0107;
 
 const bytes = await Deno.readFile("./public/v2/omega_v2_core.wasm");
@@ -46,7 +47,7 @@ const x = instance.exports as Record<string, CallableFunction>;
 const memory = instance.exports.memory as WebAssembly.Memory;
 
 x.v2_boot_engine();
-x.v2_set_environment(7, 6, 2, 1024);
+x.v2_set_environment(7, 6, 2, WEATHER);
 x.v2_ignite_big_bang(SEED, CAPACITY);
 
 const latticePtr = x.v2_lattice_ptr() as number;
