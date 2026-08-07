@@ -28,7 +28,12 @@ use omega_v2::crypto::sha256_u32;
 use omega_v2::lattice::PhaseLattice;
 use omega_v2::topology::PhaseTopology;
 
-const AGENTS: usize = 64;
+/// 256, not 64. At q_radial=6 the grid is 64 wide, so a 64-agent fixture is ONE
+/// ROW tall — every agent at the same latitude, and the whole latitude law of
+/// Era 972 outside the anchor's reach. It stayed green through a change that
+/// varies the sun across the lattice. Four rows is the minimum that can tell an
+/// equator from a pole.
+const AGENTS: usize = 256;
 const TICKS: u32 = 24;
 const SEED: u32 = 0x0EC0_0107;
 
@@ -85,7 +90,7 @@ fn behavioural_anchor() -> u32 {
 /// dynamics were corrected. This is the anchor doing its job: neither error
 /// touched a constant, so the DECLARED law hash would not have moved on its own
 /// — this file is what forced the era bump.
-const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x463B_43AA;
+const BEHAVIOURAL_LAW_ANCHOR: u32 = 0x334E_EA5A;
 
 #[test]
 fn the_physical_operator_has_not_changed_silently() {

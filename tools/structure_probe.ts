@@ -260,6 +260,25 @@ function survey(prevPhase?: Uint32Array) {
     cN++;
   }
 
+  // TRAIT BY LATITUDE.
+  //
+  // Era 972 made the y axis latitude: row 0 is the equator, row h/2 the pole.
+  // The claim that different places select different strategies is a claim
+  // about POSITION, and nothing here could see position. A population mean
+  // cannot distinguish "everyone is average" from "half live fast at the pole
+  // and half live long at the equator" — those are the same number.
+  //
+  // Four bands from equator to pole, by distance in rows, on the torus.
+  const bandRes = [0, 0, 0, 0], bandN = [0, 0, 0, 0];
+  for (const i of alive) {
+    const cy = Math.floor(i / w);
+    // Rows are cyclic: distance from the equator runs 0..h/2 and back.
+    const d = Math.min(cy, h - cy);
+    const band = Math.min(3, Math.floor((d * 8) / Math.max(1, h)));
+    bandRes[band] += (a[i * 8 + 4] >>> 16) & 0xFF;
+    bandN[band]++;
+  }
+
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
   const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
 
@@ -283,6 +302,12 @@ function survey(prevPhase?: Uint32Array) {
     velocityCorrelationMotile: velMotile,
     meanEfficiency: effSum / n,
     meanResilience: resSum / n,
+    resilienceEquator: bandN[0] > 0 ? bandRes[0] / bandN[0] : 0,
+    resilienceMid1: bandN[1] > 0 ? bandRes[1] / bandN[1] : 0,
+    resilienceMid2: bandN[2] > 0 ? bandRes[2] / bandN[2] : 0,
+    resiliencePole: bandN[3] > 0 ? bandRes[3] / bandN[3] : 0,
+    aliveEquator: bandN[0],
+    alivePole: bandN[3],
     effMin,
     effMax,
     maxPhaseSeen: maxPhase,

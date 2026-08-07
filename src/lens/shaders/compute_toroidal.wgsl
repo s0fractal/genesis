@@ -85,6 +85,7 @@ const PREDATOR_ENERGY_STEAL: u32 = 5u;
 // Q10 ATP per agent per tick at neutral sun. Mirrors constants.rs
 // SOLAR_YIELD_Q10 — the one term that enters this world from outside.
 const SENESCENCE_TICKS: u32 = 512u;
+const LATITUDE_AMPLITUDE_Q10: i32 = 768i;
 const SOLAR_YIELD_Q10: u32 = 18432u;
 
 // HIGH-3: bitmask & 0xFF instead of % 256 for O(1) hot path
@@ -356,7 +357,15 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // used to modulate burn only, so the sun made agents hungrier at noon
         // and fed nobody, while the comment below claimed solar input existed.
         // Uniform across agents; selection runs through the burn side.
-        let solar = (SOLAR_YIELD_Q10 * u32(max(sun_multiplier, 0i))) / (1024u * 1024u);
+        // LATITUDE — mirrors PhaseLattice::tick_physics. The grid's y axis is
+        // latitude: row 0 is the equator, row h/2 the pole. On a torus that is
+        // one bright band and one dark one. Same laws everywhere, different
+        // light — which is what lets two strategies pay at once.
+        let lat_phase = (u32(cy) * 256u) / u32(max(h, 1i));
+        let lat = cos_q10(0u, lat_phase);
+        let insolation = 1024i - ((LATITUDE_AMPLITUDE_Q10 * (1024i - lat)) / 2048i);
+        let local_sun = (max(sun_multiplier, 0i) * max(insolation, 0i)) / 1024i;
+        let solar = (SOLAR_YIELD_Q10 * u32(local_sun)) / (1024u * 1024u);
         var energy_delta: i32 = i32(solar) - i32(burn);
         var energy_diffusion: i32 = 0i;
         // For the tissue gate below, over the same neighbours already read.

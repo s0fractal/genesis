@@ -1,14 +1,52 @@
 use crate::constants::{
     BB_FREQ_OFFSET, BB_FREQ_Q_SCALE, BB_FREQ_RANGE, BIG_BANG_SEED_DENSITY_Q10, CHILD_ENERGY_SEED,
     CHRONOTOPOLOGY_STRESS_DIVISOR, DELTA_ENERGY_DIVISOR, DELTA_PHASE_DIVISOR,
-    KURAMOTO_COUPLING_BASE, LANDAUER_BIT_COST, MAX_ATP, MAX_TIME_DILATION, MITOSIS_COST,
-    MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SENESCENCE_TICKS, SOLAR_YIELD_Q10,
+    KURAMOTO_COUPLING_BASE, LANDAUER_BIT_COST, LATITUDE_AMPLITUDE_Q10, MAX_ATP, MAX_TIME_DILATION,
+    MITOSIS_COST, MITOSIS_THRESHOLD, PREDATOR_ENERGY_STEAL, SENESCENCE_TICKS, SOLAR_YIELD_Q10,
     STRUCTURAL_MAINTENANCE_DIVISOR,
 };
 use crate::crypto::sha256_u32;
 use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
+///
+/// 972 — Latitudinal. The sun stops falling on everything equally, and
+/// children stop being born anywhere.
+///
+/// Era 971 showed the equilibrium resilience tracks the world — 124 in a cheap
+/// one, 55 in a harsh one — but with the sky uniform there was only ever ONE
+/// world, so the whole population converged on a single value. Two strategies
+/// cannot coexist where there is only one place to live.
+///
+/// The grid's y axis is now latitude: row 0 is the equator, row h/2 the pole,
+/// which on a torus is one bright band and one dark one. Insolation falls by
+/// LATITUDE_AMPLITUDE_Q10 toward the pole and nothing else changes — same laws,
+/// same costs, different light.
+///
+/// And birth became local. `next_dead_idx` was a global forward scan, so a
+/// child landed at the first vacancy anywhere and the gene pool remixed
+/// completely every generation. A child now takes a vacancy among its parent's
+/// eight neighbours when there is one. Nothing about the physics of birth
+/// changes, only where the child is put — the difference between inheriting a
+/// place and inheriting only a genome.
+///
+/// Measured, resilience by latitude band, tail-averaged over 150000 ticks:
+///
+/// ```text
+///                    equator  mid1  mid2  pole   spread
+///   global dispersal    58.9  56.8  55.1  53.9      5.0
+///   local dispersal     76.6  76.0  72.8  69.4      7.2
+/// ```
+///
+/// A cline, monotone, in the direction predicted before it was measured: the
+/// rich band pays for longevity, the poor one does not. Local dispersal widens
+/// it by half again. It is far shallower than the seventy units the same
+/// environmental range moves the trait under a uniform sky, because one cell of
+/// dispersal per generation still mixes the bands faster than selection
+/// separates them — recorded as it stands, not claimed as more.
+///
+/// Turnover roughly doubled: 22364 births and 19292 deaths over 60000 ticks,
+/// against 12315 and 9697.
 ///
 /// 971 — Traded. Longevity costs what it buys, and the answer stops being
 /// the same everywhere.
@@ -235,12 +273,13 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 971; // 971 Traded
+pub const ERA_ID: u32 = 972; // 972 Latitudinal
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
 pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
-    // 25 words: era + 5 original + 9 Era-961 + 3 Era-967 + 1 Era-969 + 6
+    // 26 words: era + 5 original + 9 Era-961 + 3 Era-967 + 1 Era-969 +
+    // 1 Era-972 + 6
     // topology. The buffer is sized past the current count on purpose — it was
     // exactly 96 bytes for 24 words, so the next law to join the preimage would
     // have panicked on a slice bound rather than failing a test.
@@ -314,6 +353,13 @@ pub fn calculate_law_hash(topology: &PhaseTopology) -> u32 {
     buf[p..p + 4].copy_from_slice(&SENESCENCE_TICKS.to_le_bytes());
     p += 4;
 
+    // 2e. How much sun the poles lose.
+    //
+    // It decides whether the lattice is one world or a range of them, which is
+    // whether a population can hold more than one strategy at a time.
+    buf[p..p + 4].copy_from_slice(&LATITUDE_AMPLITUDE_Q10.to_le_bytes());
+    p += 4;
+
     // 3. Current Phase Topology Constraints
     buf[p..p + 4].copy_from_slice(&topology.q_phase.to_le_bytes());
     p += 4;
@@ -354,7 +400,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x18EE_D5A2;
+pub const CANONICAL_LAW_HASH: u32 = 0xC135_66D6;
 
 #[cfg(test)]
 mod tests {

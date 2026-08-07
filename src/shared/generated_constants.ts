@@ -121,6 +121,7 @@ export const MAX_ATP = 4096;
 export const BB_ENERGY_RANGE = 1024;
 export const BB_ENERGY_BASE = 128;
 export const SENESCENCE_TICKS = 512;
+export const LATITUDE_AMPLITUDE_Q10 = 768;
 export const BB_FREQ_RANGE = 64;
 export const BB_FREQ_OFFSET = 32;
 export const BB_FREQ_STEP = 1000;

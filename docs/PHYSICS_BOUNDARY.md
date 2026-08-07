@@ -994,6 +994,50 @@ the burn a few lines below and now pulls against this. It is at most 1 ATP
 against an upkeep reaching 20, and turning two knobs would leave neither
 measured.
 
+### Era 972 — the sun stops falling on everything equally
+
+Era 971 showed the equilibrium resilience tracks the world: 124 in a cheap one,
+55 in a harsh one. But with the sky uniform there was only ever **one** world,
+so the whole population converged on a single value. Two strategies cannot
+coexist where there is only one place to live.
+
+The grid's y axis is now latitude — row 0 the equator, row h/2 the pole, which
+on a torus is one bright band and one dark one. Insolation falls by
+`LATITUDE_AMPLITUDE_Q10` toward the pole and **nothing else changes**: same
+laws, same costs, different light.
+
+_And birth became local._ `next_dead_idx` was a global forward scan, so a child
+landed at the first vacancy anywhere in the lattice and the gene pool remixed
+completely every generation. A child now takes a vacancy among its parent's
+eight neighbours when there is one. The physics of birth is unchanged; only
+where the child is put — the difference between inheriting a place and
+inheriting only a genome.
+
+```text
+resilience by latitude, tail-averaged over 150000 ticks
+                    equator  mid1  mid2  pole   spread
+  global dispersal    58.9   56.8  55.1  53.9      5.0
+  local dispersal     76.6   76.0  72.8  69.4      7.2
+```
+
+A cline, monotone, in the direction predicted before it was measured: the rich
+band pays for longevity, the poor one does not. Local dispersal widens it by
+half again.
+
+**It is much shallower than it could be** — seven units, where the same
+environmental range moves the trait seventy under a uniform sky. One cell of
+dispersal per generation still mixes the bands faster than selection separates
+them. Recorded as it stands, not claimed as more.
+
+Turnover roughly doubled with it: 22364 births and 19292 deaths over 60000
+ticks, against 12315 and 9697.
+
+_The anchor was blind to this too._ At q_radial=6 the grid is 64 wide, so its
+64-agent fixture was **one row tall** — every agent at the same latitude, and
+the entire latitude law outside its reach. It is 256 agents now, four rows, the
+minimum that can tell an equator from a pole. That is the third fixture gap this
+session: tissue, then age, now latitude.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

@@ -33,6 +33,7 @@ import {
   HEBBIAN_MAX_WEIGHT,
   KURAMOTO_COUPLING_BASE,
   LANDAUER_BIT_COST,
+  LATITUDE_AMPLITUDE_Q10,
   MAX_ATP,
   MAX_TIME_DILATION,
   PREDATOR_ENERGY_STEAL,
@@ -67,12 +68,16 @@ export const SHARED_PHYSICS_CONSTANTS = [
   // shader compiled with a different value runs a world with a different
   // lifespan — the difference between an ecology and a photograph.
   "SENESCENCE_TICKS",
+  // Era 972: how much sun the poles lose. A shader compiled with a different
+  // value lights a different world.
+  "LATITUDE_AMPLITUDE_Q10",
 ] as const;
 
 /** What the kernel says those constants are. */
 export const KERNEL_SHARED_VALUES: Record<string, number> = {
   KURAMOTO_COUPLING_BASE,
   LANDAUER_BIT_COST,
+  LATITUDE_AMPLITUDE_Q10,
   STRUCTURAL_MAINTENANCE_DIVISOR,
   RESONANCE_PHASE_MODULUS,
   CHRONOTOPOLOGY_STRESS_DIVISOR,
@@ -83,6 +88,7 @@ export const KERNEL_SHARED_VALUES: Record<string, number> = {
   PREDATOR_ENERGY_STEAL,
   SOLAR_YIELD_Q10,
   SENESCENCE_TICKS,
+  LATITUDE_AMPLITUDE_Q10,
 };
 
 /**

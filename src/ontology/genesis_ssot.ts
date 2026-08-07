@@ -224,6 +224,13 @@ export const CONSTANTS = {
   // weather from 1024 to 7168. Selection ran once during the fill and never
   // again.
   SENESCENCE_TICKS: { type: "u32", value: 512 },
+  // Latitude. The sun used to fall on every cell equally, so every agent lived
+  // in the same world and the population could only ever have ONE answer — it
+  // converged on a single resilience and averaged out. This is the fraction of
+  // insolation the poles lose relative to the equator, in Q10: 768 leaves the
+  // pole at 25% of equatorial light. Habitable but harsh, which is the only
+  // setting under which a second strategy can pay.
+  LATITUDE_AMPLITUDE_Q10: { type: "i32", value: 768 },
   BB_FREQ_RANGE: { type: "u32", value: 64 },
   BB_FREQ_OFFSET: { type: "i32", value: 32 },
   BB_FREQ_STEP: { type: "i32", value: 1000 },

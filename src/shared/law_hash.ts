@@ -19,6 +19,7 @@ import {
   DELTA_PHASE_DIVISOR,
   KURAMOTO_COUPLING_BASE,
   LANDAUER_BIT_COST,
+  LATITUDE_AMPLITUDE_Q10,
   MAX_ATP,
   MAX_TIME_DILATION,
   MITOSIS_COST,
@@ -31,7 +32,7 @@ import {
 
 /** Version anchor for the mathematical laws (mirrors `ERA_ID` in law_hash.rs;
  *  not part of the generated constant set). */
-export const ERA_ID = 971;
+export const ERA_ID = 972;
 
 /** The canonical operating topology — the exact `PhaseTopology` the static
  *  `OMEGA_LATTICE` in lib.rs is built with. Mirrored here (6 ints) and guarded
@@ -78,6 +79,9 @@ function lawWords(): number[] {
     // Era 969: the senescence clock — how fast upkeep outruns income, which is
     // how long anything lives.
     SENESCENCE_TICKS,
+    // Era 972: how much sun the poles lose — whether the lattice is one world
+    // or a range of them.
+    LATITUDE_AMPLITUDE_Q10,
     CANONICAL_TOPOLOGY.q_phase,
     CANONICAL_TOPOLOGY.q_sectors,
     CANONICAL_TOPOLOGY.q_radial,
@@ -106,4 +110,4 @@ export function lawHashHex(value: number): string {
 
 /** Golden value of [`computeLawHash`] — pinned in lockstep with Rust
  *  `CANONICAL_LAW_HASH` (omega_v2/src/law_hash.rs). */
-export const OMEGA_LAW_HASH = 0x18eed5a2;
+export const OMEGA_LAW_HASH = 0xc13566d6;

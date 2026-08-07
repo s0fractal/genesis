@@ -904,8 +904,27 @@ impl PhaseLattice {
                     // metabolic_efficiency and resilience already differ, so an
                     // efficient agent nets a surplus and climbs toward mitosis
                     // while a wasteful one starves under the same sky.
-                    let solar = ((crate::constants::SOLAR_YIELD_Q10 as u64
-                        * sun_multiplier.max(0) as u64)
+                    // LATITUDE. The sun fell on every cell equally, so every
+                    // agent lived in the same world — and a world with one
+                    // environment can only have one answer. Era 971 showed the
+                    // equilibrium resilience tracks the metabolic cost (124 in a
+                    // cheap world, 55 in a harsh one), but with the cost uniform
+                    // the whole population converged on a single value and
+                    // averaged out. Two strategies cannot coexist where there is
+                    // only one place to live.
+                    //
+                    // The grid's y axis is now latitude. Row 0 is the equator
+                    // and row h/2 the pole — on a torus that is one bright band
+                    // and one dark one, which is what a latitude IS once the
+                    // sphere is wrapped. Insolation falls by
+                    // LATITUDE_AMPLITUDE_Q10 at the pole and nothing else
+                    // changes: same laws, same costs, different light.
+                    let lat_phase = ((cy as u32) * 256) / (h.max(1) as u32);
+                    let lat = crate::math::cos_q10(0, lat_phase); // +1024 equator, -1024 pole
+                    let insolation =
+                        1024 - ((crate::constants::LATITUDE_AMPLITUDE_Q10 * (1024 - lat)) / 2048);
+                    let local_sun = (sun_multiplier.max(0) * insolation.max(0)) / 1024;
+                    let solar = ((crate::constants::SOLAR_YIELD_Q10 as u64 * local_sun as u64)
                         / (1024 * 1024)) as u32;
                     solar_input_this_tick = solar_input_this_tick.wrapping_add(solar as u64);
 
@@ -1383,6 +1402,45 @@ impl PhaseLattice {
                     // it repeated for EVERY qualifying parent in the sweep, so a
                     // saturated lattice bled proportionally to its own fertility.
                     //
+                    // BIRTH IS LOCAL FIRST.
+                    //
+                    // The search below is a global forward scan, so a child
+                    // landed at the first vacancy anywhere in the lattice —
+                    // offspring scattered across the world, and the gene pool
+                    // remixed completely every generation. Era 972 made the y
+                    // axis latitude and measured the cline it should produce:
+                    // resilience 58.9 at the equator against 53.9 at the pole,
+                    // monotone across four bands and in the predicted direction,
+                    // but only five units wide where the same environmental range
+                    // moves the trait seventy under a uniform sky. Local
+                    // adaptation cannot establish against panmixia.
+                    //
+                    // A child now takes a vacancy among its parent's eight
+                    // neighbours when there is one, and falls back to the scan
+                    // when there is not. Nothing about the physics of birth
+                    // changes — only where the child is put, which is the
+                    // difference between inheriting a place and inheriting only
+                    // a genome.
+                    let mut local_slot = None;
+                    {
+                        let w = (1i32 << self.topology.q_radial).max(1);
+                        let h = Self::grid_rows(active as u32, w);
+                        let cx = (i as i32) % w;
+                        let cy = (i as i32) / w;
+                        'find: for dy in -1i32..=1 {
+                            for dx in -1i32..=1 {
+                                if dx == 0 && dy == 0 {
+                                    continue;
+                                }
+                                let n = Self::wrap_index_2d(cx + dx, cy + dy, w, h);
+                                if n < active && (*self.minimal_agents_ptr.add(n)).energy == 0 {
+                                    local_slot = Some(n);
+                                    break 'find;
+                                }
+                            }
+                        }
+                    }
+
                     // `next_dead_idx` only ever moves forward, so once it reaches
                     // `active` no later parent can find a slot either: stop the
                     // sweep rather than charge the rest of them.
@@ -1391,7 +1449,15 @@ impl PhaseLattice {
                     {
                         next_dead_idx += 1;
                     }
-                    if next_dead_idx >= active {
+                    // The local slot is used WITHOUT disturbing `next_dead_idx`.
+                    // That pointer carries a "only ever moves forward" invariant
+                    // the rest of the sweep depends on — the frontier branch
+                    // below reads it to decide whether the lattice is full — and
+                    // a local vacancy can be behind it.
+                    let mut birth_idx = next_dead_idx;
+                    if let Some(n) = local_slot {
+                        birth_idx = n;
+                    } else if next_dead_idx >= active {
                         // No vacancy among the living — so grow into the empty
                         // part of the universe, if any is left. This is the
                         // difference between a population that can only replace
@@ -1408,6 +1474,7 @@ impl PhaseLattice {
                             && frontier < crate::MAX_MINIMAL_AGENTS
                         {
                             next_dead_idx = frontier;
+                            birth_idx = frontier;
                             self.signals.active_agent_count += 1;
                         } else {
                             break; // at carrying capacity
@@ -1425,12 +1492,11 @@ impl PhaseLattice {
                                 &arr,
                                 self.topology.q_phase,
                             );
-                            let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                            let child = &mut *self.minimal_agents_ptr.add(birth_idx);
                             *child = derived;
                             {
                                 let mut ticks = crate::BIRTH_TICKS.lock();
-                                ticks[next_dead_idx as usize] =
-                                    self.signals.proper_time.causal_ticks;
+                                ticks[birth_idx as usize] = self.signals.proper_time.causal_ticks;
                             }
 
                             let cost = crate::constants::MITOSIS_COST;
@@ -1476,7 +1542,7 @@ impl PhaseLattice {
                             let seed = crate::math::xorshift32_once(parent_snapshot.genome);
                             let index = (seed & 0xFF) as usize;
                             derived.genome ^= crate::math::MUTATION_LUT[index];
-                            let child = &mut *self.minimal_agents_ptr.add(next_dead_idx);
+                            let child = &mut *self.minimal_agents_ptr.add(birth_idx);
                             *child = derived;
                         }
 
