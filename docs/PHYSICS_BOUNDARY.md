@@ -958,6 +958,42 @@ A packed field is a claim about which bits belong to whom, and nothing was
 checking it. `population_turns_over.rs` now asserts the width, the saturation
 and non-overlap with every flag sharing the word.
 
+### Era 971 — longevity costs what it buys, and the answer stops being the same everywhere
+
+Era 970's resilience had no price. It divided the senescence rate and nothing
+else, so more was always better and the trait climbed for 200000 ticks without
+turning. **A gene with no downside is a ratchet, not a strategy**, and a world
+with one ratchet has one answer.
+
+Repair machinery costs energy to keep. Upkeep is now scaled by the same factor
+that slows ageing, so resilience trades cost for time one for one: a maximally
+resilient agent pays five times the maintenance and ages five times slower.
+
+The trait reverses — from 125 down to about 62, and holds there. Neither bound;
+an interior value. And **the value depends on the world**:
+
+```text
+weather   equilibrium resilience   (100000 ticks, tail-averaged)
+  512             124.1
+ 1024              71.5
+ 2048              56.4
+ 3072              55.3
+```
+
+Cheap world, longevity pays. Harsh world, live fast and skip the repairs. The
+same starting genome distribution finds a different answer under a different
+sky, by selection alone — which is the difference between a gradient and an
+adaptive landscape, and the first thing here that behaves like an ecology rather
+than a physics.
+
+Turnover rose with it: 12315 births and 9697 deaths over 60000 ticks, against
+7479 and 4407 under free longevity. The books still close and nothing leaks.
+
+_Left alone deliberately:_ `resilience_reduction` still subtracts 0 or 1 from
+the burn a few lines below and now pulls against this. It is at most 1 ATP
+against an upkeep reaching 20, and turning two knobs would leave neither
+measured.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does

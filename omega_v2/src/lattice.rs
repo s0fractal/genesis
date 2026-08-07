@@ -826,6 +826,31 @@ impl PhaseLattice {
                     // actually act on. The trait was decoded from the genome and
                     // heritable through mitosis the whole time; it just had
                     // nothing worth deciding.
+                    // RESILIENCE COSTS WHAT IT BUYS.
+                    //
+                    // Era 970 gave longevity no price: resilience divided the
+                    // senescence rate and nothing else, so more was always
+                    // better and the trait climbed monotonically for 200000
+                    // ticks. A gene with no downside is not a strategy, it is a
+                    // ratchet, and a world with one ratchet has one answer.
+                    //
+                    // Repair machinery costs energy to keep. Upkeep is scaled by
+                    // the same factor that slows ageing, so resilience trades
+                    // cost for time one-for-one: a maximally resilient agent
+                    // pays five times the maintenance and ages five times
+                    // slower. Where that balances is not a constant — it depends
+                    // on income, on density, on how long a slot stays free —
+                    // which is what makes it an adaptive landscape rather than a
+                    // gradient.
+                    //
+                    // Note left alone deliberately: `resilience_reduction` still
+                    // subtracts 0 or 1 from the burn a few lines below, which now
+                    // pulls the other way. It is at most 1 ATP against an upkeep
+                    // that reaches 20, and turning two knobs would leave neither
+                    // measured.
+                    let resilience_scale = 64 + phenotype.resilience as u64;
+                    let maintenance_cost = (maintenance_cost as u64 * resilience_scale) / 64;
+
                     let age = crate::agent::age_of(agent.state_flags);
                     // The gradient has to be finer than the gene. `1 + res/64`
                     // is integer division, so 256 possible resilience values
@@ -838,11 +863,10 @@ impl PhaseLattice {
                     //
                     // Scaling before dividing keeps all 256 steps: 1.0x at
                     // resilience 0 through 5.0x at 255.
-                    let senescence_ticks = (crate::constants::SENESCENCE_TICKS as u64
-                        * (64 + phenotype.resilience as u64))
-                        / 64;
-                    let senesced = (maintenance_cost as u64 * (senescence_ticks + age as u64))
-                        / senescence_ticks;
+                    let senescence_ticks =
+                        (crate::constants::SENESCENCE_TICKS as u64 * resilience_scale) / 64;
+                    let senesced =
+                        (maintenance_cost * (senescence_ticks + age as u64)) / senescence_ticks;
                     // Apply Bitcoin UTXO Weather (1024 = 1.0x)
                     let base_cost = (senesced * self.topology.weather_multiplier as u64) / 1024;
                     let base_burn_raw = (base_cost as i32 + efficiency_adj).max(1);

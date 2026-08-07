@@ -321,8 +321,13 @@ fn compute_main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         // Scale before dividing — mirrors PhaseLattice::tick_physics. `1 + res/64`
         // collapsed 256 gene values onto four lifespan classes, and selection
         // stalled at the class boundary because further gain bought nothing.
-        let senescence_ticks = (SENESCENCE_TICKS * (64u + p_resilience)) / 64u;
-        let senesced = (maintenance_cost * (senescence_ticks + age)) / senescence_ticks;
+        // Resilience costs what it buys — mirrors PhaseLattice::tick_physics.
+        // The same factor that slows ageing scales the upkeep, so longevity
+        // trades cost for time one-for-one instead of being free.
+        let resilience_scale = 64u + p_resilience;
+        let upkeep = (maintenance_cost * resilience_scale) / 64u;
+        let senescence_ticks = (SENESCENCE_TICKS * resilience_scale) / 64u;
+        let senesced = (upkeep * (senescence_ticks + age)) / senescence_ticks;
         let base_cost = (senesced * topology.weather_multiplier) / 1024u;
         let raw_base = i32(base_cost) + efficiency_adj;
         if (raw_base > 1i) { base_burn = u32(raw_base); }

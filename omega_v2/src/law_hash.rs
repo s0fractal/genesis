@@ -10,6 +10,38 @@ use crate::topology::PhaseTopology;
 
 /// ERA_ID acts as a version anchor for the mathematical laws of the universe.
 ///
+/// 971 — Traded. Longevity costs what it buys, and the answer stops being
+/// the same everywhere.
+///
+/// Era 970 gave resilience no price: it divided the senescence rate and nothing
+/// else, so more was always better and the trait climbed for 200000 ticks
+/// without turning. A gene with no downside is a ratchet, not a strategy, and a
+/// world with one ratchet has one answer.
+///
+/// Repair machinery costs energy to keep, so upkeep is now scaled by the same
+/// factor that slows ageing: a maximally resilient agent pays five times the
+/// maintenance and ages five times slower, trading cost for time one for one.
+///
+/// The trait reverses. From 125 it falls to about 62 and holds there — an
+/// interior value, neither bound. And the value DEPENDS ON THE WORLD, measured
+/// over 100000 ticks at four metabolic costs:
+///
+///   weather   equilibrium resilience
+///     512            124.1
+///    1024             71.5
+///    2048             56.4
+///    3072             55.3
+///
+/// Cheap world, longevity pays; harsh world, live fast and skip the repairs.
+/// The same starting genome distribution finds a different answer under a
+/// different sky, by selection. That is an adaptive landscape rather than a
+/// gradient, and it is the first thing in this repository that could be called
+/// an ecology rather than a physics.
+///
+/// Left alone deliberately: `resilience_reduction` still subtracts 0 or 1 from
+/// the burn and now pulls against this. It is at most 1 ATP against an upkeep
+/// reaching 20, and turning two knobs would leave neither measured.
+///
 /// 970 — Graded. The longevity gradient is finer than the gene again.
 ///
 /// Era 969 scaled the senescence clock by `1 + resilience / 64` — integer
@@ -203,7 +235,7 @@ use crate::topology::PhaseTopology;
 /// different universes, and the whole purpose of the law hash is that they must
 /// not be able to claim agreement. See `behavioral_law_anchor.rs` for the check
 /// that catches a law change this constant list cannot see.
-pub const ERA_ID: u32 = 970; // 970 Graded
+pub const ERA_ID: u32 = 971; // 971 Traded
 
 /// Calculates a unique 32-bit hash representing the exact physical operator
 /// (laws of physics) currently in effect. This forms the basis for commutativity proofs.
@@ -322,7 +354,7 @@ pub fn canonical_law_hash() -> u32 {
 /// preimage did not cover them. Any node still reporting 0x30A95260 is running
 /// the closed world that burns down at tick 86, and must NOT be treated as
 /// agreeing with this one.
-pub const CANONICAL_LAW_HASH: u32 = 0x8F56_1EA2;
+pub const CANONICAL_LAW_HASH: u32 = 0x18EE_D5A2;
 
 #[cfg(test)]
 mod tests {
