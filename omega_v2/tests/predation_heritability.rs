@@ -90,3 +90,75 @@ fn a_child_inherits_its_parents_place_in_the_food_web() {
         heritability
     );
 }
+
+/// Does anyone actually win? No — and by less than chance would allow.
+///
+/// The relationship is antisymmetric by construction, so every meal has one
+/// winner and the books close. That does not settle whether some genomes are
+/// better at it. Measured over the SPREAD of win rates against a fixed panel —
+/// the mean is 0.5 by antisymmetry and says nothing:
+///
+/// ```text
+/// mean win rate            0.500
+/// sd across genomes        0.0124
+/// sd of a fair coin        0.0221   (sqrt(0.25/512))
+/// ratio                    0.56
+/// ```
+///
+/// The spread is not merely at chance, it is BELOW it. `delta = ha - hb` puts
+/// the winner in the lower half of the u32 ring, so a genome beats exactly half
+/// of any uniform panel rather than half on average — less variance than
+/// independent coin flips can produce.
+///
+/// So predation moves 42% of this world's energy and, in expectation, moves it
+/// nowhere. Being good at predation is not a thing an agent can be: there is no
+/// gradient to climb, and 0.44 heritability of an unbiased pattern inherits
+/// nothing worth having. It also settles the obvious next mechanism — a
+/// similarity threshold making kin neutral would remove a kin's gains and its
+/// losses in equal measure, and kin are 4.3% of the flow besides.
+///
+/// This asserts the fair coin as the MEASURED STATE rather than asserting a
+/// spread the world does not have. If predatory advantage is ever made to
+/// depend on a trait instead of a hash — which is what would give it a gradient
+/// — this test fires, and that is the right moment to notice that 42% of the
+/// energy budget has just become selectable.
+#[test]
+fn predation_is_a_fair_coin_with_no_gradient() {
+    let mut rng = omega_v2::math::Xorshift64::new(0xBEEF_0107);
+    let panel: Vec<u32> = (0..512).map(|_| rng.next_u32()).collect();
+
+    let mut rates = Vec::new();
+    for _ in 0..512 {
+        let g = rng.next_u32();
+        let wins = panel
+            .iter()
+            .filter(|&&other| species_advantage(g, other) == 1)
+            .count();
+        rates.push(wins as f64 / panel.len() as f64);
+    }
+    let mean = rates.iter().sum::<f64>() / rates.len() as f64;
+    let sd = (rates.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / rates.len() as f64).sqrt();
+    let chance_sd = (0.25f64 / panel.len() as f64).sqrt();
+
+    std::eprintln!(
+        "  win rate: mean {:.3}, sd {:.4}, coin-flip sd {:.4}, ratio {:.2}",
+        mean,
+        sd,
+        chance_sd,
+        sd / chance_sd
+    );
+
+    assert!(
+        (mean - 0.5).abs() < 0.02,
+        "predation stopped being antisymmetric: mean win rate {mean:.3}, not 0.5"
+    );
+    assert!(
+        sd < chance_sd,
+        "\nPREDATION HAS ACQUIRED A GRADIENT.\n\
+         Win rates against a 512-genome panel now have sd {sd:.4}, above the\n\
+         {chance_sd:.4} of a fair coin. Some genomes beat more than half of\n\
+         everything, which means predatory skill has become selectable — 42% of\n\
+         this world's energy budget just started pointing somewhere. That may be\n\
+         intended; it is not something to discover later."
+    );
+}

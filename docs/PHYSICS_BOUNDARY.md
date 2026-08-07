@@ -1186,9 +1186,57 @@ excess relatedness    1.06 bits, 7.2% closer than strangers
 
 So kin structure exists and is weak, which is what 89% teleporting dispersal
 predicts. A similarity threshold on `species_advantage` would create species and
-let a patch stop eating itself — recorded as the obvious next mechanism, and
-**not** built, because the last three mechanisms guessed from a plausible story
-were all refuted by the measurement that should have come first.
+let a patch stop eating itself. That was the obvious next mechanism, so it was
+sized before it was built — and it does not survive the sizing.
+
+### Predation is a fair coin, and that is why none of it matters
+
+**Kin are 4.3% of the flow.** Predation bucketed by the Hamming distance between
+the two genomes, over 20000 ticks:
+
+```text
+hamming   share of pairs   share of flow
+  0–3           1.50%           1.52%
+  4–7           2.80%           2.79%
+  8–11          7.79%           7.83%
+ 12–15         38.21%          38.17%
+ 16–19         40.82%          40.81%
+ 20–23          8.69%           8.70%
+```
+
+Flow tracks pairs to two decimals in every bucket, so the energy moved per pair
+does not depend on relatedness at all. Kin neutrality would touch 4.3% of 42% —
+under two percent of the energy budget.
+
+**And it would move none of it.** The relation is antisymmetric, so removing
+predation between kin removes a kin's gains and its losses in equal measure. The
+expected net effect on a patch is zero.
+
+That raised the sharper question, which had never been asked: does anyone win?
+
+```text
+mean win rate against a 512-genome panel   0.500
+sd across genomes                          0.0124
+sd a fair coin would give                  0.0221
+ratio                                      0.56
+```
+
+The spread is not at chance — it is **below** it. `delta = ha − hb` puts the
+winner in the lower half of the u32 ring, so a genome beats _exactly_ half of
+any uniform panel rather than half on average, with less variance than
+independent coin flips can produce.
+
+So predation moves 42% of this world's energy and, in expectation, moves it
+nowhere. **Being good at predation is not a thing an agent can be.** There is no
+gradient to climb, and the 0.44 heritability measured above inherits a pattern
+with nothing behind it. The food web is a perfectly fair zero-sum shuffle that
+consumes nearly half the energy budget to accomplish it.
+
+`predation_is_a_fair_coin_with_no_gradient` asserts that as the measured state
+rather than a spread the world does not have. Giving the advantage a gradient
+means deriving it from a trait instead of a hash — a real design decision,
+because it would make 42% of the energy budget selectable in one step. The test
+is there so that happens on purpose.
 
 ### Not conserved yet — known, named, open
 
