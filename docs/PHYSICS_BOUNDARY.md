@@ -1238,6 +1238,45 @@ means deriving it from a trait instead of a hash — a real design decision,
 because it would make 42% of the energy budget selectable in one step. The test
 is there so that happens on purpose.
 
+### What the fair coin actually buys
+
+A zero-sum shuffle that cannot be selected on might still be doing something —
+or it might be actively harmful, since random deaths are drift and drift swamps
+selection. Both are testable by knockout, and the first attempt at reading them
+was wrong in a way worth recording.
+
+_A wobbly measurement, caught before it was published._ The structure probe at
+150000 ticks said the population fell from 4082 to 3292 without predation; the
+ecology probe at 60000 said it rose from 3539 to 3677. Opposite signs. The two
+differ in horizon and in whether they report a final sample or a tail mean, so
+neither number was worth anything. Matched runs — same probe, same horizon, tail
+means both sides:
+
+```text
+                 alive (tail)   births   deaths   energy per agent
+predation on          3749       48730    45672         719
+predation off         3796       45554    43286         852
+```
+
+**The population does not care** — 1.3%, well inside the drift between runs. Nor
+does the latitude cline: 7.2 with predation, 6.7 without.
+
+What does change is the standing stock and the churn. Removing predation leaves
+**18% more energy held per agent** and **6% less turnover**. So the food web is
+neither a selector nor a waste: it converts stored energy into births and
+deaths.
+
+That is not nothing — turnover is the thing selection needs, and Era 969 exists
+because there was none. But it is an expensive way to buy it: **42% of every
+joule this world transfers, for six percent more turnover.** Whether that trade
+is worth keeping is a design question, and it now has numbers attached instead
+of a food-web metaphor.
+
+Three things about predation are now settled, none of them what the name
+suggests: it has no gradient, so nobody can be good at it; kin neutrality would
+move under two percent of the budget and none of it on net; and its actual
+function is churn, priced at seven joules moved per joule of turnover bought.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
