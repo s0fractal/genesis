@@ -23,6 +23,14 @@
 // mean should drift — and a drift that only shows up WITH reproduction, not
 // without it, is evidence rather than noise.
 //
+// READ THE SERIES, NOT THE LAST SAMPLE. Every quantity here is one draw from a
+// fluctuating world, and consecutive draws are serially correlated. A tail mean
+// over one run is a point estimate with no precision attached: the latitude
+// cline reads 7.2 with a per-sample sd of 6.9, and block-averaging the tail —
+// eight blocks, standard error across block means — puts it at 7.16 +- 1.95.
+// Two such numbers cannot be compared by eye. Published claims in this repo have
+// been corrected once already for exactly that.
+//
 // This is a Layer C instrument (docs/PHYSICS_BOUNDARY.md): it observes and
 // never writes, so it computes in floats. The consensus path stays integer-only.
 //
@@ -326,6 +334,39 @@ function survey(prevPhase?: Uint32Array) {
     randHamN++;
   }
 
+  // LINKAGE. Is a hand a clone?
+  //
+  // Era 973 traded the latitude cline (7.2 -> 1.2) for polymorphism in the
+  // predation hand, and blamed hitchhiking: a winning hand sweeps and drags its
+  // whole genome with it. That is testable. If a hand is a recent clonal
+  // expansion, the agents carrying it share an ancestor and their resilience —
+  // a different byte entirely — will be more alike than the population's.
+  //
+  //   ratio ~ 1   hands are genetically independent; the blame was wrong
+  //   ratio << 1  a hand is a lineage, and selecting on it selects everything
+  const byHand = new Map<number, number[]>();
+  for (const i of alive) {
+    const g = a[i * 8 + 4];
+    const hand = (g >>> 8) & 0xFF;
+    const res = (g >>> 16) & 0xFF;
+    const bucket = byHand.get(hand);
+    if (bucket) bucket.push(res);
+    else byHand.set(hand, [res]);
+  }
+  const allRes = [...byHand.values()].flat();
+  const totalMean = allRes.reduce((s, v) => s + v, 0) /
+    Math.max(1, allRes.length);
+  const totalVar = allRes.reduce((s, v) => s + (v - totalMean) ** 2, 0) /
+    Math.max(1, allRes.length);
+  let withinSum = 0, withinN = 0;
+  for (const bucket of byHand.values()) {
+    if (bucket.length < 4) continue; // a variance over three points is noise
+    const m = bucket.reduce((s, v) => s + v, 0) / bucket.length;
+    withinSum += bucket.reduce((s, v) => s + (v - m) ** 2, 0);
+    withinN += bucket.length;
+  }
+  const withinVar = withinN > 0 ? withinSum / withinN : 0;
+
   const pGiven = nbrsOfTissue > 0 ? tissueNbrsOfTissue / nbrsOfTissue : 0;
   const pAny = nbrsAll > 0 ? tissueNbrsAll / nbrsAll : 0;
 
@@ -351,6 +392,10 @@ function survey(prevPhase?: Uint32Array) {
     meanResilience: resSum / n,
     // Shannon entropy of the predation hand, in bits. 8.0 is a flat spread over
     // all 256, 0.0 is everyone playing the same hand.
+    // <1 means agents sharing a hand are more alike in an unrelated byte than
+    // the population is — the signature of a clonal sweep.
+    linkageRatio: totalVar > 0 ? withinVar / totalVar : 1,
+    distinctHands: byHand.size,
     handEntropy: (() => {
       let h = 0;
       for (const c of hands) {

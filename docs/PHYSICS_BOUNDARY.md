@@ -1325,6 +1325,57 @@ branch to disagree about. What replaced them locks what matters now — both
 substrates reading the same byte and splitting the ring at the same place,
 either of which is silent and substrate-local if it drifts.
 
+### Two corrections to my own record, and the error bars that found them
+
+_The hitchhiking hypothesis is refuted._ Era 973 blamed the cline's collapse on
+a winning hand sweeping and dragging its whole genome. If a hand were a recent
+clonal expansion, agents carrying it would be more alike in an unrelated byte
+than the population is. Measured — variance of resilience within a hand over
+variance across the population:
+
+```text
+at ignition (random genomes, the null)   0.846
+tail, 150000 ticks                       0.800
+```
+
+The null is 0.846 rather than 1.0 because a within-group variance over ~4
+members is biased low, which is the number to compare against, not the
+theoretical 1.0. Against that, hands are **nearly genetically independent**.
+Whatever cost the cline, it was not linkage.
+
+_And the cline numbers were published without error bars._ Every cline figure in
+the sections above is a mean over samples from a single run, and consecutive
+samples are serially correlated, so the naive standard error is worthless. Block
+averaging — eight blocks over the tail, standard error across block means —
+absorbs the autocorrelation:
+
+```text
+amplitude   as published   with block error bars
+    0           −0.6        −0.54 ± 0.73
+  384            1.5         1.58 ± 1.05
+  768            7.2         7.16 ± 1.95
+  960            6.3         6.30 ± 4.66
+```
+
+The means were right. The confidence was not.
+
+**"Growth is super-linear from 384 to 768" does not survive** — the 384 point is
+1.5σ from zero, so there is no established cline there to be super-linear from.
+**Nor does "at 960 the cline falls"**: 6.30 ± 4.66 against 7.16 ± 1.95 is
+nothing. What does survive is the pair that matters: no gradient gives no cline
+(−0.54 ± 0.73), and amplitude 768 gives a real one (7.16 ± 1.95, 3.7σ).
+
+Era 973's cost is weaker than stated too. The cline falls 7.16 ± 1.95 → 0.97 ±
+2.22, a difference of **6.20 ± 2.96 — 2.1σ**. Suggestive, not established. The
+naive figure was 8.6σ, wrong by a factor of four.
+
+The lesson is not subtle and it applies to everything above: a tail mean from
+one run is a point estimate with no stated precision, and this file has been
+full of them. Where a claim rests on comparing two such numbers, it needs blocks
+or replicates. Where it rests on a knockout that changes something by an order
+of magnitude — predation moving 42% of transfer, the coupling being exactly zero
+for 89.7% of agents, the population frozen at 3072 births forever — it does not.
+
 ### Not conserved yet — known, named, open
 
 Listing these is the point. A conservation section that implied closure it does
