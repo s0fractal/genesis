@@ -75,6 +75,25 @@ Kept because it is correct, not because it does much. Naming these is the point:
 a reader who sees "Kuramoto" in the repo name should know what it currently
 amounts to.
 
+**Phase is load-bearing — as an address, not as an oscillator.** This is the
+distinction the project's name obscures, and it is measurable. Conduction is
+gated on `cos(θ_n − θ_a)`: neighbours in phase pool energy, neighbours out of
+phase do not. Remove the _gate_ while leaving conduction itself alone, two
+seeds:
+
+```text
+                  gate on          gate off
+alive            3770 ± 25        2244 ± 5
+hand entropy    0.270 ± 0.041   0.115 ± 0.061
+```
+
+Forty percent of the population and half the polymorphism depend on phase
+deciding **who shares with whom**. Nothing depends on phases synchronising —
+which they never have, and which five separate attempts failed to make them do.
+
+Phase is a compatibility coordinate. The oscillator machinery around it is what
+is small:
+
 **Kuramoto–Sakaguchi coupling.** Mean magnitude 0.105 phase units per tick
 against a natural-frequency spread of ±32 — about 0.6% of what moves a phase.
 Raising it does not help: only the current value converges a zero-spread
