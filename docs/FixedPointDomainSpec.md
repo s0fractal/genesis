@@ -4,6 +4,23 @@ energy: 1.0
 tension: "Formal specification of the 16-bit integer fixed-point domain for OMEGA-64 physics."
 ---
 
+> ## ⚠️ HISTORICAL — this specifies a world the kernel does not run
+>
+> This document describes a `u16` coordinate domain with Manhattan angular
+> distance and an `energy - (energy >> 6)` decay. **None of that is the
+> physics.** The kernel is `i32` at Q10 scale, phase is 8 bits wrapping at 256
+> against a 256-entry sine table, and metabolism is a per-genome maintenance
+> cost with age-scaled upkeep. Nothing here has governed since long before
+> Era 973.
+>
+> It carries no marker until now and reads as a formal specification, which
+> makes it a trap for anyone — human or agent — who opens it looking for the
+> law. **For the law, read [`PHYSICS.md`](PHYSICS.md).**
+>
+> Kept rather than deleted because it records what the fixed-point domain was
+> _intended_ to be, and the difference between that intent and what was built is
+> itself part of the record.
+
 # Fixed-Point Domain Specification
 
 ## Context & Motivation

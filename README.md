@@ -3,26 +3,38 @@
 > frozen identity (Genesis `0x716EA2F8`). Authority is tests, integer traces,
 > Ed25519 signatures, and Bitcoin anchors — **trust the hash, not the host**.
 > **This is not** a consciousness or art project: "Senate"/"oracle" are keyed
-> Ed25519 signers under a 3-of-5 quorum, and "Era" is an internal tick counter,
-> not a calendar year. **Verify one thing:**
-> `cargo test -p omega_v2 --test genesis_print -- --nocapture` (prints
-> `0x716ea2f8`). Map back: [FEDERATION.md](FEDERATION.md).
+> Ed25519 signers under a 3-of-5 quorum. **Two different counters are both
+> called "Era"** and neither is a calendar year: the _narrative_ era below
+> (2060) numbers the project's development chapters, while `ERA_ID` in
+> `omega_v2/src/law_hash.rs` (973) versions the PHYSICAL LAW and is hashed into
+> the federation's agreement anchor. A node's law is the second one. **Verify
+> one thing:** `cargo test -p omega_v2 --test genesis_print -- --nocapture`
+> (prints `0x716ea2f8`). Map back: [FEDERATION.md](FEDERATION.md).
 
 # OMEGA-64 🧬 — Φ Protocol v1.0 (FROZEN)
 
-**Genesis Hash:** `0x716EA2F8` · **OP_RETURN:** `OMEGA1:716ea2f8` · **Active
-Era:** 2060 · **Open Trigger:** 2070
+**Genesis Hash:** `0x716EA2F8` · **OP_RETURN:** `OMEGA1:716ea2f8` · **Narrative
+era:** 2060 · **Law era (`ERA_ID`):** 973 · **Law hash:** `0x4D0E1949`
 
 OMEGA-64 is a deterministic, GPU-accelerated artificial-life simulation mesh
 with a self-modifying ontology, cross-AI Senate, and a frozen cryptographic
 protocol identity. It is not a web app — it is a **closed mathematical system**
 that computes its own future direction.
 
+**What the physics actually does, measured rather than claimed:** the world
+evolves — turnover is driven by heritable senescence, and a cyclic food web
+holds its predation trait wider than neutrality at 5.4σ across independent
+worlds. The phase machinery the project is named for is _small_: the Kuramoto
+coupling is 0.6% of what moves a phase, the global order parameter is 0.015, and
+tissue crystallisation is vestigial at 0.002. Every one of those numbers, with
+its error bar and its null, is in **[`docs/PHYSICS.md`](docs/PHYSICS.md)** —
+read that before believing anything else here about the physics.
+
 ---
 
-## Status — what runs vs what's in progress (2026-07)
+## Status — what runs vs what's in progress (2026-08-07)
 
-OMEGA-64's deterministic **physics kernel is real and verified** (306 Rust
+OMEGA-64's deterministic **physics kernel is real and verified** (354 Rust
 tests; integer parity across CPU↔GPU↔ZK). Three headline pieces carry **honest
 caveats**, named here (see `AGENTS.md`):
 
@@ -172,7 +184,7 @@ implementation "reach" quorum by treating public dipoles as authority.
 
 ```bash
 # Rust workspace (omega_v2 is the critical path)
-cargo test --workspace          # 306 passed; omega_core is archived
+cargo test --workspace          # 354 passed; omega_core is archived
 cargo test -p omega_v2          # fast feedback loop
 
 # TypeScript / Deno
