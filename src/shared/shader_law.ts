@@ -88,7 +88,6 @@ export const KERNEL_SHARED_VALUES: Record<string, number> = {
   PREDATOR_ENERGY_STEAL,
   SOLAR_YIELD_Q10,
   SENESCENCE_TICKS,
-  LATITUDE_AMPLITUDE_Q10,
 };
 
 /**
