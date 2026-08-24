@@ -176,32 +176,30 @@ fn the_gate_is_actually_looking_at_something() {
     // a fixture that ignites nothing, or ticks that do nothing, would make
     // "nobody died" and "the books close" vacuously true forever.
     let _w = WORLD.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe {
-        omega_v2::v2_boot_engine();
-        omega_v2::v2_set_environment(7, 6, 2, 1024);
-        omega_v2::v2_ignite_big_bang(SEED, 2048);
+    omega_v2::v2_boot_engine();
+    omega_v2::v2_set_environment(7, 6, 2, 1024);
+    omega_v2::v2_ignite_big_bang(SEED, 2048);
 
-        let before = omega_v2::v2_calculate_state_hash();
-        let entropy_before = omega_v2::OMEGA_LATTICE
-            .lock()
-            .signals
-            .total_entropy_released;
-        for _ in 0..50 {
-            omega_v2::v2_tick();
-        }
-        let after = omega_v2::v2_calculate_state_hash();
-        let entropy_after = omega_v2::OMEGA_LATTICE
-            .lock()
-            .signals
-            .total_entropy_released;
-
-        assert_ne!(
-            before, after,
-            "50 ticks changed nothing — the world is frozen"
-        );
-        assert!(
-            entropy_after > entropy_before,
-            "50 ticks dissipated nothing — metabolism is not running"
-        );
+    let before = omega_v2::v2_calculate_state_hash();
+    let entropy_before = omega_v2::OMEGA_LATTICE
+        .lock()
+        .signals
+        .total_entropy_released;
+    for _ in 0..50 {
+        omega_v2::v2_tick();
     }
+    let after = omega_v2::v2_calculate_state_hash();
+    let entropy_after = omega_v2::OMEGA_LATTICE
+        .lock()
+        .signals
+        .total_entropy_released;
+
+    assert_ne!(
+        before, after,
+        "50 ticks changed nothing — the world is frozen"
+    );
+    assert!(
+        entropy_after > entropy_before,
+        "50 ticks dissipated nothing — metabolism is not running"
+    );
 }

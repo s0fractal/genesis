@@ -133,22 +133,20 @@ fn the_verifier_can_disagree() {
 #[test]
 fn the_verifier_declines_rather_than_guesses() {
     let _world = WORLD.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe {
-        omega_v2::v2_boot_engine();
-        omega_v2::v2_set_environment(7, 6, 2, 1024);
-        // Larger than it can replay. A coupled lattice cannot be checked in
-        // part — every agent reads eight neighbours and the torus wraps — so
-        // the honest answer is to decline, and the host must ask
-        // v2_verify_capacity first rather than read 0 as a verdict.
-        omega_v2::v2_ignite_big_bang(0x0EC0_0107, (omega_v2::VERIFY_MAX_AGENTS as u32) * 8);
-        assert!(
-            omega_v2::OMEGA_LATTICE.lock().signals.active_agent_count
-                > omega_v2::VERIFY_MAX_AGENTS as u32,
-            "fixture must exceed the verifier's capacity or it proves nothing"
-        );
-        let active = omega_v2::OMEGA_LATTICE.lock().signals.active_agent_count;
-        assert_eq!(omega_v2::v2_verify_replay_scratch(active, 1), 0);
-    }
+    omega_v2::v2_boot_engine();
+    omega_v2::v2_set_environment(7, 6, 2, 1024);
+    // Larger than it can replay. A coupled lattice cannot be checked in
+    // part — every agent reads eight neighbours and the torus wraps — so
+    // the honest answer is to decline, and the host must ask
+    // v2_verify_capacity first rather than read 0 as a verdict.
+    omega_v2::v2_ignite_big_bang(0x0EC0_0107, (omega_v2::VERIFY_MAX_AGENTS as u32) * 8);
+    assert!(
+        omega_v2::OMEGA_LATTICE.lock().signals.active_agent_count
+            > omega_v2::VERIFY_MAX_AGENTS as u32,
+        "fixture must exceed the verifier's capacity or it proves nothing"
+    );
+    let active = omega_v2::OMEGA_LATTICE.lock().signals.active_agent_count;
+    assert_eq!(omega_v2::v2_verify_replay_scratch(active, 1), 0);
 }
 
 #[test]

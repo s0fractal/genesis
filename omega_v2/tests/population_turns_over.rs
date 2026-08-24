@@ -52,7 +52,7 @@ fn deaths_after_settling() -> (u32, usize) {
     lattice.ignite_big_bang(SEED, AGENTS as u32);
     lattice.signals.max_cells = AGENTS as u32;
 
-    let mut step = |l: &mut PhaseLattice, t: u32| {
+    let step = |l: &mut PhaseLattice, t: u32| {
         l.tick_physics();
         if t % 10 == 0 {
             l.darwinian_mitosis();
